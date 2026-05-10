@@ -117,6 +117,10 @@ function SchedulePage() {
 	const [attendanceFeedback, setAttendanceFeedback] = useState<string | null>(
 		null,
 	);
+	// Optimistic check-in: set of session IDs confirmed locally before server responds
+	const [optimisticCheckedIn, setOptimisticCheckedIn] = useState<Set<number>>(
+		() => new Set(),
+	);
 	const {
 		token,
 		user,
@@ -216,6 +220,8 @@ function SchedulePage() {
 
 	const markScheduledSessionAttendance = async (sessionId?: number) => {
 		if (!sessionId) return;
+		// Optimistic update: mark as checked in immediately
+		setOptimisticCheckedIn((prev) => new Set(prev).add(sessionId));
 		setCheckingSessionId(sessionId);
 		setAttendanceFeedback(null);
 		try {
@@ -223,6 +229,12 @@ function SchedulePage() {
 			setAttendanceFeedback("Attendance marked.");
 			await refetch();
 		} catch (e: any) {
+			// Revert optimistic state on error
+			setOptimisticCheckedIn((prev) => {
+				const next = new Set(prev);
+				next.delete(sessionId);
+				return next;
+			});
 			setAttendanceFeedback(e?.message ?? "Failed to mark attendance.");
 		} finally {
 			setCheckingSessionId(null);
@@ -413,7 +425,10 @@ function SchedulePage() {
 		);
 
 	const renderAssignedSession = (event: ScheduleEvent, mode: "today" | "list") => {
-		const checkedIn = event.attendanceStatus === "attended";
+		// Use optimistic state so the button responds immediately on click
+		const checkedIn =
+			event.attendanceStatus === "attended" ||
+			(event.scheduledSessionId != null && optimisticCheckedIn.has(event.scheduledSessionId));
 		const sessionId = event.scheduledSessionId;
 		const status = getAssignedSessionStatus(event);
 		const isToday = mode === "today";
@@ -467,22 +482,24 @@ function SchedulePage() {
 					</div>
 
 					{isToday ? (
-						<button
-							type="button"
-							disabled={
-								!event.canCheckIn ||
-								checkedIn ||
-								checkingSessionId === sessionId
-							}
-							onClick={() => void markScheduledSessionAttendance(sessionId)}
-							className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black uppercase italic tracking-wide text-primary-foreground shadow-lg shadow-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							{checkingSessionId === sessionId
-								? "Marking..."
-								: checkedIn
-									? "Marked"
-									: "Check In"}
-						</button>
+						checkedIn ? (
+							<div className="inline-flex h-11 items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/20 px-4 text-sm font-black uppercase italic tracking-wide text-green-600 dark:text-green-400">
+								<CheckCircle2 className="h-4 w-4" />
+								Checked in
+							</div>
+						) : (
+							<button
+								type="button"
+								disabled={
+									!event.canCheckIn ||
+									checkingSessionId === sessionId
+								}
+								onClick={() => void markScheduledSessionAttendance(sessionId)}
+								className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-black uppercase italic tracking-wide text-primary-foreground shadow-lg shadow-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{checkingSessionId === sessionId ? "Marking..." : "Check In"}
+							</button>
+						)
 					) : (
 						<div className="inline-flex h-10 items-center gap-2 rounded-xl border bg-background px-3 text-xs font-bold uppercase text-muted-foreground">
 							<Lock className="h-3.5 w-3.5" />

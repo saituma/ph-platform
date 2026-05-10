@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { CalendarDays, Crown, FlaskConical, MessageCircle, Users } from "lucide-react";
 
@@ -12,14 +11,11 @@ import { AdminShell } from "../components/admin/shell";
 import { EmptyState } from "../components/admin/empty-state";
 import { SectionHeader } from "../components/admin/section-header";
 
-const MiniBars = dynamic(() => import("../components/admin/charts").then((m) => m.MiniBars), { ssr: false });
-const GreenDoughnutChart = dynamic(() => import("../components/admin/chartjs").then((m) => m.GreenDoughnutChart), { ssr: false });
-const GreenLineChart = dynamic(() => import("../components/admin/chartjs").then((m) => m.GreenLineChart), { ssr: false });
-const GreenStackedBars = dynamic(() => import("../components/admin/chartjs").then((m) => m.GreenStackedBars), { ssr: false });
-
+import { MiniBars } from "../components/admin/charts";
+import { GreenDoughnutChart, GreenLineChart, GreenStackedBars } from "../components/admin/chartjs";
 import { ActionDialogs, type DashboardDialog } from "../components/admin/dashboard/action-dialogs";
-const CalendarPanel = dynamic(() => import("../components/admin/dashboard/calendar-panel").then((m) => m.CalendarPanel));
-const EngagementTrendsChart = dynamic(() => import("../components/admin/dashboard/engagement-trends-chart").then((m) => m.EngagementTrendsChart), { ssr: false });
+import { CalendarPanel } from "../components/admin/dashboard/calendar-panel";
+import { EngagementTrendsChart } from "../components/admin/dashboard/engagement-trends-chart";
 import { SystemStatusPulse, QuickAccessLinks } from "../components/admin/dashboard/pulse-links";
 import {
     BookingTodayRow,

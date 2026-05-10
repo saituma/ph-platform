@@ -50,6 +50,60 @@ describe("backend proxy route", () => {
     expect(body).toEqual({ ok: true });
   });
 
+  it("does not include Authorization header when httpOnly accessToken is absent (ignores accessTokenClient)", async () => {
+    process.env.API_BASE_URL = "http://api.test";
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    const { GET } = await import("@/app/api/backend/[...path]/route");
+    const req = new NextRequest("http://localhost:3000/api/backend/messages", {
+      headers: {
+        // Only the client-readable cookie is present; httpOnly accessToken is absent
+        cookie: "accessTokenClient=forged-or-stale-token",
+      },
+    });
+
+    await GET(req);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.test/api/messages",
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ Authorization: expect.any(String) }),
+      })
+    );
+  });
+
+  it("uses only httpOnly accessToken for the Authorization header", async () => {
+    process.env.API_BASE_URL = "http://api.test";
+
+    (global.fetch as jest.Mock).mockResolvedValue({
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    const { GET } = await import("@/app/api/backend/[...path]/route");
+    const req = new NextRequest("http://localhost:3000/api/backend/users", {
+      headers: {
+        // Both cookies present — only the httpOnly one should be forwarded
+        cookie: "accessToken=server-jwt; accessTokenClient=client-jwt",
+      },
+    });
+
+    await GET(req);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://api.test/api/users",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer server-jwt" }),
+      })
+    );
+  });
+
   it("normalizes trailing slash and /api suffix in API base URL", async () => {
     process.env.API_BASE_URL = " https://api.test/api/ ";
 

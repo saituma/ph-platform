@@ -42,6 +42,16 @@ export function decodeAccessToken(token: string) {
   return decodeJwt(token);
 }
 
+/** Issue a 60-second JWT for socket authentication. Memory-only on the client; not stored in cookies or localStorage. */
+export async function createSocketToken(userId: number, role: string): Promise<string> {
+  const secret = new TextEncoder().encode(env.jwtSecret);
+  return await new SignJWT({ user_id: userId, role, purpose: "socket" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("60s")
+    .sign(secret);
+}
+
 /**
  * Sign a single-use invite token (carries plan id + email so the public invite page
  * doesn't need a DB-backed nonce table). 14-day expiry.

@@ -9,7 +9,32 @@ import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { cache, cacheKeys } from "../lib/cache";
 
 const DB_OUTAGE_AUTH_LOG_THROTTLE_MS = 2_000;
+const SESSION_COOKIE_NAMES = ["ph_app_session", "auth_token", "accessToken"];
 let lastDbAuthOutageLogAt = 0;
+
+function readCookie(cookieHeader: unknown, name: string): string | null {
+  if (typeof cookieHeader !== "string") return null;
+  for (const part of cookieHeader.split(";")) {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (rawKey === name) {
+      const value = rawValue.join("=");
+      return value ? decodeURIComponent(value) : null;
+    }
+  }
+  return null;
+}
+
+function getBearerToken(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) return header.replace("Bearer ", "");
+
+  for (const cookieName of SESSION_COOKIE_NAMES) {
+    const token = readCookie(req.headers.cookie, cookieName);
+    if (token) return token;
+  }
+
+  return null;
+}
 
 function maybeLogDbAuthOutage(err: unknown) {
   const now = Date.now();
@@ -33,13 +58,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   if (req.method === "GET" && (req.path === "/billing/public-plans" || req.path === "/billing/plans")) {
     return next();
   }
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  const token = getBearerToken(req);
+  if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    const token = header.replace("Bearer ", "");
     const payload = await verifyAccessToken(token);
     const sub = payload.sub as string | undefined;
     const email = payload.email as string | undefined;

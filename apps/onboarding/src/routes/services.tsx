@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { buildOgMeta } from "../lib/seo";
 import { motion } from "framer-motion";
 import {
     ArrowRight,
@@ -12,24 +13,12 @@ import {
 
 export const Route = createFileRoute("/services")({
     head: () => ({
-        meta: [
-            { title: "Services — PH Performance" },
-            {
-                name: "description",
-                content:
-                    "Explore PH Performance's training services: 1-1 coaching, small group training, team programmes, and the PH Performance app.",
-            },
-            { property: "og:title", content: "Services — PH Performance" },
-            {
-                property: "og:description",
-                content:
-                    "From personalised 1-1 coaching to full team performance solutions. See what PH Performance offers.",
-            },
-            { property: "og:url", content: "https://phperformance.uk/services" },
-            { property: "og:image", content: "https://phperformance.uk/home.png" },
-            { property: "og:image:width", content: "1200" },
-            { property: "og:image:height", content: "630" },
-        ],
+        meta: buildOgMeta({
+            title: "Services — PH Performance",
+            description: "Explore PH Performance's training services: 1-1 coaching, small group training, team programmes, and the PH Performance app.",
+            url: "https://phperformance.uk/services",
+            imageAlt: "PH Performance Training Services",
+        }),
         links: [{ rel: "canonical", href: "https://phperformance.uk/services" }],
         scripts: [
             {

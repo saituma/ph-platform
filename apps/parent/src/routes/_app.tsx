@@ -5,7 +5,7 @@ import {
 	LayoutDashboard,
 	Users,
 	CreditCard,
-	MessageSquare,
+	MessageCircle,
 	User,
 	LogOut,
 	Menu,
@@ -43,7 +43,7 @@ const navItems = [
 	{ to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
 	{ to: "/children", icon: Users, label: "My Children" },
 	{ to: "/billing", icon: CreditCard, label: "Billing" },
-	{ to: "/messages", icon: MessageSquare, label: "Messages" },
+	{ to: "/messages", icon: MessageCircle, label: "Feedback" },
 	{ to: "/profile", icon: User, label: "Profile" },
 ];
 

@@ -1,4 +1,5 @@
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import { buildOgMeta } from "../lib/seo";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -51,24 +52,12 @@ const faqSchema = {
 
 export const Route = createFileRoute("/education-faq")({
 	head: () => ({
-		meta: [
-			{ title: "Athlete Education FAQ — PH Performance" },
-			{
-				name: "description",
-				content:
-					"Answers to common questions about PH Performance: membership tiers, equipment requirements, youth safety, adult programming, and professional sports preparation.",
-			},
-			{ property: "og:title", content: "Athlete Education FAQ — PH Performance" },
-			{
-				property: "og:description",
-				content:
-					"Everything you need to know about getting started with PH Performance — from choosing the right plan to training safely at any age.",
-			},
-			{
-				property: "og:url",
-				content: "https://phperformance.uk/education-faq",
-			},
-		],
+		meta: buildOgMeta({
+			title: "Athlete Education FAQ — PH Performance",
+			description: "Answers to common questions about PH Performance: membership tiers, equipment requirements, youth safety, adult programming, and professional sports preparation.",
+			url: "https://phperformance.uk/education-faq",
+			imageAlt: "PH Performance — Athlete Education FAQ",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/education-faq" }],
 		scripts: [
 			{ type: "application/ld+json", children: JSON.stringify(faqSchema) },

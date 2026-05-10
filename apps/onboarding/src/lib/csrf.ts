@@ -6,9 +6,7 @@
  * the same value in the `X-CSRF-Token` header.
  */
 
-import { getClientAuthToken } from "./client-storage";
-
-const CSRF_COOKIE_NAME = "__csrf";
+import { CSRF_COOKIE_NAME } from "@ph/auth";
 
 /** Read the current CSRF token from cookies */
 export function getCsrfToken(): string {
@@ -30,11 +28,6 @@ export function csrfFetch(
   const method = (init?.method ?? "GET").toUpperCase();
   const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
   const headers = new Headers(init?.headers);
-  const token = getClientAuthToken();
-
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
   if (needsCsrf && !headers.has("X-CSRF-Token")) {
     headers.set("X-CSRF-Token", getCsrfToken());

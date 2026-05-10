@@ -7,8 +7,11 @@
   },
   "scripts": {
     "dev": "dotenv -e .env.local -- vite dev",
+    "build:deps": "pnpm --dir ../.. --filter @ph/roles build && pnpm --dir ../.. --filter @ph/auth build",
+    "prebuild": "pnpm run build:deps",
     "build": "vite build && node scripts/prerender-seo.mjs",
     "preview": "vite preview",
+    "pretest": "pnpm run build:deps",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "biome format",
@@ -28,6 +31,8 @@
     "test:stress": "k6 run load-tests/stress.js"
   },
   "dependencies": {
+    "@ph/auth": "workspace:*",
+    "@ph/roles": "workspace:*",
     "@neondatabase/serverless": "^1.0.2",
     "@phosphor-icons/react": "^2.1.10",
     "@sentry/tanstackstart-react": "^10.42.0",

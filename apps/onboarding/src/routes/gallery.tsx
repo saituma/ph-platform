@@ -1,4 +1,5 @@
 import { ArrowLeft, ArrowRight, Play, X } from "@phosphor-icons/react";
+import { buildOgMeta } from "../lib/seo";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GalleryApiItem } from "#/services/galleryService";
@@ -6,16 +7,12 @@ import { fetchGalleryItems } from "#/services/galleryService";
 
 export const Route = createFileRoute("/gallery")({
 	head: () => ({
-		meta: [
-			{ title: "Gallery — PH Performance" },
-			{ name: "description", content: "Photos and videos from the PH Performance team. Training sessions, events, and athlete highlights." },
-			{ property: "og:title", content: "Gallery — PH Performance" },
-			{ property: "og:description", content: "See PH Performance in action — training sessions, events, and athlete highlights." },
-			{ property: "og:url", content: "https://phperformance.uk/gallery" },
-			{ property: "og:image", content: "https://phperformance.uk/home.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
-		],
+		meta: buildOgMeta({
+			title: "Gallery — PH Performance",
+			description: "Photos and videos from the PH Performance team. Training sessions, events, and athlete highlights.",
+			url: "https://phperformance.uk/gallery",
+			imageAlt: "PH Performance Gallery — Training Sessions & Events",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/gallery" }],
 		scripts: [
 			{

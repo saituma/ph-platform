@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { config } from "@/lib/config";
-import { getClientAuthToken, getTokenStatus } from "@/lib/client-storage";
+import { getTokenStatus } from "@/lib/client-storage";
 import { PageTransition } from "@/lib/motion";
 import { usePortal } from "@/portal/PortalContext";
 
@@ -29,11 +28,8 @@ type ParentCoursePayload = {
 };
 
 async function fetchParentCourse(courseId: string): Promise<ParentCourse | null> {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/content/parent-courses/${courseId}`, {
+  const response = await fetch(`/api/content/parent-courses/${courseId}`, {
     credentials: "include",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   if (!response.ok) {

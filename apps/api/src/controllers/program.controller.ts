@@ -14,11 +14,13 @@ import {
   getProgramSessions,
 } from "../services/program.service";
 import { getSocketServer } from "../socket-hub";
+import { cache, cacheKeys } from "../lib/cache";
 
 const programIdSchema = z.coerce.number().int().min(1);
 
 export async function listPrograms(req: Request, res: Response) {
-  const cards = await getProgramCards(req.user!.id);
+  const userId = req.user!.id;
+  const cards = await cache.getOrSet(cacheKeys.programsList(userId), 120, () => getProgramCards(userId));
   return res.status(200).json({ programs: cards });
 }
 
@@ -59,7 +61,8 @@ export async function getProgramAiInsightController(req: Request, res: Response)
 const sessionIdSchema = z.coerce.number().int().min(1);
 
 export async function listMyAssignedPrograms(req: Request, res: Response) {
-  const programs = await getMyAssignedPrograms(req.user!.id);
+  const userId = req.user!.id;
+  const programs = await cache.getOrSet(cacheKeys.assignedPrograms(userId), 60, () => getMyAssignedPrograms(userId));
   return res.status(200).json({ programs });
 }
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { logger } from "../lib/logger";
@@ -195,6 +195,9 @@ export async function userMatchesAnnouncementItem(
 }
 
 async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSelect) {
+  if (!isAnnouncementActive(item, new Date())) return;
+  const audience = parseAnnouncementAudience(item);
+
   const users = await db
     .select({ id: userTable.id, role: userTable.role })
     .from(userTable)
@@ -203,13 +206,97 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
   const title = (item.title ?? "Announcement").trim().slice(0, 80) || "Announcement";
   const body = (item.content ?? "").trim().slice(0, 178) || "New announcement";
 
-  for (const u of users) {
-    if (!(await userMatchesAnnouncementItem(u.id, item, u.role))) continue;
-    await createPushIntent({ userId: u.id, title, body, data: {
-      type: "announcement",
-      url: "/announcements",
-      contentId: String(item.id),
-    } });
+  // For "all" audience, skip per-user DB lookups entirely
+  if (audience.type === "all") {
+    for (const u of users) {
+      if (isAdminRole(u.role)) continue; // admins don't need push for their own announcements
+      await createPushIntent({ userId: u.id, title, body, data: { type: "announcement", url: "/announcements", contentId: String(item.id) } });
+    }
+    return;
+  }
+
+  const nonAdminUsers = users.filter((u) => !isAdminRole(u.role));
+  if (!nonAdminUsers.length) return;
+  const userIds = nonAdminUsers.map((u) => u.id);
+
+  // Batch-load all athlete rows for all users in one query
+  const [allAthleteRows, allGuardianRows, allGroupRows] = await Promise.all([
+    db
+      .select()
+      .from(athleteTable)
+      .where(inArray(athleteTable.userId, userIds)),
+    db
+      .select({ userId: guardianTable.userId, id: guardianTable.id })
+      .from(guardianTable)
+      .where(inArray(guardianTable.userId, userIds)),
+    db
+      .select({ userId: chatGroupMemberTable.userId, groupId: chatGroupMemberTable.groupId })
+      .from(chatGroupMemberTable)
+      .where(inArray(chatGroupMemberTable.userId, userIds)),
+  ]);
+
+  // For users that are guardians (not direct athletes), resolve their athletes via guardianId
+  const guardianIdsByUserId = new Map(allGuardianRows.map((g) => [g.userId, g.id]));
+  const guardianIdsToLookup = allGuardianRows.map((g) => g.id);
+  const guardianAthleteRows =
+    guardianIdsToLookup.length > 0
+      ? await db
+          .select()
+          .from(athleteTable)
+          .where(inArray(athleteTable.guardianId, guardianIdsToLookup))
+      : [];
+
+  // Build per-user athlete lists
+  const athletesByUserId = new Map<number, typeof athleteTable.$inferSelect[]>();
+  for (const row of allAthleteRows) {
+    if (!row.userId) continue;
+    const existing = athletesByUserId.get(row.userId) ?? [];
+    existing.push(row);
+    athletesByUserId.set(row.userId, existing);
+  }
+  for (const guardianRow of allGuardianRows) {
+    const athletes = guardianAthleteRows.filter((a) => a.guardianId === guardianIdsByUserId.get(guardianRow.userId));
+    if (athletes.length) {
+      const existing = athletesByUserId.get(guardianRow.userId) ?? [];
+      athletesByUserId.set(guardianRow.userId, [...existing, ...athletes]);
+    }
+  }
+
+  // Build per-user group IDs
+  const groupIdsByUserId = new Map<number, Set<number>>();
+  for (const row of allGroupRows) {
+    const gid = Number(row.groupId);
+    if (!Number.isFinite(gid)) continue;
+    const set = groupIdsByUserId.get(row.userId) ?? new Set();
+    set.add(gid);
+    groupIdsByUserId.set(row.userId, set);
+  }
+
+  // Match each user against the announcement audience using in-memory data (no per-user DB calls)
+  for (const u of nonAdminUsers) {
+    const relatedAthletes = athletesByUserId.get(u.id) ?? [];
+    const teams = new Set(relatedAthletes.map((a) => String(a.team ?? "").trim().toLowerCase()).filter(Boolean));
+    const groupIds = groupIdsByUserId.get(u.id) ?? new Set<number>();
+    const ages = relatedAthletes.map((a) => resolveAgeFromAthlete(a)).filter((age): age is number => Number.isFinite(age));
+    const tiers = new Set(relatedAthletes.map((a) => a.currentProgramTier).filter((t): t is (typeof ProgramType.enumValues)[number] => Boolean(t)));
+    const athleteTypes = new Set<string>();
+    for (const athlete of relatedAthletes) {
+      const explicit = String(athlete.athleteType ?? "").trim().toLowerCase();
+      if (explicit) { athleteTypes.add(explicit); continue; }
+      const age = resolveAgeFromAthlete(athlete);
+      if (age == null) continue;
+      athleteTypes.add(age >= 18 ? "adult" : "youth");
+    }
+
+    let matches = false;
+    if (audience.type === "team") matches = teams.has(audience.team);
+    else if (audience.type === "group") matches = groupIds.has(audience.groupId);
+    else if (audience.type === "athlete_type") matches = athleteTypes.has(audience.athleteType);
+    else if (audience.type === "tier") matches = tiers.has(audience.tier);
+    else matches = ages.some((age) => matchesAgeRange(item, age));
+
+    if (!matches) continue;
+    await createPushIntent({ userId: u.id, title, body, data: { type: "announcement", url: "/announcements", contentId: String(item.id) } });
   }
 }
 

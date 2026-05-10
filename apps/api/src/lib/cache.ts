@@ -91,4 +91,11 @@ export const cacheKeys = {
   userServices: (userId: number) => `user:${userId}:services`,
   programContent: (programId: number) => `program:${programId}:content`,
   all: (userId: number) => `user:${userId}:*`,
+
+  // Hot-endpoint cache keys
+  billingPlans: () => `billing:plans:public`,
+  billingStatus: (userId: number) => `billing:${userId}:status`,
+  assignedPrograms: (userId: number) => `user:${userId}:assigned-programs`,
+  programsList: (userId: number) => `user:${userId}:programs-list`,
+  userSessions: (userId: number) => `user:${userId}:sessions`,
 };

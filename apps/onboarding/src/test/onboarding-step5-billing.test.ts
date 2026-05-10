@@ -34,14 +34,6 @@ function detectCurrencySymbol(value: string): string {
   return match?.[0] ?? "£";
 }
 
-function formatMoney(symbol: string, amount: number): string {
-  const formatted = amount.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-  return `${symbol}${formatted}`;
-}
-
 function dedupePlansByTier(plans: any[]) {
   const score = (p: any): number => {
     if (p?.updatedAt) {

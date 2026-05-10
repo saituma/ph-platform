@@ -1,13 +1,3 @@
-import { config } from "@/lib/config";
-import { getClientAuthToken } from "@/lib/client-storage";
-
-const API_BASE_URL = config.api.baseUrl.replace(/\/+$/, "");
-
-function authHeaders(): Record<string, string> {
-	const token = getClientAuthToken();
-	return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export interface RunCoordinate {
 	latitude: number;
 	longitude: number;
@@ -30,10 +20,10 @@ export interface RunRecord {
 }
 
 export async function syncRuns(runs: RunRecord[]): Promise<void> {
-	const res = await fetch(`${API_BASE_URL}/api/runs/sync`, {
+	const res = await fetch(`/api/runs/sync`, {
 		method: "POST",
 		credentials: "include",
-		headers: { "Content-Type": "application/json", ...authHeaders() },
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ runs }),
 	});
 	if (!res.ok) throw new Error("Failed to sync run");
@@ -41,19 +31,18 @@ export async function syncRuns(runs: RunRecord[]): Promise<void> {
 
 export async function fetchRuns(after?: string): Promise<{ runs: RunRecord[] }> {
 	const params = after ? `?after=${encodeURIComponent(after)}` : "";
-	const res = await fetch(`${API_BASE_URL}/api/runs${params}`, {
+	const res = await fetch(`/api/runs${params}`, {
 		credentials: "include",
-		headers: authHeaders(),
 	});
 	if (!res.ok) throw new Error("Failed to fetch runs");
 	return res.json();
 }
 
 export async function sendLiveLocation(lat: number, lng: number, routePoints?: { lat: number; lng: number }[]): Promise<void> {
-	await fetch(`${API_BASE_URL}/api/location`, {
+	await fetch(`/api/location`, {
 		method: "POST",
 		credentials: "include",
-		headers: { "Content-Type": "application/json", ...authHeaders() },
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ latitude: lat, longitude: lng, routePoints }),
 	}).catch(() => {});
 }

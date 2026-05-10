@@ -5,29 +5,24 @@ import { resolveSocketUrl } from "./socket-url";
 
 let socketRef: Socket | null = null;
 
-function getAccessTokenClient() {
-  if (typeof document === "undefined") return "";
-  return (
-    document.cookie
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith("accessTokenClient="))
-      ?.slice("accessTokenClient=".length) ?? ""
-  );
-}
-
 export function getOrCreateAdminSocket(): Socket {
   if (socketRef) return socketRef;
 
   const socketUrl = resolveSocketUrl();
-  const token = getAccessTokenClient();
 
   if (socketUrl && process.env.NODE_ENV !== "test") {
     void fetch(`${socketUrl}/health`, { cache: "no-store" }).catch(() => {});
   }
 
   socketRef = io(socketUrl, {
-    auth: token ? { token } : undefined,
+    // Fetch a fresh 60-second socket token via the backend proxy, which reads the
+    // httpOnly accessToken cookie server-side. Never read accessTokenClient.
+    auth: (callback: (data: Record<string, unknown>) => void) => {
+      fetch("/api/backend/auth/socket-token", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { token?: string } | null) => callback(data?.token ? { token: data.token } : {}))
+        .catch(() => callback({}));
+    },
     transports: ["polling", "websocket"],
     reconnection: true,
     reconnectionAttempts: 12,

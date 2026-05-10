@@ -2,8 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { getTokenStatus } from "@/lib/client-storage";
 import { PageTransition } from "@/lib/motion";
-import { config } from "@/lib/config";
-import { getClientAuthToken } from "@/lib/client-storage";
 import { usePortal } from "@/portal/PortalContext";
 
 type ParentCourse = {
@@ -22,11 +20,8 @@ type ParentCoursesPayload = {
 };
 
 async function fetchParentCourses(): Promise<ParentCourse[]> {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/content/parent-courses`, {
+  const response = await fetch(`/api/content/parent-courses`, {
     credentials: "include",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   if (!response.ok) {

@@ -4,9 +4,11 @@ import path from "path";
 const srcRoot = path.resolve(__dirname, "../../src");
 
 describe("outbox architecture", () => {
-  it("server.ts does not start any workers", () => {
+  it("server.ts does not start push or email or scheduled workers (only outbox is co-located)", () => {
     const serverSrc = fs.readFileSync(path.join(srcRoot, "server.ts"), "utf8");
-    expect(serverSrc).not.toMatch(/startPushWorker|startEmailWorker|startScheduledWorker|startOutboxWorker/);
+    // The outbox worker runs in the API process so socket-triggered events drain without a separate process.
+    // Push, email, and scheduled workers must stay in worker.ts only.
+    expect(serverSrc).not.toMatch(/startPushWorker|startEmailWorker|startScheduledWorker/);
   });
 
   it("worker.ts starts the outbox worker", () => {

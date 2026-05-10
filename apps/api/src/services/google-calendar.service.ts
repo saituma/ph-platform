@@ -482,6 +482,86 @@ export async function deleteGoogleCalendarEvent(
   }
 }
 
+export type GoogleCalendarEvent = {
+  id: string;
+  summary: string | null;
+  description: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  isAllDay: boolean;
+  htmlLink: string | null;
+  status: string;
+};
+
+export async function listGoogleCalendarEvents(
+  config: GoogleCalendarConfig,
+  timeMin: string,
+  timeMax: string,
+  maxResults = 250,
+): Promise<GoogleCalendarEvent[]> {
+  const accessToken = await getCalendarAccessToken(config);
+
+  const params = new URLSearchParams({
+    timeMin,
+    timeMax,
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: String(maxResults),
+  });
+
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events?${params.toString()}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 401 || res.status === 403) {
+    clearTokenCacheForConfig(config);
+    const text = await res.text();
+    throw new Error(`GOOGLE_AUTH_REVOKED: ${text}`);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GOOGLE_CALENDAR_LIST_EVENTS_FAILED: ${text}`);
+  }
+
+  const json = (await res.json()) as {
+    items?: Array<{
+      id?: string;
+      summary?: string;
+      description?: string;
+      location?: string;
+      start?: { dateTime?: string; date?: string };
+      end?: { dateTime?: string; date?: string };
+      htmlLink?: string;
+      status?: string;
+    }>;
+  };
+
+  const items = Array.isArray(json.items) ? json.items : [];
+
+  return items
+    .filter((item) => item.status !== "cancelled")
+    .map((item) => {
+      const isAllDay = !item.start?.dateTime;
+      const startsAt = item.start?.dateTime || item.start?.date || "";
+      const endsAt = item.end?.dateTime || item.end?.date || "";
+      return {
+        id: item.id || "",
+        summary: item.summary || null,
+        description: item.description || null,
+        location: item.location || null,
+        startsAt,
+        endsAt,
+        isAllDay,
+        htmlLink: item.htmlLink || null,
+        status: item.status || "confirmed",
+      };
+    })
+    .filter((item) => item.id.length > 0);
+}
+
 export async function isGoogleCalendarHealthy(userId: number): Promise<boolean> {
   try {
     const config = await getGoogleCalendarConnectionForAdmin(userId);

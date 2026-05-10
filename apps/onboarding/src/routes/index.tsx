@@ -13,6 +13,12 @@ import {
 import { MagneticText } from "@/components/ui/morphing-cursor";
 import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
+import { buildOgMeta } from "../lib/seo";
+import { NumberTicker } from "@/components/ui/number-ticker";
+import { Marquee } from "@/components/ui/marquee";
+import { AnimatedTestimonials } from "@/components/ui/animated-testimonials";
+import { ShimmerButton } from "@/components/ui/shimmer-button";
+import { TextRevealByWord } from "@/components/ui/text-reveal";
 
 const SITE_URL = "https://phperformance.uk";
 
@@ -76,32 +82,12 @@ const siteNavigationSchema = {
 
 export const Route = createFileRoute("/")({
     head: () => ({
-        meta: [
-            { title: "PH Performance — Elite Athlete & Team Training Platform" },
-            {
-                name: "description",
-                content:
-                    "Elite training and performance coaching for footballers who want more. Build faster, get stronger, stay ahead with PH Performance.",
-            },
-            {
-                property: "og:title",
-                content: "PH Performance — Elite Athlete & Team Training Platform",
-            },
-            {
-                property: "og:description",
-                content:
-                    "Elite training and performance coaching for footballers who want more.",
-            },
-            { property: "og:image", content: `${SITE_URL}/home.png` },
-            { property: "og:image:width", content: "1200" },
-            { property: "og:image:height", content: "630" },
-            { property: "og:url", content: SITE_URL },
-            { property: "og:type", content: "website" },
-            { name: "twitter:card", content: "summary_large_image" },
-            { name: "twitter:title", content: "PH Performance — Elite Athlete & Team Training Platform" },
-            { name: "twitter:description", content: "Elite training and performance coaching for footballers who want more." },
-            { name: "twitter:image", content: `${SITE_URL}/home.png` },
-        ],
+        meta: buildOgMeta({
+            title: "PH Performance — Elite Athlete & Team Training Platform",
+            description: "Elite training and performance coaching for footballers who want more. Build faster, get stronger, stay ahead with PH Performance.",
+            url: SITE_URL,
+            imageAlt: "PH Performance — Elite Athlete & Team Training Platform",
+        }),
         links: [{ rel: "canonical", href: SITE_URL }],
         scripts: [
             {

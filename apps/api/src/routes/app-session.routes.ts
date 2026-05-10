@@ -8,10 +8,22 @@ const COOKIE_NAME = "ph_app_session";
 const CSRF_COOKIE = "__csrf";
 const IS_PROD = process.env.NODE_ENV === "production";
 
+function readCookie(cookieHeader: unknown, name: string): string | null {
+  if (typeof cookieHeader !== "string") return null;
+  for (const part of cookieHeader.split(";")) {
+    const [rawKey, ...rawValue] = part.trim().split("=");
+    if (rawKey === name) {
+      const value = rawValue.join("=");
+      return value ? decodeURIComponent(value) : null;
+    }
+  }
+  return null;
+}
+
 // GET /api/app/token-status
 // Returns whether the httpOnly session cookie holds a valid JWT.
-router.get("/app/token-status", async (req: Request, res: Response) => {
-  const token = req.cookies?.[COOKIE_NAME];
+export async function getAppTokenStatus(req: Request, res: Response) {
+  const token = readCookie(req.headers.cookie, COOKIE_NAME);
   if (!token) return res.json({ authenticated: false, expiresAt: null });
   try {
     const payload = await verifyAccessToken(token);
@@ -23,11 +35,11 @@ router.get("/app/token-status", async (req: Request, res: Response) => {
   } catch {
     return res.json({ authenticated: false, expiresAt: null });
   }
-});
+}
 
 // POST /api/app/set-token
 // Mirrors a JWT into an httpOnly cookie for CSRF-safe requests.
-router.post("/app/set-token", (req: Request, res: Response) => {
+export function setAppToken(req: Request, res: Response) {
   const { token, maxAgeSeconds } = req.body ?? {};
   if (!token || typeof token !== "string") {
     return res.status(400).json({ error: "token required" });
@@ -55,14 +67,19 @@ router.post("/app/set-token", (req: Request, res: Response) => {
   });
 
   return res.json({ ok: true });
-});
+}
 
 // POST /api/app/clear-token
 // Clears the session cookie on logout.
-router.post("/app/clear-token", (req: Request, res: Response) => {
+export function clearAppToken(_req: Request, res: Response) {
   res.clearCookie(COOKIE_NAME, { path: "/" });
   res.clearCookie(CSRF_COOKIE, { path: "/" });
   return res.json({ ok: true });
-});
+}
+
+router.get("/app/token-status", getAppTokenStatus);
+router.post("/app/set-token", setAppToken);
+router.post("/app/clear-token", clearAppToken);
+router.post("/app/logout", clearAppToken);
 
 export default router;

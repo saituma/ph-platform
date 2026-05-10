@@ -8,7 +8,6 @@ import {
 	useState,
 } from "react";
 import { io, type Socket } from "socket.io-client";
-import { getClientAuthToken } from "@/lib/client-storage";
 import { getPublicApiBaseUrl } from "@/lib/public-api";
 import { usePortal } from "@/portal/PortalContext";
 
@@ -19,7 +18,7 @@ type PortalSocketContextValue = {
 	status: PortalSocketStatus;
 };
 
-const PortalSocketContext = createContext<PortalSocketContextValue | null>(
+export const PortalSocketContext = createContext<PortalSocketContextValue | null>(
 	null,
 );
 
@@ -48,42 +47,77 @@ export function PortalSocketProvider({ children }: { children: ReactNode }) {
 			return;
 		}
 
-		const clientToken = getClientAuthToken();
 		const socketUrl = getSocketUrl();
 		const sameOrigin =
 			new URL(socketUrl, window.location.origin).origin ===
 			window.location.origin;
 
-		if (!clientToken && !sameOrigin) {
-			setStatus("idle");
-			setSocket(null);
-			return;
-		}
+		let cancelled = false;
 
-		setStatus("connecting");
-		const nextSocket = io(socketUrl, {
-			path: "/socket.io",
-			auth: clientToken ? { token: clientToken } : undefined,
-			withCredentials: true,
-			transports: ["polling", "websocket"],
-			reconnection: true,
-			reconnectionAttempts: 12,
-			reconnectionDelay: 1000,
-			reconnectionDelayMax: 10000,
-		});
+		async function connect() {
+			let socketAuthToken: string | undefined;
 
-		nextSocket.on("connect", () => setStatus("connected"));
-		nextSocket.on("connect_error", () => setStatus("error"));
-		nextSocket.on("disconnect", () => setStatus("idle"));
-		setSocket(nextSocket);
+			if (!sameOrigin) {
+				// Cross-origin: fetch a short-lived (60s) token from the server, which reads
+				// the auth_token httpOnly cookie. Never use localStorage for socket auth.
+				try {
+					const res = await fetch("/api/app/socket-token", {
+						credentials: "include",
+						cache: "no-store",
+					});
+					if (res.ok) {
+						const data = (await res.json()) as { token?: string };
+						socketAuthToken = data.token ?? undefined;
+					}
+				} catch {
+					// no-op
+				}
+				if (!socketAuthToken) {
+					if (!cancelled) {
+						setStatus("idle");
+						setSocket(null);
+					}
+					return;
+				}
+			}
 
-		return () => {
-			nextSocket.removeAllListeners();
-			nextSocket.disconnect();
-			setSocket(null);
-			setStatus("idle");
-		};
-	}, [loading, token]);
+				if (cancelled) return;
+				setStatus("connecting");
+				const nextSocket = io(socketUrl, {
+					path: "/socket.io",
+					auth: socketAuthToken ? { token: socketAuthToken } : undefined,
+					withCredentials: true,
+					transports: ["polling", "websocket"],
+					reconnection: true,
+					reconnectionAttempts: 12,
+					reconnectionDelay: 1000,
+					reconnectionDelayMax: 10000,
+				});
+
+				nextSocket.on("connect", () => setStatus("connected"));
+				nextSocket.on("connect_error", () => setStatus("error"));
+				nextSocket.on("disconnect", () => setStatus("idle"));
+				if (!cancelled) setSocket(nextSocket);
+				else {
+					nextSocket.removeAllListeners();
+					nextSocket.disconnect();
+				}
+			}
+
+			void connect();
+
+			return () => {
+				cancelled = true;
+				setSocket((prev) => {
+					if (prev) {
+						prev.removeAllListeners();
+						prev.disconnect();
+					}
+					return null;
+				});
+				setStatus("idle");
+			};
+		}, [loading, token]);
 
 	const value = useMemo<PortalSocketContextValue>(
 		() => ({ socket, status }),

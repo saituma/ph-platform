@@ -5,7 +5,7 @@ import helmet from "helmet";
 
 import routes from "./routes";
 import { healthCheck } from "./controllers/health.controller";
-import { stripeWebhook } from "./controllers/billing.controller";
+import { stripeWebhook } from "./controllers/billing";
 import { errorHandler } from "./middlewares/error";
 import { requestLogger } from "./middlewares/request-logger";
 import { rateLimiters } from "./lib/rateLimiter";

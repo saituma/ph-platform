@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { healthCheck, deepHealthCheck } from "../controllers/health.controller";
-import { listPlans } from "../controllers/billing.controller";
+import { listPlans } from "../controllers/billing";
 
 const router = Router();
 

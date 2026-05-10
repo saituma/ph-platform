@@ -32,6 +32,22 @@ describe("jwt local mode", () => {
     expect(payload.user_id).toBe(123);
   });
 
+  test("createSocketToken issues a JWT with 60s expiry and socket purpose", async () => {
+    process.env.JWT_SECRET = "test-secret-at-least-32-chars-long!";
+    const { createSocketToken, verifyAccessToken } = await import("../../src/lib/jwt");
+
+    const before = Math.floor(Date.now() / 1000);
+    const token = await createSocketToken(42, "coach");
+    const payload = await verifyAccessToken(token);
+
+    expect(payload.user_id).toBe(42);
+    expect(payload.role).toBe("coach");
+    expect(payload.purpose).toBe("socket");
+    const exp = payload.exp as number;
+    expect(exp).toBeGreaterThanOrEqual(before + 55);
+    expect(exp).toBeLessThanOrEqual(before + 65);
+  });
+
   test("verifyAccessToken rejects tokens signed with the wrong secret", async () => {
     process.env.JWT_SECRET = "secret-a";
     const token = await makeToken("secret-a");

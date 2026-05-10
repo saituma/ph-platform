@@ -97,7 +97,7 @@ test.describe("Users Page", () => {
 
     // The page should load with Users content visible
     // AdminShell renders the title
-    await expect(page.locator("text=Users")).first().toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("text=Users").first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("users page displays user data from API", async ({ page }) => {

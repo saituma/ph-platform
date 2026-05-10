@@ -220,20 +220,26 @@ export const adminSettingsTable = pgTable(
     userIdUnique: uniqueIndex("admin_settings_user_id_unique").on(table.userId),
   }),
 );
-export const guardianTable = pgTable("guardians", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: integer()
-    .notNull()
-    .references(() => userTable.id),
-  email: varchar({ length: 255 }),
-  phoneNumber: varchar({ length: 255 }),
-  relationToAthlete: varchar({ length: 255 }),
-  activeAthleteId: integer(),
-  currentProgramTier: ProgramType(),
-  currentPlanId: integer("current_plan_id"),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const guardianTable = pgTable(
+  "guardians",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    email: varchar({ length: 255 }),
+    phoneNumber: varchar({ length: 255 }),
+    relationToAthlete: varchar({ length: 255 }),
+    activeAthleteId: integer(),
+    currentProgramTier: ProgramType(),
+    currentPlanId: integer("current_plan_id"),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("guardians_user_id_idx").on(table.userId),
+  }),
+);
 
 export const teamTable = pgTable(
   "teams",
@@ -295,41 +301,50 @@ export const teamPaymentConfigDraftTable = pgTable(
   }),
 );
 
-export const athleteTable = pgTable("athletes", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: integer()
-    .notNull()
-    .references(() => userTable.id),
-  guardianId: integer().references(() => guardianTable.id),
-  athleteType: AthleteType().notNull().default("youth"),
-  name: varchar({ length: 255 }).notNull(),
-  age: integer().notNull(),
-  birthDate: date(),
-  teamId: integer().references(() => teamTable.id),
-  team: varchar({ length: 255 }).notNull(),
-  trainingPerWeek: integer().notNull(),
-  preferredTrainingDays: jsonb("preferred_training_days").$type<string[]>().notNull().default([]),
-  injuries: jsonb(),
-  growthNotes: varchar({ length: 255 }),
-  performanceGoals: varchar({ length: 255 }),
-  equipmentAccess: varchar({ length: 255 }),
-  profilePicture: text(),
-  extraResponses: jsonb(),
-  currentProgramTier: ProgramType(),
-  currentPlanId: integer("current_plan_id"),
-  planPaymentType: PlanPaymentType(),
-  planCommitmentMonths: integer(),
-  /** When paid access ends (monthly/yearly plans). Null = no auto-expiry (e.g. one_time). */
-  planExpiresAt: timestamp(),
-  /** Set when a renewal reminder email/push was sent for the current period. */
-  planRenewalReminderSentAt: timestamp(),
-  isSponsored: boolean("is_sponsored").notNull().default(false),
-  youthTrackingEnabled: boolean("youth_tracking_enabled").notNull().default(false),
-  onboardingCompleted: boolean().notNull().default(false),
-  onboardingCompletedAt: timestamp(),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const athleteTable = pgTable(
+  "athletes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    guardianId: integer().references(() => guardianTable.id),
+    athleteType: AthleteType().notNull().default("youth"),
+    name: varchar({ length: 255 }).notNull(),
+    age: integer().notNull(),
+    birthDate: date(),
+    teamId: integer().references(() => teamTable.id),
+    team: varchar({ length: 255 }).notNull(),
+    trainingPerWeek: integer().notNull(),
+    preferredTrainingDays: jsonb("preferred_training_days").$type<string[]>().notNull().default([]),
+    injuries: jsonb(),
+    growthNotes: varchar({ length: 255 }),
+    performanceGoals: varchar({ length: 255 }),
+    equipmentAccess: varchar({ length: 255 }),
+    profilePicture: text(),
+    extraResponses: jsonb(),
+    currentProgramTier: ProgramType(),
+    currentPlanId: integer("current_plan_id"),
+    planPaymentType: PlanPaymentType(),
+    planCommitmentMonths: integer(),
+    /** When paid access ends (monthly/yearly plans). Null = no auto-expiry (e.g. one_time). */
+    planExpiresAt: timestamp(),
+    /** Set when a renewal reminder email/push was sent for the current period. */
+    planRenewalReminderSentAt: timestamp(),
+    isSponsored: boolean("is_sponsored").notNull().default(false),
+    youthTrackingEnabled: boolean("youth_tracking_enabled").notNull().default(false),
+    onboardingCompleted: boolean().notNull().default(false),
+    onboardingCompletedAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("athletes_user_id_idx").on(table.userId),
+    guardianIdIdx: index("athletes_guardian_id_idx").on(table.guardianId),
+    currentProgramTierIdx: index("athletes_current_program_tier_idx").on(table.currentProgramTier),
+    teamIdIdx: index("athletes_team_id_idx").on(table.teamId),
+  }),
+);
 
 export const onboardingConfigTable = pgTable("onboarding_configs", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -1073,31 +1088,40 @@ export const referralGroupMemberTable = pgTable(
   }),
 );
 
-export const bookingTable = pgTable("bookings", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  athleteId: integer()
-    .notNull()
-    .references(() => athleteTable.id),
-  guardianId: integer()
-    .notNull()
-    .references(() => guardianTable.id),
-  type: bookingType(),
-  status: bookingStatus(),
-  startsAt: timestamp().notNull(),
-  endTime: timestamp(),
-  location: varchar({ length: 500 }),
-  meetingLink: varchar({ length: 500 }),
-  notes: text(),
-  serviceTypeId: integer(),
-  occurrenceKey: varchar({ length: 255 }),
-  slotKey: varchar({ length: 255 }),
-  timezoneOffsetMinutes: integer(),
-  createdBy: integer()
-    .notNull()
-    .references(() => userTable.id),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const bookingTable = pgTable(
+  "bookings",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    guardianId: integer()
+      .notNull()
+      .references(() => guardianTable.id),
+    type: bookingType(),
+    status: bookingStatus(),
+    startsAt: timestamp().notNull(),
+    endTime: timestamp(),
+    location: varchar({ length: 500 }),
+    meetingLink: varchar({ length: 500 }),
+    notes: text(),
+    serviceTypeId: integer(),
+    occurrenceKey: varchar({ length: 255 }),
+    slotKey: varchar({ length: 255 }),
+    timezoneOffsetMinutes: integer(),
+    createdBy: integer()
+      .notNull()
+      .references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdIdx: index("bookings_athlete_id_idx").on(table.athleteId),
+    guardianIdIdx: index("bookings_guardian_id_idx").on(table.guardianId),
+    startsAtIdx: index("bookings_starts_at_idx").on(table.startsAt),
+    statusIdx: index("bookings_status_idx").on(table.status),
+  }),
+);
 
 export const sessionTemplateTable = pgTable(
   "session_templates",
@@ -1183,27 +1207,34 @@ export const sessionAttendanceTable = pgTable(
   }),
 );
 
-export const contentTable = pgTable("contents", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  title: varchar({ length: 255 }).notNull(),
-  content: varchar({ length: 500 }).notNull(),
-  type: contentType(),
-  body: text(),
-  programTier: ProgramType(),
-  surface: contentSurface().notNull(),
-  category: varchar({ length: 255 }),
-  ageList: jsonb(),
-  minAge: integer(),
-  maxAge: integer(),
-  startsAt: timestamp(),
-  endsAt: timestamp(),
-  isActive: boolean().notNull().default(true),
-  createdBy: integer()
-    .notNull()
-    .references(() => userTable.id),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const contentTable = pgTable(
+  "contents",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: varchar({ length: 255 }).notNull(),
+    content: varchar({ length: 500 }).notNull(),
+    type: contentType(),
+    body: text(),
+    programTier: ProgramType(),
+    surface: contentSurface().notNull(),
+    category: varchar({ length: 255 }),
+    ageList: jsonb(),
+    minAge: integer(),
+    maxAge: integer(),
+    startsAt: timestamp(),
+    endsAt: timestamp(),
+    isActive: boolean().notNull().default(true),
+    createdBy: integer()
+      .notNull()
+      .references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    surfaceIdx: index("contents_surface_idx").on(table.surface),
+    surfaceIsActiveIdx: index("contents_surface_is_active_idx").on(table.surface, table.isActive),
+  }),
+);
 
 export const parentCourseTable = pgTable("parent_courses", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -1258,30 +1289,38 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
-export const subscriptionRequestTable = pgTable("subscription_requests", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: integer()
-    .notNull()
-    .references(() => userTable.id),
-  athleteId: integer()
-    .notNull()
-    .references(() => athleteTable.id),
-  planId: integer()
-    .notNull()
-    .references(() => subscriptionPlanTable.id),
-  /** monthly | six_months | yearly — how the athlete chose to pay (Stripe lookup + checkout mode). */
-  planBillingCycle: varchar({ length: 20 }),
-  stripeSessionId: varchar({ length: 255 }),
-  stripePaymentIntentId: varchar({ length: 255 }),
-  paymentAmountCents: integer(),
-  paymentCurrency: varchar({ length: 10 }),
-  /** UUID — public receipt id for payer/support lookup. */
-  receiptPublicId: varchar({ length: 36 }).notNull(),
-  paymentStatus: varchar({ length: 100 }),
-  status: subscriptionStatus().notNull().default("pending_payment"),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+export const subscriptionRequestTable = pgTable(
+  "subscription_requests",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    planId: integer()
+      .notNull()
+      .references(() => subscriptionPlanTable.id),
+    /** monthly | six_months | yearly — how the athlete chose to pay (Stripe lookup + checkout mode). */
+    planBillingCycle: varchar({ length: 20 }),
+    stripeSessionId: varchar({ length: 255 }),
+    stripePaymentIntentId: varchar({ length: 255 }),
+    paymentAmountCents: integer(),
+    paymentCurrency: varchar({ length: 10 }),
+    /** UUID — public receipt id for payer/support lookup. */
+    receiptPublicId: varchar({ length: 36 }).notNull(),
+    paymentStatus: varchar({ length: 100 }),
+    status: subscriptionStatus().notNull().default("pending_payment"),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("subscription_requests_user_id_idx").on(table.userId),
+    athleteIdIdx: index("subscription_requests_athlete_id_idx").on(table.athleteId),
+    statusIdx: index("subscription_requests_status_idx").on(table.status),
+  }),
+);
 
 export const teamSubscriptionRequestTable = pgTable("team_subscription_requests", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -1357,24 +1396,31 @@ export const teamPlayerPaymentInviteTable = pgTable(
   }),
 );
 
-export const videoUploadTable = pgTable("video_uploads", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  athleteId: integer()
-    .notNull()
-    .references(() => athleteTable.id),
-  programSectionContentId: integer().references(() => programSectionContentTable.id),
-  trainingSessionItemId: integer().references(() => trainingSessionItemTable.id),
-  sessionExerciseId: integer("session_exercise_id").references(() => sessionExerciseTable.id),
-  videoUrl: varchar({ length: 500 }).notNull(),
-  notes: varchar({ length: 500 }),
-  reviewedByCoach: integer().references(() => userTable.id),
+export const videoUploadTable = pgTable(
+  "video_uploads",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    programSectionContentId: integer().references(() => programSectionContentTable.id),
+    trainingSessionItemId: integer().references(() => trainingSessionItemTable.id),
+    sessionExerciseId: integer("session_exercise_id").references(() => sessionExerciseTable.id),
+    videoUrl: varchar({ length: 500 }).notNull(),
+    notes: varchar({ length: 500 }),
+    reviewedByCoach: integer().references(() => userTable.id),
 
-  feedback: varchar({ length: 2000 }),
-  coachVideoUrl: varchar("coach_video_url", { length: 500 }),
-  reviewedAt: timestamp(),
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+    feedback: varchar({ length: 2000 }),
+    coachVideoUrl: varchar("coach_video_url", { length: 500 }),
+    reviewedAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteIdIdx: index("video_uploads_athlete_id_idx").on(table.athleteId),
+    reviewedAtIdx: index("video_uploads_reviewed_at_idx").on(table.reviewedAt),
+  }),
+);
 
 export const foodDiaryTable = pgTable("food_diary", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -1474,19 +1520,26 @@ export const legalAcceptanceTable = pgTable("legal_acceptances", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
-export const notificationTable = pgTable("notifications", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: integer()
-    .notNull()
-    .references(() => userTable.id),
-  type: varchar({ length: 500 }),
-  content: varchar({ length: 500 }),
-  read: boolean().notNull().default(false),
-  link: varchar({ length: 500 }),
+export const notificationTable = pgTable(
+  "notifications",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id),
+    type: varchar({ length: 500 }),
+    content: varchar({ length: 500 }),
+    read: boolean().notNull().default(false),
+    link: varchar({ length: 500 }),
 
-  createdAt: timestamp().notNull().defaultNow(),
-  updatedAt: timestamp().notNull().defaultNow(),
-});
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("notifications_user_id_idx").on(table.userId),
+    userReadIdx: index("notifications_user_read_idx").on(table.userId, table.read),
+  }),
+);
 
 export const auditLogsTable = pgTable("audit_logs", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

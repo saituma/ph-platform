@@ -204,7 +204,7 @@ export async function createSessionTemplate(input: CreateTemplateInput) {
 }
 
 export async function listSessionTemplates() {
-  return db.select().from(sessionTemplateTable).orderBy(desc(sessionTemplateTable.id));
+  return db.select().from(sessionTemplateTable).orderBy(desc(sessionTemplateTable.id)).limit(500);
 }
 
 export async function materializeTemplateSessions(input: {
@@ -394,7 +394,8 @@ export async function listAdminScheduledSessions(input: { from?: Date; to?: Date
     .select()
     .from(scheduledSessionTable)
     .where(where.length ? and(...where) : undefined)
-    .orderBy(desc(scheduledSessionTable.startsAt));
+    .orderBy(desc(scheduledSessionTable.startsAt))
+    .limit(500); // safety cap; callers should pass from/to for bounded windows
 
   if (!baseRows.length) return [];
 
@@ -514,6 +515,96 @@ export async function checkInMySession(input: { scheduledSessionId: number; user
     });
   if (!row) throw new Error("SESSION_ASSIGNMENT_NOT_FOUND");
   return { ok: true, attendanceStatus: row.status, checkInAt: row.checkInAt };
+}
+
+export async function deleteSessionTemplate(userId: number, templateId: number) {
+  await db.delete(scheduledSessionTable).where(eq(scheduledSessionTable.templateId, templateId));
+  await db.delete(sessionTemplateTable).where(eq(sessionTemplateTable.id, templateId));
+  return { deleted: true };
+}
+
+export async function updateSessionTemplate(
+  userId: number,
+  templateId: number,
+  updates: Partial<{
+    name: string;
+    dayOfWeek: number | null;
+    startTime: string;
+    endTime: string;
+    location: string | null;
+    notes: string | null;
+    isActive: boolean;
+    scope: SessionScope;
+    targetUserIds: number[];
+    targetTeamId: number | null;
+    googleSyncEnabled: boolean;
+  }>,
+) {
+  const setValues: Record<string, unknown> = { updatedAt: new Date() };
+  if (updates.name !== undefined) setValues.name = updates.name;
+  if (updates.dayOfWeek !== undefined) setValues.weekday = updates.dayOfWeek;
+  if (updates.startTime !== undefined) setValues.startsAtTime = updates.startTime;
+  if (updates.endTime !== undefined) setValues.endsAtTime = updates.endTime;
+  if (updates.location !== undefined) setValues.location = updates.location;
+  if (updates.notes !== undefined) setValues.notes = updates.notes;
+  if (updates.isActive !== undefined) setValues.isActive = updates.isActive;
+  if (updates.scope !== undefined) setValues.scope = updates.scope;
+  if (updates.targetUserIds !== undefined) setValues.targetUserIds = updates.targetUserIds;
+  if (updates.targetTeamId !== undefined) setValues.teamId = updates.targetTeamId;
+  if (updates.googleSyncEnabled !== undefined) setValues.googleSyncEnabled = updates.googleSyncEnabled;
+
+  const [updated] = await db
+    .update(sessionTemplateTable)
+    .set(setValues)
+    .where(eq(sessionTemplateTable.id, templateId))
+    .returning();
+  if (!updated) throw new Error("TEMPLATE_NOT_FOUND");
+  return updated;
+}
+
+export async function deleteScheduledSession(userId: number, sessionId: number) {
+  await db.delete(sessionAttendanceTable).where(eq(sessionAttendanceTable.scheduledSessionId, sessionId));
+  await db.delete(scheduledSessionTable).where(eq(scheduledSessionTable.id, sessionId));
+  return { deleted: true };
+}
+
+export async function updateScheduledSession(
+  userId: number,
+  sessionId: number,
+  updates: Partial<{
+    name: string;
+    startsAt: Date;
+    endsAt: Date;
+    location: string | null;
+    notes: string | null;
+    status: string;
+  }>,
+) {
+  const setValues: Record<string, unknown> = { updatedAt: new Date() };
+  if (updates.name !== undefined) setValues.name = updates.name;
+  if (updates.startsAt !== undefined) setValues.startsAt = updates.startsAt;
+  if (updates.endsAt !== undefined) setValues.endsAt = updates.endsAt;
+  if (updates.location !== undefined) setValues.location = updates.location;
+  if (updates.notes !== undefined) setValues.notes = updates.notes;
+  if (updates.status !== undefined) setValues.status = updates.status;
+
+  const [updated] = await db
+    .update(scheduledSessionTable)
+    .set(setValues)
+    .where(eq(scheduledSessionTable.id, sessionId))
+    .returning();
+  if (!updated) throw new Error("SESSION_NOT_FOUND");
+  return updated;
+}
+
+export async function cancelScheduledSession(userId: number, sessionId: number) {
+  const [updated] = await db
+    .update(scheduledSessionTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(scheduledSessionTable.id, sessionId))
+    .returning();
+  if (!updated) throw new Error("SESSION_NOT_FOUND");
+  return updated;
 }
 
 export async function getAttendanceStats(input: {

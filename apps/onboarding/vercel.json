@@ -49,8 +49,10 @@
       ]
     }
   ],
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/:path*", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "images": {
     "sizes": [320, 640, 960, 1280, 1920],

@@ -23,6 +23,9 @@ function labelForType(type: MyScheduledSessionRecord["type"]) {
   }
 }
 
+// Admin-side view of the coach/admin's own scheduled sessions.
+// Despite the "your sessions" wording this is protected by isAdminPortalRole middleware
+// and is NOT accessible to guardian/parent users. The real parent session view is in apps/parent.
 export default function ParentSchedulePage() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();

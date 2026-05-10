@@ -7,30 +7,16 @@ import {
 } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
+import { buildOgMeta } from "../lib/seo";
 
 export const Route = createFileRoute("/about")({
 	head: () => ({
-		meta: [
-			{ title: "About PH Performance — Our Mission & Vision" },
-			{
-				name: "description",
-				content:
-					"Learn about PH Performance's mission to democratize elite athletic training. We build professional tools for athletes, coaches, and teams of every level.",
-			},
-			{ property: "og:title", content: "About PH Performance — Our Mission & Vision" },
-			{
-				property: "og:description",
-				content:
-					"We're building the professional performance platform that makes elite training accessible to every athlete and team.",
-			},
-			{
-				property: "og:url",
-				content: "https://phperformance.uk/about",
-			},
-			{ property: "og:image", content: "https://phperformance.uk/home.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
-		],
+		meta: buildOgMeta({
+			title: "About PH Performance — Our Mission & Vision",
+			description: "Learn about PH Performance's mission to democratize elite athletic training. We build professional tools for athletes, coaches, and teams of every level.",
+			url: "https://phperformance.uk/about",
+			imageAlt: "About PH Performance — Our Mission & Vision",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/about" }],
 		scripts: [
 			{

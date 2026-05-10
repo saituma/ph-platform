@@ -50,6 +50,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import type { Request, Response, NextFunction } from "express";
+import { env } from "../config/env";
 
 function parseWindowMs(window: `${number} ${"s" | "m" | "h" | "d"}`): number {
   const match = window.match(/^(\d+)\s*(s|m|h|d)$/);
@@ -84,8 +85,8 @@ class InMemoryRateLimiter {
 }
 
 function createRatelimit(requests: number, window: `${number} ${"s" | "m" | "h" | "d"}`): Ratelimit | null {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const url = env.upstashRedisRestUrl;
+  const token = env.upstashRedisRestToken;
   if (!url || !token) return null;
   return new Ratelimit({
     redis: new Redis({ url, token }),
@@ -110,6 +111,9 @@ export function redisRateLimit(
   prefix = "rl",
 ) {
   const limiter = createRatelimit(requests, window);
+  if (!limiter && env.nodeEnv === "production") {
+    throw new Error("Distributed rate limiting is required in production. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+  }
   const memoryLimiter = limiter ? null : new InMemoryRateLimiter(requests, parseWindowMs(window));
 
   return async (req: Request, res: Response, next: NextFunction) => {

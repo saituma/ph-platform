@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { AnnouncementToast } from "@/components/AnnouncementToast";
 import { BottomNav } from "@/components/BottomNav";
 import { clearAuthToken, getAuthHeaders } from "@/lib/client-storage";
 import { config } from "@/lib/config";
@@ -141,6 +142,7 @@ function PortalInner() {
 
 	return (
 		<BottomNav>
+			<AnnouncementToast />
 			<Outlet />
 		</BottomNav>
 	);

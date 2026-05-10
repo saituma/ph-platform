@@ -91,7 +91,7 @@ function DashboardPage() {
 						</p>
 						<button
 							type="button"
-							onClick={() => navigate({ to: "/children/add" })}
+							onClick={() => navigate({ to: "/children" })}
 							className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity"
 						>
 							Add child

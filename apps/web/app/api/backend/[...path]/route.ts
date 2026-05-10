@@ -29,7 +29,7 @@ async function forward(req: NextRequest) {
   const path = url.pathname.replace("/api/backend", "");
   const target = `${apiBase}/api${path}${url.search}`;
 
-  const accessToken = req.cookies.get("accessToken")?.value ?? req.cookies.get("accessTokenClient")?.value;
+  const accessToken = req.cookies.get("accessToken")?.value;
   const forwardedAuth = req.headers.get("authorization") ?? "";
 
   let res: Response;

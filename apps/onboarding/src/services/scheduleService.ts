@@ -1,6 +1,3 @@
-import { config } from "@/lib/config";
-import { getClientAuthToken } from "@/lib/client-storage";
-
 export interface ScheduleEvent {
   id: string;
   dayId: string;
@@ -120,26 +117,18 @@ export function mapScheduledSessionsToEvents(items: any[]): ScheduleEvent[] {
 }
 
 export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
   const { from, to } = defaultSessionRange();
   const sessionParams = new URLSearchParams({
     from: from.toISOString(),
     to: to.toISOString(),
   });
 
-  const authHeaders = {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-
   const [bookingsResult, sessionsResult] = await Promise.allSettled([
-    fetch(`${baseUrl}/api/bookings`, {
+    fetch(`/api/bookings`, {
       credentials: "include",
-      headers: authHeaders,
     }),
-    fetch(`${baseUrl}/api/sessions/my?${sessionParams.toString()}`, {
+    fetch(`/api/sessions/my?${sessionParams.toString()}`, {
       credentials: "include",
-      headers: authHeaders,
     }),
   ]);
 
@@ -168,14 +157,11 @@ export async function fetchBookings(_token?: string): Promise<ScheduleEvent[]> {
 }
 
 export async function checkInScheduledSession(sessionId: number) {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/sessions/${sessionId}/check-in`, {
+  const response = await fetch(`/api/sessions/${sessionId}/check-in`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
@@ -187,16 +173,10 @@ export async function checkInScheduledSession(sessionId: number) {
 }
 
 export async function fetchBookingServices(_token?: string) {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-
   const response = await fetch(
-    `${baseUrl}/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
+    `/api/bookings/services?includeLocked=true&omitWithoutBookableSlots=true`,
     {
       credentials: "include",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
     },
   );
 
@@ -213,18 +193,13 @@ export async function fetchGeneratedAvailability(
   _token: string,
   params: { from: Date; to: Date; serviceTypeId: number },
 ) {
-  const baseUrl = config.api.baseUrl;
   const qs = new URLSearchParams({
     from: params.from.toISOString(),
     to: params.to.toISOString(),
     serviceTypeId: String(params.serviceTypeId),
   });
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/bookings/generated-availability?${qs}`, {
+  const response = await fetch(`/api/bookings/generated-availability?${qs}`, {
     credentials: "include",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch availability: ${response.status}`);
@@ -263,15 +238,11 @@ export function sumReportedOpeningsForService(
 }
 
 export async function createBooking(_token: string, body: any) {
-  const baseUrl = config.api.baseUrl;
-
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/bookings`, {
+  const response = await fetch(`/api/bookings`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -294,18 +265,13 @@ export type AdminScheduleCandidate = {
 };
 
 export async function fetchAdminNonTeamUsers(params?: { q?: string; limit?: number }) {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
   const qs = new URLSearchParams();
   if (params?.q) qs.set("q", params.q);
   if (params?.limit) qs.set("limit", String(params.limit));
   const response = await fetch(
-    `${baseUrl}/api/admin/bookings/non-team-users${qs.toString() ? `?${qs.toString()}` : ""}`,
+    `/api/admin/bookings/non-team-users${qs.toString() ? `?${qs.toString()}` : ""}`,
     {
       credentials: "include",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
     },
   );
 
@@ -328,14 +294,11 @@ export async function createAdminCustomSession(body: {
   notes?: string | null;
   groupName?: string | null;
 }) {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-  const response = await fetch(`${baseUrl}/api/admin/bookings/custom-sessions`, {
+  const response = await fetch(`/api/admin/bookings/custom-sessions`, {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -353,14 +316,8 @@ export async function createAdminCustomSession(body: {
 }
 
 export async function fetchScheduledPrograms(): Promise<ScheduleEvent[]> {
-  const baseUrl = config.api.baseUrl;
-  const token = getClientAuthToken();
-
-  const response = await fetch(`${baseUrl}/api/programs/my-assigned`, {
+  const response = await fetch(`/api/programs/my-assigned`, {
     credentials: "include",
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
   });
 
   if (!response.ok) return [];

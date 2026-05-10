@@ -487,13 +487,11 @@ export default function UserDetailPage() {
 
   if (!isValidId) {
     return (
-      <AdminShell title="User" subtitle="Invalid ID">
-        <div className="flex h-96 flex-col items-center justify-center rounded-[3rem] border border-dashed border-border/60 bg-card/20">
-          <AlertCircle className="mb-4 h-12 w-12 text-muted-foreground/30" />
-          <p className="text-xl font-black uppercase tracking-widest text-muted-foreground/40">Invalid User Access</p>
-          <div className="mt-8">
-            <UserDetailBackBar />
-          </div>
+      <AdminShell title="User">
+        <div className="flex h-96 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/40">
+          <AlertCircle className="mb-4 h-10 w-10 text-muted-foreground/30" />
+          <p className="text-sm font-semibold text-muted-foreground">Invalid user ID</p>
+          <div className="mt-6"><UserDetailBackBar /></div>
         </div>
       </AdminShell>
     );
@@ -509,453 +507,420 @@ export default function UserDetailPage() {
           ? "Premium"
           : resolvedTier === "PHP_Premium_Plus"
             ? "Plus"
-            : "Program";
+            : "Standard";
 
-  const tierVariant =
-    tierLabel === "Premium"
-      ? "secondary"
-      : tierLabel === "Plus"
-        ? "info"
-        : tierLabel === "Pro"
-          ? "success"
-          : ("default" as const);
+  const tierColor =
+    tierLabel === "Premium" ? "text-amber-500 bg-amber-500/10 border-amber-500/20" :
+    tierLabel === "Plus"    ? "text-blue-500 bg-blue-500/10 border-blue-500/20" :
+    tierLabel === "Pro"     ? "text-primary bg-primary/10 border-primary/20" :
+                              "text-muted-foreground bg-muted border-border";
 
   return (
-    <AdminShell
-      title={displayName}
-      subtitle={
-        <span className="flex items-center gap-2">
-          <span className="font-mono opacity-50">#{userId}</span>
-          <span className="text-muted-foreground/30">•</span>
-          <span className={cn(
-            "font-black uppercase tracking-[0.2em] text-[10px]",
-            tierLabel === "Premium" ? "text-amber-500" :
-            tierLabel === "Plus" ? "text-blue-500" :
-            tierLabel === "Pro" ? "text-primary" : "text-primary"
-          )}>
-            {tierLabel}
-          </span>
-        </span>
-      }
-    >
-      <div className="mx-auto max-w-7xl space-y-12 pb-24">
-        {/* Top Control Bar */}
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+    <AdminShell title={displayName}>
+      <div className="space-y-4 pb-28">
+
+        {/* Back + actions */}
+        <div className="flex items-center justify-between">
           <UserDetailBackBar />
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-10 gap-2 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 hover:border-primary/50"
-              render={<Link href="/training-snapshot" />}
-            >
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-[11px] font-black uppercase tracking-widest">Live Snapshot</span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2 text-xs" render={<Link href="/training-snapshot" />}>
+              <Zap className="h-3.5 w-3.5 text-primary" /> Live Snapshot
             </Button>
-            <Button
-              variant="outline"
-              className="h-10 w-10 p-0 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10"
-              render={<Link href={`/messaging?userId=${userId}`} />}
-            >
-              <Mail className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0" render={<Link href={`/messaging?userId=${userId}`} />}>
+              <Mail className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        {/* --- HERO: COMMAND CENTER --- */}
-        <div className="group relative">
-          <div className="absolute -inset-1 rounded-[3rem] bg-gradient-to-tr from-primary/40 via-transparent to-primary/20 opacity-0 blur-2xl transition duration-1000 group-hover:opacity-30" />
-          <GlassCard className="relative z-10 p-0">
-            <div className="grid md:grid-cols-[1fr_2fr]">
-              {/* Profile Visual */}
-              <div className="relative flex flex-col items-center justify-center border-b border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent p-12 md:border-b-0 md:border-r">
-                <div className="relative">
-                  <div className="absolute -inset-4 rounded-full bg-primary/20 blur-2xl animate-pulse" />
-                  <div className="relative h-48 w-48 rounded-full border-[6px] border-card bg-muted shadow-2xl overflow-hidden group/avatar">
-                    {onboarding?.athlete?.profilePicture ? (
-                      <img
-                        src={onboarding.athlete.profilePicture}
-                        alt={displayName}
-                        className="h-full w-full object-cover transition duration-700 group-hover:scale-110"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-secondary/20">
-                        <UserCircle className="h-24 w-24 text-muted-foreground/20" />
-                      </div>
-                    )}
-                    
-                    {/* Photo Edit Overlay */}
-                    <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover/avatar:opacity-100">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handlePhotoChange}
-                        disabled={isUploadingPhoto}
-                      />
-                      {isUploadingPhoto ? (
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      ) : (
-                        <>
-                          <Camera className="mb-2 h-8 w-8 text-white" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white">Change Photo</span>
-                        </>
-                      )}
-                    </label>
-                  </div>
-                  <div className="absolute -bottom-2 -right-2 flex h-14 w-14 items-center justify-center rounded-3xl border-4 border-card bg-primary text-primary-foreground shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                    <Trophy className="h-7 w-7" />
-                  </div>
-                </div>
-                <div className="mt-8 text-center">
-                  <Badge variant={tierVariant} size="lg" className="h-8 px-4 text-[10px] font-black uppercase tracking-[0.25em] shadow-[0_0_15px_-5px_rgba(16,185,129,0.5)]">
-                    {tierLabel} STATUS
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Identity & Technical Metadata */}
-              <div className="p-12">
-                <div className="flex flex-wrap items-baseline gap-4">
-                  <h1 className="text-4xl font-black uppercase tracking-tighter text-foreground md:text-6xl">
-                    {displayName}
-                  </h1>
-                  <span className="text-sm font-black uppercase tracking-widest text-primary/60 font-mono">ID: {userId}</span>
-                </div>
-
-                <div className="mt-12 grid grid-cols-2 gap-px bg-white/5 overflow-hidden rounded-3xl border border-white/5 sm:grid-cols-4">
-                  {[
-                    { label: "Account Role", value: rawUser?.role, icon: ShieldCheck },
-                    { label: "Date Joined", value: rawUser?.createdAt ? new Date(rawUser.createdAt).toLocaleDateString() : null, icon: Calendar },
-                    { label: "Athlete Auth", value: onboarding?.athlete?.name ? "Linked" : "Direct", icon: Zap },
-                    { label: "Team Origin", value: onboarding?.athlete?.team, icon: Target },
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-card p-6 flex flex-col gap-1 transition-colors hover:bg-white/[0.03]">
-                      <div className="flex items-center gap-2 mb-2">
-                        <stat.icon className="h-3 w-3 text-primary/60" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">{stat.label}</span>
-                      </div>
-                      <span className="text-sm font-black uppercase tracking-tight text-foreground truncate">{stat.value || "Not Set"}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-8 flex flex-wrap items-center gap-6">
-                  <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
-                    <div className={cn(
-                      "h-2 w-2 rounded-full",
-                      rawUser?.isBlocked ? "bg-red-500 animate-pulse" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-                    )} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">
-                      {rawUser?.isBlocked ? "Suspended" : "Operational"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground/60 hover:text-primary transition-colors cursor-pointer group/mail">
-                    <Mail className="h-4 w-4" />
-                    <span className="text-xs font-bold font-mono underline-offset-4 group-hover/mail:underline">{rawUser?.guardianEmail || rawUser?.email}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-        </div>
-
-        {/* --- STATUS NOTIFICATIONS --- */}
+        {/* Notifications */}
         {(actionError || actionNotice) && (
-          <div className="grid gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="space-y-2">
             {actionError && (
-              <div className="relative overflow-hidden rounded-3xl border border-red-500/20 bg-red-500/10 p-5 text-red-500 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5" />
-                  <p className="text-xs font-black uppercase tracking-widest">{actionError}</p>
-                </div>
+              <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+                <AlertCircle className="h-4 w-4 shrink-0" />{actionError}
               </div>
             )}
             {actionNotice && (
-              <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-primary/10 p-5 text-primary backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5" />
-                  <p className="text-xs font-black uppercase tracking-widest">{actionNotice}</p>
-                </div>
+              <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />{actionNotice}
               </div>
             )}
           </div>
         )}
 
-        {/* --- MAIN DASHBOARD GRID --- */}
-        <div className="grid gap-8 lg:grid-cols-12">
-          {/* LEFT: ATHLETE & PERFORMANCE (BENTO COL) */}
-          <div className="lg:col-span-8 space-y-8">
-            <GlassCard container className="p-10!">
-              <SectionHeader title="Performance Profile" subtitle="Physical & Training Context" icon={Dumbbell} />
-              
-              <div className="grid sm:grid-cols-2 gap-8">
-                <div className="space-y-1 rounded-3xl border border-white/5 bg-white/[0.01] p-2">
-                  <TechnicalField label="Full Identification" value={onboarding?.athlete?.name || rawUser?.athleteName} icon={UserRound} />
-                  <TechnicalField label="Biological Age" value={onboarding?.athlete?.age ? `${onboarding.athlete.age} Years` : null} icon={Hash} />
-                  <TechnicalField label="Current Organization" value={onboarding?.athlete?.team} icon={Award} />
-                  <TechnicalField label="Birth Matrix" value={onboarding?.athlete?.birthDate ? new Date(onboarding.athlete.birthDate).toLocaleDateString(undefined, { dateStyle: 'full' }) : null} icon={Calendar} />
+        {/* ── BENTO GRID ─────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+          {/* ① HERO — spans 2 cols × 1 row */}
+          <div className="col-span-1 sm:col-span-2 rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="flex gap-5 p-6">
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                <div className="h-20 w-20 rounded-xl overflow-hidden border border-border bg-secondary group/av">
+                  {onboarding?.athlete?.profilePicture ? (
+                    <img src={onboarding.athlete.profilePicture} alt={displayName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <UserCircle className="h-10 w-10 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <label className="absolute inset-0 flex cursor-pointer flex-col items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover/av:opacity-100 rounded-xl">
+                    <input type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} disabled={isUploadingPhoto} />
+                    {isUploadingPhoto
+                      ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      : <Camera className="h-5 w-5 text-white" />}
+                  </label>
                 </div>
-                
-                <div className="space-y-1 rounded-3xl border border-white/5 bg-white/[0.01] p-2">
-                  <TechnicalField label="Training Frequency" value={onboarding?.athlete?.trainingPerWeek ? `${onboarding.athlete.trainingPerWeek} Sessions/Week` : null} icon={Activity} />
-                  <TechnicalField label="Facility Access" value={onboarding?.athlete?.equipmentAccess} icon={Zap} />
-                  <TechnicalField label="Commitment Cycle" value={onboarding?.athlete?.planCommitmentMonths ? `${onboarding.athlete.planCommitmentMonths} Months` : null} icon={ShieldCheck} />
-                  <TechnicalField label="Deployment Cycle" value={onboarding?.athlete?.planExpiresAt ? `Expires ${new Date(onboarding.athlete.planExpiresAt).toLocaleDateString()}` : null} icon={Calendar} />
-                </div>
+                {/* status dot */}
+                <span className={cn(
+                  "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-card",
+                  rawUser?.isBlocked ? "bg-red-500" : "bg-emerald-500"
+                )} />
               </div>
 
-              <div className="mt-12 grid gap-6">
-                <div className="group rounded-[2rem] border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent p-8 transition-colors hover:bg-white/[0.04]">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Target className="h-4 w-4 text-primary" />
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Strategic Objectives</h4>
+              {/* Identity */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div>
+                    <h2 className="text-lg font-bold leading-tight text-foreground truncate">{displayName}</h2>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">{rawUser?.guardianEmail || rawUser?.email}</p>
                   </div>
-                  <p className="text-sm font-bold leading-relaxed text-foreground/80">{onboarding?.athlete?.performanceGoals || "No objectives defined for current cycle."}</p>
+                  <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider", tierColor)}>
+                    {tierLabel}
+                  </span>
                 </div>
-
-                <div className="group rounded-[2rem] border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent p-8 transition-colors hover:bg-white/[0.04]">
-                  <div className="flex items-center gap-2 mb-4 text-amber-500">
-                    <AlertCircle className="h-4 w-4" />
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-500/80">Trauma & Injury Log</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {onboarding?.athlete?.injuries ? (
-                      (() => {
-                        try {
-                          const injuries = JSON.parse(onboarding.athlete.injuries as string);
-                          if (Array.isArray(injuries)) {
-                            return injuries.map((inj, i) => (
-                              <Badge key={i} className="h-8 px-4 rounded-xl bg-amber-500/10 text-amber-500 border-amber-500/20 font-black text-[9px] uppercase tracking-widest">
-                                {typeof inj === 'string' ? inj : JSON.stringify(inj)}
-                              </Badge>
-                            ));
-                          }
-                          return <span className="font-bold text-sm">{String(injuries)}</span>;
-                        } catch {
-                          return <span className="font-bold text-sm">{onboarding.athlete.injuries}</span>;
-                        }
-                      })()
-                    ) : (
-                      <span className="text-sm font-bold text-muted-foreground/40">Clean Medical History</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </GlassCard>
-
-            {resolvedTier === "PHP_Premium" && (
-              <GlassCard container className="p-10! border-primary/20">
-                <SectionHeader title="Telemetry Data" subtitle="Real-time Training Metrics" icon={Activity} />
-                
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 rounded-3xl overflow-hidden border border-white/5">
+                <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2">
                   {[
-                    { label: "Active Logs", value: completionStats.count, loading: completionsLoading },
-                    { label: "Mean RPE", value: completionStats.avgRpe, loading: completionsLoading },
-                    { label: "Soreness index", value: completionStats.avgSoreness, loading: completionsLoading },
-                    { label: "Fatigue level", value: completionStats.avgFatigue, loading: completionsLoading },
-                  ].map((stat, i) => (
-                    <div key={i} className="bg-card/40 p-8 flex flex-col items-center justify-center text-center transition-colors hover:bg-white/[0.05]">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 mb-2">{stat.label}</span>
-                      <div className="text-3xl font-black font-mono tracking-tighter text-foreground">
-                        {stat.loading ? "..." : stat.value || "0.0"}
-                      </div>
+                    { label: "ID",     value: `#${userId}` },
+                    { label: "Role",   value: rawUser?.role },
+                    { label: "Joined", value: rawUser?.createdAt ? new Date(rawUser.createdAt).toLocaleDateString() : "—" },
+                    { label: "Team",   value: onboarding?.athlete?.team || "—" },
+                  ].map(f => (
+                    <div key={f.label}>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{f.label}</p>
+                      <p className="text-xs font-semibold text-foreground truncate">{f.value || "—"}</p>
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
 
-                <div className="mt-8 flex justify-end">
-                  <Button variant="outline" className="rounded-xl border-primary/20 text-primary hover:bg-primary/5 text-[10px] font-black uppercase tracking-widest" render={<Link href="/training-snapshot" />}>
-                    Open Telemetry Hub <ChevronRight className="h-3 w-3 ml-2" />
-                  </Button>
-                </div>
-              </GlassCard>
-            )}
+            {/* Status bar */}
+            <div className="flex items-center gap-3 border-t border-border bg-muted/30 px-6 py-3">
+              <div className={cn("h-1.5 w-1.5 rounded-full", rawUser?.isBlocked ? "bg-red-500" : "bg-emerald-500")} />
+              <span className="text-xs font-medium text-muted-foreground">
+                {rawUser?.isBlocked ? "Account suspended" : "Account active"}
+              </span>
+              <div className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground font-mono">
+                {onboarding?.athlete?.name ? (
+                  <><CheckCircle2 className="h-3 w-3 text-primary" /> Athlete linked</>
+                ) : (
+                  <><AlertCircle className="h-3 w-3 text-muted-foreground/40" /> No athlete</>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* RIGHT: COMMANDS & SYSTEMS (BENTO COL) */}
-          <div className="lg:col-span-4 space-y-8">
-            <GlassCard container className="p-8!">
-              <SectionHeader title="System Access" subtitle="Identity & Role Matrix" icon={Settings2} />
-              <div className="space-y-1 rounded-3xl border border-white/5 bg-white/[0.01] p-1 mb-8">
-                <TechnicalField label="Universal ID" value={rawUser?.id} icon={Hash} />
-                <TechnicalField label="Access Level" value={rawUser?.role} icon={ShieldCheck} />
-                <div className="p-4 space-y-2">
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Cloud Identifier</span>
-                  <div className="font-mono text-[9px] break-all p-3 rounded-xl bg-black/20 border border-white/5 opacity-50 select-all">
-                    {rawUser?.cognitoSub}
+          {/* ② SUBSCRIPTION — 1 col */}
+          <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <CreditCard className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">Subscription</span>
+            </div>
+            <div className="flex-1 space-y-3">
+              <div className="rounded-xl bg-muted/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground">Plan</p>
+                  <Badge variant={billingStatus?.status === "active" ? "success" : "outline"} className="text-[10px] h-5">
+                    {billingStatus?.status || "Unknown"}
+                  </Badge>
+                </div>
+                <p className="text-sm font-bold text-foreground">
+                  {(() => {
+                    const activeTier = billingStatus?.planTier || resolvedTier;
+                    const plan = availablePlans.find(p => p.tier === activeTier);
+                    return plan?.name || activeTier || "No Plan";
+                  })()}
+                </p>
+                <div className="flex items-center gap-4 pt-2 border-t border-border/60">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Price</p>
+                    <p className="text-xs font-semibold font-mono">{billingStatus?.displayPrice || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Interval</p>
+                    <p className="text-xs font-semibold capitalize">{billingStatus?.billingInterval || "—"}</p>
                   </div>
                 </div>
               </div>
-              <Button variant="outline" className="w-full h-12 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 group" render={<Link href="/messaging" />}>
-                <Mail className="h-4 w-4 mr-3 text-primary group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-black uppercase tracking-widest">Intercept Messaging</span>
-              </Button>
-            </GlassCard>
+            </div>
+          </div>
 
-            <GlassCard container className="p-8! border-primary/20 group/data">
-              <SectionHeader title="Athlete Intelligence" subtitle="Full Data Profile" icon={BarChart3} />
-              <p className="text-xs text-muted-foreground/60 mb-6 leading-relaxed">
-                Full athlete intelligence — sleep, nutrition, food diary, runs, training logs, video feedback, bookings, goals, and more.
-              </p>
-              <div className="grid grid-cols-2 gap-3 mb-6">
+          {/* ③ SYSTEM INFO — 1 col */}
+          <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                <Settings2 className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">System</span>
+            </div>
+            <div className="space-y-2 flex-1">
+              {[
+                { label: "User ID",      value: String(rawUser?.id ?? "—") },
+                { label: "Role",         value: rawUser?.role ?? "—" },
+                { label: "Plan expires", value: onboarding?.athlete?.planExpiresAt ? new Date(onboarding.athlete.planExpiresAt).toLocaleDateString() : "—" },
+              ].map(f => (
+                <div key={f.label} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                  <span className="text-xs text-muted-foreground">{f.label}</span>
+                  <span className="text-xs font-semibold text-foreground">{f.value}</span>
+                </div>
+              ))}
+              <div className="pt-1">
+                <p className="text-[10px] text-muted-foreground mb-1">Cloud ID</p>
+                <p className="font-mono text-[9px] text-muted-foreground/60 break-all select-all leading-relaxed">{rawUser?.cognitoSub || "—"}</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" className="w-full gap-2 text-xs" render={<Link href="/messaging" />}>
+              <Mail className="h-3.5 w-3.5" /> Message
+            </Button>
+          </div>
+
+          {/* ④ ATHLETE PROFILE — full width */}
+          <div className="col-span-1 sm:col-span-2 lg:col-span-4 rounded-2xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <Dumbbell className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">Athlete Profile</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">
+              {[
+                { label: "Full name",   value: onboarding?.athlete?.name || rawUser?.athleteName },
+                { label: "Age",         value: onboarding?.athlete?.age ? `${onboarding.athlete.age} yrs` : null },
+                { label: "Birthday",    value: onboarding?.athlete?.birthDate ? new Date(onboarding.athlete.birthDate).toLocaleDateString() : null },
+                { label: "Team",        value: onboarding?.athlete?.team },
+                { label: "Sessions/wk", value: onboarding?.athlete?.trainingPerWeek ? String(onboarding.athlete.trainingPerWeek) : null },
+                { label: "Equipment",   value: onboarding?.athlete?.equipmentAccess },
+                { label: "Commitment",  value: onboarding?.athlete?.planCommitmentMonths ? `${onboarding.athlete.planCommitmentMonths} mo` : null },
+              ].map(f => (
+                <div key={f.label} className="border-b border-border/40 pb-2">
+                  <p className="text-[10px] text-muted-foreground">{f.label}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{f.value || "—"}</p>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {onboarding?.athlete?.performanceGoals && (
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Target className="h-3 w-3 text-primary" />
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Goals</span>
+                  </div>
+                  <p className="text-xs text-foreground leading-relaxed">{onboarding.athlete.performanceGoals}</p>
+                </div>
+              )}
+              <div className="rounded-xl bg-amber-500/5 border border-amber-500/10 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <AlertCircle className="h-3 w-3 text-amber-500" />
+                  <span className="text-[10px] font-semibold text-amber-500/80 uppercase tracking-wider">Injuries</span>
+                </div>
+                {onboarding?.athlete?.injuries ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(() => {
+                      try {
+                        const parsed = JSON.parse(onboarding.athlete.injuries as string);
+                        if (Array.isArray(parsed)) return parsed.map((inj, i) => (
+                          <Badge key={i} className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                            {typeof inj === "string" ? inj : JSON.stringify(inj)}
+                          </Badge>
+                        ));
+                      } catch {}
+                      return <span className="text-xs">{onboarding.athlete.injuries}</span>;
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">None reported</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ⑤ TELEMETRY — full width, Premium only */}
+          {resolvedTier === "PHP_Premium" && (
+            <div className="col-span-1 sm:col-span-2 lg:col-span-4 rounded-2xl border border-primary/20 bg-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                    <Activity className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">Training Metrics</span>
+                </div>
+                <Button variant="outline" size="sm" className="text-xs gap-1.5" render={<Link href="/training-snapshot" />}>
+                  View all <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
-                  { icon: Moon, label: "Sleep", color: "bg-blue-500/10 text-blue-500" },
-                  { icon: Apple, label: "Nutrition", color: "bg-green-500/10 text-green-500" },
-                  { icon: Footprints, label: "Runs", color: "bg-emerald-500/10 text-emerald-500" },
-                  { icon: Heart, label: "Wellness", color: "bg-red-500/10 text-red-500" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                    <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", item.color)}>
-                      <item.icon className="h-3.5 w-3.5" />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">{item.label}</span>
+                  { label: "Sessions", value: completionStats.count },
+                  { label: "Avg RPE",  value: completionStats.avgRpe },
+                  { label: "Soreness", value: completionStats.avgSoreness },
+                  { label: "Fatigue",  value: completionStats.avgFatigue },
+                ].map(stat => (
+                  <div key={stat.label} className="rounded-xl bg-muted/40 p-4 text-center">
+                    <p className="text-[10px] text-muted-foreground mb-1">{stat.label}</p>
+                    <p className="text-2xl font-bold font-mono text-foreground">
+                      {completionsLoading ? "…" : (stat.value ?? "0")}
+                    </p>
                   </div>
                 ))}
               </div>
-              <Button
-                className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20 group"
-                render={<Link href={`/users/${userId}/data`} />}
-              >
-                <BarChart3 className="h-4 w-4 mr-3 group-hover:scale-110 transition-transform" />
-                See User Data
-                <ChevronRight className="h-4 w-4 ml-auto" />
-              </Button>
-            </GlassCard>
+            </div>
+          )}
 
-            <GlassCard container className="p-8!">
-              <SectionHeader title="Subscription" subtitle="Active Plan & Billing" icon={CreditCard} />
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 block mb-1">Current Plan</span>
-                      <h4 className="text-sm font-black uppercase text-foreground">
-                        {(() => {
-                          const activeTier = billingStatus?.planTier || resolvedTier;
-                          const plan = availablePlans.find(p => p.tier === activeTier || p.id === desiredPlanId);
-                          return plan?.name || activeTier || "No Active Plan";
-                        })()}
-                      </h4>
-                    </div>
-                    <Badge variant={billingStatus?.status === 'active' ? 'success' : 'outline'} className="h-6 px-2 text-[9px] font-black uppercase tracking-widest">
-                      {billingStatus?.status || 'Unknown'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 block mb-0.5">Price</span>
-                      <span className="text-xs font-bold font-mono">{billingStatus?.displayPrice || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 block mb-0.5">Interval</span>
-                      <span className="text-xs font-bold uppercase tracking-tight">{billingStatus?.billingInterval || "—"}</span>
-                    </div>
-                  </div>
-                </div>
+          {/* ⑥ DATA PROFILE — 1 col → 2 cols on lg */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                <BarChart3 className="h-4 w-4 text-primary" />
               </div>
-            </GlassCard>
-
-            <GlassCard container className="p-8!">
-              <SectionHeader title="Authentication" subtitle="Security Protocol" icon={Lock} />
-              
-              {isTechnicalAthleteUser ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center rounded-3xl bg-muted/20 border border-dashed border-white/10">
-                   <ShieldAlert className="h-8 w-8 text-muted-foreground/30 mb-3" />
-                   <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Legacy Youth Record</p>
-                   <p className="mt-2 text-[9px] font-medium leading-relaxed opacity-40">Access managed via guardian primary protocol.</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">Security Overwrite</label>
-                    <div className="relative">
-                      <Input
-                        type={showTemporaryPassword ? "text" : "password"}
-                        className="h-14 rounded-2xl border-white/10 bg-black/20 focus:bg-black/40 transition-all font-mono text-sm"
-                        placeholder="System Generated..."
-                        value={passwordInput}
-                        onChange={(event) => setPasswordInput(event.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowTemporaryPassword((prev) => !prev)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-primary transition-colors"
-                      >
-                        {showTemporaryPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
+              <span className="text-sm font-semibold text-foreground">Full Data</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 flex-1">
+              {[
+                { icon: Moon,       label: "Sleep",     color: "text-blue-500 bg-blue-500/10" },
+                { icon: Apple,      label: "Nutrition", color: "text-green-500 bg-green-500/10" },
+                { icon: Footprints, label: "Runs",      color: "text-emerald-500 bg-emerald-500/10" },
+                { icon: Heart,      label: "Wellness",  color: "text-red-500 bg-red-500/10" },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 p-2.5">
+                  <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-md", item.color)}>
+                    <item.icon className="h-3 w-3" />
                   </div>
-                  <Button
-                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-primary/20"
-                    onClick={() => void handleResetPassword()}
-                    disabled={isResettingPassword || isManualPasswordInvalid}
+                  <span className="text-[10px] font-medium text-muted-foreground">{item.label}</span>
+                </div>
+              ))}
+            </div>
+            <Button className="w-full gap-2 text-xs" render={<Link href={`/users/${userId}/data`} />}>
+              <BarChart3 className="h-3.5 w-3.5" /> See User Data
+            </Button>
+          </div>
+
+          {/* ⑦ SECURITY — 1 col → 2 cols on lg */}
+          <div className="col-span-1 sm:col-span-1 lg:col-span-2 rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">Security</span>
+            </div>
+            {isTechnicalAthleteUser ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl bg-muted/30 p-4 text-center">
+                <ShieldAlert className="h-6 w-6 text-muted-foreground/30" />
+                <p className="text-xs text-muted-foreground">Managed via guardian account</p>
+              </div>
+            ) : (
+              <div className="flex-1 space-y-3">
+                <div className="relative">
+                  <Input
+                    type={showTemporaryPassword ? "text" : "password"}
+                    className="h-10 pr-10 text-sm font-mono"
+                    placeholder="Override password…"
+                    value={passwordInput}
+                    onChange={e => setPasswordInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTemporaryPassword(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground"
                   >
-                    {isResettingPassword ? "Executing Reset..." : "Reset System Access"}
+                    {showTemporaryPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                <Button
+                  className="w-full gap-2 text-xs"
+                  onClick={() => void handleResetPassword()}
+                  disabled={isResettingPassword || isManualPasswordInvalid}
+                >
+                  {isResettingPassword ? "Resetting…" : "Reset Password"}
+                </Button>
+                {temporaryPassword && (
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-3">
+                    <p className="text-[10px] text-primary font-medium mb-1">Temporary password</p>
+                    <p className="font-mono text-xs break-all select-all text-foreground">{temporaryPassword}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ⑧ ADMIN CONTROLS — full width */}
+          <div className="col-span-1 sm:col-span-2 lg:col-span-4 rounded-2xl border border-red-500/20 bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+                <ShieldAlert className="h-4 w-4 text-red-500" />
+              </div>
+              <span className="text-sm font-semibold text-foreground">Admin Controls</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {/* Tier */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Program tier</p>
+                <div className="flex gap-2">
+                  <Select value={programTier} onValueChange={v => setProgramTier(v ?? "")}>
+                    <SelectTrigger className="h-9 text-xs flex-1"><SelectValue /></SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="PHP">Standard</SelectItem>
+                      <SelectItem value="PHP_Premium">Premium</SelectItem>
+                      <SelectItem value="PHP_Premium_Plus">Plus</SelectItem>
+                      <SelectItem value="PHP_Pro">Pro</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                  <Button onClick={handleUpdateTier} disabled={!athleteId || tierLoading} className="h-9 w-9 p-0 shrink-0">
+                    <Zap className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              )}
-            </GlassCard>
+              </div>
 
-            <GlassCard container className="p-8! border-red-500/20">
-              <SectionHeader title="Admin Override" subtitle="Destructive Operations" icon={ShieldAlert} />
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">Gated Tier Protocol</label>
+              {/* Plan */}
+              {availablePlans.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Assign plan</p>
                   <div className="flex gap-2">
-                    <Select value={programTier} onValueChange={(v) => setProgramTier(v ?? "")}>
-                      <SelectTrigger className="h-12 rounded-2xl border-white/10 bg-black/20 w-full font-black uppercase tracking-widest text-[10px]"><SelectValue /></SelectTrigger>
+                    <Select value={desiredPlanId?.toString() || ""} onValueChange={v => setDesiredPlanId(Number(v))}>
+                      <SelectTrigger className="h-9 text-xs flex-1">
+                        <SelectValue placeholder="Select plan…" />
+                      </SelectTrigger>
                       <SelectPopup>
-                        <SelectItem value="PHP">Standard Tier</SelectItem>
-                        <SelectItem value="PHP_Premium">Premium Tier</SelectItem>
-                        <SelectItem value="PHP_Premium_Plus">Plus Tier</SelectItem>
-                        <SelectItem value="PHP_Pro">Pro Performance</SelectItem>
+                        {availablePlans.map(plan => (
+                          <SelectItem key={plan.id} value={plan.id.toString()}>{plan.name}</SelectItem>
+                        ))}
                       </SelectPopup>
                     </Select>
-                    <Button onClick={handleUpdateTier} disabled={!athleteId || tierLoading} className="h-12 w-12 rounded-2xl p-0 shrink-0 shadow-lg shadow-primary/20">
-                      <Zap className="h-4 w-4" />
+                    <Button onClick={handleAssignPlan} disabled={!athleteId || !desiredPlanId || isAssigningPlan} className="h-9 w-9 p-0 shrink-0 bg-emerald-600 hover:bg-emerald-700">
+                      <ShieldCheck className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
+              )}
 
-                {availablePlans.length > 0 && (
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-1">Specific Plan Assignment</label>
-                    <div className="flex gap-2">
-                      <Select value={desiredPlanId?.toString() || ""} onValueChange={(v) => setDesiredPlanId(Number(v))}>
-                        <SelectTrigger className="h-12 rounded-2xl border-white/10 bg-black/20 w-full font-black uppercase tracking-widest text-[10px]">
-                          <SelectValue placeholder="Select Active Plan..." />
-                        </SelectTrigger>
-                        <SelectPopup>
-                          {availablePlans.map((plan) => (
-                            <SelectItem key={plan.id} value={plan.id.toString()}>{plan.name}</SelectItem>
-                          ))}
-                        </SelectPopup>
-                      </Select>
-                      <Button 
-                        onClick={handleAssignPlan} 
-                        disabled={!athleteId || !desiredPlanId || isAssigningPlan} 
-                        className="h-12 w-12 rounded-2xl p-0 shrink-0 bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-white/5">
-                  <Button variant="outline" onClick={handleBlock} disabled={blockLoading} className="h-12 rounded-2xl border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest">
+              {/* Danger */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Danger zone</p>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleBlock} disabled={blockLoading} className="flex-1 h-9 text-xs">
                     {rawUser?.isBlocked ? "Unblock" : "Block"}
                   </Button>
-                  <Button variant="outline" onClick={handleDelete} disabled={deleteLoading} className="h-12 rounded-2xl border-red-500/30 bg-red-500/5 text-red-500 hover:bg-red-500/10 text-[10px] font-black uppercase tracking-widest">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+                  <Button variant="outline" onClick={handleDelete} disabled={deleteLoading} className="flex-1 h-9 text-xs border-red-500/30 text-red-500 hover:bg-red-500/10 hover:border-red-500/50">
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
                   </Button>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </div>
+
         </div>
       </div>
     </AdminShell>

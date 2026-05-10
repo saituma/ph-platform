@@ -1,7 +1,3 @@
-import { config } from "@/lib/config";
-import { getClientAuthToken } from "@/lib/client-storage";
-
-const baseUrl = () => config.api.baseUrl;
 
 export const rosterQueryKeys = {
 	all: ["teamRoster"] as const,
@@ -49,12 +45,8 @@ export async function fetchAthleteNutritionLogs(
 		to,
 		limit: String(Math.max(lastNDays + 10, 40)),
 	});
-	const token = getClientAuthToken();
-	const res = await fetch(`${baseUrl()}/api/nutrition/logs?${qs}`, {
+	const res = await fetch(`/api/nutrition/logs?${qs}`, {
 		credentials: "include",
-		headers: {
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
-		},
 	});
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
@@ -92,12 +84,8 @@ export type TeamRosterResponse = {
 export async function fetchTeamRoster(
 	_token?: string,
 ): Promise<TeamRosterResponse> {
-	const token = getClientAuthToken();
-	const res = await fetch(`${baseUrl()}/api/team/roster`, {
+	const res = await fetch(`/api/team/roster`, {
 		credentials: "include",
-		headers: {
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
-		},
 	});
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({}));
@@ -126,13 +114,11 @@ export async function createTeamAthlete(
 	temporaryPassword: string;
 	teamSlug: string;
 }> {
-	const token = getClientAuthToken();
-	const res = await fetch(`${baseUrl()}/api/team/roster/athletes`, {
+	const res = await fetch(`/api/team/roster/athletes`, {
 		method: "POST",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify(body),
 	});
@@ -179,14 +165,10 @@ export async function fetchTeamAthleteDetail(
 	_token: string,
 	athleteId: number,
 ): Promise<TeamAthleteDetail> {
-	const token = getClientAuthToken();
 	const res = await fetch(
-		`${baseUrl()}/api/team/roster/athletes/${athleteId}`,
+		`/api/team/roster/athletes/${athleteId}`,
 		{
 			credentials: "include",
-			headers: {
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
-			},
 		},
 	);
 	const data = await res.json().catch(() => ({}));
@@ -207,15 +189,13 @@ export async function resetTeamAthletePassword(
 		customPassword !== undefined && customPassword.trim().length > 0
 			? JSON.stringify({ customPassword: customPassword.trim() })
 			: "{}";
-	const token = getClientAuthToken();
 	const res = await fetch(
-		`${baseUrl()}/api/team/roster/athletes/${athleteId}/reset-password`,
+		`/api/team/roster/athletes/${athleteId}/reset-password`,
 		{
 			method: "POST",
 			credentials: "include",
 			headers: {
 				"Content-Type": "application/json",
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			},
 			body,
 		},
@@ -246,15 +226,13 @@ export async function updateTeamAthlete(
 	athleteId: number,
 	body: UpdateTeamAthleteBody,
 ): Promise<{ ok: true }> {
-	const token = getClientAuthToken();
 	const res = await fetch(
-		`${baseUrl()}/api/team/roster/athletes/${athleteId}`,
+		`/api/team/roster/athletes/${athleteId}`,
 		{
 			method: "PATCH",
 			credentials: "include",
 			headers: {
 				"Content-Type": "application/json",
-				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			},
 			body: JSON.stringify(body),
 		},
@@ -273,13 +251,11 @@ export async function uploadTeamAthletePhoto(
 	_token: string,
 	file: File,
 ): Promise<string> {
-	const token = getClientAuthToken();
-	const presign = await fetch(`${baseUrl()}/api/media/presign`, {
+	const presign = await fetch(`/api/media/presign`, {
 		method: "POST",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify({
 			folder: "profiles/team-athletes",
@@ -316,13 +292,11 @@ export async function updateTeamEmailSlug(
 	_token: string,
 	emailSlug: string,
 ): Promise<void> {
-	const token = getClientAuthToken();
-	const res = await fetch(`${baseUrl()}/api/team/roster/email-slug`, {
+	const res = await fetch(`/api/team/roster/email-slug`, {
 		method: "PATCH",
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 		body: JSON.stringify({ emailSlug }),
 	});

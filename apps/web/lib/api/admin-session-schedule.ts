@@ -23,8 +23,10 @@ export type ScheduledSessionAdminRecord = {
   name: string;
   type: "one_to_one" | "semi_private" | "in_person" | "team";
   scope: "individual" | "group" | "team";
+  status?: "scheduled" | "cancelled" | string;
   startsAt: string;
   endsAt: string;
+  googleEventId?: string | null;
   attendees: Array<{
     userId: number;
     status: "unmarked" | "attended" | "missed";
@@ -34,8 +36,27 @@ export type ScheduledSessionAdminRecord = {
   }>;
 };
 
+export type GoogleCalendarEvent = {
+  id: string;
+  summary: string | null;
+  description: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  isAllDay: boolean;
+  htmlLink: string | null;
+  status: string;
+};
+
 const adminSessionScheduleApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    getAdminGoogleCalendarEvents: builder.query<
+      { events: GoogleCalendarEvent[]; error?: string | null },
+      { from: string; to: string }
+    >({
+      query: ({ from, to }) => `/admin/google-calendar/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      providesTags: ["CalendarConnection"],
+    }),
     getAdminGoogleCalendarConnection: builder.query<
       {
         connected: boolean;
@@ -179,11 +200,55 @@ const adminSessionScheduleApi = apiSlice.injectEndpoints({
       },
       providesTags: ["ScheduledSessions"],
     }),
+    deleteAdminSessionTemplate: builder.mutation<{ ok: true }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/session-templates/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["SessionTemplates", "ScheduledSessions"],
+    }),
+    updateAdminSessionTemplate: builder.mutation<
+      { template: SessionTemplateRecord },
+      { id: number; updates: Partial<Omit<SessionTemplateRecord, "id">> }
+    >({
+      query: ({ id, updates }) => ({
+        url: `/admin/session-templates/${id}`,
+        method: "PATCH",
+        body: updates,
+      }),
+      invalidatesTags: ["SessionTemplates"],
+    }),
+    deleteAdminScheduledSession: builder.mutation<{ ok: true }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/scheduled-sessions/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ScheduledSessions"],
+    }),
+    updateAdminScheduledSession: builder.mutation<
+      { session: ScheduledSessionAdminRecord },
+      { id: number; updates: Partial<Omit<ScheduledSessionAdminRecord, "id" | "attendees">> }
+    >({
+      query: ({ id, updates }) => ({
+        url: `/admin/scheduled-sessions/${id}`,
+        method: "PATCH",
+        body: updates,
+      }),
+      invalidatesTags: ["ScheduledSessions"],
+    }),
+    cancelAdminScheduledSession: builder.mutation<{ ok: true }, { id: number }>({
+      query: ({ id }) => ({
+        url: `/admin/scheduled-sessions/${id}/cancel`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ScheduledSessions"],
+    }),
   }),
   overrideExisting: false,
 });
 
 export const {
+  useGetAdminGoogleCalendarEventsQuery,
   useGetAdminGoogleCalendarConnectionQuery,
   useGetAdminGoogleCalendarOAuthStartQuery,
   useLazyGetAdminGoogleCalendarOAuthStartQuery,
@@ -198,4 +263,9 @@ export const {
   useMarkAdminSessionAttendanceMutation,
   useGenerateAttendanceQrMutation,
   useGetAdminAttendanceStatsQuery,
+  useDeleteAdminSessionTemplateMutation,
+  useUpdateAdminSessionTemplateMutation,
+  useDeleteAdminScheduledSessionMutation,
+  useUpdateAdminScheduledSessionMutation,
+  useCancelAdminScheduledSessionMutation,
 } = adminSessionScheduleApi;

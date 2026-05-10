@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "API base URL not configured" }, { status: 500 });
   }
 
-  const accessToken = req.cookies.get("accessToken")?.value ?? req.cookies.get("accessTokenClient")?.value ?? "";
+  const accessToken = req.cookies.get("accessToken")?.value ?? "";
   const refreshToken = req.cookies.get("refreshToken")?.value ?? "";
 
   if (accessToken && (await validateAccessToken(accessToken))) {

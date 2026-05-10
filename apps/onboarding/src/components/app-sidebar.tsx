@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
@@ -50,6 +51,9 @@ import {
 import { useRouterPathname } from "@/lib/use-router-pathname";
 import { cn } from "@/lib/utils";
 import { clearAuthToken } from "@/lib/client-storage";
+import { messageKeys } from "@/lib/portal-messages-keys";
+import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
+import { fetchInbox } from "@/services/messagesService";
 import { usePortal } from "@/portal/PortalContext";
 
 function normalizePortalPathname(pathname: string): string {
@@ -122,8 +126,27 @@ const legalItems = [
 
 export function AppSidebar() {
 	const pathname = useRouterPathname();
-	const { user } = usePortal();
+	const { user, token, loading: portalLoading } = usePortal();
 	const { state, toggleSidebar } = useSidebar();
+	const isManager = isPortalTeamRosterManagerRole(user?.role);
+
+	const { data: inboxData } = useQuery({
+		queryKey: messageKeys.inbox(token, isManager),
+		queryFn: () => {
+			if (!token) throw new Error("Missing auth token");
+			return fetchInbox(token, isManager);
+		},
+		enabled: !!token && !portalLoading,
+		staleTime: 1000 * 30,
+		refetchInterval: 1000 * 60,
+		select: (data) => ({
+			unread: (data?.threads ?? []).reduce(
+				(sum: number, t: { unread: number }) => sum + (t.unread ?? 0),
+				0,
+			),
+		}),
+	});
+	const messagesUnreadCount = inboxData?.unread ?? 0;
 	const birthDate = user?.birthDate ? new Date(user.birthDate) : null;
 	const hasValidBirthDate = birthDate != null && !Number.isNaN(birthDate.getTime());
 	const now = new Date();
@@ -153,7 +176,11 @@ export function AppSidebar() {
 		window.location.href = "/login";
 	};
 
-	const renderNavItem = (item: { label: string; path: string; icon: any }, active: boolean) => {
+	const renderNavItem = (
+		item: { label: string; path: string; icon: any },
+		active: boolean,
+		badge?: number,
+	) => {
 		const Icon = item.icon;
 		return (
 			<SidebarMenuItem key={item.path} className="relative">
@@ -180,10 +207,21 @@ export function AppSidebar() {
 							whileHover={{ scale: 1.05 }}
 							whileTap={{ scale: 0.95 }}
 							transition={{ duration: 0.15 }}
+							className="relative"
 						>
 							<Icon className="h-4 w-4" />
+							{badge != null && badge > 0 && (
+								<span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center font-black leading-none">
+									{badge > 9 ? "9+" : badge}
+								</span>
+							)}
 						</motion.div>
 						<span className="font-mono text-xs tracking-wide">{item.label}</span>
+						{badge != null && badge > 0 && (
+							<span className="ml-auto group-data-[collapsible=icon]:hidden h-4 min-w-4 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center px-1 font-black leading-none">
+								{badge > 99 ? "99+" : badge}
+							</span>
+						)}
 					</Link>
 				</SidebarMenuButton>
 			</SidebarMenuItem>
@@ -251,7 +289,15 @@ export function AppSidebar() {
 					</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{mainNavItems.map((item) => renderNavItem(item, isActive(item.path)))}
+							{mainNavItems.map((item) =>
+							renderNavItem(
+								item,
+								isActive(item.path),
+								item.path === "/portal/messages" && messagesUnreadCount > 0
+									? messagesUnreadCount
+									: undefined,
+							),
+						)}
 							{showParentPlatformNav
 								? renderNavItem(parentPlatformNavItem, isActive(parentPlatformNavItem.path))
 								: null}

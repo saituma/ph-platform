@@ -1,6 +1,5 @@
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { cors } from "hono/cors";
 
 import { appUserTable } from "./db/app-schema";
 import { createAuth, createWorkerDb } from "./lib/auth";
@@ -22,15 +21,56 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
+function normalizeOrigin(value: string): string | null {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return null;
+  }
+}
+
+export function getAllowedCorsOrigins(env: Pick<Bindings, "BETTER_AUTH_URL" | "TRUSTED_ORIGINS_EXTRA">): Set<string> {
+  const origins = new Set<string>();
+  const add = (value: string | undefined) => {
+    if (!value) return;
+    const origin = normalizeOrigin(value);
+    if (origin) origins.add(origin);
+  };
+
+  add(env.BETTER_AUTH_URL);
+  for (const part of (env.TRUSTED_ORIGINS_EXTRA ?? "").split(",")) {
+    add(part);
+  }
+
+  return origins;
+}
+
 app.use(
   "*",
-  cors({
-    origin: (origin) => origin ?? "*",
-    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
-    exposeHeaders: ["set-auth-token"],
-    credentials: true,
-  }),
+  async (c, next) => {
+    const origin = c.req.header("Origin");
+    const normalized = origin ? normalizeOrigin(origin) : null;
+    const allowedOrigin = normalized && getAllowedCorsOrigins(c.env).has(normalized) ? normalized : null;
+
+    if (allowedOrigin) {
+      c.header("Access-Control-Allow-Origin", allowedOrigin);
+      c.header("Access-Control-Allow-Credentials", "true");
+      c.header("Access-Control-Expose-Headers", "set-auth-token");
+      c.header("Vary", "Origin");
+    }
+
+    if (c.req.method === "OPTIONS") {
+      if (allowedOrigin) {
+        c.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+        c.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
+      }
+      return c.body(null, 204);
+    }
+
+    return next();
+  },
 );
 
 app.get("/health", (c) => c.json({ ok: true, service: "ph-app-worker" }));

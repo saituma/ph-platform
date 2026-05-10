@@ -102,5 +102,24 @@ describe("csrf", () => {
       const headers = new Headers(init.headers);
       expect(headers.has("X-CSRF-Token")).toBe(false);
     });
+
+    it("never injects Authorization header even when localStorage has a token", async () => {
+      localStorage.setItem("ph_auth_token", "stored.jwt.token");
+      Object.defineProperty(document, "cookie", {
+        value: "__csrf=token-x",
+        writable: true,
+        configurable: true,
+      });
+      await csrfFetch("/api/data", { method: "POST" });
+      const [, init] = (fetch as any).mock.calls[0];
+      const headers = new Headers(init.headers);
+      expect(headers.has("Authorization")).toBe(false);
+    });
+
+    it("always sets credentials: include", async () => {
+      await csrfFetch("/api/data");
+      const [, init] = (fetch as any).mock.calls[0];
+      expect((init as RequestInit).credentials).toBe("include");
+    });
   });
 });

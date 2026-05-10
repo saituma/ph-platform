@@ -2,9 +2,14 @@ import "dotenv/config";
 import dns from "node:dns";
 import { defineConfig } from "drizzle-kit";
 
-const databaseUrl = process.env.DATABASE_URL;
+// Migrations must run over a DIRECT (non-pooled) connection.
+// pgbouncer/Neon pooler transaction mode does not support the advisory locks
+// and multi-statement DDL that Drizzle Kit migrations rely on.
+// Set DIRECT_DATABASE_URL to a non-pooler connection string in production;
+// it falls back to DATABASE_URL (fine for local dev without a pooler).
+const databaseUrl = process.env.DIRECT_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL environment variable is not set");
+  throw new Error("DATABASE_URL (or DIRECT_DATABASE_URL) environment variable is not set");
 }
 
 dns.setDefaultResultOrder("ipv4first");

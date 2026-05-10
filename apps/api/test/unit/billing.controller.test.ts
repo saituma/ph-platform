@@ -6,7 +6,7 @@ jest.mock("../../src/services/billing.service", () => ({
 
 describe("billing controller", () => {
   test("confirmPaymentSheet returns 401 when no user", async () => {
-    const { confirmPaymentSheet } = await import("../../src/controllers/billing.controller");
+    const { confirmPaymentSheet } = await import("../../src/controllers/billing");
     const req = { body: { paymentIntentId: "pi_1" } } as Request;
     const res = {
       status: jest.fn().mockReturnThis(),
@@ -19,7 +19,7 @@ describe("billing controller", () => {
   });
 
   test("confirmPaymentSheet returns 404 when request not found", async () => {
-    const { confirmPaymentSheet } = await import("../../src/controllers/billing.controller");
+    const { confirmPaymentSheet } = await import("../../src/controllers/billing");
     const req = { body: { paymentIntentId: "pi_1" }, user: { id: 1 } } as unknown as Request;
     const res = {
       status: jest.fn().mockReturnThis(),

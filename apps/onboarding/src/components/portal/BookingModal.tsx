@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { X, CheckCircle, Loader2, MapPin, Video, Info, Lock, Users, Check, Clock } from "lucide-react";
 import {
   fetchBookingServices,
   createBooking,
   fetchGeneratedAvailability,
-  sumReportedOpeningsForService,
 } from "@/services/scheduleService";
 import { toast } from "sonner";
 

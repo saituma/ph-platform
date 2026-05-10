@@ -1,27 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ArrowRight, Smartphone, Activity, Utensils, MapPin, CalendarCheck, BarChart3 } from "lucide-react";
+import { buildOgMeta } from "../lib/seo";
 
 export const Route = createFileRoute("/app-download")({
 	head: () => ({
-		meta: [
-			{ title: "PH Performance App — Download & Features" },
-			{
-				name: "description",
-				content:
-					"Download the PH Performance app. Training programmes, nutrition tracking, GPS performance, session booking, and analytics — all in one place.",
-			},
-			{ property: "og:title", content: "PH Performance App — Download & Features" },
-			{
-				property: "og:description",
-				content:
-					"Train smarter with the PH Performance app. Track everything, book sessions, and stay connected to your coach.",
-			},
-			{ property: "og:url", content: "https://phperformance.uk/app-download" },
-			{ property: "og:image", content: "https://phperformance.uk/home.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
-		],
+		meta: buildOgMeta({
+			title: "PH Performance App — Download & Features",
+			description: "Download the PH Performance app. Training programmes, nutrition tracking, GPS performance, session booking, and analytics — all in one place.",
+			url: "https://phperformance.uk/app-download",
+			imageAlt: "PH Performance App — Download on iOS & Android",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/app-download" }],
 		scripts: [
 			{

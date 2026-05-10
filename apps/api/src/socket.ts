@@ -98,6 +98,92 @@ setInterval(() => {
   }
 }, 120_000);
 
+// ── Per-socket sliding-window rate limiter (Fix C) ─────────────────
+// Protects expensive events: max 20 per 10 s per socket (independent of the
+// per-user bucket above which guards per-minute limits).
+const SOCKET_SLIDING_MAX = 20;
+const SOCKET_SLIDING_WINDOW_MS = 10_000;
+
+const SOCKET_SLIDING_EVENTS = new Set([
+  "message:send",
+  "group:send",
+  "typing:start",
+  "typing:stop",
+]);
+
+function isSocketSlidingRateLimited(socket: { data: Record<string, unknown> }, event: string): boolean {
+  if (!SOCKET_SLIDING_EVENTS.has(event)) return false;
+  const key = `__sliding_${event}`;
+  const now = Date.now();
+  const cutoff = now - SOCKET_SLIDING_WINDOW_MS;
+  const timestamps = (socket.data[key] as number[] | undefined) ?? [];
+  // Evict expired entries
+  const trimmed = timestamps.filter((t) => t > cutoff);
+  if (trimmed.length >= SOCKET_SLIDING_MAX) {
+    socket.data[key] = trimmed;
+    return true;
+  }
+  trimmed.push(now);
+  socket.data[key] = trimmed;
+  return false;
+}
+
+// ── lastSeenAt debounce (Fix B) ────────────────────────────────────
+// Mobile reconnect storms fire disconnect rapidly; batching DB writes
+// prevents thundering-herd writes to the users table.
+const LAST_SEEN_DEBOUNCE_MS = 5_000;
+const lastSeenTimers = new Map<number, ReturnType<typeof setTimeout>>();
+
+export function createLastSeenDebouncer(writeFn: (userId: number) => void) {
+  return {
+    schedule(userId: number): void {
+      const existing = lastSeenTimers.get(userId);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        lastSeenTimers.delete(userId);
+        writeFn(userId);
+      }, LAST_SEEN_DEBOUNCE_MS);
+      lastSeenTimers.set(userId, timer);
+    },
+    cancel(userId: number): void {
+      const existing = lastSeenTimers.get(userId);
+      if (existing) {
+        clearTimeout(existing);
+        lastSeenTimers.delete(userId);
+      }
+    },
+  };
+}
+
+// ── Reconnect storm guard (Fix E) ─────────────────────────────────
+// Per-process, best-effort. Intentionally not shared across instances.
+const STORM_WINDOW_MS = 30_000;
+const STORM_MAX_CONNECTS = 10;
+const STORM_DELAY_MS = 2_000;
+const connectTimestamps = new Map<number, number[]>();
+
+setInterval(() => {
+  const now = Date.now();
+  const cutoff = now - STORM_WINDOW_MS;
+  for (const [uid, timestamps] of connectTimestamps) {
+    const trimmed = timestamps.filter((t) => t > cutoff);
+    if (trimmed.length === 0) {
+      connectTimestamps.delete(uid);
+    } else {
+      connectTimestamps.set(uid, trimmed);
+    }
+  }
+}, 60_000);
+
+function recordConnect(userId: number): boolean {
+  const now = Date.now();
+  const cutoff = now - STORM_WINDOW_MS;
+  const timestamps = (connectTimestamps.get(userId) ?? []).filter((t) => t > cutoff);
+  timestamps.push(now);
+  connectTimestamps.set(userId, timestamps);
+  return timestamps.length > STORM_MAX_CONNECTS;
+}
+
 async function resolveUserId(payload: AuthPayload) {
   if (payload.user_id) return payload.user_id;
   if (!payload.sub) return null;
@@ -106,6 +192,15 @@ async function resolveUserId(payload: AuthPayload) {
 }
 
 export function initSocket(server: HttpServer) {
+  // Fix A: Fail fast in production when Redis is required but missing.
+  if (env.nodeEnv === "production" && env.socketRequireRedis && !process.env.REDIS_URL) {
+    throw new Error(
+      "SOCKET_REQUIRE_REDIS=true but REDIS_URL is not set. " +
+        "Socket.IO cannot run in multi-instance mode without Redis. " +
+        "Either set REDIS_URL or remove SOCKET_REQUIRE_REDIS.",
+    );
+  }
+
   const allowedOrigins = new Set<string>();
   const allowedWildcards: string[] = [];
   const addOrigin = (value?: string) => {
@@ -194,9 +289,22 @@ export function initSocket(server: HttpServer) {
 
   setSocketServer(io);
 
+  // Fix D: Presence is per-process. In multi-instance deployments, use Redis
+  // adapter for accurate presence. Without the adapter, each instance tracks
+  // only its own connected users and will emit stale presence:offline events.
   const onlineUsers = new Set<number>();
 
   const log = createLogger({ component: "socket" });
+
+  // Fix B: lastSeenAt debouncer — shared across all sockets in this process.
+  const lastSeenDebouncer = createLastSeenDebouncer((userId: number) => {
+    db.update(userTable)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(userTable.id, userId))
+      .catch((err: unknown) => {
+        log.warn({ err }, "Failed to update lastSeenAt");
+      });
+  });
 
   io.use(async (socket, next) => {
     try {
@@ -205,7 +313,11 @@ export function initSocket(server: HttpServer) {
       const cookieToken = cookieHeader
         .split(";")
         .map((part) => part.trim())
-        .find((part) => part.startsWith("accessToken=") || part.startsWith("auth_token="))
+        .find((part) =>
+          part.startsWith("accessToken=") ||
+          part.startsWith("auth_token=") ||
+          part.startsWith("ph_app_session="),
+        )
         ?.split("=")[1];
       const token = socket.handshake.auth?.token || headerAuth || cookieToken;
       if (!token) {
@@ -287,6 +399,17 @@ export function initSocket(server: HttpServer) {
 
   io.on("connection", async (socket) => {
     const userId = socket.data.userId as number;
+
+    // Fix E: Reconnect storm guard — delay if same user connects too rapidly.
+    const isStorm = recordConnect(userId);
+    if (isStorm) {
+      log.warn({ userId, socketId: socket.id }, "Reconnect storm detected — throttling connection by 2 s");
+      await new Promise<void>((resolve) => setTimeout(resolve, STORM_DELAY_MS));
+    }
+
+    // Fix B: Cancel any pending lastSeenAt write — user is back online.
+    lastSeenDebouncer.cancel(userId);
+
     log.info(
       {
         userId,
@@ -325,6 +448,12 @@ export function initSocket(server: HttpServer) {
 
     function guarded<T extends z.ZodTypeAny>(event: string, schema: T, handler: (data: z.infer<T>) => Promise<void>) {
       socket.on(event, async (rawPayload: unknown) => {
+        // Fix C: Per-socket sliding window check (20 events / 10 s for expensive events).
+        if (isSocketSlidingRateLimited(socket, event)) {
+          socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
+          return;
+        }
+        // Per-user per-minute bucket check (existing).
         if (isRateLimited(userId, event)) {
           socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
           return;
@@ -551,12 +680,10 @@ export function initSocket(server: HttpServer) {
       );
       onlineUsers.delete(userId);
       io.emit("presence:offline", { userId });
-      db.update(userTable)
-        .set({ lastSeenAt: new Date() })
-        .where(eq(userTable.id, userId))
-        .catch((err: unknown) => {
-          log.warn({ err }, "Failed to update lastSeenAt");
-        });
+      // Fix B: Debounce lastSeenAt writes to prevent DB spam during mobile
+      // reconnect storms. Write fires after LAST_SEEN_DEBOUNCE_MS unless the
+      // user reconnects first (reconnect handler cancels the timer).
+      lastSeenDebouncer.schedule(userId);
     });
   });
 

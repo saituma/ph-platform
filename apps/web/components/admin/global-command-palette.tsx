@@ -149,38 +149,72 @@ const NAV_ITEMS: PaletteList = {
   id: "pages",
   heading: "Pages",
   items: [
-    { id: "home", children: "Overview", href: "/", keywords: ["dashboard", "home"] },
-    { id: "users", children: "Users & Tiers", href: "/users", keywords: ["athletes", "guardians", "clients"] },
-    { id: "add-user", children: "Add user", href: "/users/add", keywords: ["new user", "create user"] },
-    { id: "add-team", children: "Add team", href: "/users/add-team", keywords: ["new team", "create team"] },
-    { id: "teams", children: "Teams", href: "/teams" },
-    { id: "coaching", children: "Coaching", href: "/coaching", keywords: ["coach", "sessions"] },
-    { id: "portal-config", children: "Portal Config", href: "/portal-config", keywords: ["portal", "landing", "marketing", "copy"] },
-    { id: "training-snapshot", children: "Client training", href: "/training-snapshot", keywords: ["training", "snapshot"] },
-    { id: "top-athletes", children: "Top athletes", href: "/top-athletes", keywords: ["leaderboard", "ranking"] },
-    { id: "tracking", children: "Tracking", href: "/tracking", keywords: ["activity", "progress"] },
-    { id: "training-questionnaires", children: "Training answers", href: "/training-questionnaires", keywords: ["questionnaire", "answers", "forms"] },
-    { id: "stats", children: "Stats", href: "/stats", keywords: ["analytics", "statistics"] },
-    { id: "billing", children: "Billing", href: "/billing", keywords: ["payments", "invoices", "subscriptions"] },
-    { id: "billing-approvals", children: "Billing — Pending approvals", href: "/billing/pending-approvals", keywords: ["approve", "pending", "billing"] },
-    { id: "billing-plans", children: "Billing — Plans", href: "/billing/plans", keywords: ["plans", "tiers", "subscriptions"] },
-    { id: "content-profile", children: "Content — Profile", href: "/content/profile", keywords: ["admin story", "photo", "cms", "home content"] },
-    { id: "content-testimonials", children: "Content — Testimonials", href: "/content/testimonials", keywords: ["reviews", "submissions", "testimonials"] },
-    { id: "content-intro-video", children: "Content — Intro Video", href: "/content/intro-video", keywords: ["video", "intro", "audience", "cms"] },
-    { id: "gallery", children: "Gallery", href: "/gallery", keywords: ["photos", "images", "media"] },
-    { id: "parent", children: "Parent Portal", href: "/parent", keywords: ["guardian", "parent hub"] },
-    { id: "exercise-library", children: "Training content", href: "/exercise-library", keywords: ["exercises", "library", "workouts"] },
-    { id: "messaging", children: "Messaging", href: "/messaging", keywords: ["chat", "threads", "inbox"] },
-    { id: "video-review", children: "Video Feedback", href: "/video-review", keywords: ["video", "review", "uploads"] },
-    { id: "bookings", children: "Schedule", href: "/bookings", keywords: ["calendar", "sessions", "appointments"] },
-    { id: "nutrition", children: "Nutrition & Wellness", href: "/nutrition", keywords: ["food", "diary", "wellness", "nutrition"] },
-    { id: "referrals", children: "Referrals", href: "/physio-referrals", keywords: ["physio", "referral"] },
-    { id: "programs", children: "Programs", href: "/programs", keywords: ["plans", "curriculum"] },
-    { id: "support", children: "Support", href: "/support" },
-    { id: "settings", children: "Settings", href: "/settings" },
-    { id: "preferences", children: "Preferences", href: "/preferences", keywords: ["display", "theme", "language"] },
-    { id: "profile", children: "Profile", href: "/profile", keywords: ["account", "my profile"] },
-    { id: "search", children: "Search", href: "/search", keywords: ["find", "global search"] },
+    // ── Overview ──
+    { id: "home",               children: "Dashboard",                    href: "/",                          keywords: ["overview", "home", "dashboard"] },
+
+    // ── People ──
+    { id: "users",              children: "Users & Tiers",                href: "/users",                     keywords: ["athletes", "guardians", "clients", "members"] },
+    { id: "add-user",           children: "Add User",                     href: "/users/add",                 keywords: ["new user", "create user", "invite"] },
+    { id: "add-team",           children: "Add Team",                     href: "/users/add-team",            keywords: ["new team", "create team"] },
+    { id: "teams",              children: "Teams",                        href: "/teams",                     keywords: ["squads", "groups", "clubs"] },
+    { id: "parents",            children: "Parents",                      href: "/parents",                   keywords: ["guardian", "parent list"] },
+
+    // ── Training ──
+    { id: "programs",           children: "Programs",                     href: "/programs",                  keywords: ["plans", "curriculum", "workouts"] },
+    { id: "exercise-library",   children: "Training Content",             href: "/exercise-library",          keywords: ["exercises", "library", "workouts", "modules", "sessions"] },
+    { id: "training-snapshot",  children: "Client Training",              href: "/training-snapshot",         keywords: ["training", "snapshot", "log"] },
+    { id: "training-questionnaires", children: "Training Questionnaires", href: "/training-questionnaires",  keywords: ["questionnaire", "answers", "forms", "surveys"] },
+    { id: "tracking",           children: "Tracking",                     href: "/tracking",                  keywords: ["activity", "progress", "metrics"] },
+    { id: "coaching",           children: "Coaching",                     href: "/coaching",                  keywords: ["coach", "sessions", "1on1"] },
+
+    // ── Content ──
+    { id: "content-profile",    children: "Content — Profile",            href: "/content/profile",           keywords: ["admin story", "photo", "cms", "bio"] },
+    { id: "content-testimonials", children: "Content — Testimonials",     href: "/content/testimonials",      keywords: ["reviews", "submissions", "feedback"] },
+    { id: "content-intro-video", children: "Content — Intro Video",       href: "/content/intro-video",       keywords: ["video", "intro", "audience", "cms"] },
+    { id: "gallery",            children: "Gallery",                      href: "/gallery",                   keywords: ["photos", "images", "media", "uploads"] },
+
+    // ── Communication ──
+    { id: "messaging",          children: "Messaging",                    href: "/messaging",                 keywords: ["chat", "threads", "inbox", "messages"] },
+    { id: "video-review",       children: "Video Feedback",               href: "/video-review",              keywords: ["video", "review", "uploads", "feedback"] },
+
+    // ── Health & Schedule ──
+    { id: "bookings",           children: "Bookings / Schedule",          href: "/bookings",                  keywords: ["calendar", "sessions", "appointments"] },
+    { id: "session-schedule",   children: "Session Attendance",           href: "/session-schedule",          keywords: ["attendance", "sessions", "schedule"] },
+    { id: "nutrition",          children: "Nutrition & Wellness",         href: "/nutrition",                 keywords: ["food", "diary", "wellness", "meals"] },
+    { id: "referrals",          children: "Physio Referrals",             href: "/physio-referrals",          keywords: ["physio", "referral", "injury", "medical"] },
+    { id: "attendance",         children: "Attendance",                   href: "/attendance",                keywords: ["present", "absent", "register"] },
+
+    // ── Business ──
+    { id: "enquiries",          children: "Enquiries",                    href: "/enquiries",                 keywords: ["leads", "contact", "inquiries"] },
+    { id: "billing",            children: "Billing",                      href: "/billing",                   keywords: ["payments", "invoices", "subscriptions"] },
+    { id: "billing-approvals",  children: "Billing — Pending Approvals",  href: "/billing/pending-approvals", keywords: ["approve", "pending", "requests"] },
+    { id: "billing-plans",      children: "Billing — Plans",              href: "/billing/plans",             keywords: ["plans", "tiers", "pricing"] },
+    { id: "billing-team-payments", children: "Billing — Team Payments",   href: "/billing/team-payments",     keywords: ["team", "payments", "invoices"] },
+    { id: "stats",              children: "Stats",                        href: "/stats",                     keywords: ["analytics", "statistics", "reports"] },
+    { id: "portal-config",      children: "Portal Config",                href: "/portal-config",             keywords: ["portal", "landing", "marketing", "cms"] },
+    { id: "beta-testers",       children: "Beta Testers",                 href: "/beta-testers",              keywords: ["beta", "testers", "early access"] },
+    { id: "top-athletes",       children: "Top Athletes",                 href: "/top-athletes",              keywords: ["leaderboard", "ranking", "best"] },
+
+    // ── Parent Portal ──
+    { id: "parent-hub",         children: "Parent Portal — Hub",          href: "/parent",                    keywords: ["guardian", "parent"] },
+    { id: "parent-athlete",     children: "Parent Portal — Athlete",      href: "/parent/athlete",            keywords: ["guardian athlete", "child"] },
+    { id: "parent-progress",    children: "Parent Portal — Progress",     href: "/parent/progress",           keywords: ["guardian progress", "child progress"] },
+    { id: "parent-schedule",    children: "Parent Portal — Schedule",     href: "/parent/schedule",           keywords: ["guardian schedule", "bookings"] },
+    { id: "parent-messages",    children: "Parent Portal — Messages",     href: "/parent/messages",           keywords: ["guardian messages", "chat"] },
+    { id: "parent-content",     children: "Parent Portal — Content",      href: "/parent/content",            keywords: ["guardian content"] },
+    { id: "parent-billing",     children: "Parent Portal — Billing",      href: "/parent/billing",            keywords: ["guardian billing", "subscription"] },
+    { id: "parent-php-plus",    children: "Parent Portal — PHP Plus",     href: "/parent/php-plus",           keywords: ["premium", "plus plan"] },
+    { id: "parent-completed",   children: "Parent Portal — Completed",    href: "/parent/completed",          keywords: ["done", "finished", "completed"] },
+    { id: "parent-onboarding",  children: "Parent Portal — Onboarding",   href: "/parent/onboarding",         keywords: ["signup", "setup", "onboard"] },
+    { id: "parent-support",     children: "Parent Portal — Support",      href: "/parent/support",            keywords: ["guardian support", "help"] },
+    { id: "parent-settings",    children: "Parent Portal — Settings",     href: "/parent/settings",           keywords: ["guardian settings"] },
+
+    // ── Workspace ──
+    { id: "support",            children: "Support",                      href: "/support",                   keywords: ["help", "tickets", "issues"] },
+    { id: "settings",           children: "Settings",                     href: "/settings",                  keywords: ["account", "config", "preferences"] },
+    { id: "preferences",        children: "Preferences",                  href: "/preferences",               keywords: ["display", "theme", "language"] },
+    { id: "profile",            children: "My Profile",                   href: "/profile",                   keywords: ["account", "me", "avatar"] },
+    { id: "search",             children: "Global Search",                href: "/search",                    keywords: ["find", "search all"] },
   ],
 };
 

@@ -7,9 +7,13 @@ import { db } from "../db";
 import { scheduledSessionTable } from "../db/schema";
 import { logger } from "../lib/logger";
 import { isTrainingStaff } from "../lib/user-roles";
+import { cache, cacheKeys } from "../lib/cache";
 import {
+  cancelScheduledSession,
   checkInMySession,
   createSessionTemplate,
+  deleteScheduledSession,
+  deleteSessionTemplate,
   getAttendanceStats,
   listAdminScheduledSessions,
   listMyScheduledSessions,
@@ -18,6 +22,8 @@ import {
   materializeTemplateSessions,
   notifyAttendanceUpdated,
   notifyMaterializedSessions,
+  updateScheduledSession,
+  updateSessionTemplate,
 } from "../services/session-schedule.service";
 import {
   completeGoogleOAuthConnection,
@@ -25,6 +31,7 @@ import {
   disconnectGoogleCalendarConnectionForAdmin,
   getGoogleCalendarConnectionForAdmin,
   listGoogleCalendarsForAdmin,
+  listGoogleCalendarEvents,
   saveGoogleCalendarConnectionForAdmin,
   selectGoogleCalendarForAdmin,
 } from "../services/google-calendar.service";
@@ -99,6 +106,11 @@ const markAttendanceSchema = z.object({
     .min(1),
 });
 
+const googleCalendarEventsQuerySchema = z.object({
+  from: z.string().datetime(),
+  to: z.string().datetime(),
+});
+
 const calendarConnectionSchema = z.object({
   calendarId: z.string().trim().min(3).max(255),
   serviceAccountEmail: z.string().trim().email(),
@@ -163,6 +175,9 @@ export async function markAttendanceAdmin(req: Request, res: Response) {
     updates: input.updates,
   });
   if (result.updated > 0) {
+    for (const update of input.updates) {
+      void cache.del(cacheKeys.userSessions(update.userId));
+    }
     void notifyAttendanceUpdated({
       scheduledSessionId,
       userIds: input.updates.map((update) => update.userId),
@@ -176,11 +191,20 @@ export async function markAttendanceAdmin(req: Request, res: Response) {
 export async function listMySessions(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   const query = mySessionsQuerySchema.parse(req.query ?? {});
-  const items = await listMyScheduledSessions({
-    userId: req.user.id,
-    from: query.from ? new Date(query.from) : undefined,
-    to: query.to ? new Date(query.to) : undefined,
-  });
+  const userId = req.user.id;
+
+  // Only cache the default (no date filters) request — filtered variants are uncached
+  const isDefaultQuery = !query.from && !query.to;
+  const items = isDefaultQuery
+    ? await cache.getOrSet(cacheKeys.userSessions(userId), 30, () =>
+        listMyScheduledSessions({ userId }),
+      )
+    : await listMyScheduledSessions({
+        userId,
+        from: query.from ? new Date(query.from) : undefined,
+        to: query.to ? new Date(query.to) : undefined,
+      });
+
   return res.status(200).json({ sessions: items });
 }
 
@@ -189,6 +213,7 @@ export async function checkInSession(req: Request, res: Response) {
   const scheduledSessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
   try {
     const result = await checkInMySession({ scheduledSessionId, userId: req.user.id });
+    void cache.del(cacheKeys.userSessions(req.user.id));
     void notifyAttendanceUpdated({
       scheduledSessionId,
       userIds: [req.user.id],
@@ -258,6 +283,22 @@ export async function connectCalendarAdmin(req: Request, res: Response) {
   return res.status(200).json({ ok: true });
 }
 
+export async function listGoogleCalendarEventsAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const query = googleCalendarEventsQuerySchema.parse(req.query ?? {});
+  const config = await getGoogleCalendarConnectionForAdmin(req.user.id);
+  if (!config) return res.status(200).json({ events: [] });
+  try {
+    const events = await listGoogleCalendarEvents(config, query.from, query.to);
+    return res.status(200).json({ events });
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("GOOGLE_AUTH_REVOKED")) {
+      return res.status(200).json({ events: [], error: "AUTH_REVOKED" });
+    }
+    throw error;
+  }
+}
+
 export async function disconnectCalendarAdmin(req: Request, res: Response) {
   if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
   await disconnectGoogleCalendarConnectionForAdmin(req.user.id);
@@ -281,6 +322,70 @@ export async function getAttendanceStatsAdmin(req: Request, res: Response) {
     to: query.to ? new Date(query.to) : undefined,
   });
   return res.status(200).json({ stats });
+}
+
+const updateTemplateSchema = z.object({
+  name: z.string().trim().min(2).max(255).optional(),
+  dayOfWeek: z.number().int().min(0).max(6).optional().nullable(),
+  startTime: hhmmSchema.optional(),
+  endTime: hhmmSchema.optional(),
+  location: z.string().max(500).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  isActive: z.boolean().optional(),
+  scope: z.enum(["individual", "group", "team"]).optional(),
+  targetUserIds: z.array(z.number().int().min(1)).optional(),
+  targetTeamId: z.number().int().min(1).optional().nullable(),
+  googleSyncEnabled: z.boolean().optional(),
+});
+
+const updateScheduledSessionSchema = z.object({
+  name: z.string().trim().min(2).max(255).optional(),
+  startsAt: z.string().datetime().optional(),
+  endsAt: z.string().datetime().optional(),
+  location: z.string().max(500).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  status: z.enum(["upcoming", "completed", "cancelled"]).optional(),
+});
+
+export async function deleteSessionTemplateAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const templateId = z.coerce.number().int().min(1).parse(req.params.templateId);
+  const result = await deleteSessionTemplate(req.user.id, templateId);
+  return res.status(200).json(result);
+}
+
+export async function updateSessionTemplateAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const templateId = z.coerce.number().int().min(1).parse(req.params.templateId);
+  const updates = updateTemplateSchema.parse(req.body ?? {});
+  const template = await updateSessionTemplate(req.user.id, templateId, updates);
+  return res.status(200).json({ template });
+}
+
+export async function deleteScheduledSessionAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const result = await deleteScheduledSession(req.user.id, sessionId);
+  return res.status(200).json(result);
+}
+
+export async function updateScheduledSessionAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const updates = updateScheduledSessionSchema.parse(req.body ?? {});
+  const session = await updateScheduledSession(req.user.id, sessionId, {
+    ...updates,
+    startsAt: updates.startsAt ? new Date(updates.startsAt) : undefined,
+    endsAt: updates.endsAt ? new Date(updates.endsAt) : undefined,
+  });
+  return res.status(200).json({ session });
+}
+
+export async function cancelScheduledSessionAdmin(req: Request, res: Response) {
+  if (!req.user || !isTrainingStaff(req.user.role)) return res.status(403).json({ error: "Forbidden" });
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const session = await cancelScheduledSession(req.user.id, sessionId);
+  return res.status(200).json({ session });
 }
 
 const generateQrTokenSchema = z.object({ sessionId: z.number().int().min(1) });
@@ -333,6 +438,7 @@ export async function scanQrToken(req: Request, res: Response) {
 
   try {
     const result = await checkInMySession({ scheduledSessionId: payload.sessionId, userId: req.user.id });
+    void cache.del(cacheKeys.userSessions(req.user.id));
     const [session] = await db
       .select({ name: scheduledSessionTable.name })
       .from(scheduledSessionTable)

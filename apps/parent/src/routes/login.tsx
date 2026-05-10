@@ -3,6 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
+import { isGuardianRole } from "@ph/roles";
 import { csrfFetch } from "#/lib/csrf";
 import { isTokenExpired } from "#/lib/token-expiry";
 import { setAuthToken, getTokenStatus } from "#/lib/client-storage";
@@ -80,7 +81,7 @@ export default function LoginPage() {
 			})();
 			const role: string = (jwtPayload.role as string) ?? data.user?.role ?? data.role ?? "";
 
-			if (role !== "guardian") {
+			if (!isGuardianRole(role)) {
 				const hint = ROLE_ERRORS[role];
 				throw new Error(
 					hint

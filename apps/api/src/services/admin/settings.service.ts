@@ -281,37 +281,44 @@ export async function getDashboardMetrics(coachId: number) {
       senderId: messageTable.senderId,
     })
     .from(messageTable)
-    .where(gte(messageTable.createdAt, startWeek));
+    .where(gte(messageTable.createdAt, startWeek))
+    .limit(5000); // dashboard chart: 5k messages/week is well above any real load
 
   const bookingsWeek = await db
     .select({ startsAt: bookingTable.startsAt })
     .from(bookingTable)
-    .where(gte(bookingTable.startsAt, startWeek));
+    .where(gte(bookingTable.startsAt, startWeek))
+    .limit(2000);
 
   const uploadsWeek = await db
     .select({ createdAt: videoUploadTable.createdAt })
     .from(videoUploadTable)
-    .where(gte(videoUploadTable.createdAt, startWeek));
+    .where(gte(videoUploadTable.createdAt, startWeek))
+    .limit(2000);
 
   const availabilityWeek = await db
     .select({ createdAt: availabilityBlockTable.createdAt })
     .from(availabilityBlockTable)
-    .where(gte(availabilityBlockTable.createdAt, startWeek));
+    .where(gte(availabilityBlockTable.createdAt, startWeek))
+    .limit(2000);
 
   const contentWeek = await db
     .select({ createdAt: contentTable.createdAt })
     .from(contentTable)
-    .where(gte(contentTable.createdAt, startWeek));
+    .where(gte(contentTable.createdAt, startWeek))
+    .limit(500);
 
   const referralsWeek = await db
     .select({ createdAt: physioRefferalsTable.createdAt })
     .from(physioRefferalsTable)
-    .where(gte(physioRefferalsTable.createdAt, startWeek));
+    .where(gte(physioRefferalsTable.createdAt, startWeek))
+    .limit(500);
 
   const onboardingsWeek = await db
     .select({ completedAt: athleteTable.onboardingCompletedAt })
     .from(athleteTable)
-    .where(gte(athleteTable.onboardingCompletedAt, startWeek));
+    .where(gte(athleteTable.onboardingCompletedAt, startWeek))
+    .limit(500);
 
   const dayKeys = Array.from({ length: 7 }).map((_, idx) => {
     const day = new Date(startWeek);

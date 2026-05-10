@@ -7,6 +7,7 @@ import {
   BLOG_CATEGORIES,
   formatDate,
 } from "../lib/blog-data";
+import { buildOgMeta } from "../lib/seo";
 
 const SITE_URL = "https://phperformance.uk";
 
@@ -38,24 +39,12 @@ const blogListSchema = {
 
 export const Route = createFileRoute("/blog")({
   head: () => ({
-    meta: [
-      { title: "Blog — PH Performance | Training, Coaching & Performance" },
-      {
-        name: "description",
-        content:
-          "Training guides, coaching strategies, nutrition tips, and performance insights for athletes, coaches, and teams. Expert content from PH Performance.",
-      },
-      {
-        property: "og:title",
-        content: "Blog — PH Performance | Training, Coaching & Performance",
-      },
-      {
-        property: "og:description",
-        content:
-          "Expert training guides, coaching strategies, and performance insights for athletes and teams.",
-      },
-      { property: "og:url", content: `${SITE_URL}/blog` },
-    ],
+    meta: buildOgMeta({
+      title: "Blog — PH Performance | Training, Coaching & Performance",
+      description: "Training guides, coaching strategies, nutrition tips, and performance insights for athletes, coaches, and teams. Expert content from PH Performance.",
+      url: `${SITE_URL}/blog`,
+      imageAlt: "PH Performance Blog — Training & Coaching Insights",
+    }),
     links: [{ rel: "canonical", href: `${SITE_URL}/blog` }],
     scripts: [
       {

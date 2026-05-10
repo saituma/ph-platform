@@ -157,7 +157,8 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     return timeB - timeA;
   });
 
-  const users = userIds.length ? await db.select().from(userTable).where(inArray(userTable.id, userIds)) : [];
+  const usersArr = userIds.length ? await db.select().from(userTable).where(inArray(userTable.id, userIds)) : [];
+  const usersById = new Map(usersArr.map((u) => [u.id, u]));
 
   const guardianNameByAthleteUserId = new Map<number, string>();
   if (userIds.length) {
@@ -234,7 +235,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
 
   const mapped = userIds.map((id) => {
     const info = threads.get(id)!;
-    const user = users.find((u) => u.id === id);
+    const user = usersById.get(id);
     const guardianName = guardianNameByAthleteUserId.get(id);
     const programTier = tierMap.get(id) ?? null;
     return {

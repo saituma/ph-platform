@@ -3,19 +3,22 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
-const envPathCandidates = [
-  process.env.DOTENV_PATH,
-  path.resolve(process.cwd(), ".env"),
-  path.resolve(process.cwd(), "apps/api/.env"),
-  path.resolve(__dirname, "../../.env"),
-].filter(Boolean) as string[];
+const envPathCandidates = process.env.DOTENV_PATH
+  ? [process.env.DOTENV_PATH]
+  : [
+      path.resolve(process.cwd(), ".env"),
+      path.resolve(process.cwd(), "apps/api/.env"),
+      path.resolve(__dirname, "../../.env"),
+    ];
 
 const resolvedEnvPath = envPathCandidates.find((candidate) => fs.existsSync(candidate));
 // In tests, jest.setup.ts seeds required vars; do not let an empty .env override them.
-dotenv.config({
-  path: resolvedEnvPath,
-  override: process.env.NODE_ENV !== "test",
-});
+if (resolvedEnvPath) {
+  dotenv.config({
+    path: resolvedEnvPath,
+    override: process.env.NODE_ENV !== "test",
+  });
+}
 
 /** DB-only CLI scripts (e.g. seed:demo) only need DATABASE_URL; set PH_API_SCRIPT=1 to skip full app secrets. */
 const phApiScript = process.env.PH_API_SCRIPT === "1";
@@ -95,6 +98,24 @@ const optionalWhenScript = (messageWhenRequired: string) =>
   GOOGLE_CALENDAR_ID: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional(),
+  /** Max connections per pool instance. Keep low in production (instances × pool_max = total DB connections). */
+  DB_POOL_MAX: z.coerce.number().int().positive().optional(),
+  /** Idle connection timeout in ms before a client is released back to the OS. */
+  DB_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  /** Max time in ms to wait for a new connection before failing. */
+  DB_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  /**
+   * Direct (non-pooled) connection string for migrations.
+   * Required when DATABASE_URL points to a pgbouncer/Neon pooler
+   * (transaction mode breaks DDL statements that migrations issue).
+   * Falls back to DATABASE_URL when not set.
+   */
+  DIRECT_DATABASE_URL: z.string().optional(),
+  /**
+   * When "true", socket startup throws in production if REDIS_URL is not set.
+   * Optional — defaults to false so existing single-instance deploys are unaffected.
+   */
+  SOCKET_REQUIRE_REDIS: z.string().optional(),
 	});
 
 const parsed = envSchema.safeParse(process.env);
@@ -108,13 +129,34 @@ if (!parsed.success) {
 
 const raw = parsed.data;
 
-if (raw.NODE_ENV === "production" && !raw.STRIPE_WEBHOOK_SECRET) {
-  console.warn("CRITICAL: STRIPE_WEBHOOK_SECRET is not set in production. Webhook verification will fail.");
+function requireProductionValue(key: string, value: string | undefined, failures: string[]) {
+  if (!value?.trim()) failures.push(`${key} is required in production`);
 }
 
-if (raw.NODE_ENV === "production" && raw.ALLOW_EXPIRED_TOKENS === "true") {
-  throw new Error("ALLOW_EXPIRED_TOKENS must not be enabled in production.");
+function validateProductionConfig(config: typeof raw) {
+  if (config.NODE_ENV !== "production") return;
+
+  const failures: string[] = [];
+  requireProductionValue("DATABASE_URL", config.DATABASE_URL, failures);
+  requireProductionValue("JWT_SECRET", config.JWT_SECRET, failures);
+  requireProductionValue("ADMIN_WEB_URL", config.ADMIN_WEB_URL, failures);
+  requireProductionValue("STRIPE_SECRET_KEY", config.STRIPE_SECRET_KEY, failures);
+  requireProductionValue("STRIPE_SUCCESS_URL", config.STRIPE_SUCCESS_URL, failures);
+  requireProductionValue("STRIPE_CANCEL_URL", config.STRIPE_CANCEL_URL, failures);
+  requireProductionValue("STRIPE_WEBHOOK_SECRET", config.STRIPE_WEBHOOK_SECRET, failures);
+  requireProductionValue("UPSTASH_REDIS_REST_URL", config.UPSTASH_REDIS_REST_URL, failures);
+  requireProductionValue("UPSTASH_REDIS_REST_TOKEN", config.UPSTASH_REDIS_REST_TOKEN, failures);
+
+  if (config.ALLOW_EXPIRED_TOKENS === "true") {
+    failures.push("ALLOW_EXPIRED_TOKENS must not be enabled in production");
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Invalid production environment configuration: ${failures.join("; ")}`);
+  }
 }
+
+validateProductionConfig(raw);
 
 const scriptPlaceholder = "__ph_api_script_unused__";
 
@@ -169,6 +211,8 @@ const scriptPlaceholder = "__ph_api_script_unused__";
 	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
 	  sentryDsn: raw.SENTRY_DSN ?? "",
 	  logLevel: raw.LOG_LEVEL,
+  upstashRedisRestUrl: raw.UPSTASH_REDIS_REST_URL ?? "",
+  upstashRedisRestToken: raw.UPSTASH_REDIS_REST_TOKEN ?? "",
 	  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
   turnstileSecretKey2: raw.TURNSTILE_SECRET_KEY_2 ?? "",
   turnstileBypass: raw.TURNSTILE_BYPASS === "true",
@@ -177,4 +221,17 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   googleCalendarId: raw.GOOGLE_CALENDAR_ID ?? "",
   googleServiceAccountEmail: raw.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "",
   googleServiceAccountPrivateKey: raw.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "",
+  /** Max pool connections per instance. Default: 5 in production, 10 in dev/test (safe scaling default). */
+  dbPoolMax: raw.DB_POOL_MAX ?? (raw.NODE_ENV === "production" ? 5 : 10),
+  /** Idle timeout ms. Default: 30 000 ms (30 s) — recycles idle sockets before server-side closure. */
+  dbIdleTimeoutMs: raw.DB_IDLE_TIMEOUT_MS ?? 30_000,
+  /** Connection timeout ms. Default: 10 000 ms (10 s) — fail fast on unreachable DB. */
+  dbConnectTimeoutMs: raw.DB_CONNECT_TIMEOUT_MS ?? 10_000,
+  /** Direct (non-pooled) URL for migrations. Falls back to databaseUrl when unset. */
+  directDatabaseUrl: raw.DIRECT_DATABASE_URL ?? raw.DATABASE_URL,
+  /**
+   * If true, socket.ts will throw at startup in production when REDIS_URL is missing.
+   * Safe default: false — existing single-instance deploys continue to work.
+   */
+  socketRequireRedis: raw.SOCKET_REQUIRE_REDIS === "true",
 	};

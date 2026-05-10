@@ -7,6 +7,7 @@ import {
   getPostBySlug,
   type BlogPost,
 } from "../../lib/blog-data";
+import { buildOgMeta } from "../../lib/seo";
 
 const SITE_URL = "https://phperformance.uk";
 
@@ -76,29 +77,16 @@ export const Route = createFileRoute("/blog/$slug")({
     const post = getPostBySlug(params.slug);
     if (!post) return {};
     return {
-      meta: [
-        { title: `${post.title} — PH Performance` },
-        { name: "description", content: post.description },
-        {
-          property: "og:title",
-          content: `${post.title} — PH Performance`,
-        },
-        {
-          property: "og:description",
-          content: post.ogDescription || post.description,
-        },
-        {
-          property: "og:url",
-          content: `${SITE_URL}/blog/${post.slug}`,
-        },
-        { property: "og:type", content: "article" },
-        {
-          property: "og:image",
-          content: `${SITE_URL}${post.image}`,
-        },
-        { property: "article:published_time", content: post.date },
-        { property: "article:section", content: post.category },
-      ],
+      meta: buildOgMeta({
+        title: `${post.title} — PH Performance`,
+        description: post.ogDescription || post.description,
+        url: `${SITE_URL}/blog/${post.slug}`,
+        image: `${SITE_URL}${post.image}`,
+        imageAlt: post.title,
+        type: "article",
+        publishedTime: post.date,
+        section: post.category,
+      }),
       links: [
         {
           rel: "canonical",
@@ -120,7 +108,7 @@ export const Route = createFileRoute("/blog/$slug")({
 });
 
 function BlogArticle() {
-  const { post } = Route.useLoaderData();
+  const { post } = Route.useLoaderData() as { post: BlogPost };
 
   const currentIndex = blogPosts.findIndex((p) => p.slug === post.slug);
   const prev = currentIndex > 0 ? blogPosts[currentIndex - 1] : null;

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { buildOgMeta } from "../lib/seo";
 import { motion } from "framer-motion";
 import {
     ChartLineUp,
@@ -11,27 +12,12 @@ import {
 
 export const Route = createFileRoute("/features")({
 	head: () => ({
-		meta: [
-			{ title: "Platform Features — PH Performance" },
-			{
-				name: "description",
-				content:
-					"Explore PH Performance's full feature set: deep analytics, video coaching with automated tagging, team sync, programme scheduling, and nutrition logging for athletes and coaches.",
-			},
-			{ property: "og:title", content: "Platform Features — PH Performance" },
-			{
-				property: "og:description",
-				content:
-					"Deep analytics, video coaching, team sync, and programme scheduling. Everything elite athletes and coaches need in one professional platform.",
-			},
-			{
-				property: "og:url",
-				content: "https://phperformance.uk/features",
-			},
-			{ property: "og:image", content: "https://phperformance.uk/home.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
-		],
+		meta: buildOgMeta({
+			title: "Platform Features — PH Performance",
+			description: "Explore PH Performance's full feature set: deep analytics, video coaching with automated tagging, team sync, programme scheduling, and nutrition logging for athletes and coaches.",
+			url: "https://phperformance.uk/features",
+			imageAlt: "PH Performance Platform Features",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/features" }],
 		scripts: [
 			{

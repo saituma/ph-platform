@@ -36,7 +36,7 @@ import {
   upsertTeamPaymentConfigDraft,
   verifyRevenueCatPurchase,
   listTeamPlayerInvitesAdmin,
-} from "../controllers/billing.controller";
+} from "../controllers/billing";
 
 const router = Router();
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAdminPortalRole } from "@ph/roles";
 
 const publicPaths = ["/login", "/api/auth/login", "/api/auth/logout", "/api/auth/refresh", "/api/auth/clear-session"];
 const csrfCookieName = "csrfToken";
@@ -85,12 +86,11 @@ export async function middleware(req: NextRequest) {
   }
 
   // Client-side RBAC: verify the token contains an admin-level role
-  const adminRoles = ["admin", "coach", "superAdmin", "super_admin"];
   try {
     const parts = token.split(".");
     if (parts.length >= 2) {
       const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as { role?: string };
-      if (payload.role && !adminRoles.includes(payload.role)) {
+      if (payload.role && !isAdminPortalRole(payload.role)) {
         return NextResponse.redirect(new URL("/login", req.url));
       }
     }

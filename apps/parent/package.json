@@ -7,17 +7,23 @@
   },
   "scripts": {
     "dev": "dotenv -e .env.local -- vite dev",
+    "build:deps": "pnpm --dir ../.. --filter @ph/roles build && pnpm --dir ../.. --filter @ph/auth build",
+    "prebuild": "pnpm run build:deps",
     "build": "vite build",
     "preview": "vite preview",
     "start": "vite preview",
+    "pretest": "pnpm run build:deps",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
+    "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ph/auth": "workspace:*",
+    "@ph/roles": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@t3-oss/env-core": "^0.13.10",
     "@tabler/icons-react": "^3.43.0",

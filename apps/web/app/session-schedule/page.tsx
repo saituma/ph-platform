@@ -21,10 +21,17 @@ import {
   useMarkAdminSessionAttendanceMutation,
   useMaterializeAdminSessionTemplateMutation,
   useGetAdminAttendanceStatsQuery,
+  useGetAdminGoogleCalendarEventsQuery,
+  useDeleteAdminSessionTemplateMutation,
+  useUpdateAdminSessionTemplateMutation,
+  useDeleteAdminScheduledSessionMutation,
+  useCancelAdminScheduledSessionMutation,
 } from "../../lib/apiSlice";
-import { QrCode } from "lucide-react";
+import { QrCode, Pencil, Trash2, Ban } from "lucide-react";
+import { toast } from "../../lib/toast";
+import { Skeleton } from "../../components/ui/skeleton";
 import { getOrCreateAdminSocket } from "../../lib/admin-socket";
-import type { ScheduledSessionAdminRecord } from "../../lib/api/admin-session-schedule";
+import type { ScheduledSessionAdminRecord, GoogleCalendarEvent } from "../../lib/api/admin-session-schedule";
 import { AttendanceQrDialog } from "../../components/admin/AttendanceQrDialog";
 
 function toIsoDateInput(d: Date) {
@@ -468,7 +475,7 @@ export default function SessionSchedulePage() {
   const fromIso = new Date(`${fromDate}T00:00:00.000Z`).toISOString();
   const toIso = new Date(`${toDate}T23:59:59.999Z`).toISOString();
 
-  const { data: templatesData, refetch: refetchTemplates } = useGetAdminSessionTemplatesQuery();
+  const { data: templatesData, refetch: refetchTemplates, isLoading: templatesLoading } = useGetAdminSessionTemplatesQuery();
   const { data: sessionsData, refetch: refetchSessions, isLoading } = useGetAdminScheduledSessionsQuery({ from: fromIso, to: toIso });
   const [userSearch, setUserSearch] = useState("");
   const userQuery = userSearch.trim();
@@ -479,6 +486,10 @@ export default function SessionSchedulePage() {
   const { data: teamsData } = useGetAdminTeamsQuery();
   const { data: googleConnection } = useGetAdminGoogleCalendarConnectionQuery();
   const { data: attendanceStatsData } = useGetAdminAttendanceStatsQuery({ from: fromIso, to: toIso });
+  const { data: googleEventsData } = useGetAdminGoogleCalendarEventsQuery(
+    { from: fromIso, to: toIso },
+    { skip: !googleConnection?.connected },
+  );
 
   const [createTemplate, { isLoading: creating }] = useCreateAdminSessionTemplateMutation();
   const [materializeTemplate, { isLoading: materializing }] = useMaterializeAdminSessionTemplateMutation();
@@ -489,6 +500,10 @@ export default function SessionSchedulePage() {
     useLazyGetAdminGoogleCalendarOAuthStartQuery();
   const { data: calendarListData, refetch: refetchCalendars, isFetching: loadingCalendars } =
     useGetAdminGoogleCalendarsQuery(undefined, { skip: !googleConnection?.connected || googleConnection?.mode !== "oauth" });
+  const [deleteTemplate, { isLoading: deletingTemplate }] = useDeleteAdminSessionTemplateMutation();
+  const [updateTemplate, { isLoading: updatingTemplate }] = useUpdateAdminSessionTemplateMutation();
+  const [deleteSession, { isLoading: deletingSession }] = useDeleteAdminScheduledSessionMutation();
+  const [cancelSession, { isLoading: cancellingSession }] = useCancelAdminScheduledSessionMutation();
 
   const templates = useMemo(() => (Array.isArray(templatesData?.templates) ? templatesData.templates : []), [templatesData]);
   const sessions = useMemo(() => (Array.isArray(sessionsData?.sessions) ? sessionsData.sessions : []), [sessionsData]);
@@ -515,6 +530,16 @@ export default function SessionSchedulePage() {
   const [qrSessionId, setQrSessionId] = useState<number | null>(null);
   const [qrSessionName, setQrSessionName] = useState("");
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [editTemplateOpen, setEditTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<typeof templates[0] | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState<"one_to_one" | "semi_private" | "in_person" | "team">("one_to_one");
+  const [editScope, setEditScope] = useState<"individual" | "group" | "team">("individual");
+  const [editWeekday, setEditWeekday] = useState("4");
+  const [editStartHour, setEditStartHour] = useState("17");
+  const [editStartMinute, setEditStartMinute] = useState("00");
+  const [editEndHour, setEditEndHour] = useState("18");
+  const [editEndMinute, setEditEndMinute] = useState("00");
 
   const eligibleUsers = useMemo(() => {
     const athleteRoles = new Set(["athlete", "adult_athlete", "youth_athlete", "team_athlete", "guardian"]);
@@ -607,6 +632,79 @@ export default function SessionSchedulePage() {
     }
   }
 
+  function openEditTemplate(t: typeof templates[0]) {
+    setEditingTemplate(t);
+    setEditName(t.name);
+    setEditType(t.type);
+    setEditScope(t.scope);
+    setEditWeekday(String(t.weekday ?? 4));
+    const [sh, sm] = (t.startsAtTime ?? "17:00").split(":");
+    const [eh, em] = (t.endsAtTime ?? "18:00").split(":");
+    setEditStartHour(sh);
+    setEditStartMinute(sm);
+    setEditEndHour(eh);
+    setEditEndMinute(em);
+    setEditTemplateOpen(true);
+  }
+
+  async function handleDeleteTemplate(templateId: number) {
+    if (!window.confirm("Delete this template? This will also delete all generated sessions from this template.")) return;
+    try {
+      await deleteTemplate({ id: templateId }).unwrap();
+      toast.success("Template deleted", "Template and its sessions have been removed.");
+      await refetchTemplates();
+      await refetchSessions();
+    } catch {
+      toast.error("Failed to delete template", "Please try again.");
+    }
+  }
+
+  async function handleUpdateTemplate() {
+    if (!editingTemplate) return;
+    const editEffectiveScope: "individual" | "group" | "team" = editType === "team" ? "team" : editScope;
+    try {
+      await updateTemplate({
+        id: editingTemplate.id,
+        updates: {
+          name: editName.trim(),
+          type: editType,
+          scope: editEffectiveScope,
+          weekday: Number(editWeekday),
+          startsAtTime: `${editStartHour}:${editStartMinute}`,
+          endsAtTime: `${editEndHour}:${editEndMinute}`,
+        },
+      }).unwrap();
+      toast.success("Template updated");
+      setEditTemplateOpen(false);
+      setEditingTemplate(null);
+      await refetchTemplates();
+    } catch {
+      toast.error("Failed to update template", "Please try again.");
+    }
+  }
+
+  async function handleDeleteSession(sessionId: number) {
+    if (!window.confirm("Delete this session? This action cannot be undone.")) return;
+    try {
+      await deleteSession({ id: sessionId }).unwrap();
+      toast.success("Session deleted");
+      await refetchSessions();
+    } catch {
+      toast.error("Failed to delete session", "Please try again.");
+    }
+  }
+
+  async function handleCancelSession(sessionId: number) {
+    if (!window.confirm("Cancel this session? The session will be marked as cancelled.")) return;
+    try {
+      await cancelSession({ id: sessionId }).unwrap();
+      toast.success("Session cancelled");
+      await refetchSessions();
+    } catch {
+      toast.error("Failed to cancel session", "Please try again.");
+    }
+  }
+
   const sessionCountsByDate = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of sessions) {
@@ -632,6 +730,54 @@ export default function SessionSchedulePage() {
     }
     return map;
   }, [sessions]);
+
+  // Google Calendar events deduplicated (exclude events already linked to PH sessions)
+  const googleEvents = useMemo(() => {
+    return Array.isArray(googleEventsData?.events) ? googleEventsData.events : [];
+  }, [googleEventsData]);
+
+  const linkedGoogleEventIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of sessions) {
+      if (s.googleEventId) ids.add(s.googleEventId);
+    }
+    return ids;
+  }, [sessions]);
+
+  const deduplicatedGoogleEvents = useMemo(() => {
+    return googleEvents.filter((e) => !linkedGoogleEventIds.has(e.id));
+  }, [googleEvents, linkedGoogleEventIds]);
+
+  const googleEventsByDate = useMemo(() => {
+    const map = new Map<string, GoogleCalendarEvent[]>();
+    for (const e of deduplicatedGoogleEvents) {
+      const key = toDateKey(e.startsAt);
+      const list = map.get(key) ?? [];
+      list.push(e);
+      map.set(key, list);
+    }
+    for (const [key, list] of map.entries()) {
+      map.set(
+        key,
+        [...list].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()),
+      );
+    }
+    return map;
+  }, [deduplicatedGoogleEvents]);
+
+  const googleEventCountsByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of deduplicatedGoogleEvents) {
+      const key = toDateKey(e.startsAt);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  }, [deduplicatedGoogleEvents]);
+
+  const selectedDateGoogleEvents = useMemo(() => {
+    if (!selectedDateKey) return [];
+    return googleEventsByDate.get(selectedDateKey) ?? [];
+  }, [selectedDateKey, googleEventsByDate]);
 
   const selectedDateSessions = useMemo(() => {
     if (!selectedDateKey) return [];
@@ -822,6 +968,20 @@ export default function SessionSchedulePage() {
             </Button>
           </div>
 
+          {/* Legend */}
+          <div className="flex items-center gap-4 border-b px-4 py-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-primary" />
+              PH Sessions
+            </div>
+            {googleConnection?.connected ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />
+                Google Calendar
+              </div>
+            ) : null}
+          </div>
+
           <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
               <div key={label} className="border-r py-2 last:border-r-0">{label}</div>
@@ -831,9 +991,18 @@ export default function SessionSchedulePage() {
           <div className="grid grid-cols-7">
             {calendarCells.map((cell, idx) => {
               if (!cell) return <div key={`empty-${idx}`} className="h-24 border-r border-b last:border-r-0" />;
-              const count = sessionCountsByDate.get(cell.key) ?? 0;
-              const isMarked = count > 0;
+              const phCount = sessionCountsByDate.get(cell.key) ?? 0;
+              const gCalCount = googleEventCountsByDate.get(cell.key) ?? 0;
+              const totalCount = phCount + gCalCount;
+              const isMarked = totalCount > 0;
               const isToday = cell.key === todayKey;
+              const phItems = (sessionsByDate.get(cell.key) ?? []);
+              const gCalItems = (googleEventsByDate.get(cell.key) ?? []);
+              // Show up to 3 items total, mixing PH sessions first then Google events
+              const maxPills = 3;
+              const phSlice = phItems.slice(0, maxPills);
+              const gCalSlice = gCalItems.slice(0, maxPills - phSlice.length);
+              const shownCount = phSlice.length + gCalSlice.length;
               return (
                 <button
                   type="button"
@@ -854,17 +1023,26 @@ export default function SessionSchedulePage() {
                     </span>
                     {isMarked ? (
                       <div className="space-y-1">
-                        {(sessionsByDate.get(cell.key) ?? []).slice(0, 3).map((item) => (
+                        {phSlice.map((item) => (
                           <div
-                            key={`${cell.key}-${item.id}`}
+                            key={`${cell.key}-ph-${item.id}`}
                             className="truncate rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground"
                           >
                             {new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} {item.name}
                           </div>
                         ))}
-                        {count > 3 ? (
+                        {gCalSlice.map((item) => (
+                          <div
+                            key={`${cell.key}-gcal-${item.id}`}
+                            className="truncate rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                          >
+                            {item.isAllDay ? "All day" : new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{" "}
+                            {item.summary || "Google Event"}
+                          </div>
+                        ))}
+                        {totalCount > shownCount ? (
                           <div className="truncate text-[10px] font-medium text-primary">
-                            +{count - 3} more
+                            +{totalCount - shownCount} more
                           </div>
                         ) : null}
                       </div>
@@ -1084,39 +1262,77 @@ export default function SessionSchedulePage() {
             <CardTitle>Templates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {templates.map((t) => (
-              <div key={t.id} className="rounded-lg border p-3 text-sm">
-                <div className="font-medium">{t.name}</div>
-                <div className="text-muted-foreground">{typeLabel(t.type)} • {t.startsAtTime} - {t.endsAtTime}</div>
-                <div className="mt-1 text-xs text-muted-foreground">Calendar sync: Auto (when connected)</div>
-                <div className="mt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={materializing}
-                    onClick={async () => {
-                      const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
-                      if (result.created > 0) {
-                        setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
-                      } else if (result.reason === "already_exists") {
-                        setTemplateNotice("No new sessions were created because matching sessions already exist in that date range.");
-                      } else if (result.reason === "no_target_users") {
-                        setTemplateNotice("No sessions were created because no target users are assigned to this template.");
-                      } else if (result.reason === "template_inactive") {
-                        setTemplateNotice("This template is inactive. Activate it before generating sessions.");
-                      } else {
-                        setTemplateNotice("No sessions were created.");
-                      }
-                      await refetchSessions();
-                    }}
-                  >
-                    {materializing ? "Generating..." : "Generate Sessions"}
-                  </Button>
-                </div>
+            {!templatesData ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="rounded-lg border p-3 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                    <Skeleton className="h-8 w-28 mt-2" />
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : templates.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No templates yet.</p>
+            ) : (
+              templates.map((t) => (
+                <div key={t.id} className="rounded-lg border p-3 text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-muted-foreground">{typeLabel(t.type)} • {t.startsAtTime} - {t.endsAtTime}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Calendar sync: Auto (when connected)</div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => openEditTemplate(t)}
+                        title="Edit template"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        disabled={deletingTemplate}
+                        onClick={() => handleDeleteTemplate(t.id)}
+                        title="Delete template"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={materializing}
+                      onClick={async () => {
+                        const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
+                        if (result.created > 0) {
+                          setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
+                        } else if (result.reason === "already_exists") {
+                          setTemplateNotice("No new sessions were created because matching sessions already exist in that date range.");
+                        } else if (result.reason === "no_target_users") {
+                          setTemplateNotice("No sessions were created because no target users are assigned to this template.");
+                        } else if (result.reason === "template_inactive") {
+                          setTemplateNotice("This template is inactive. Activate it before generating sessions.");
+                        } else {
+                          setTemplateNotice("No sessions were created.");
+                        }
+                        await refetchSessions();
+                      }}
+                    >
+                      {materializing ? "Generating..." : "Generate Sessions"}
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
             {templateNotice ? <p className="text-xs text-muted-foreground">{templateNotice}</p> : null}
-            {templates.length === 0 ? <p className="text-sm text-muted-foreground">No templates yet.</p> : null}
           </CardContent>
         </Card>
       </div>
@@ -1169,7 +1385,13 @@ export default function SessionSchedulePage() {
             </div>
           </div>
 
-          {isLoading ? <p className="text-sm text-muted-foreground">Loading requested days...</p> : null}
+          {isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -1181,76 +1403,165 @@ export default function SessionSchedulePage() {
             </DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-3 overflow-auto p-6 pt-0 text-sm">
-            {selectedDateSessions.length === 0 ? (
+            {selectedDateSessions.length === 0 && selectedDateGoogleEvents.length === 0 ? (
               <p className="text-muted-foreground">No sessions on this date.</p>
-            ) : (
-              selectedDateSessions.map((s) => (
-                <div key={s.id} className="space-y-2 rounded-lg border p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {typeLabel(s.type)} • {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
-                        {new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 gap-1.5"
-                      onClick={() => {
-                        setQrSessionId(s.id);
-                        setQrSessionName(s.name);
-                        setQrDialogOpen(true);
-                      }}
-                    >
-                      <QrCode className="h-4 w-4" />
-                      QR Code
-                    </Button>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {s.attendees?.length ?? 0} assigned users
-                  </p>
-                  <div className="space-y-1 rounded-md border p-2">
-                    {s.attendees?.length ? (
-                      s.attendees.map((a) => (
-                        <div
-                          key={`${s.id}-${a.userId}`}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/70 px-2 py-1.5"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-medium">{a.userName || a.userEmail || `User ${a.userId}`}</p>
-                            <p className="text-[11px] text-muted-foreground">
-                              Status: {a.status}
-                              {a.checkInAt ? ` • Client checked in at ${new Date(a.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
-                            </p>
-                          </div>
-                          <div className="flex gap-1">
+            ) : null}
+
+            {/* PH Sessions */}
+            {selectedDateSessions.length > 0 ? (
+              <div className="space-y-2">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                  PH Sessions ({selectedDateSessions.length})
+                </p>
+              </div>
+            ) : null}
+            {selectedDateSessions.length > 0 ? (
+              selectedDateSessions.map((s) => {
+                const isCancelled = s.status === "cancelled";
+                return (
+                  <div key={s.id} className={`space-y-2 rounded-lg border p-3 ${isCancelled ? "opacity-60 border-dashed" : ""}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className={`font-medium ${isCancelled ? "line-through text-muted-foreground" : ""}`}>{s.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {typeLabel(s.type)} • {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
+                          {new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        {isCancelled ? (
+                          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                            Cancelled
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        {!isCancelled ? (
+                          <>
                             <Button
                               size="sm"
-                              variant={a.status === "attended" ? "secondary" : "default"}
-                              disabled={marking}
-                              onClick={async () => {
-                                await markAttendanceWithRetry({
-                                  sessionId: s.id,
-                                  userId: a.userId,
-                                  status: a.status === "attended" ? "unmarked" : "attended",
-                                });
-                                await refetchSessions();
+                              variant="outline"
+                              className="gap-1.5"
+                              onClick={() => {
+                                setQrSessionId(s.id);
+                                setQrSessionName(s.name);
+                                setQrDialogOpen(true);
                               }}
                             >
-                              {a.status === "attended" ? "Unattended" : "Attend"}
+                              <QrCode className="h-4 w-4" />
+                              QR
                             </Button>
-                          </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
+                              disabled={cancellingSession}
+                              onClick={() => handleCancelSession(s.id)}
+                              title="Cancel session"
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          disabled={deletingSession}
+                          onClick={() => handleDeleteSession(s.id)}
+                          title="Delete session"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    {!isCancelled ? (
+                      <>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {s.attendees?.length ?? 0} assigned users
+                        </p>
+                        <div className="space-y-1 rounded-md border p-2">
+                          {s.attendees?.length ? (
+                            s.attendees.map((a) => (
+                              <div
+                                key={`${s.id}-${a.userId}`}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/70 px-2 py-1.5"
+                              >
+                                <div className="min-w-0">
+                                  <p className="truncate text-xs font-medium">{a.userName || a.userEmail || `User ${a.userId}`}</p>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Status: {a.status}
+                                    {a.checkInAt ? ` • Client checked in at ${new Date(a.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                                  </p>
+                                </div>
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant={a.status === "attended" ? "secondary" : "default"}
+                                    disabled={marking}
+                                    onClick={async () => {
+                                      await markAttendanceWithRetry({
+                                        sessionId: s.id,
+                                        userId: a.userId,
+                                        status: a.status === "attended" ? "unmarked" : "attended",
+                                      });
+                                      await refetchSessions();
+                                    }}
+                                  >
+                                    {a.status === "attended" ? "Unattended" : "Attend"}
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No assigned users for this session.</p>
+                          )}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No assigned users for this session.</p>
-                    )}
+                      </>
+                    ) : null}
                   </div>
-                </div>
-              ))
-            )}
+                );
+              })
+            ) : null}
+
+            {/* Google Calendar Events */}
+            {selectedDateGoogleEvents.length > 0 ? (
+              <div className="space-y-2 pt-2">
+                <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="inline-block h-2 w-2 rounded-full bg-violet-500" />
+                  Google Calendar ({selectedDateGoogleEvents.length})
+                </p>
+                {selectedDateGoogleEvents.map((e) => (
+                  <div key={e.id} className="rounded-lg border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-800 dark:bg-violet-950/20">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{e.summary || "Untitled event"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {e.isAllDay
+                            ? "All day"
+                            : `${new Date(e.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(e.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                        </p>
+                        {e.location ? (
+                          <p className="mt-1 text-xs text-muted-foreground">Location: {e.location}</p>
+                        ) : null}
+                        {e.description ? (
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{e.description}</p>
+                        ) : null}
+                      </div>
+                      {e.htmlLink ? (
+                        <a
+                          href={e.htmlLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-100 dark:text-violet-400 dark:hover:bg-violet-900/30"
+                        >
+                          Open in Google
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -1321,6 +1632,92 @@ export default function SessionSchedulePage() {
           onOpenChange={setQrDialogOpen}
         />
       )}
+
+      <Dialog open={editTemplateOpen} onOpenChange={setEditTemplateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 p-6 pt-0">
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Template name" />
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <select
+                className="rounded-md border bg-background px-2 py-2"
+                value={editType}
+                onChange={(e) => {
+                  const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
+                  setEditType(nextType);
+                  if (nextType === "team") setEditScope("team");
+                  if (nextType !== "team" && editScope === "team") setEditScope("individual");
+                }}
+              >
+                <option value="one_to_one">1-1</option>
+                <option value="semi_private">Semi-Private</option>
+                <option value="in_person">In-Person</option>
+                <option value="team">Team</option>
+              </select>
+              {editType === "team" ? (
+                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">
+                  Team
+                </div>
+              ) : (
+                <select
+                  className="rounded-md border bg-background px-2 py-2"
+                  value={editScope}
+                  onChange={(e) => setEditScope(e.target.value as any)}
+                >
+                  <option value="individual">Individual</option>
+                  <option value="group">Group</option>
+                </select>
+              )}
+              <select className="rounded-md border bg-background px-2 py-2" value={editWeekday} onChange={(e) => setEditWeekday(e.target.value)}>
+                <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option><option value="3">Wed</option>
+                <option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Start Time</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="rounded-md border bg-background px-2 py-2" value={editStartHour} onChange={(e) => setEditStartHour(e.target.value)}>
+                    {HOUR_VALUES.map((hour) => (
+                      <option key={`edit-sh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>
+                    ))}
+                  </select>
+                  <select className="rounded-md border bg-background px-2 py-2" value={editStartMinute} onChange={(e) => setEditStartMinute(e.target.value)}>
+                    {MINUTE_VALUES.map((minute) => (
+                      <option key={`edit-sm-${minute}`} value={minute}>:{minute}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>End Time</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <select className="rounded-md border bg-background px-2 py-2" value={editEndHour} onChange={(e) => setEditEndHour(e.target.value)}>
+                    {HOUR_VALUES.map((hour) => (
+                      <option key={`edit-eh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>
+                    ))}
+                  </select>
+                  <select className="rounded-md border bg-background px-2 py-2" value={editEndMinute} onChange={(e) => setEditEndMinute(e.target.value)}>
+                    {MINUTE_VALUES.map((minute) => (
+                      <option key={`edit-em-${minute}`} value={minute}>:{minute}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditTemplateOpen(false)}>Cancel</Button>
+              <Button disabled={updatingTemplate || !editName.trim()} onClick={handleUpdateTemplate}>
+                {updatingTemplate ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }

@@ -6,6 +6,7 @@ import { athleteTable, guardianTable, notificationTable, programTable } from "..
 import { eq } from "drizzle-orm";
 import { createPushIntent } from "../../services/outbox.service";
 import { getSocketServer } from "../../socket-hub";
+import { cache, cacheKeys } from "../../lib/cache";
 
 function broadcastProgramChanged() {
   const io = getSocketServer();
@@ -229,6 +230,11 @@ export async function assignProgram(req: Request, res: Response) {
         }
       }
     }
+    // Invalidate assigned-programs cache for all affected user IDs
+    for (const userId of recipients) {
+      void cache.del(cacheKeys.assignedPrograms(userId));
+      void cache.del(cacheKeys.programsList(userId));
+    }
     return res.status(201).json({ assignment });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";
@@ -247,6 +253,11 @@ export async function unassignProgram(req: Request, res: Response) {
   const assignmentId = z.coerce.number().int().min(1).parse(req.params.assignmentId);
   const assignment = await ProgramBuilderService.unassignProgram(assignmentId);
   if (!assignment) return res.status(404).json({ error: "Assignment not found." });
+  // Invalidate cache for the affected user — look up from assignment if possible
+  if ((assignment as any).athleteUserId) {
+    void cache.del(cacheKeys.assignedPrograms((assignment as any).athleteUserId));
+    void cache.del(cacheKeys.programsList((assignment as any).athleteUserId));
+  }
   return res.status(200).json({ assignment });
 }
 

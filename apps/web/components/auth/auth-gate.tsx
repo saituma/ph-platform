@@ -10,25 +10,14 @@ function isProtectedPath(pathname: string) {
   return !pathname.startsWith("/api/");
 }
 
-// Reads accessTokenClient (non-httpOnly) and checks JWT exp without a network call.
-// Middleware is the real auth guard; this only handles edge cases on the client.
-function hasValidClientToken(): boolean {
-  if (typeof document === "undefined") return true;
-  const raw = document.cookie
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith("accessTokenClient="));
-  const token = raw ? raw.slice("accessTokenClient=".length) : "";
-  if (!token) return false;
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return true;
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
-    ) as { exp?: number };
-    if (typeof payload.exp === "number") return payload.exp * 1000 > Date.now();
-  } catch {}
-  return true;
+// Calls the server-side session endpoint to verify the httpOnly-cookie-backed
+// session is still valid. Middleware is the primary auth guard; this handles
+// the edge case where a session expires while the user is already on a page.
+function checkSession(): Promise<boolean> {
+  return fetch("/api/auth/session", { cache: "no-store" })
+    .then((res) => res.json() as Promise<{ authenticated?: boolean }>)
+    .then(({ authenticated }) => authenticated === true)
+    .catch(() => false);
 }
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -37,11 +26,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!pathname || !isProtectedPath(pathname)) return;
-    if (!hasValidClientToken()) {
-      fetch("/api/auth/clear-session", { method: "POST" }).finally(() => {
-        router.replace("/login");
-      });
-    }
+    checkSession().then((authenticated) => {
+      if (!authenticated) {
+        fetch("/api/auth/clear-session", { method: "POST" }).finally(() => {
+          router.replace("/login");
+        });
+      }
+    });
   }, [pathname, router]);
 
   // Always render children immediately — no blank-screen while "checking".

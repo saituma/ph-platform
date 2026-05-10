@@ -81,7 +81,7 @@ jest.mock("../../src/services/health.service", () => ({
 jest.mock("uuid", () => ({ v4: () => "test-uuid" }));
 
 const stubHandler = (_req: any, res: any) => res.status(200).json({});
-jest.mock("../../src/controllers/billing.controller", () => ({
+jest.mock("../../src/controllers/billing", () => ({
   stripeWebhook: (_req: any, res: any) => res.sendStatus(200),
   listPlans: (_req: any, res: any) => res.json({ plans: [] }),
   getBillingStatus: stubHandler,

@@ -1,8 +1,11 @@
-import { isTokenExpired } from "./token-expiry";
+import {
+	CSRF_COOKIE_NAME,
+	PARENT_AUTH_TOKEN_STORAGE_KEY,
+	SESSION_MAX_AGE_SECONDS,
+	type TokenStatus,
+} from "@ph/auth";
 
-const AUTH_TOKEN_KEY = "ph_parent_auth_token";
-const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
-const CSRF_COOKIE_NAME = "__csrf";
+const AUTH_TOKEN_KEY = PARENT_AUTH_TOKEN_STORAGE_KEY;
 
 export function getClientAuthToken(): string | null {
 	if (typeof window === "undefined") return null;
@@ -27,7 +30,7 @@ export async function clearAuthToken(): Promise<void> {
 	if (typeof window === "undefined") return;
 	window.localStorage.removeItem(AUTH_TOKEN_KEY);
 	try {
-		await fetch("/api/app/clear-token", {
+		await fetch("/api/app/logout", {
 			method: "POST",
 			credentials: "include",
 			headers: { "X-CSRF-Token": getCsrfToken() },
@@ -36,11 +39,6 @@ export async function clearAuthToken(): Promise<void> {
 		// Best-effort
 	}
 }
-
-export type TokenStatus = {
-	authenticated: boolean;
-	expiresAt: number | null;
-};
 
 export async function getTokenStatus(): Promise<TokenStatus> {
 	try {
@@ -56,23 +54,9 @@ export async function getTokenStatus(): Promise<TokenStatus> {
 			}
 		}
 	} catch {
-		// Fallback below
-	}
-
-	const localToken = getClientAuthToken();
-	if (!localToken || isTokenExpired(localToken)) {
-		window.localStorage.removeItem(AUTH_TOKEN_KEY);
 		return { authenticated: false, expiresAt: null };
 	}
-
-	const payload = parseJwtPayload(localToken);
-	const expiresAt = typeof payload?.exp === "number" ? payload.exp : null;
-	return { authenticated: true, expiresAt };
-}
-
-export function getAuthHeaders(): HeadersInit {
-	const token = getClientAuthToken();
-	return token ? { Authorization: `Bearer ${token}` } : {};
+	return { authenticated: false, expiresAt: null };
 }
 
 function parseJwtPayload(token: string): Record<string, unknown> | null {

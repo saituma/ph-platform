@@ -60,6 +60,20 @@ if (!env.databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
+// Production safety check: warn when pool max is too large.
+// Total DB connections = instances × DB_POOL_MAX. At > 10 per instance the
+// connection count grows quickly enough to exhaust hosted-Postgres limits.
+// This is a WARN (not a crash) — some deployments knowingly run a single
+// instance with a higher pool and that is fine.
+const PROD_POOL_MAX_WARN_THRESHOLD = 10;
+if (env.nodeEnv === "production" && env.dbPoolMax > PROD_POOL_MAX_WARN_THRESHOLD) {
+  console.warn(
+    `[DB] WARN: DB_POOL_MAX=${env.dbPoolMax} exceeds ${PROD_POOL_MAX_WARN_THRESHOLD} in production. ` +
+      `Total connections = instances × pool_max. Consider lowering DB_POOL_MAX or enabling a connection pooler. ` +
+      `See docs/db-connection-strategy.md for guidance.`,
+  );
+}
+
 const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(env.databaseUrl);
 const chosenDatabaseUrl = maybePreferDirectNeonHost(env.databaseUrl);
 const connectionString = useSsl ? normalizeConnectionString(chosenDatabaseUrl) : chosenDatabaseUrl;
@@ -77,14 +91,14 @@ const isNeonHost = (() => {
 const poolConfig: ConstructorParameters<typeof Pool>[0] = {
   connectionString,
   ssl: sslOption,
-  // Handshakes to hosted Postgres (especially poolers) can exceed 4s on congested links.
-  // Use a slightly higher ceiling to avoid false outage trips while still failing fast enough.
-  connectionTimeoutMillis: 7_500,
-  query_timeout: 8_000,
-  idleTimeoutMillis: 10_000,
+  // Connection/idle timeouts are configurable via env vars so they can be tuned
+  // per-deployment without code changes. See docs/db-connection-strategy.md.
+  connectionTimeoutMillis: env.dbConnectTimeoutMs,
+  query_timeout: env.dbConnectTimeoutMs + 1_000,
+  idleTimeoutMillis: env.dbIdleTimeoutMs,
   keepAlive: true,
   keepAliveInitialDelayMillis: 0,
-  max: 30,
+  max: env.dbPoolMax,
   ...(isNeonHost
     ? {
         maxUses: 750,

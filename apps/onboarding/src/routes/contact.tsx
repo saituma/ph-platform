@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { buildOgMeta } from "../lib/seo";
 import { motion } from "framer-motion";
 import { Mail, MapPin, Phone, Instagram, Send } from "lucide-react";
 import { useState } from "react";
@@ -6,24 +7,12 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/contact")({
 	head: () => ({
-		meta: [
-			{ title: "Contact — PH Performance" },
-			{
-				name: "description",
-				content:
-					"Get in touch with PH Performance. Enquiries about coaching, team programmes, partnerships, and more.",
-			},
-			{ property: "og:title", content: "Contact — PH Performance" },
-			{
-				property: "og:description",
-				content:
-					"Reach out to the PH Performance team for coaching enquiries, team programmes, or general questions.",
-			},
-			{ property: "og:url", content: "https://phperformance.uk/contact" },
-			{ property: "og:image", content: "https://phperformance.uk/home.png" },
-			{ property: "og:image:width", content: "1200" },
-			{ property: "og:image:height", content: "630" },
-		],
+		meta: buildOgMeta({
+			title: "Contact — PH Performance",
+			description: "Get in touch with PH Performance. Enquiries about coaching, team programmes, partnerships, and more.",
+			url: "https://phperformance.uk/contact",
+			imageAlt: "Contact PH Performance",
+		}),
 		links: [{ rel: "canonical", href: "https://phperformance.uk/contact" }],
 		scripts: [
 			{

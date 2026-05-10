@@ -15,7 +15,7 @@ import {
 } from "../services/auth.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
-import { verifyAccessToken } from "../lib/jwt";
+import { createSocketToken, verifyAccessToken } from "../lib/jwt";
 import { getUserById, updateUserProfile } from "../services/user.service";
 import { getOnboardingByUser } from "../services/onboarding.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
@@ -507,6 +507,12 @@ export async function deleteAccount(req: Request, res: Response) {
     const message = typeof err?.message === "string" ? err.message : "Could not delete account.";
     return res.status(status).json({ error: message });
   }
+}
+
+export async function issueSocketToken(req: Request, res: Response) {
+  const { id, role } = req.user!;
+  const token = await createSocketToken(id, role);
+  return res.json({ token, expiresAt: Math.floor(Date.now() / 1000) + 60 });
 }
 
 export async function updateMe(req: Request, res: Response) {

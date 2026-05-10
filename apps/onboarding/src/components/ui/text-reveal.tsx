@@ -1,6 +1,6 @@
 "use client";
 
-import { FC, useRef, useEffect, useState, useCallback } from "react";
+import { type FC, useRef, useEffect, useState, useCallback } from "react";
 
 import { cn } from "#/lib/utils.ts";
 

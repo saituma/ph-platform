@@ -361,21 +361,33 @@ for (const article of blogArticles) {
 
 function buildMetaTags(page) {
   const url = page.path === "/" ? SITE_URL : `${SITE_URL}${page.path}`;
+  const image = page.ogImage || `${SITE_URL}/home.png`;
+  const imageAlt = page.imageAlt || `${page.title} — PH Performance`;
+  const description = page.ogDescription || page.description;
   const tags = [
     `<title>${page.title}</title>`,
     `<meta name="description" content="${page.description}" />`,
-    `<meta property="og:title" content="${page.title}" />`,
-    `<meta property="og:description" content="${page.ogDescription || page.description}" />`,
-    `<meta property="og:url" content="${url}" />`,
-    `<meta property="og:type" content="${page.ogType || "website"}" />`,
+    // Open Graph — Facebook, WhatsApp, Telegram, iMessage, LinkedIn, Discord
     `<meta property="og:site_name" content="PH Performance" />`,
-    `<meta property="og:image" content="${SITE_URL}/home.png" />`,
+    `<meta property="og:type" content="${page.ogType || "website"}" />`,
+    `<meta property="og:title" content="${page.title}" />`,
+    `<meta property="og:description" content="${description}" />`,
+    `<meta property="og:url" content="${url}" />`,
+    `<meta property="og:image" content="${image}" />`,
+    `<meta property="og:image:secure_url" content="${image}" />`,
+    `<meta property="og:image:type" content="image/png" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="${imageAlt}" />`,
+    `<meta property="og:locale" content="en_GB" />`,
+    // Twitter / X — also used by iMessage as fallback
     `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:site" content="@phperformance" />`,
+    `<meta name="twitter:creator" content="@phperformance" />`,
     `<meta name="twitter:title" content="${page.title}" />`,
-    `<meta name="twitter:description" content="${page.ogDescription || page.description}" />`,
-    `<meta name="twitter:image" content="${SITE_URL}/home.png" />`,
+    `<meta name="twitter:description" content="${description}" />`,
+    `<meta name="twitter:image" content="${image}" />`,
+    `<meta name="twitter:image:alt" content="${imageAlt}" />`,
     `<link rel="canonical" href="${url}" />`,
   ];
 
@@ -395,17 +407,9 @@ function generatePage(page) {
 
   let html = baseHtml
     .replace(/<title>.*?<\/title>/, "")
-    .replace(/<meta\s+name="description"[^>]*>/, "")
-    .replace(/<meta\s+property="og:title"[^>]*>/, "")
-    .replace(/<meta\s+property="og:description"[^>]*>/, "")
-    .replace(/<meta\s+property="og:url"[^>]*>/, "")
-    .replace(/<meta\s+property="og:image"[^>]*>/, "")
-    .replace(/<meta\s+property="og:image:width"[^>]*>/, "")
-    .replace(/<meta\s+property="og:image:height"[^>]*>/, "")
-    .replace(/<meta\s+name="twitter:card"[^>]*>/, "")
-    .replace(/<meta\s+name="twitter:title"[^>]*>/, "")
-    .replace(/<meta\s+name="twitter:description"[^>]*>/, "")
-    .replace(/<meta\s+name="twitter:image"[^>]*>/, "")
+    .replace(/<meta\s+name="description"[^>]*>/g, "")
+    .replace(/<meta\s+property="og:[^"]*"[^>]*>/g, "")
+    .replace(/<meta\s+name="twitter:[^"]*"[^>]*>/g, "")
     .replace(/<link\s+rel="canonical"[^>]*>/, "");
 
   html = html.replace("</head>", `    ${metaTags}\n  </head>`);

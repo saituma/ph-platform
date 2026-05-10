@@ -1,20 +1,25 @@
-import { isTokenExpired } from "./token-expiry";
+import {
+	CSRF_COOKIE_NAME,
+	ONBOARDING_AUTH_TOKEN_STORAGE_KEY,
+	SESSION_MAX_AGE_SECONDS,
+	type TokenStatus,
+} from "@ph/auth";
 
-const AUTH_TOKEN_KEY = "ph_auth_token";
+const AUTH_TOKEN_KEY = ONBOARDING_AUTH_TOKEN_STORAGE_KEY;
 // TODO: 30-day session with no idle timeout. Add idle timeout (e.g. 30 min inactivity) post-launch.
-const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
-const CSRF_COOKIE_NAME = "__csrf";
 
 /**
  * Client-only onboarding stores the API access token in browser storage and
- * sends it to apps/api with Authorization headers.
+ * mirrors it into an httpOnly cookie via setAuthToken().
  *
  * SECURITY NOTE: Storing JWT in localStorage is a known XSS risk. The primary
  * auth token is also mirrored into an httpOnly cookie via setAuthToken().
- * A future iteration should remove localStorage usage entirely and rely solely
- * on httpOnly cookies. For now, clearAuthToken() ensures localStorage is cleaned
- * on logout to limit exposure.
+ * Data services no longer read from localStorage for Authorization headers —
+ * they rely solely on the httpOnly cookie sent with credentials: "include".
+ * clearAuthToken() ensures localStorage is cleaned on logout to limit exposure.
  */
+
+// @deprecated No longer used for API auth. localStorage token is no longer sent as a Bearer header.
 export function getClientAuthToken(): string | null {
 	if (typeof window === "undefined") return null;
 	return window.localStorage.getItem(AUTH_TOKEN_KEY);
@@ -62,12 +67,6 @@ export async function clearAuthToken(): Promise<void> {
 	}
 }
 
-export type TokenStatus = {
-	authenticated: boolean;
-	// Unix timestamp in seconds, matching server /api/app/token-status
-	expiresAt: number | null;
-};
-
 export async function getTokenStatus(): Promise<TokenStatus> {
 	try {
 		const response = await fetch("/api/app/token-status", {
@@ -87,23 +86,19 @@ export async function getTokenStatus(): Promise<TokenStatus> {
 			}
 		}
 	} catch {
-		// Fallback to local token check below.
+		// Server unreachable — treat as unauthenticated; do not fall back to localStorage.
 	}
 
-	const localToken = getClientAuthToken();
-	if (!localToken || isTokenExpired(localToken)) {
-		window.localStorage.removeItem(AUTH_TOKEN_KEY);
-		return { authenticated: false, expiresAt: null };
-	}
-
-	const payload = parseJwtPayload(localToken);
-	const expiresAt = typeof payload?.exp === "number" ? payload.exp : null;
-	return { authenticated: true, expiresAt };
+	return { authenticated: false, expiresAt: null };
 }
 
+/**
+ * @deprecated No longer injects Bearer tokens. Callers should rely on
+ * credentials: "include" + httpOnly cookie auth. Returns an empty object.
+ * Kept for backwards compatibility while onboarding step files are migrated.
+ */
 export function getAuthHeaders(): HeadersInit {
-	const token = getClientAuthToken();
-	return token ? { Authorization: `Bearer ${token}` } : {};
+	return {};
 }
 
 function parseJwtPayload(token: string): Record<string, unknown> | null {

@@ -17,6 +17,16 @@ jest.mock("../../src/services/user.service", () => ({
   listGuardianAthletes: (...args: any[]) => listGuardianAthletes(...args),
 }));
 
+jest.mock("../../src/lib/cache", () => ({
+  cache: {
+    getOrSet: (_key: string, _ttlSec: number, fetcher: () => Promise<unknown>) => fetcher(),
+    del: jest.fn(),
+  },
+  cacheKeys: {
+    authUser: (userId: number) => `user:${userId}:auth`,
+  },
+}));
+
 describe("requireAuth middleware", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -36,6 +46,7 @@ describe("requireAuth middleware", () => {
     const res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
+      locals: {},
     } as unknown as Response;
     const next = jest.fn() as NextFunction;
 
@@ -74,6 +85,7 @@ describe("requireAuth middleware", () => {
     const res = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
+      locals: {},
     } as unknown as Response;
     const next = jest.fn() as NextFunction;
 
@@ -81,5 +93,44 @@ describe("requireAuth middleware", () => {
 
     expect(next).toHaveBeenCalled();
     expect((req as any).user).toMatchObject({ id: 10, email: "a@b.com", role: "guardian" });
+  });
+
+  test("accepts the parent httpOnly session cookie when Authorization is absent", async () => {
+    const { requireAuth } = await import("../../src/middlewares/auth");
+
+    verifyAccessToken.mockResolvedValue({
+      sub: "sub-1",
+      email: "parent@example.com",
+      name: "Parent",
+      user_id: 20,
+      token_version: 2,
+    });
+    getUserById.mockResolvedValue({
+      id: 20,
+      role: "guardian",
+      email: "parent@example.com",
+      name: "Parent",
+      cognitoSub: "sub-1",
+      profilePicture: null,
+      tokenVersion: 2,
+      isBlocked: false,
+    });
+
+    const req = {
+      headers: { cookie: "ph_app_session=cookie-token" },
+      method: "GET",
+      path: "/secure",
+    } as Request;
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      locals: {},
+    } as unknown as Response;
+    const next = jest.fn() as NextFunction;
+
+    await requireAuth(req, res, next);
+
+    expect(verifyAccessToken).toHaveBeenCalledWith("cookie-token");
+    expect(next).toHaveBeenCalled();
   });
 });

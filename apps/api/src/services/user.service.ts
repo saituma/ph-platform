@@ -283,7 +283,8 @@ export async function listGuardianAthletes(userId: number) {
     .select()
     .from(athleteTable)
     .where(eq(athleteTable.guardianId, guardian.id))
-    .orderBy(athleteTable.createdAt);
+    .orderBy(athleteTable.createdAt)
+    .limit(50); // guardians rarely have > 5 children; cap at 50 for safety
   return { guardian, athletes };
 }
 

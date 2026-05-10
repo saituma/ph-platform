@@ -6,6 +6,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { AppSidebar } from "./app-sidebar";
 import { AdminTopbar } from "./topbar";
 import { GlobalCommandPalette } from "./global-command-palette";
+import { BottomDock } from "./bottom-dock";
 
 type AdminShellProps = {
   title: string;
@@ -27,7 +28,6 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
         {/* Desktop topbar */}
         <AdminTopbar
           title={title}
-          subtitle={subtitle}
           actions={actions}
           onSearchOpen={() => setSearchOpen(true)}
         />
@@ -59,9 +59,11 @@ export function AdminShell({ title, subtitle, actions, children }: AdminShellPro
           </div>
         </header>
 
-        <main className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 px-3 py-5 sm:px-4 sm:py-6 lg:space-y-8 lg:px-8 lg:py-8 xl:px-10">
+        <main className="mx-auto w-full min-w-0 max-w-[1400px] space-y-6 px-3 py-5 pb-28 sm:px-4 sm:py-6 lg:space-y-8 lg:px-8 lg:py-8 lg:pb-28 xl:px-10">
           {children}
         </main>
+
+        <BottomDock />
       </SidebarInset>
     </SidebarProvider>
   );

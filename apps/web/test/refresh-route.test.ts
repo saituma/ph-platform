@@ -1,5 +1,41 @@
 import { NextRequest } from "next/server";
 
+describe("auth logout route", () => {
+  beforeEach(() => {
+    jest.resetModules();
+  });
+
+  it("clears all three session cookies on logout", async () => {
+    const { POST } = await import("@/app/api/auth/logout/route");
+    const req = new NextRequest("http://localhost/api/auth/logout", {
+      method: "POST",
+      headers: {
+        cookie: "accessToken=jwt; accessTokenClient=jwt; refreshToken=rt; csrfToken=csrf-1",
+        "x-csrf-token": "csrf-1",
+      },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const cookies = res.headers.get("set-cookie") ?? "";
+    expect(cookies).toMatch(/accessToken=;/);
+    expect(cookies).toMatch(/accessTokenClient=;/);
+    expect(cookies).toMatch(/refreshToken=;/);
+  });
+
+  it("rejects logout without valid CSRF token", async () => {
+    const { POST } = await import("@/app/api/auth/logout/route");
+    const req = new NextRequest("http://localhost/api/auth/logout", {
+      method: "POST",
+      headers: {
+        cookie: "accessToken=jwt; csrfToken=csrf-1",
+        "x-csrf-token": "wrong",
+      },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("auth refresh route", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -33,6 +69,8 @@ describe("auth refresh route", () => {
     expect(body).toEqual({ ok: true });
     const cookies = res.headers.get("set-cookie") ?? "";
     expect(cookies).toContain("accessToken=new-access-token");
+    // accessTokenClient is still set intentionally — the admin socket reads it for
+    // real-time auth. The httpOnly accessToken is the authoritative session cookie.
     expect(cookies).toContain("accessTokenClient=new-access-token");
   });
 
