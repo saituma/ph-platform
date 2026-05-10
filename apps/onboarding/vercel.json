@@ -6,10 +6,6 @@
   "installCommand": "pnpm install",
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "https://ph-performance-2cae29f7922d.herokuapp.com/api/$1"
-    },
-    {
       "src": "/assets/(.*)",
       "headers": { "Cache-Control": "public, max-age=31536000, immutable" },
       "continue": true
@@ -52,6 +48,10 @@
       "continue": true
     },
     { "handle": "filesystem" },
+    {
+      "src": "/api/(.*)",
+      "dest": "https://ph-performance-2cae29f7922d.herokuapp.com/api/$1"
+    },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "images": {
