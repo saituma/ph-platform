@@ -14,11 +14,6 @@ import { MagneticText } from "@/components/ui/morphing-cursor";
 import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
 import { buildOgMeta } from "../lib/seo";
-import { NumberTicker } from "@/components/ui/number-ticker";
-import { Marquee } from "@/components/ui/marquee";
-import { AnimatedTestimonials } from "@/components/ui/animated-testimonials";
-import { ShimmerButton } from "@/components/ui/shimmer-button";
-import { TextRevealByWord } from "@/components/ui/text-reveal";
 
 const SITE_URL = "https://phperformance.uk";
 
