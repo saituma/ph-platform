@@ -86,6 +86,7 @@ function readSqlMigrationTags(migrationsFolder: string) {
 
 function splitSqlStatements(sqlText: string) {
   return sqlText
+    .replace(/^\s*--.*$/gm, "")
     .split(";")
     .map((stmt) => stmt.trim())
     .filter(Boolean);
