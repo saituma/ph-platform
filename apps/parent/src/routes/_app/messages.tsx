@@ -52,7 +52,7 @@ function FeedbackPage() {
 	const [reply, setReply] = useState("");
 	const bottomRef = useRef<HTMLDivElement>(null);
 
-	const { data: listData, isLoading } = useQuery<{ threads: Thread[] }>({
+	const { data: listData, isLoading, isError: listError } = useQuery<{ threads: Thread[] }>({
 		queryKey: ["feedback-list"],
 		queryFn: () => api.get<{ threads: Thread[] }>("/api/portal/guardian/feedback"),
 	});
@@ -128,6 +128,12 @@ function FeedbackPage() {
 					{isLoading ? (
 						<div className="p-4 space-y-3">
 							{[1, 2].map((i) => <div key={i} className="h-16 bg-muted animate-pulse" />)}
+						</div>
+					) : listError ? (
+						<div className="p-8 text-center">
+							<MessageCircle size={28} className="mx-auto text-muted-foreground/20 mb-3" />
+							<p className="text-sm text-muted-foreground font-mono">Failed to load feedback</p>
+							<p className="text-xs text-muted-foreground/60 font-mono mt-1">Check your connection and try again</p>
 						</div>
 					) : threads.length === 0 ? (
 						<div className="p-8 text-center">
@@ -208,7 +214,7 @@ function FeedbackPage() {
 						<button
 							type="button"
 							onClick={() => createThread.mutate()}
-							disabled={!subject.trim() || !message.trim() || createThread.isPending}
+							disabled={subject.trim().length < 2 || !message.trim() || createThread.isPending}
 							className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"
 						>
 							<Send size={12} /> {createThread.isPending ? "Sending…" : "Send feedback"}
