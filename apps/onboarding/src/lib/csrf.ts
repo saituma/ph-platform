@@ -6,7 +6,7 @@
  * the same value in the `X-CSRF-Token` header.
  */
 
-import { CSRF_COOKIE_NAME } from "@ph/auth";
+import { CSRF_COOKIE_NAME, ONBOARDING_AUTH_TOKEN_STORAGE_KEY } from "@ph/auth";
 
 /** Read the current CSRF token from cookies */
 export function getCsrfToken(): string {
@@ -17,9 +17,14 @@ export function getCsrfToken(): string {
   return match?.[1] ?? "";
 }
 
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ONBOARDING_AUTH_TOKEN_STORAGE_KEY);
+}
+
 /**
  * Wrapper around fetch that automatically attaches the CSRF token header
- * for state-changing requests.
+ * for state-changing requests, and the Bearer token for cross-origin API calls.
  */
 export function csrfFetch(
   input: RequestInfo | URL,
@@ -31,6 +36,11 @@ export function csrfFetch(
 
   if (needsCsrf && !headers.has("X-CSRF-Token")) {
     headers.set("X-CSRF-Token", getCsrfToken());
+  }
+
+  if (!headers.has("Authorization")) {
+    const token = getStoredToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   return fetch(input, { ...init, credentials: "include", headers });
