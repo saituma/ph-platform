@@ -33,11 +33,12 @@ async function verifyWithAnySecret(token: string, remoteIp?: string): Promise<Ve
   const secrets = [env.turnstileSecretKey, env.turnstileSecretKey2, env.turnstileSecretKey3].filter(Boolean);
   if (secrets.length === 0) return { success: true };
 
-  for (const secret of secrets) {
-    const result = await verifyToken(token, secret, remoteIp);
-    if (result.success) return result;
-  }
-  return { success: false, errorCodes: ["all-secrets-failed"] };
+  // Verify all secrets in parallel — Cloudflare consumes a token on the first
+  // siteverify call even if the secret is wrong, so sequential would burn the
+  // token before the correct secret gets a chance.
+  const results = await Promise.all(secrets.map((s) => verifyToken(token, s, remoteIp)));
+  const passed = results.find((r) => r.success);
+  return passed ?? { success: false, errorCodes: results.flatMap((r) => r.errorCodes ?? []) };
 }
 
 function clientIp(req: Request): string | undefined {
