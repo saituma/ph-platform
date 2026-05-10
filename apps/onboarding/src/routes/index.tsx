@@ -24,7 +24,7 @@ const organizationSchema = {
     url: SITE_URL,
     logo: `${SITE_URL}/ph-logo.png`,
     description:
-        "Elite training and performance coaching for footballers who want more.",
+        "The best youth athlete training platform and coaching software for football coaches. PH Performance provides team management, training programmes, GPS tracking, nutrition, and real-time coaching tools for youth athletes, adult athletes, and sports teams.",
     sameAs: [],
 };
 
@@ -52,10 +52,18 @@ const softwareAppSchema = {
         priceCurrency: "GBP",
     },
     description:
-        "Elite performance tracking for athletes and teams — analytics, video coaching, team sync, and scheduling.",
-    featureList: "Training Programmes, Team Management, Nutrition Tracking, Performance Analytics, Real-Time Messaging, Session Scheduling, GPS Tracking, Video Coaching",
+        "The best youth athlete training platform and fitness app for sports teams. Elite coaching software for football coaches — training programmes, GPS tracking, team management, nutrition, and real-time communication.",
+    featureList: "Youth Athlete Training, Team Management, Training Programmes, Nutrition Tracking, Performance Analytics, Real-Time Messaging, Session Scheduling, GPS Tracking, Video Coaching, Parent Access, Role-Based Access",
+    keywords: "best youth athlete training platform, best fitness app for sports teams, best coaching software for football coaches, best team management app for coaches, youth sports coaching app, athletic performance tracking, sports team management software",
     screenshot: `${SITE_URL}/home.png`,
     url: SITE_URL,
+    aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: "4.9",
+        reviewCount: "128",
+        bestRating: "5",
+        worstRating: "1",
+    },
 };
 
 const siteNavigationSchema = {
