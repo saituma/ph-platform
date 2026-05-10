@@ -16,6 +16,7 @@ import { Route as ServicesRouteImport } from './routes/services'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
+import { Route as ForgotRouteImport } from './routes/forgot'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as FeaturesRouteImport } from './routes/features'
@@ -104,6 +105,11 @@ const PortalRoute = PortalRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment-success',
   path: '/payment-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotRoute = ForgotRouteImport.update({
+  id: '/forgot',
+  path: '/forgot',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -393,6 +399,7 @@ export interface FileRoutesByFullPath {
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
+  '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
@@ -456,6 +463,7 @@ export interface FileRoutesByTo {
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
+  '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
@@ -519,6 +527,7 @@ export interface FileRoutesById {
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
+  '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
@@ -584,6 +593,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/enquiry'
     | '/features'
+    | '/forgot'
     | '/gallery'
     | '/login'
     | '/payment-success'
@@ -647,6 +657,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/enquiry'
     | '/features'
+    | '/forgot'
     | '/gallery'
     | '/login'
     | '/payment-success'
@@ -709,6 +720,7 @@ export interface FileRouteTypes {
     | '/education-faq'
     | '/enquiry'
     | '/features'
+    | '/forgot'
     | '/gallery'
     | '/login'
     | '/payment-success'
@@ -773,6 +785,7 @@ export interface RootRouteChildren {
   EducationFaqRoute: typeof EducationFaqRoute
   EnquiryRoute: typeof EnquiryRouteWithChildren
   FeaturesRoute: typeof FeaturesRoute
+  ForgotRoute: typeof ForgotRoute
   GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
@@ -841,6 +854,13 @@ declare module '@tanstack/react-router' {
       path: '/payment-success'
       fullPath: '/payment-success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot': {
+      id: '/forgot'
+      path: '/forgot'
+      fullPath: '/forgot'
+      preLoaderRoute: typeof ForgotRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1340,6 +1360,7 @@ const rootRouteChildren: RootRouteChildren = {
   EducationFaqRoute: EducationFaqRoute,
   EnquiryRoute: EnquiryRouteWithChildren,
   FeaturesRoute: FeaturesRoute,
+  ForgotRoute: ForgotRoute,
   GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,

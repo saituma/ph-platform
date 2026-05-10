@@ -136,7 +136,7 @@ function Login() {
 	};
 
 	const handleResetPassword = () => {
-		navigate({ to: "/register" });
+		navigate({ to: "/forgot" });
 	};
 
 	const handleCreateAccount = () => {

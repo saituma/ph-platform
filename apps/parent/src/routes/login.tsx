@@ -8,6 +8,8 @@ import { csrfFetch } from "#/lib/csrf";
 import { isTokenExpired } from "#/lib/token-expiry";
 import { setAuthToken, getTokenStatus } from "#/lib/client-storage";
 import { cn } from "#/lib/utils";
+import { Turnstile } from "#/lib/Turnstile";
+import { env } from "#/env";
 
 export const Route = createFileRoute("/login")({
 	beforeLoad: async () => {
@@ -41,6 +43,16 @@ export default function LoginPage() {
 	const navigate = useNavigate();
 	const [showPass, setShowPass] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
+	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+	const [turnstileReady, setTurnstileReady] = useState(false);
+	const [turnstileFailed, setTurnstileFailed] = useState(false);
+	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+
+	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
+	const isLocalDev =
+		typeof window !== "undefined" &&
+		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -56,12 +68,17 @@ export default function LoginPage() {
 			return;
 		}
 
+		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
+			toast.error("Please complete the verification challenge");
+			return;
+		}
+
 		setIsLoading(true);
 		try {
 			const res = await csrfFetch(`/api/auth/login`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email, password }),
+				body: JSON.stringify({ email, password, turnstileToken }),
 			});
 			const data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(data.error || "Incorrect email or password.");
@@ -94,6 +111,8 @@ export default function LoginPage() {
 			const done = localStorage.getItem("ph_parent_onboarding_done");
 			navigate({ to: done ? "/dashboard" : "/onboarding/step-1", replace: true });
 		} catch (err) {
+			setTurnstileToken(null);
+			setTurnstileResetKey((k) => k + 1);
 			toast.error("Sign in failed", {
 				description: err instanceof Error ? err.message : "Please try again.",
 			});
@@ -205,12 +224,32 @@ export default function LoginPage() {
 							</div>
 						</div>
 
+						{shouldEnforceTurnstile && (
+							<Turnstile
+								siteKey={turnstileSiteKey ?? ""}
+								action="parent-login"
+								theme="auto"
+								resetKey={turnstileResetKey}
+								onVerify={(token) => {
+									setTurnstileToken(token);
+									setTurnstileFailed(false);
+								}}
+								onReady={() => setTurnstileReady(true)}
+								onExpire={() => setTurnstileToken(null)}
+								onError={() => {
+									setTurnstileToken(null);
+									setTurnstileFailed(true);
+								}}
+								className="flex justify-center"
+							/>
+						)}
+
 						<button
 							type="submit"
-							disabled={isLoading}
+							disabled={isLoading || (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken)}
 							className={cn(
 								"w-full flex items-center justify-center gap-2 py-2.5 px-5 font-bold text-xs uppercase tracking-widest transition-all",
-								isLoading
+								isLoading || (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken)
 									? "bg-muted text-muted-foreground cursor-not-allowed"
 									: "bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.98]",
 							)}

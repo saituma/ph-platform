@@ -68,7 +68,7 @@ const pages = [
         description:
           "Elite performance tracking for athletes and teams — analytics, video coaching, team sync, and scheduling.",
         featureList: "Training Programmes, Team Management, Nutrition Tracking, Performance Analytics, Real-Time Messaging, Session Scheduling, GPS Tracking, Video Coaching",
-        screenshot: `${SITE_URL}/home.png`,
+        screenshot: `${SITE_URL}/og-preview.png`,
         url: SITE_URL,
       },
       {
@@ -246,7 +246,7 @@ const pages = [
         description:
           "Training programmes, nutrition tracking, GPS performance, session booking, and analytics.",
         featureList: "Training Programmes, Nutrition Tracking, GPS Performance, Session Booking, Analytics, Real-Time Messaging",
-        screenshot: `${SITE_URL}/home.png`,
+        screenshot: `${SITE_URL}/og-preview.png`,
         downloadUrl: `${SITE_URL}/app-download`,
       },
       breadcrumb(["Home", SITE_URL], ["App Download", `${SITE_URL}/app-download`]),
@@ -340,7 +340,7 @@ for (const article of blogArticles) {
         datePublished: article.date,
         dateModified: article.date,
         url: `${SITE_URL}/blog/${article.slug}`,
-        image: `${SITE_URL}/home.png`,
+        image: `${SITE_URL}/og-preview.png`,
         author: { "@type": "Organization", name: "PH Performance", url: SITE_URL },
         publisher: {
           "@type": "Organization",
@@ -361,7 +361,7 @@ for (const article of blogArticles) {
 
 function buildMetaTags(page) {
   const url = page.path === "/" ? SITE_URL : `${SITE_URL}${page.path}`;
-  const image = page.ogImage || `${SITE_URL}/home.png`;
+  const image = page.ogImage || `${SITE_URL}/og-preview.png`;
   const imageAlt = page.imageAlt || `${page.title} — PH Performance`;
   const description = page.ogDescription || page.description;
   const tags = [

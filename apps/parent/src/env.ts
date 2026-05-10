@@ -17,6 +17,7 @@ export const env = createEnv({
 			normalizeOptionalPublicApiUrl,
 			z.string().url().optional(),
 		),
+		VITE_TURNSTILE_SITE_KEY: z.string().optional(),
 	},
 	runtimeEnv: import.meta.env,
 	emptyStringAsUndefined: true,

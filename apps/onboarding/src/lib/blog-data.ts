@@ -35,7 +35,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-05-01",
     readTime: "8 min",
     category: "Technology",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
@@ -88,7 +88,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-04-20",
     readTime: "10 min",
     category: "Youth Athletes",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
@@ -143,7 +143,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-04-10",
     readTime: "7 min",
     category: "Team Management",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
@@ -188,7 +188,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-03-28",
     readTime: "9 min",
     category: "Nutrition",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
@@ -241,7 +241,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-03-15",
     readTime: "8 min",
     category: "Training",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
@@ -285,7 +285,7 @@ export const blogPosts: BlogPost[] = [
     date: "2025-03-05",
     readTime: "7 min",
     category: "Team Management",
-    image: "/home.png",
+    image: "/og-preview.png",
     content: [
       {
         paragraphs: [
