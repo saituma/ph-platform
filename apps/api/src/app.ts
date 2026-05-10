@@ -75,6 +75,7 @@ export function createApp() {
   // Parent portal (apps/parent)
   addOrigin("http://localhost:5174");
   addOrigin("http://127.0.0.1:5174");
+  addOrigin("https://parent.phperformance.uk");
 
   (env.corsOrigins ?? "")
     .split(",")

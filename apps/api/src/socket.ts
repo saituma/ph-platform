@@ -233,6 +233,9 @@ export function initSocket(server: HttpServer) {
   addOrigin("http://127.0.0.1:3001");
   addOrigin("http://localhost:5173");
   addOrigin("http://127.0.0.1:5173");
+  addOrigin("http://localhost:5174");
+  addOrigin("http://127.0.0.1:5174");
+  addOrigin("https://parent.phperformance.uk");
 
   const originAllowed = (origin: string) => {
     if (allowedOrigins.has(origin)) return true;
