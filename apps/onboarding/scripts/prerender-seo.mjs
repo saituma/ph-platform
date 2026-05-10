@@ -433,47 +433,17 @@ for (const page of pages) {
 
 // App-shell pages — authenticated/private routes that need a static file so
 // Vercel serves index.html on direct navigation without relying on the catch-all rewrite.
+// Only pre-render public (non-auth-gated) shell pages.
+// Portal and onboarding paths must NOT be pre-rendered: having static
+// directories under /portal/ or /onboarding/ in the dist causes Vercel to
+// return 404 for nested dynamic paths (e.g. /portal/programs/module/4)
+// before the /portal/:path* rewrite can fire.
 const appShellPaths = [
   "/login",
   "/register",
   "/forgot",
   "/verification",
   "/payment-success",
-  // portal top-level
-  "/portal/dashboard",
-  "/portal/programs",
-  "/portal/schedule",
-  "/portal/messages",
-  "/portal/profile",
-  "/portal/billing",
-  "/portal/notifications",
-  "/portal/tracking",
-  "/portal/nutrition",
-  "/portal/team",
-  "/portal/announcements",
-  "/portal/more",
-  "/portal/referral",
-  "/portal/feedback",
-  "/portal/coach-app",
-  "/portal/parent-platform",
-  // portal programs sub-routes (directory-level shells so Vercel doesn't 404
-  // dynamic :id segments before the rewrite catches them)
-  "/portal/programs/module",
-  "/portal/programs/session",
-  "/portal/programs/assigned",
-  "/portal/programs/assigned/session",
-  // portal team sub-routes
-  "/portal/team/athlete",
-  // portal parent-platform sub-routes
-  "/portal/parent-platform/course",
-  // onboarding flow
-  "/onboarding/dashboard",
-  "/onboarding/step-1",
-  "/onboarding/step-2",
-  "/onboarding/step-3",
-  "/onboarding/step-4",
-  "/onboarding/step-5",
-  "/onboarding/success",
 ];
 
 for (const shellPath of appShellPaths) {
