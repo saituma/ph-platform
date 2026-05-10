@@ -14,9 +14,8 @@ stripe.tar.gz
 test-*.ts
 test-*.mjs
 # The deployed API lives in heroku-deploy/ (created by pnpm deploy during build)
-# so none of the monorepo node_modules are needed at runtime
+# so the monorepo root node_modules are not needed at runtime
 node_modules
-packages
 # Source maps
 **/*.map
 # Test fixtures / coverage
