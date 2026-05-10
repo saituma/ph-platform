@@ -1,2 +1,2 @@
-web: pnpm start:api
-worker: pnpm start:api-worker
+web: node heroku-deploy/dist/index.js
+worker: node heroku-deploy/dist/worker.js
