@@ -4,8 +4,8 @@
   "description": "A cross-platform mobile-first fitness coaching app for youth football athletes, their parents, and a coach-admin dashboard.   - **Mobile App:** iOS & Android (React Native / Expo)   - **Admin Dashboard:** Web-based (Next.js)   - **Backend:** Express + TypeScript API",
   "main": "index.js",
   "scripts": {
-    "heroku-build": "turbo run build --filter=api",
-    "heroku-postbuild": "turbo run build --filter=api",
+    "heroku-build": "turbo run build --filter=api && pnpm --filter api deploy --legacy --prod heroku-deploy",
+    "heroku-postbuild": "turbo run build --filter=api && pnpm --filter api deploy --legacy --prod heroku-deploy",
     "build": "turbo run build --filter=web",
     "build:api": "turbo run build --filter=api",
     "build:all": "turbo run build",

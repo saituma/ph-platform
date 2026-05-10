@@ -13,21 +13,10 @@ scan_report.json
 stripe.tar.gz
 test-*.ts
 test-*.mjs
-# Large build artifacts
-apps/web/.next
-apps/onboarding/.output
-apps/onboarding/.vinxi
-apps/parent/.output
-apps/parent/.vinxi
-# Per-app node_modules (only apps/api needs its deps at runtime; pnpm hoists to root node_modules)
-apps/web/node_modules
-apps/parent/node_modules
-apps/onboarding/node_modules
-apps/mobile/node_modules
-apps/worker/node_modules
-apps/docs/node_modules
-apps/superadmin/node_modules
-packages/*/node_modules
+# The deployed API lives in heroku-deploy/ (created by pnpm deploy during build)
+# so none of the monorepo node_modules are needed at runtime
+node_modules
+packages
 # Source maps
 **/*.map
 # Test fixtures / coverage
