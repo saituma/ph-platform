@@ -26,6 +26,7 @@ import {
 	type ApiChatMessage,
 	fetchInbox,
 	fetchThreadMessages,
+	markThreadRead,
 	parseReplyPrefix,
 	sendMessage,
 	toggleMessageReaction,
@@ -157,6 +158,15 @@ function MessagesPage() {
 			setActiveThreadId(allThreads[0].id);
 		}
 	}, [allThreads, activeThreadId]);
+
+	// Mark thread as read when it becomes active, then refresh the inbox so the
+	// sidebar badge drops to the real count immediately.
+	useEffect(() => {
+		if (!token || !activeThreadId) return;
+		markThreadRead(token, activeThreadId).then(() => {
+			queryClient.invalidateQueries({ queryKey: messageKeys.inbox(token, isManager) });
+		});
+	}, [activeThreadId, token, isManager, queryClient]);
 
 	const { data: messages = [], isLoading: messagesLoading } = useQuery({
 		queryKey: messageKeys.thread(token, activeThreadId),

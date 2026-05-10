@@ -266,3 +266,22 @@ export async function toggleMessageReaction(
 	if (!response.ok) throw new Error("Failed to react to message");
 	return response.json();
 }
+
+export async function markThreadRead(_token: string, threadId: string): Promise<void> {
+	const [type, id] = threadId.split(":");
+	if (type === "group") {
+		await fetch(`/api/chat/groups/${id}/read`, {
+			method: "POST",
+			credentials: "include",
+		});
+	} else {
+		const peerUserId = Number(id);
+		if (!Number.isFinite(peerUserId) || peerUserId <= 0) return;
+		await fetch("/api/messages/read", {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ peerUserId }),
+		});
+	}
+}
