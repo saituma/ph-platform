@@ -16,7 +16,11 @@ import {
 } from "@/portal/portal-errors";
 import { portalKeys } from "@/portal/portal-query-keys";
 import type { PortalUser } from "@/portal/portal-types";
-import { clearAuthToken, getTokenStatus } from "@/lib/client-storage";
+import {
+	clearAuthToken,
+	getClientAuthToken,
+	getTokenStatus,
+} from "@/lib/client-storage";
 
 type PortalContextValue = {
 	token: string | null;
@@ -44,26 +48,19 @@ function calculateAge(birthDate: string | undefined): number | null {
 	return age;
 }
 
-/**
- * We use a sentinel string "cookie" to indicate the token is present in the httpOnly cookie.
- * The actual token value is never exposed to JS — it's sent automatically via cookies.
- */
-const COOKIE_TOKEN_SENTINEL = "__cookie_auth__";
-
 export function PortalProvider({ children }: { children: ReactNode }) {
-	// "token" here is a sentinel — indicates whether we believe we're authenticated
 	const [token, setToken] = useState<string | null>(null);
 	const [hydrated, setHydrated] = useState(false);
 	const [expiresAt, setExpiresAt] = useState<number | null>(null);
 
-	// On mount, check cookie-based auth status
+	// On mount, hydrate from localStorage and check JWT expiry.
 	useEffect(() => {
 		let cancelled = false;
 		async function checkAuth() {
 			const status = await getTokenStatus();
 			if (cancelled) return;
 			if (status.authenticated) {
-				setToken(COOKIE_TOKEN_SENTINEL);
+				setToken(getClientAuthToken());
 				setExpiresAt(status.expiresAt);
 			} else {
 				setToken(null);
@@ -102,8 +99,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 		queryKey: portalKeys.user(token),
 		queryFn: async () => {
 			if (!token) throw new Error("Not authenticated");
-			// fetchPortalUser will use credentials: 'include' — cookie is sent automatically
-			return fetchPortalUser(COOKIE_TOKEN_SENTINEL);
+			return fetchPortalUser(token);
 		},
 		enabled: !!token,
 		staleTime: 1000 * 60 * 10,
@@ -134,7 +130,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 	const refresh = useCallback(async () => {
 		const status = await getTokenStatus();
 		if (status.authenticated) {
-			setToken(COOKIE_TOKEN_SENTINEL);
+			setToken(getClientAuthToken());
 			setExpiresAt(status.expiresAt);
 		} else {
 			setToken(null);
