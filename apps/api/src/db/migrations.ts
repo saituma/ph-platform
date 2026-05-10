@@ -84,6 +84,13 @@ function readSqlMigrationTags(migrationsFolder: string) {
     .map((file) => file.replace(/\.sql$/, ""));
 }
 
+function splitSqlStatements(sqlText: string) {
+  return sqlText
+    .split(";")
+    .map((stmt) => stmt.trim())
+    .filter(Boolean);
+}
+
 /**
  * Drizzle's stock `migrate()` runs every *pending* journal migration inside one DB transaction
  * (`PgDialect.migrate`). PostgreSQL forbids using new enum labels in the same transaction that
@@ -123,6 +130,18 @@ async function migrateEachJournalEntryInOwnTransaction(
 
   for (const migration of migrations) {
     if (appliedHashes.has(migration.hash) || appliedCreatedAt.has(migration.folderMillis)) continue;
+
+    const requiresAutocommit = migration.sql.some((stmt) => /\bCREATE\s+INDEX\s+CONCURRENTLY\b/i.test(stmt));
+    if (requiresAutocommit) {
+      for (const stmt of migration.sql.flatMap(splitSqlStatements)) {
+        await db.execute(sql.raw(stmt));
+      }
+      await db.execute(
+        sql`insert into ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} ("hash", "created_at") values (${migration.hash}, ${migration.folderMillis})`,
+      );
+      appliedHashes.add(migration.hash);
+      continue;
+    }
 
     await db.transaction(async (tx) => {
       for (const stmt of migration.sql) {
