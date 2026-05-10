@@ -112,7 +112,7 @@ export default function ReferralsPage() {
   const topReferrer = data?.referrers[0] ?? null;
 
   return (
-    <AdminShell>
+    <AdminShell title="User Referrals">
       <div className="p-6 space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div>

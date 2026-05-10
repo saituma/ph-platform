@@ -19,6 +19,11 @@ import {
   adminReplyToFeedback,
   updateFeedbackStatus,
   getGuardianBillingStatus,
+  listInjuryLogs,
+  addInjuryLog,
+  resolveInjuryLog,
+  deleteInjuryLog,
+  listAdminInjuryLogs,
 } from "../services/guardian-portal.service";
 
 const router = Router();
@@ -204,6 +209,59 @@ router.patch("/portal/admin/feedback/:id/status", async (req: Request, res: Resp
 router.get("/portal/guardian/billing-status", async (req: Request, res: Response) => {
   const result = await getGuardianBillingStatus(req.user!.id);
   return res.json(result);
+});
+
+// ── Injury logs (guardian) ────────────────────────────────────────────────────
+
+const injuryLogSchema = z.object({
+  description: z.string().min(2).max(1000),
+  bodyPart: z.string().max(100).optional(),
+  severity: z.enum(["mild", "moderate", "severe"]),
+  occurredAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().max(2000).optional(),
+});
+
+router.get("/portal/guardian/children/:athleteId/injury-logs", async (req: Request, res: Response) => {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const result = await listInjuryLogs(req.user!.id, athleteId);
+  if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
+  return res.json(result);
+});
+
+router.post("/portal/guardian/children/:athleteId/injury-logs", async (req: Request, res: Response) => {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const data = injuryLogSchema.parse(req.body);
+  const result = await addInjuryLog(req.user!.id, athleteId, data);
+  if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
+  return res.status(201).json(result);
+});
+
+router.patch("/portal/guardian/children/:athleteId/injury-logs/:logId/resolve", async (req: Request, res: Response) => {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const logId = z.coerce.number().int().min(1).parse(req.params.logId);
+  const { resolvedAt } = z.object({ resolvedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(req.body);
+  const result = await resolveInjuryLog(req.user!.id, athleteId, logId, resolvedAt);
+  if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
+  if (!result) return res.status(404).json({ error: "Not found" });
+  return res.json(result);
+});
+
+router.delete("/portal/guardian/children/:athleteId/injury-logs/:logId", async (req: Request, res: Response) => {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const logId = z.coerce.number().int().min(1).parse(req.params.logId);
+  const result = await deleteInjuryLog(req.user!.id, athleteId, logId);
+  if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
+  if (!result) return res.status(404).json({ error: "Not found" });
+  return res.json(result);
+});
+
+// ── Injury logs (admin) ───────────────────────────────────────────────────────
+
+router.get("/portal/admin/children/:athleteId/injury-logs", async (req: Request, res: Response) => {
+  if (!ADMIN_ROLES.includes(req.user!.role)) return res.status(403).json({ error: "Forbidden" });
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const logs = await listAdminInjuryLogs(athleteId);
+  return res.json(logs);
 });
 
 export default router;

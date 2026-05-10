@@ -24,6 +24,7 @@ import {
   Send,
   ChevronRight,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -81,6 +82,124 @@ function apiFetch(path: string, init?: RequestInit) {
     ...init,
   });
 }
+
+// ── Injury Logs (admin read-only) ─────────────────────────────────────────────
+
+type AdminInjuryLog = {
+  id: number;
+  description: string;
+  bodyPart: string | null;
+  severity: "mild" | "moderate" | "severe";
+  occurredAt: string;
+  resolvedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  loggedByName: string;
+};
+
+const SEVERITY_CFG = {
+  mild:     { label: "Mild",     cls: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800" },
+  moderate: { label: "Moderate", cls: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800" },
+  severe:   { label: "Severe",   cls: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800" },
+} as const;
+
+function AdminInjuryLogsSection({ athleteId }: { athleteId: number }) {
+  const [logs, setLogs] = useState<AdminInjuryLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showResolved, setShowResolved] = useState(false);
+
+  useEffect(() => {
+    apiFetch(`/portal/admin/children/${athleteId}/injury-logs`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setLogs(data); })
+      .finally(() => setLoading(false));
+  }, [athleteId]);
+
+  const active   = logs.filter((l) => !l.resolvedAt);
+  const resolved = logs.filter((l) => l.resolvedAt);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-border bg-secondary/30 px-5 py-3">
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
+        <h2 className="text-xs font-black uppercase tracking-widest text-foreground">Injury Log</h2>
+        {active.length > 0 && (
+          <span className="ml-auto text-xs font-bold text-red-600 dark:text-red-400">
+            {active.length} active
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="px-5 py-8 space-y-3">
+          {[1, 2].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <ShieldCheck className="h-8 w-8 text-muted-foreground/20 mb-3" />
+          <p className="text-sm text-muted-foreground">No injuries logged</p>
+        </div>
+      ) : (
+        <div className="px-5 py-4 space-y-3">
+          {active.map((log) => (
+            <div key={log.id} className="rounded-xl border border-border p-4 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={cn("text-[10px] font-bold uppercase tracking-widest border px-2 py-0.5", SEVERITY_CFG[log.severity].cls)}>
+                  {SEVERITY_CFG[log.severity].label}
+                </span>
+                {log.bodyPart && (
+                  <span className="text-[10px] font-mono bg-muted text-muted-foreground border border-border px-2 py-0.5">
+                    {log.bodyPart}
+                  </span>
+                )}
+                <span className="ml-auto text-xs text-muted-foreground font-mono">
+                  {format(new Date(log.occurredAt), "d MMM yyyy")}
+                </span>
+              </div>
+              <p className="text-sm text-foreground">{log.description}</p>
+              {log.notes && <p className="text-xs text-muted-foreground font-mono">{log.notes}</p>}
+              <p className="text-[10px] text-muted-foreground font-mono">Logged by {log.loggedByName}</p>
+            </div>
+          ))}
+
+          {resolved.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowResolved((v) => !v)}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono transition-colors"
+              >
+                <ChevronRight className={cn("h-3 w-3 transition-transform", showResolved && "rotate-90")} />
+                {resolved.length} resolved
+              </button>
+              {showResolved && (
+                <div className="mt-3 space-y-2">
+                  {resolved.map((log) => (
+                    <div key={log.id} className="rounded-xl border border-border p-3.5 opacity-60 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={cn("text-[10px] font-bold uppercase tracking-widest border px-2 py-0.5", SEVERITY_CFG[log.severity].cls)}>
+                          {SEVERITY_CFG[log.severity].label}
+                        </span>
+                        {log.bodyPart && <span className="text-[10px] font-mono text-muted-foreground">{log.bodyPart}</span>}
+                        <span className="ml-auto text-[10px] font-mono text-muted-foreground flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                          Recovered {log.resolvedAt ? format(new Date(log.resolvedAt), "d MMM") : ""}
+                        </span>
+                      </div>
+                      <p className="text-xs text-foreground line-clamp-2">{log.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Parent feedback ───────────────────────────────────────────────────────────
 
 function ParentFeedbackSection({ userId }: { userId: number }) {
   const [threads, setThreads] = useState<FeedbackThread[]>([]);
@@ -553,6 +672,9 @@ export default function ParentDetailPage() {
             </SectionCard>
           )}
         </div>
+
+        {/* Injury log */}
+        {athlete?.id && <AdminInjuryLogsSection athleteId={athlete.id} />}
 
         {/* Guardian feedback threads */}
         <ParentFeedbackSection userId={userId} />

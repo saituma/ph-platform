@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowLeft, BookOpen, Activity, Calendar, Target,
 	Pencil, Check, X, CheckCircle2, XCircle, Clock, MapPin, ChevronRight,
+	Plus, Trash2, AlertTriangle, ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -61,6 +62,256 @@ type AttendanceData = {
 	summary: { total: number; attended: number; missed: number; rate: number };
 	sessions: AttendanceSession[];
 };
+
+type InjuryLog = {
+	id: number;
+	description: string;
+	bodyPart: string | null;
+	severity: "mild" | "moderate" | "severe";
+	occurredAt: string;
+	resolvedAt: string | null;
+	notes: string | null;
+	createdAt: string;
+};
+
+const SEVERITY_CONFIG = {
+	mild:     { label: "Mild",     class: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-300 dark:border-yellow-800" },
+	moderate: { label: "Moderate", class: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-800" },
+	severe:   { label: "Severe",   class: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800" },
+} as const;
+
+function InjuryLogsSection({ athleteId }: { athleteId: string }) {
+	const queryClient = useQueryClient();
+	const [showForm, setShowForm] = useState(false);
+	const [form, setForm] = useState({
+		description: "",
+		bodyPart: "",
+		severity: "mild" as "mild" | "moderate" | "severe",
+		occurredAt: format(new Date(), "yyyy-MM-dd"),
+		notes: "",
+	});
+
+	const { data: logs = [], isLoading } = useQuery<InjuryLog[]>({
+		queryKey: queryKeys.childInjuryLogs(athleteId),
+		queryFn: () => api.get<InjuryLog[]>(`/api/portal/guardian/children/${athleteId}/injury-logs`),
+	});
+
+	const addLog = useMutation({
+		mutationFn: (data: typeof form) =>
+			api.post(`/api/portal/guardian/children/${athleteId}/injury-logs`, {
+				...data,
+				bodyPart: data.bodyPart.trim() || undefined,
+				notes: data.notes.trim() || undefined,
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.childInjuryLogs(athleteId) });
+			setShowForm(false);
+			setForm({ description: "", bodyPart: "", severity: "mild", occurredAt: format(new Date(), "yyyy-MM-dd"), notes: "" });
+			toast.success("Injury logged");
+		},
+		onError: () => toast.error("Failed to save injury log"),
+	});
+
+	const resolveLog = useMutation({
+		mutationFn: (logId: number) =>
+			api.patch(`/api/portal/guardian/children/${athleteId}/injury-logs/${logId}/resolve`, {
+				resolvedAt: format(new Date(), "yyyy-MM-dd"),
+			}),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.childInjuryLogs(athleteId) });
+			toast.success("Marked as recovered");
+		},
+		onError: () => toast.error("Failed to update"),
+	});
+
+	const deleteLog = useMutation({
+		mutationFn: (logId: number) =>
+			api.delete(`/api/portal/guardian/children/${athleteId}/injury-logs/${logId}`),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: queryKeys.childInjuryLogs(athleteId) });
+			toast.success("Log removed");
+		},
+		onError: () => toast.error("Failed to delete"),
+	});
+
+	const active = logs.filter((l) => !l.resolvedAt);
+	const resolved = logs.filter((l) => l.resolvedAt);
+
+	return (
+		<section className="space-y-3">
+			<div className="flex items-center justify-between">
+				<h2 className="label-mono flex items-center gap-1.5">
+					<AlertTriangle size={11} className="text-amber-500" /> Injury Log
+				</h2>
+				<button
+					type="button"
+					onClick={() => setShowForm((v) => !v)}
+					className="flex items-center gap-1 text-xs text-primary hover:underline font-mono transition-colors"
+				>
+					{showForm ? <><X size={11} /> Cancel</> : <><Plus size={11} /> Log injury</>}
+				</button>
+			</div>
+
+			{showForm && (
+				<div className="bento-card p-4 space-y-3">
+					<div className="space-y-1">
+						<label className="label-mono text-[10px]">What happened *</label>
+						<textarea
+							value={form.description}
+							onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+							rows={2}
+							maxLength={1000}
+							placeholder="Describe the injury…"
+							className="w-full px-3 py-2 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+						/>
+					</div>
+					<div className="grid grid-cols-2 gap-3">
+						<div className="space-y-1">
+							<label className="label-mono text-[10px]">Body part</label>
+							<input
+								value={form.bodyPart}
+								onChange={(e) => setForm((f) => ({ ...f, bodyPart: e.target.value }))}
+								placeholder="e.g. Left knee"
+								className="w-full px-3 py-2 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div className="space-y-1">
+							<label className="label-mono text-[10px]">Occurred on *</label>
+							<input
+								type="date"
+								value={form.occurredAt}
+								onChange={(e) => setForm((f) => ({ ...f, occurredAt: e.target.value }))}
+								className="w-full px-3 py-2 border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<div className="space-y-1">
+						<label className="label-mono text-[10px]">Severity *</label>
+						<div className="flex gap-2">
+							{(["mild", "moderate", "severe"] as const).map((s) => (
+								<button
+									key={s}
+									type="button"
+									onClick={() => setForm((f) => ({ ...f, severity: s }))}
+									className={cn(
+										"flex-1 py-1.5 text-xs font-bold uppercase tracking-widest border transition-colors",
+										form.severity === s
+											? SEVERITY_CONFIG[s].class
+											: "border-border text-muted-foreground hover:border-primary/40",
+									)}
+								>
+									{SEVERITY_CONFIG[s].label}
+								</button>
+							))}
+						</div>
+					</div>
+					<div className="space-y-1">
+						<label className="label-mono text-[10px]">Additional notes</label>
+						<textarea
+							value={form.notes}
+							onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+							rows={2}
+							maxLength={2000}
+							placeholder="Doctor's advice, treatment plan, etc."
+							className="w-full px-3 py-2 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+						/>
+					</div>
+					<button
+						type="button"
+						onClick={() => addLog.mutate(form)}
+						disabled={addLog.isPending || form.description.trim().length < 2}
+						className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50"
+					>
+						<Check size={11} /> {addLog.isPending ? "Saving…" : "Save log"}
+					</button>
+				</div>
+			)}
+
+			{isLoading && (
+				<div className="space-y-2">
+					{[1, 2].map((i) => <div key={i} className="h-16 bento-card animate-pulse" />)}
+				</div>
+			)}
+
+			{!isLoading && active.length === 0 && !showForm && (
+				<div className="bento-card p-4 text-center space-y-1">
+					<ShieldCheck size={20} className="mx-auto text-primary/30" />
+					<p className="text-sm text-muted-foreground font-mono">No active injuries recorded.</p>
+				</div>
+			)}
+
+			{active.length > 0 && (
+				<div className="space-y-2">
+					{active.map((log) => (
+						<div key={log.id} className="bento-card p-4 space-y-2">
+							<div className="flex items-start gap-2">
+								<span className={cn("px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border flex-shrink-0", SEVERITY_CONFIG[log.severity].class)}>
+									{SEVERITY_CONFIG[log.severity].label}
+								</span>
+								{log.bodyPart && (
+									<span className="px-2 py-0.5 text-[10px] font-mono bg-muted text-muted-foreground border border-border flex-shrink-0">
+										{log.bodyPart}
+									</span>
+								)}
+								<span className="ml-auto text-xs text-muted-foreground font-mono flex-shrink-0">
+									{format(new Date(log.occurredAt), "d MMM yyyy")}
+								</span>
+							</div>
+							<p className="text-sm text-foreground">{log.description}</p>
+							{log.notes && <p className="text-xs text-muted-foreground font-mono">{log.notes}</p>}
+							<div className="flex items-center gap-2 pt-1">
+								<button
+									type="button"
+									onClick={() => resolveLog.mutate(log.id)}
+									disabled={resolveLog.isPending}
+									className="flex items-center gap-1 text-[11px] text-primary hover:underline font-mono disabled:opacity-50"
+								>
+									<CheckCircle2 size={10} /> Mark recovered
+								</button>
+								<button
+									type="button"
+									onClick={() => deleteLog.mutate(log.id)}
+									disabled={deleteLog.isPending}
+									className="flex items-center gap-1 text-[11px] text-destructive hover:underline font-mono disabled:opacity-50 ml-auto"
+								>
+									<Trash2 size={10} /> Delete
+								</button>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
+
+			{resolved.length > 0 && (
+				<details className="group">
+					<summary className="label-mono text-[10px] cursor-pointer select-none flex items-center gap-1 text-muted-foreground hover:text-foreground">
+						<ChevronRight size={10} className="transition-transform group-open:rotate-90" />
+						{resolved.length} resolved injur{resolved.length === 1 ? "y" : "ies"}
+					</summary>
+					<div className="mt-2 space-y-2">
+						{resolved.map((log) => (
+							<div key={log.id} className="bento-card p-3.5 opacity-60 space-y-1.5">
+								<div className="flex items-center gap-2">
+									<span className={cn("px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest border", SEVERITY_CONFIG[log.severity].class)}>
+										{SEVERITY_CONFIG[log.severity].label}
+									</span>
+									{log.bodyPart && (
+										<span className="text-[10px] font-mono text-muted-foreground">{log.bodyPart}</span>
+									)}
+									<span className="ml-auto text-[10px] text-muted-foreground font-mono flex items-center gap-1">
+										<CheckCircle2 size={9} className="text-primary" />
+										Recovered {log.resolvedAt ? format(new Date(log.resolvedAt), "d MMM") : ""}
+									</span>
+								</div>
+								<p className="text-xs text-foreground line-clamp-2">{log.description}</p>
+							</div>
+						))}
+					</div>
+				</details>
+			)}
+		</section>
+	);
+}
 
 function ChildDetailPage() {
 	const { athleteId } = Route.useParams();
@@ -259,10 +510,13 @@ function ChildDetailPage() {
 						</section>
 					)}
 
-					{/* Medical notes */}
+					{/* Injury logs */}
+					<InjuryLogsSection athleteId={athleteId} />
+
+					{/* Medical notes (general) */}
 					<section className="space-y-2">
 						<div className="flex items-center justify-between">
-							<h2 className="label-mono">Medical Notes</h2>
+							<h2 className="label-mono">General Medical Notes</h2>
 							{!editingInjuries && (
 								<button
 									type="button"
@@ -280,7 +534,7 @@ function ChildDetailPage() {
 									onChange={(e) => setInjuriesText(e.target.value)}
 									rows={4}
 									maxLength={1000}
-									placeholder="Note any injuries, conditions or medical information…"
+									placeholder="General medical information, conditions, allergies…"
 									className="w-full px-3 py-2 border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring resize-none leading-relaxed transition-all"
 								/>
 								<div className="flex gap-2">
@@ -307,7 +561,7 @@ function ChildDetailPage() {
 							</div>
 						) : (
 							<div className="bento-card p-4">
-								<p className="text-sm text-muted-foreground font-mono">No medical notes recorded.</p>
+								<p className="text-sm text-muted-foreground font-mono">No general medical notes.</p>
 							</div>
 						)}
 					</section>

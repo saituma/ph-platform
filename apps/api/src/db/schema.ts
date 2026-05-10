@@ -2029,3 +2029,16 @@ export const guardianFeedbackReplyTable = pgTable("guardian_feedback_reply", {
   content: text().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [index("guardian_feedback_reply_feedback_idx").on(t.feedbackId)]);
+
+export const athleteInjuryLogsTable = pgTable("athlete_injury_logs", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  athleteId: integer("athlete_id").notNull().references(() => athleteTable.id, { onDelete: "cascade" }),
+  loggedByUserId: integer("logged_by_user_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
+  description: text().notNull(),
+  bodyPart: varchar("body_part", { length: 100 }),
+  severity: varchar({ length: 20 }).notNull().default("mild"),
+  occurredAt: date("occurred_at").notNull(),
+  resolvedAt: date("resolved_at"),
+  notes: text(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("injury_logs_athlete_idx").on(t.athleteId)]);

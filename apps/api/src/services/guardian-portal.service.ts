@@ -16,6 +16,7 @@ import {
   guardianFeedbackReplyTable,
   sessionTable,
   programSessionCompletionTable,
+  athleteInjuryLogsTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 
@@ -705,4 +706,134 @@ export async function getGuardianBillingStatus(userId: number): Promise<{ childr
   }));
 
   return { children };
+}
+
+// ── Injury logs ───────────────────────────────────────────────────────────────
+
+export type AddInjuryLogInput = {
+  description: string;
+  bodyPart?: string;
+  severity: "mild" | "moderate" | "severe";
+  occurredAt: string;
+  notes?: string;
+};
+
+async function guardianOwnsAthlete(userId: number, athleteId: number): Promise<boolean> {
+  const [guardian] = await db
+    .select({ id: guardianTable.id, activeAthleteId: guardianTable.activeAthleteId })
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, userId))
+    .limit(1);
+
+  if (!guardian) return false;
+  if (guardian.activeAthleteId === athleteId) return true;
+
+  const [owned] = await db
+    .select({ id: athleteTable.id })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.id, athleteId), eq(athleteTable.guardianId, guardian.id)))
+    .limit(1);
+
+  return Boolean(owned);
+}
+
+export async function listInjuryLogs(userId: number, athleteId: number): Promise<unknown[] | "forbidden"> {
+  if (!(await guardianOwnsAthlete(userId, athleteId))) return "forbidden";
+
+  const logs = await db
+    .select()
+    .from(athleteInjuryLogsTable)
+    .where(eq(athleteInjuryLogsTable.athleteId, athleteId))
+    .orderBy(desc(athleteInjuryLogsTable.occurredAt));
+
+  return logs;
+}
+
+export async function addInjuryLog(
+  userId: number,
+  athleteId: number,
+  data: AddInjuryLogInput,
+): Promise<unknown | "forbidden"> {
+  if (!(await guardianOwnsAthlete(userId, athleteId))) return "forbidden";
+
+  const [log] = await db
+    .insert(athleteInjuryLogsTable)
+    .values({
+      athleteId,
+      loggedByUserId: userId,
+      description: data.description,
+      bodyPart: data.bodyPart ?? null,
+      severity: data.severity,
+      occurredAt: data.occurredAt,
+      notes: data.notes ?? null,
+    })
+    .returning();
+
+  return log;
+}
+
+export async function resolveInjuryLog(
+  userId: number,
+  athleteId: number,
+  logId: number,
+  resolvedAt: string,
+): Promise<{ ok: true } | "forbidden" | null> {
+  if (!(await guardianOwnsAthlete(userId, athleteId))) return "forbidden";
+
+  const [log] = await db
+    .select({ id: athleteInjuryLogsTable.id })
+    .from(athleteInjuryLogsTable)
+    .where(and(eq(athleteInjuryLogsTable.id, logId), eq(athleteInjuryLogsTable.athleteId, athleteId)))
+    .limit(1);
+
+  if (!log) return null;
+
+  await db
+    .update(athleteInjuryLogsTable)
+    .set({ resolvedAt })
+    .where(eq(athleteInjuryLogsTable.id, logId));
+
+  return { ok: true };
+}
+
+export async function deleteInjuryLog(
+  userId: number,
+  athleteId: number,
+  logId: number,
+): Promise<{ ok: true } | "forbidden" | null> {
+  if (!(await guardianOwnsAthlete(userId, athleteId))) return "forbidden";
+
+  const [log] = await db
+    .select({ id: athleteInjuryLogsTable.id })
+    .from(athleteInjuryLogsTable)
+    .where(and(eq(athleteInjuryLogsTable.id, logId), eq(athleteInjuryLogsTable.athleteId, athleteId)))
+    .limit(1);
+
+  if (!log) return null;
+
+  await db.delete(athleteInjuryLogsTable).where(eq(athleteInjuryLogsTable.id, logId));
+
+  return { ok: true };
+}
+
+export async function listAdminInjuryLogs(athleteId: number): Promise<unknown[]> {
+  const logs = await db
+    .select({
+      id: athleteInjuryLogsTable.id,
+      athleteId: athleteInjuryLogsTable.athleteId,
+      description: athleteInjuryLogsTable.description,
+      bodyPart: athleteInjuryLogsTable.bodyPart,
+      severity: athleteInjuryLogsTable.severity,
+      occurredAt: athleteInjuryLogsTable.occurredAt,
+      resolvedAt: athleteInjuryLogsTable.resolvedAt,
+      notes: athleteInjuryLogsTable.notes,
+      createdAt: athleteInjuryLogsTable.createdAt,
+      loggedByName: userTable.name,
+    })
+    .from(athleteInjuryLogsTable)
+    .innerJoin(userTable, eq(athleteInjuryLogsTable.loggedByUserId, userTable.id))
+    .where(eq(athleteInjuryLogsTable.athleteId, athleteId))
+    .orderBy(desc(athleteInjuryLogsTable.occurredAt));
+
+  return logs;
 }

@@ -10,4 +10,5 @@ export const queryKeys = {
 	messages: ["messages"] as const,
 	messagesInbox: ["messages", "inbox"] as const,
 	chatGroups: ["chat", "groups"] as const,
+	childInjuryLogs: (id: string) => ["children", id, "injury-logs"] as const,
 };
