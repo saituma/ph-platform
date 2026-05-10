@@ -1,6 +1,3 @@
 packages:
   - apps/*
   - packages/*
-
-nodeLinker: hoisted
-allowUnusedPatches: true
