@@ -284,6 +284,16 @@ function ParentFeedbackSection({ userId }: { userId: number }) {
   );
 }
 
+function toStr(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "object") {
+    const o = val as Record<string, unknown>;
+    if ("notes" in o) return String(o.notes ?? "");
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
+
 function Field({ label, value, icon: Icon }: { label: string; value?: string | number | null; icon?: React.ComponentType<{ className?: string }> }) {
   if (!value && value !== 0) return null;
   return (
@@ -472,12 +482,12 @@ export default function ParentDetailPage() {
           {athlete?.injuries && (
             <SectionCard title="Medical Notes" icon={AlertTriangle}>
               <div className="py-3">
-                <p className="text-sm text-foreground leading-relaxed">{athlete.injuries}</p>
+                <p className="text-sm text-foreground leading-relaxed">{toStr(athlete.injuries)}</p>
               </div>
               {athlete.growthNotes && (
                 <div className="py-3 border-t border-border">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Growth notes</p>
-                  <p className="text-sm text-foreground leading-relaxed">{athlete.growthNotes}</p>
+                  <p className="text-sm text-foreground leading-relaxed">{toStr(athlete.growthNotes)}</p>
                 </div>
               )}
             </SectionCard>
