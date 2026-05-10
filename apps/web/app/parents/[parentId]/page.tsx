@@ -56,10 +56,28 @@ type FeedbackThread = {
   replies?: FeedbackReply[];
 };
 
+function getCsrfToken() {
+  if (typeof document === "undefined") return "";
+  return (
+    document.cookie
+      .split(";")
+      .map((p) => p.trim())
+      .find((p) => p.startsWith("csrfToken="))
+      ?.split("=")
+      .slice(1)
+      .join("=") ?? ""
+  );
+}
+
 function apiFetch(path: string, init?: RequestInit) {
+  const csrf = getCsrfToken();
   return fetch(`/api/backend${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "x-csrf-token": csrf } : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
 }
