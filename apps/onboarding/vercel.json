@@ -53,7 +53,9 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://ph-performance-2cae29f7922d.herokuapp.com/api/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/portal/:path*", "destination": "/index.html" },
+    { "source": "/onboarding/:path*", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
   ],
   "images": {
     "sizes": [320, 640, 960, 1280, 1920],

@@ -439,6 +439,7 @@ const appShellPaths = [
   "/forgot",
   "/verification",
   "/payment-success",
+  // portal top-level
   "/portal/dashboard",
   "/portal/programs",
   "/portal/schedule",
@@ -455,6 +456,17 @@ const appShellPaths = [
   "/portal/feedback",
   "/portal/coach-app",
   "/portal/parent-platform",
+  // portal programs sub-routes (directory-level shells so Vercel doesn't 404
+  // dynamic :id segments before the rewrite catches them)
+  "/portal/programs/module",
+  "/portal/programs/session",
+  "/portal/programs/assigned",
+  "/portal/programs/assigned/session",
+  // portal team sub-routes
+  "/portal/team/athlete",
+  // portal parent-platform sub-routes
+  "/portal/parent-platform/course",
+  // onboarding flow
   "/onboarding/dashboard",
   "/onboarding/step-1",
   "/onboarding/step-2",
