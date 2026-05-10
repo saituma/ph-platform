@@ -132,10 +132,18 @@ async function migrateEachJournalEntryInOwnTransaction(
   for (const migration of migrations) {
     if (appliedHashes.has(migration.hash) || appliedCreatedAt.has(migration.folderMillis)) continue;
 
-    const requiresAutocommit = migration.sql.some((stmt) => /\bCREATE\s+INDEX\s+CONCURRENTLY\b/i.test(stmt));
-    if (requiresAutocommit) {
+    const isIndexOnlyMigration = migration.sql.some((stmt) => /\bCREATE\s+INDEX\b/i.test(stmt));
+    if (isIndexOnlyMigration) {
       for (const stmt of migration.sql.flatMap(splitSqlStatements)) {
-        await db.execute(sql.raw(stmt));
+        try {
+          await db.execute(sql.raw(stmt));
+        } catch (err: any) {
+          if (err?.code === "42703" || err?.code === "42P01" || err?.cause?.code === "42703" || err?.cause?.code === "42P01") {
+            logger.warn({ err, migration: migration.hash }, "Skipping index migration statement for missing table or column");
+            continue;
+          }
+          throw err;
+        }
       }
       await db.execute(
         sql`insert into ${sql.identifier(migrationsSchema)}.${sql.identifier(migrationsTable)} ("hash", "created_at") values (${migration.hash}, ${migration.folderMillis})`,
