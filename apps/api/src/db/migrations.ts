@@ -488,7 +488,7 @@ async function executeMigrationsOnce(options: {
       logger.warn("Could not normalize legacy booking types (discovery failed), proceeding...");
     }
 
-    const migrationsFolder = options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+    const migrationsFolder = options?.migrationsFolder ?? path.resolve(__dirname, "../../drizzle");
 
     const sqlMigrationTags = readSqlMigrationTags(migrationsFolder);
     const journalEntries = readJournalEntries(migrationsFolder);
@@ -584,7 +584,7 @@ export async function runMigrations(options?: {
     } catch (error) {
       const useSsl = Boolean(env.databaseSsl) || connectionWantsSsl(rawUrl);
       const target = safeDbTarget(rawUrl);
-      const folder = options?.migrationsFolder ?? path.resolve(process.cwd(), "drizzle");
+      const folder = options?.migrationsFolder ?? path.resolve(__dirname, "../../drizzle");
       const message =
         error instanceof Error
           ? `${error.name}: ${error.message}${error.stack ? `\n${error.stack}` : ""}`
