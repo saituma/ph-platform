@@ -431,4 +431,47 @@ for (const page of pages) {
   count++;
 }
 
+// App-shell pages — authenticated/private routes that need a static file so
+// Vercel serves index.html on direct navigation without relying on the catch-all rewrite.
+const appShellPaths = [
+  "/login",
+  "/register",
+  "/forgot",
+  "/verification",
+  "/payment-success",
+  "/portal/dashboard",
+  "/portal/programs",
+  "/portal/schedule",
+  "/portal/messages",
+  "/portal/profile",
+  "/portal/billing",
+  "/portal/notifications",
+  "/portal/tracking",
+  "/portal/nutrition",
+  "/portal/team",
+  "/portal/announcements",
+  "/portal/more",
+  "/portal/referral",
+  "/portal/feedback",
+  "/portal/coach-app",
+  "/portal/parent-platform",
+  "/onboarding/dashboard",
+  "/onboarding/step-1",
+  "/onboarding/step-2",
+  "/onboarding/step-3",
+  "/onboarding/step-4",
+  "/onboarding/step-5",
+  "/onboarding/success",
+];
+
+for (const shellPath of appShellPaths) {
+  const dir = join(DIST, shellPath.slice(1));
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const shellFile = join(dir, "index.html");
+  if (!existsSync(shellFile)) {
+    writeFileSync(shellFile, baseHtml, "utf-8");
+    count++;
+  }
+}
+
 console.log(`Prerendered ${count} pages with SEO meta tags.`);
