@@ -11,13 +11,17 @@ import http from "http";
 export async function startServer() {
   const stopEventLoopDelayLogging = startEventLoopDelayLogging();
 
-  try {
-    const { runMigrations } = await import("./db/migrations");
-    await runMigrations();
-    logger.info("Database migrations applied");
-  } catch (err) {
-    logger.fatal({ err }, "Migration failed — aborting startup");
-    process.exit(1);
+  if (process.env.SKIP_MIGRATIONS !== "true") {
+    try {
+      const { runMigrations } = await import("./db/migrations");
+      await runMigrations();
+      logger.info("Database migrations applied");
+    } catch (err) {
+      logger.fatal({ err }, "Migration failed — aborting startup");
+      process.exit(1);
+    }
+  } else {
+    logger.info("Skipping migrations (SKIP_MIGRATIONS=true)");
   }
 
   if (env.nodeEnv === "production" && !env.expoAccessToken?.trim()) {
