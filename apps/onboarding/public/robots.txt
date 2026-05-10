@@ -6,13 +6,32 @@ Disallow: /verification
 Disallow: /payment-success
 Disallow: /api/
 
+# AI / LLM crawlers — public content allowed, auth-gated sections blocked
 User-agent: GPTBot
 Allow: /
 Disallow: /portal/
 Disallow: /onboarding/
 Disallow: /api/
 
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
 User-agent: ChatGPT-User
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: ClaudeBot
 Allow: /
 Disallow: /portal/
 Disallow: /onboarding/
@@ -27,16 +46,44 @@ Disallow: /portal/
 Disallow: /onboarding/
 Disallow: /api/
 
-User-agent: ClaudeBot
-Allow: /
-Disallow: /portal/
-Disallow: /onboarding/
-Disallow: /api/
-
 User-agent: CCBot
 Allow: /
 Disallow: /portal/
 Disallow: /onboarding/
 Disallow: /api/
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: Bytespider
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: meta-externalagent
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: cohere-ai
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /portal/
+Disallow: /onboarding/
+Disallow: /api/
+
+# AI documentation
+# LLM summary:  https://phperformance.uk/llms.txt
+# LLM full doc: https://phperformance.uk/llms-full.txt
 
 Sitemap: https://phperformance.uk/sitemap.xml
