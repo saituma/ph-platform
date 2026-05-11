@@ -10,8 +10,6 @@ import { AdultAthleteAssignment } from "../../components/admin/exercise-library/
 import { Badge } from "../../components/ui/badge";
 import {
   AudienceSummary,
-  PROGRAM_TIERS,
-  isAdultStorageAudienceLabel,
   isYouthAgeAudienceLabel,
   isTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
@@ -197,27 +195,6 @@ function TrainingContentPageInner() {
     return [...primary, ...additional];
   }, [audiences]);
 
-  // ── Adult tier cards ───────────────────────────────────────────────────────
-  const adultTierCards = useMemo(() => {
-    const byTier = new Map(
-      audiences
-        .filter((a) => isAdultStorageAudienceLabel(a.label))
-        .map((a) => {
-          const tierValue = a.label.replace("adult::", "");
-          return [tierValue, a] as const;
-        }),
-    );
-    return PROGRAM_TIERS.map((tier) => {
-      const existing = byTier.get(tier.value);
-      return {
-        value: tier.value,
-        label: tier.label,
-        moduleCount: existing?.moduleCount ?? 0,
-        otherCount: existing?.otherCount ?? 0,
-      };
-    });
-  }, [audiences]);
-
   // ── Team cards ─────────────────────────────────────────────────────────────
   const teamCards = useMemo<AudienceCard[]>(() => {
     const byTeamName = new Map(
@@ -262,7 +239,7 @@ function TrainingContentPageInner() {
     youth:
       "Each age group (7–18) has its own programme. Open an age to build out weekly modules, sessions, warm-ups, mobility and recovery content.",
     adult:
-      "Manage what athletes on each subscription tier can access, then assign athletes to their tier below.",
+      "Assign adult athletes to their subscription tier.",
     team: "Open a team to manage the training content posted specifically to that group.",
   }[viewMode];
 
@@ -347,57 +324,8 @@ function TrainingContentPageInner() {
           </div>
         )}
 
-        {/* ── Adult tier content + athlete assignment ─────────────────────── */}
-        {viewMode === "adult" && (
-          <div className="space-y-6">
-            {/* Tier content cards */}
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Subscription tier content
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Open a tier to build the programme content athletes on that plan can access.
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {adultTierCards.map((tier) => {
-                  const hasContent = tier.moduleCount > 0 || tier.otherCount > 0;
-                  return (
-                    <Link
-                      key={tier.value}
-                      href={`/exercise-library/${encodeURIComponent(tier.value)}?mode=adult`}
-                      className="group rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-foreground">{tier.label}</p>
-                        {hasContent ? (
-                          <span className="h-2 w-2 rounded-full bg-green-500" />
-                        ) : (
-                          <span className="h-2 w-2 rounded-full bg-border" />
-                        )}
-                      </div>
-                      <p className="mt-1.5 text-xs text-muted-foreground">
-                        {contentSummary(tier.moduleCount, tier.otherCount)}
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-medium text-muted-foreground">
-                Assign athletes to a tier
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            <AdultAthleteAssignment />
-          </div>
-        )}
+        {/* ── Adult athlete assignment ─────────────────────────────────────── */}
+        {viewMode === "adult" && <AdultAthleteAssignment />}
 
         {/* ── Team cards ─────────────────────────────────────────────────── */}
         {viewMode === "team" && (
