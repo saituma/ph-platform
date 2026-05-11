@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { buildOgMeta } from "../lib/seo";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowRight,
     Users,
@@ -10,6 +10,8 @@ import {
     Zap,
     ShieldCheck,
 } from "lucide-react";
+import { useState } from "react";
+import { WaitlistModal } from "../components/WaitlistModal";
 
 export const Route = createFileRoute("/services")({
     head: () => ({
@@ -110,9 +112,10 @@ const SERVICES = [
             "Nutrition logging",
             "Session booking",
         ],
-        image: "/landing/app-preview.png",
+        image: "/app%20screenshot/app-home.jpg",
+        isWaitlist: true,
     },
-];
+] as const;
 
 const DISCIPLINES = [
     { icon: Dumbbell, label: "Strength & Conditioning" },
@@ -122,8 +125,13 @@ const DISCIPLINES = [
 ];
 
 function ServicesPage() {
+    const [waitlistOpen, setWaitlistOpen] = useState(false);
+
     return (
         <main className="min-h-dvh bg-background text-foreground">
+            <AnimatePresence>
+                {waitlistOpen && <WaitlistModal onClose={() => setWaitlistOpen(false)} />}
+            </AnimatePresence>
             {/* Hero */}
             <section className="pt-8 pb-16 max-w-6xl mx-auto px-5 sm:px-8 lg:px-10">
                 <motion.div
@@ -227,13 +235,24 @@ function ServicesPage() {
                                         </li>
                                     ))}
                                 </ul>
-                                <Link
-                                    to="/register"
-                                    className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
-                                >
-                                    GET STARTED
-                                    <ArrowRight size={12} />
-                                </Link>
+                                {"isWaitlist" in service && service.isWaitlist ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setWaitlistOpen(true)}
+                                        className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
+                                    >
+                                        JOIN WAITLIST
+                                        <ArrowRight size={12} />
+                                    </button>
+                                ) : (
+                                    <Link
+                                        to="/register"
+                                        className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
+                                    >
+                                        GET STARTED
+                                        <ArrowRight size={12} />
+                                    </Link>
+                                )}
                             </div>
                         </motion.div>
                     ))}
