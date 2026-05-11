@@ -8,6 +8,7 @@
     "scheme": "phperformance",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "appleTeamId": "N2YU836RHA",
       "supportsTablet": true,
       "associatedDomains": [
         "applinks:ph-platform-onboarding.vercel.app",
