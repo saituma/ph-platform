@@ -50,7 +50,7 @@ export default function Footer() {
 						<span className="text-white/10 text-[10px] mx-1">|</span>
 						{[
 							{ label: "Terms", href: "/terms-privacy" },
-							{ label: "Privacy", href: "/terms-privacy" },
+							{ label: "Privacy", href: "/privacy" },
 						].map((link, i, arr) => (
 							<span key={link.label} className="flex items-center">
 								<Link
