@@ -74,6 +74,7 @@ const SERVICES = [
             "Direct coach messaging",
         ],
         image: "/landing/coaching-1on1.png",
+        href: "/enquiry/121",
     },
     {
         icon: Users,
@@ -87,6 +88,7 @@ const SERVICES = [
             "Flexible scheduling",
         ],
         image: "/landing/small-group.png",
+        href: "/enquiry/semi-private",
     },
     {
         icon: Users,
@@ -100,6 +102,7 @@ const SERVICES = [
             "Season periodisation",
         ],
         image: "/landing/team.png",
+        href: "/enquiry/team",
     },
     {
         icon: Monitor,
@@ -246,7 +249,7 @@ function ServicesPage() {
                                     </button>
                                 ) : (
                                     <Link
-                                        to="/register"
+                                        to={service.href}
                                         className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
                                     >
                                         GET STARTED
