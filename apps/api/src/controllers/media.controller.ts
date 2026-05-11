@@ -74,6 +74,7 @@ const ALLOWED_FOLDERS = [
   "programs",
   "announcements",
   "exercises",
+  "exercise-videos",
 ] as const;
 
 export async function createMediaUploadUrl(req: Request, res: Response) {

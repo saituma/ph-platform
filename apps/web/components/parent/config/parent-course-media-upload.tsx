@@ -5,15 +5,16 @@ import { useRef, useState } from "react";
 import { Button } from "../../ui/button";
 import { useCreateMediaUploadUrlMutation } from "../../../lib/apiSlice";
 
-type ApiErrorLike = {
-  message?: string;
-};
-
 function getErrorMessage(error: unknown, fallback: string): string {
-  if (error && typeof error === "object") {
-    const e = error as ApiErrorLike;
-    if (typeof e.message === "string") return e.message;
+  if (!error || typeof error !== "object") return fallback;
+  const e = error as Record<string, unknown>;
+  // RTK Query unwrap() error: { status, data: { error: string } }
+  if (e.data && typeof e.data === "object") {
+    const d = e.data as Record<string, unknown>;
+    if (typeof d.error === "string") return d.error;
+    if (typeof d.message === "string") return d.message;
   }
+  if (typeof e.message === "string") return e.message;
   return fallback;
 }
 
