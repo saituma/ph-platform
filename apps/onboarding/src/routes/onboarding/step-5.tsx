@@ -33,7 +33,7 @@ export const Route = createFileRoute("/onboarding/step-5")({
 	component: OnboardingStep5,
 });
 
-type BillingCycle = "monthly" | "six_months" | "yearly";
+type BillingCycle = "weekly" | "monthly" | "six_months" | "yearly";
 type ProgramFilter = "standard" | "weekly";
 
 function isWeeklyPlan(plan: any): boolean {
@@ -81,13 +81,18 @@ const BILLING_OPTIONS: {
 	description: string;
 }[] = [
 	{
+		id: "weekly",
+		title: "Weekly",
+		description: "Recurring subscription",
+	},
+	{
 		id: "monthly",
 		title: "Monthly",
 		description: "Recurring subscription",
 	},
 	{
 		id: "six_months",
-		title: "One-time",
+		title: "6 months",
 		description: "Single payment",
 	},
 	{
@@ -204,33 +209,37 @@ function oneTimeDurationLabel(plan: any) {
 }
 
 function priceSuffix(cycle: BillingCycle, plan?: any) {
+	if (cycle === "weekly") return "per week";
 	if (cycle === "monthly") return "per month";
 	if (cycle === "six_months") return oneTimeDurationLabel(plan);
 	return "for 1 year";
 }
 
 function planBillingLabel(plan: any, selectedCycle: BillingCycle) {
-	if (plan?.billingQuote?.mode === "subscription") return "per month · subscription";
+	if (plan?.billingQuote?.mode === "subscription") {
+		return selectedCycle === "weekly" ? "per week · subscription" : "per month · subscription";
+	}
 	if (plan?.billingQuote?.mode === "payment") {
 		const inferredOneTimeCycle: BillingCycle =
-			selectedCycle === "monthly"
+			selectedCycle === "weekly" || selectedCycle === "monthly"
 				? planSupportsBillingCycle(plan, "six_months")
 					? "six_months"
 					: "yearly"
 				: selectedCycle;
 		return `${priceSuffix(inferredOneTimeCycle, plan)} · one-time payment`;
 	}
-	if (!planSupportsBillingCycle(plan, "monthly")) {
+	if (!planSupportsBillingCycle(plan, "weekly") && !planSupportsBillingCycle(plan, "monthly")) {
 		if (planSupportsBillingCycle(plan, "six_months")) return `${oneTimeDurationLabel(plan)} · one-time payment`;
 		if (planSupportsBillingCycle(plan, "yearly")) return "for 1 year · one-time payment";
 	}
+	if (selectedCycle === "weekly") return "per week · subscription";
 	return selectedCycle === "monthly"
 		? "per month · subscription"
 		: `${priceSuffix(selectedCycle, plan)} · one-time payment`;
 }
 
 function firstSupportedCycleForPlan(plan: any): BillingCycle | null {
-	const order: BillingCycle[] = ["monthly", "six_months", "yearly"];
+	const order: BillingCycle[] = ["weekly", "monthly", "six_months", "yearly"];
 	return order.find((cycle) => planSupportsBillingCycle(plan, cycle)) ?? null;
 }
 
@@ -238,6 +247,7 @@ function planSupportsBillingCycle(plan: any, cycle: BillingCycle): boolean {
 	if (plan?.supports && typeof plan.supports === "object") {
 		return Boolean(plan.supports[cycle]);
 	}
+	if (cycle === "weekly") return Boolean(plan?.stripePriceIdWeekly || plan?.weeklyPrice);
 	if (cycle === "monthly") return Boolean(plan?.stripePriceIdMonthly || plan?.monthlyPrice);
 	if (cycle === "six_months") return Boolean(plan?.stripePriceIdOneTime || plan?.oneTimePrice);
 	return Boolean(plan?.stripePriceIdYearly || plan?.yearlyPrice);

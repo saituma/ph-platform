@@ -54,6 +54,7 @@ const planCreateSchema = z.object({
   monthlyPrice: z.string().optional().nullable(),
   yearlyPrice: z.string().optional().nullable(),
   oneTimePrice: z.string().optional().nullable(),
+  weeklyPrice: z.string().optional().nullable(),
   discountType: z.string().optional().nullable(),
   discountValue: z.string().optional().nullable(),
   discountAppliesTo: z.string().optional().nullable(),
@@ -62,7 +63,7 @@ const planCreateSchema = z.object({
       z.object({
         type: z.enum(["percent", "amount"]),
         value: z.string(),
-        appliesTo: z.enum(["monthly", "yearly", "six_months", "all", "custom"]),
+        appliesTo: z.enum(["weekly", "monthly", "yearly", "six_months", "all", "custom"]),
         label: z.string().optional().nullable(),
       }),
     )
@@ -91,7 +92,7 @@ const planInviteConsumeSchema = z.object({
   trainingPerWeek: z.coerce.number().int().min(1).max(14).optional().nullable(),
   performanceGoals: z.string().trim().optional().nullable(),
   injuries: z.string().trim().optional().nullable(),
-  billingCycle: z.enum(["monthly", "yearly", "six_months"]),
+  billingCycle: z.enum(["weekly", "monthly", "yearly", "six_months"]),
 });
 
 const planImportSchema = z.object({

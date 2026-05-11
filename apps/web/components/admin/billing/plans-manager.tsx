@@ -127,6 +127,7 @@ export function PlansManager() {
         if (plan.stripePriceIdMonthly) planByPriceId.set(plan.stripePriceIdMonthly, plan);
         if (plan.stripePriceIdYearly) planByPriceId.set(plan.stripePriceIdYearly, plan);
         if (plan.stripePriceIdOneTime) planByPriceId.set(plan.stripePriceIdOneTime, plan);
+        if (plan.stripePriceIdWeekly) planByPriceId.set(plan.stripePriceIdWeekly, plan);
       }
 
       const merged: PriceRow[] = [];
@@ -189,11 +190,12 @@ export function PlansManager() {
           form.durationDaysPerWeek > 0 &&
           form.durationWeeks != null &&
           form.durationWeeks > 0);
-      if (!form.monthlyEnabled && !form.yearlyEnabled && !form.oneTimeEnabled && !hasDurationOneTime) {
+      if (!form.weeklyEnabled && !form.monthlyEnabled && !form.yearlyEnabled && !form.oneTimeEnabled && !hasDurationOneTime) {
         throw new Error(
-          "Enable at least one billing option (monthly, 6 months, 1 year, or set a programme duration price).",
+          "Enable at least one billing option (weekly, monthly, 6 months, 1 year, or set a programme duration price).",
         );
       }
+      if (form.weeklyEnabled && !form.weeklyPrice.trim()) throw new Error("Weekly price required.");
       if (form.monthlyEnabled && !form.monthlyPrice.trim()) throw new Error("Monthly price required.");
       if (form.yearlyEnabled && !payload.yearlyPrice) {
         throw new Error(form.yearlyAuto ? "Set a monthly price first to auto-derive 1 year." : "1 year price required.");
@@ -500,10 +502,11 @@ function PlansTable({
                   <Badge variant="secondary">{plan.tier ?? "Custom"}</Badge>
                 </TableCell>
                 <TableCell className="space-y-0.5 text-sm tabular-nums">
+                  {plan.weeklyPrice ? <div>{plan.weeklyPrice}/wk</div> : null}
                   {plan.monthlyPrice ? <div>{plan.monthlyPrice}/mo</div> : null}
                   {plan.yearlyPrice ? <div>{plan.yearlyPrice}/yr</div> : null}
                   {plan.oneTimePrice ? <div>{plan.oneTimePrice} once</div> : null}
-                  {!plan.monthlyPrice && !plan.yearlyPrice && !plan.oneTimePrice ? (
+                  {!plan.weeklyPrice && !plan.monthlyPrice && !plan.yearlyPrice && !plan.oneTimePrice ? (
                     <span className="text-muted-foreground">—</span>
                   ) : null}
                 </TableCell>
@@ -822,6 +825,14 @@ function PlanEditorDialog({
               <div className="text-sm font-medium">Billing options</div>
 
               <BillingRow
+                label="Weekly (recurring)"
+                enabled={form.weeklyEnabled}
+                price={form.weeklyPrice}
+                onToggle={(v) => update({ weeklyEnabled: v })}
+                onPriceChange={(v) => update({ weeklyPrice: v })}
+                placeholder="£9.99"
+              />
+              <BillingRow
                 label="Monthly (recurring)"
                 enabled={form.monthlyEnabled}
                 price={form.monthlyPrice}
@@ -901,6 +912,7 @@ function DiscountsEditor({
   ];
   const APPLIES_ITEMS: { label: string; value: DiscountRule["appliesTo"] }[] = [
     { label: "All intervals", value: "all" },
+    { label: "Weekly only", value: "weekly" },
     { label: "Monthly only", value: "monthly" },
     { label: "6 months only", value: "six_months" },
     { label: "1 year only", value: "yearly" },

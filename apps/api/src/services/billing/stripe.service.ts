@@ -227,14 +227,21 @@ export function tryResolveMonthlyStripePriceId(plan: {
   }
 }
 
-export const ATHLETE_BILLING_CYCLES = ["monthly", "six_months", "yearly"] as const;
+export const ATHLETE_BILLING_CYCLES = ["weekly", "monthly", "six_months", "yearly"] as const;
 export type AthleteBillingCycle = (typeof ATHLETE_BILLING_CYCLES)[number];
 
 export function lookupKeyForAthleteBilling(
   tier: (typeof ProgramType.enumValues)[number],
   billingCycle: AthleteBillingCycle,
 ) {
-  const suffix = billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
+  const suffix =
+    billingCycle === "weekly"
+      ? "weekly"
+      : billingCycle === "monthly"
+        ? "monthly"
+        : billingCycle === "six_months"
+          ? "six_months"
+          : "yearly";
   return `${tier.toLowerCase()}_${suffix}`;
 }
 
@@ -283,12 +290,13 @@ async function ensureStripePriceIdOrLookupKeyId(raw: string): Promise<string> {
   );
 }
 
-/** Checkout line item: lookup key first, then DB/env (monthly/yearly only for fallback). */
+/** Checkout line item: lookup key first, then DB/env fallback. */
 export async function ensureAthleteCheckoutPriceId(
   plan: {
     stripePriceId?: string | null;
     stripePriceIdMonthly?: string | null;
     stripePriceIdYearly?: string | null;
+    stripePriceIdWeekly?: string | null;
     tier?: (typeof ProgramType.enumValues)[number] | null;
   },
   billingCycle: AthleteBillingCycle,
@@ -297,6 +305,10 @@ export async function ensureAthleteCheckoutPriceId(
   if (plan.tier) {
     const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
     if (fromLookup) return fromLookup;
+  }
+  if (billingCycle === "weekly") {
+    const raw = (plan.stripePriceIdWeekly ?? "").trim();
+    if (raw) return ensureStripePriceIdOrLookupKeyId(raw);
   }
   if (billingCycle === "monthly") {
     const raw = ensureStripePriceId(plan, "monthly");
@@ -309,40 +321,45 @@ export async function ensureAthleteCheckoutPriceId(
   const tierStr = plan.tier ?? "custom";
   const lk = plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : `${tierStr}_${billingCycle}`;
   throw new Error(
-    `No Stripe price for plan (tier: ${tierStr}) / ${billingCycle}. Set stripePriceIdMonthly / stripePriceIdYearly on the plan, or create a Stripe Price with lookup key "${lk}".`,
+    `No Stripe price for plan (tier: ${tierStr}) / ${billingCycle}. Set the plan's Stripe price id, or create a Stripe Price with lookup key "${lk}".`,
   );
 }
 
 export function checkoutModeForBillingCycle(cycle: AthleteBillingCycle): "subscription" | "payment" {
-  return cycle === "monthly" ? "subscription" : "payment";
+  return cycle === "weekly" || cycle === "monthly" ? "subscription" : "payment";
 }
 
 export async function createStripePriceForPlan(input: {
   name: string;
   tier?: (typeof ProgramType.enumValues)[number] | null;
-  interval: "monthly" | "yearly" | "one_time";
+  interval: "weekly" | "monthly" | "yearly" | "one_time";
   unitAmount: number;
   intervalLabel?: string | null;
 }) {
   const stripeClient = getStripeClient();
-  // Only "monthly" is recurring; "yearly"/"one_time" are upfront payments.
-  // Label can be caller-provided (e.g. "6 weeks") for duration plans.
   const intervalLabel =
     (input.intervalLabel ?? "").trim() ||
-    (input.interval === "yearly" ? "1 year" : input.interval === "one_time" ? "One-time" : "Monthly");
+    (input.interval === "weekly"
+      ? "Weekly"
+      : input.interval === "yearly"
+        ? "1 year"
+        : input.interval === "one_time"
+          ? "One-time"
+          : "Monthly");
   // The DB column is `stripePriceIdOneTime`, but semantically this is a 6-month one-time payment,
   // so we tag the Stripe price with the `_six_months` lookup key to match athlete checkout's existing convention.
   const lookupSuffix = input.interval === "one_time" ? "six_months" : input.interval;
   const tierSlug = input.tier ? input.tier.toLowerCase() : "custom";
   const lookupKey = `${tierSlug}_${lookupSuffix}`;
-  const isRecurring = input.interval === "monthly";
+  const recurringInterval: Record<string, "week" | "month"> = { weekly: "week", monthly: "month" };
+  const stripeInterval = recurringInterval[input.interval];
   const price = await stripeBreaker.fire(() =>
     stripeClient.prices.create({
       unit_amount: input.unitAmount,
       currency: "gbp",
       lookup_key: lookupKey,
       transfer_lookup_key: true,
-      ...(isRecurring ? { recurring: { interval: "month" } } : {}),
+      ...(stripeInterval ? { recurring: { interval: stripeInterval } } : {}),
       product_data: {
         name: `${input.name} - ${intervalLabel}`,
         metadata: { tier: input.tier ?? "" },

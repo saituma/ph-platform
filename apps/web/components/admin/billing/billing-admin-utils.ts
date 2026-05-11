@@ -12,11 +12,13 @@ export type SubscriptionPlan = {
   stripePriceIdMonthly: string | null;
   stripePriceIdYearly: string | null;
   stripePriceIdOneTime: string | null;
+  stripePriceIdWeekly: string | null;
   displayPrice: string;
   billingInterval: string;
   monthlyPrice: string | null;
   yearlyPrice: string | null;
   oneTimePrice: string | null;
+  weeklyPrice: string | null;
   discountType: string | null;
   discountValue: string | null;
   discountAppliesTo: string | null;
@@ -32,7 +34,7 @@ export type SubscriptionPlan = {
 export type DiscountRule = {
   type: "percent" | "amount";
   value: string;
-  appliesTo: "monthly" | "yearly" | "six_months" | "all" | "custom";
+  appliesTo: "weekly" | "monthly" | "yearly" | "six_months" | "all" | "custom";
   label?: string | null;
 };
 
@@ -45,6 +47,8 @@ export type PlanFormState = {
   tier: PlanTier | null;
   displayPrice: string;
   isActive: boolean;
+  weeklyEnabled: boolean;
+  weeklyPrice: string;
   monthlyEnabled: boolean;
   monthlyPrice: string;
   yearlyEnabled: boolean;
@@ -97,6 +101,8 @@ export const defaultFormState: PlanFormState = {
   tier: null,
   displayPrice: "",
   isActive: true,
+  weeklyEnabled: false,
+  weeklyPrice: "",
   monthlyEnabled: true,
   monthlyPrice: "",
   yearlyEnabled: false,
@@ -120,6 +126,7 @@ export const defaultFormState: PlanFormState = {
 };
 
 export function planToFormState(plan: SubscriptionPlan): PlanFormState {
+  const weeklyPrice = (plan.weeklyPrice ?? "").trim();
   const monthlyPrice = (plan.monthlyPrice ?? "").trim();
   const yearlyPrice = (plan.yearlyPrice ?? "").trim();
   const oneTimePrice = (plan.oneTimePrice ?? "").trim();
@@ -157,6 +164,8 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
     tier: plan.tier ?? null,
     displayPrice: plan.displayPrice,
     isActive: plan.isActive,
+    weeklyEnabled: Boolean(weeklyPrice),
+    weeklyPrice,
     monthlyEnabled: Boolean(monthlyPrice),
     monthlyPrice,
     yearlyEnabled: Boolean(yearlyPrice),
@@ -203,6 +212,7 @@ export function deriveMultipliedPrice(monthly: string, multiplier: number): stri
 }
 
 export function planFormToPayload(form: PlanFormState) {
+  const weeklyPrice = form.weeklyEnabled ? form.weeklyPrice.trim() : "";
   const monthlyPrice = form.monthlyEnabled ? form.monthlyPrice.trim() : "";
   const yearlyPrice = form.yearlyEnabled
     ? (form.yearlyAuto ? deriveMultipliedPrice(form.monthlyPrice, 12) : form.yearlyPrice.trim())
@@ -212,9 +222,9 @@ export function planFormToPayload(form: PlanFormState) {
     : "";
 
   const billingInterval =
-    monthlyPrice ? "monthly" : yearlyPrice ? "yearly" : oneTimePrice ? "one_time" : "free";
+    weeklyPrice ? "weekly" : monthlyPrice ? "monthly" : yearlyPrice ? "yearly" : oneTimePrice ? "one_time" : "free";
 
-  const displayPrice = form.displayPrice.trim() || buildDefaultDisplayPrice({ monthlyPrice, yearlyPrice, oneTimePrice });
+  const displayPrice = form.displayPrice.trim() || buildDefaultDisplayPrice({ weeklyPrice, monthlyPrice, yearlyPrice, oneTimePrice });
 
   let discountType: string | null = null;
   let discountValue: string | null = null;
@@ -245,6 +255,7 @@ export function planFormToPayload(form: PlanFormState) {
     tier: form.tier || null,
     displayPrice,
     billingInterval,
+    weeklyPrice: weeklyPrice || null,
     monthlyPrice: monthlyPrice || null,
     yearlyPrice: yearlyPrice || null,
     oneTimePrice: oneTimePrice || null,
@@ -269,11 +280,13 @@ export function planFormToPayload(form: PlanFormState) {
 }
 
 function buildDefaultDisplayPrice(input: {
+  weeklyPrice: string;
   monthlyPrice: string;
   yearlyPrice: string;
   oneTimePrice: string;
 }) {
   const parts: string[] = [];
+  if (input.weeklyPrice) parts.push(`${input.weeklyPrice}/wk`);
   if (input.monthlyPrice) parts.push(`${input.monthlyPrice}/mo`);
   if (input.yearlyPrice) parts.push(`${input.yearlyPrice}/yr`);
   if (input.oneTimePrice) parts.push(`${input.oneTimePrice} once`);

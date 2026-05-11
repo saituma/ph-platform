@@ -89,13 +89,15 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
       : null;
 
   const cycleLabel =
-    billingCycle === "monthly"
-      ? "Monthly subscription"
-      : billingCycle === "six_months"
-        ? "6 months (upfront)"
-        : billingCycle === "yearly"
-          ? "Yearly (upfront)"
-          : null;
+    billingCycle === "weekly"
+      ? "Weekly subscription"
+      : billingCycle === "monthly"
+        ? "Monthly subscription"
+        : billingCycle === "six_months"
+          ? "6 months (upfront)"
+          : billingCycle === "yearly"
+            ? "Yearly (upfront)"
+            : null;
 
   let receipt: ReturnType<typeof buildBillingReceiptEmailFromStripeSession> | null = null;
   const sid = String(row.stripeSessionId ?? "").trim();

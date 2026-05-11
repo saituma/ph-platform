@@ -57,7 +57,7 @@ function postgresSqlstate(error: unknown): string | undefined {
 
 const checkoutSchema = z.object({
   planId: z.coerce.number().int().min(1),
-  billingCycle: z.enum(["monthly", "six_months", "yearly", "one_time"]).optional(),
+  billingCycle: z.enum(["weekly", "monthly", "six_months", "yearly", "one_time"]).optional(),
   interval: z.literal("monthly").optional(),
 });
 

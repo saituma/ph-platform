@@ -590,7 +590,12 @@ export async function listSubscriptionRequests() {
     let billingInterval = row.planBillingInterval ?? null;
     let paymentMode: "subscription" | "payment" | null = null;
 
-    if (cycle === "monthly") {
+    if (cycle === "weekly") {
+      paymentMode = "subscription";
+      billingInterval = cycle;
+      const amount = (row as Record<string, unknown>).planWeeklyPrice ?? row.planDisplayPrice;
+      if (amount) displayPrice = `${amount}/week`;
+    } else if (cycle === "monthly") {
       paymentMode = "subscription";
       billingInterval = cycle;
       const amount = row.planMonthlyPrice ?? row.planDisplayPrice;
@@ -730,7 +735,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         ? null
         : cycleRaw === "six_months" && Number.isFinite(durationWeeks) && durationWeeks > 0
           ? computeExpiryFromDurationWeeks(durationWeeks, new Date())
-          : cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly"
+          : cycleRaw === "weekly" || cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly"
             ? computeAthleteAccessEnd(cycleRaw as AthleteBillingCycle, new Date())
             : computePlanPeriodEnd(request.billingInterval, new Date());
 
@@ -766,16 +771,18 @@ export async function approveSubscriptionRequest(requestId: number) {
     if (cycleRaw === "one_time") {
       athletePayload.planPaymentType = "upfront";
       athletePayload.planCommitmentMonths = null;
-    } else if (cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly") {
-      athletePayload.planPaymentType = cycleRaw === "monthly" ? "monthly" : "upfront";
+    } else if (cycleRaw === "weekly" || cycleRaw === "monthly" || cycleRaw === "six_months" || cycleRaw === "yearly") {
+      athletePayload.planPaymentType = cycleRaw === "weekly" || cycleRaw === "monthly" ? "monthly" : "upfront";
       athletePayload.planCommitmentMonths =
-        cycleRaw === "monthly"
-          ? 1
-          : cycleRaw === "six_months"
-            ? Number.isFinite(durationWeeks) && durationWeeks > 0
-              ? null
-              : 6
-            : 12;
+        cycleRaw === "weekly"
+          ? null
+          : cycleRaw === "monthly"
+            ? 1
+            : cycleRaw === "six_months"
+              ? Number.isFinite(durationWeeks) && durationWeeks > 0
+                ? null
+                : 6
+              : 12;
     }
 
     if (request.guardianId) {

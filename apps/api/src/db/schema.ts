@@ -1262,11 +1262,13 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
   stripePriceIdMonthly: varchar({ length: 255 }),
   stripePriceIdYearly: varchar({ length: 255 }),
   stripePriceIdOneTime: varchar({ length: 255 }),
+  stripePriceIdWeekly: varchar({ length: 255 }),
   displayPrice: varchar({ length: 100 }).notNull(),
   billingInterval: varchar({ length: 50 }).notNull(),
   monthlyPrice: varchar({ length: 100 }),
   yearlyPrice: varchar({ length: 100 }),
   oneTimePrice: varchar({ length: 100 }),
+  weeklyPrice: varchar({ length: 100 }),
   discountType: varchar({ length: 20 }),
   discountValue: varchar({ length: 50 }),
   discountAppliesTo: varchar({ length: 20 }),
@@ -1275,7 +1277,7 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
     Array<{
       type: "percent" | "amount";
       value: string;
-      appliesTo: "monthly" | "yearly" | "six_months" | "all" | "custom";
+      appliesTo: "weekly" | "monthly" | "yearly" | "six_months" | "all" | "custom";
       label?: string | null;
     }>
   >(),

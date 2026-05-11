@@ -15,7 +15,7 @@ export async function sendSubscriptionPendingUserEmail(input: {
   planName: string;
   planTier: string;
   amount?: string | null;
-  billingCycle?: "monthly" | "six_months" | "yearly" | null;
+  billingCycle?: "weekly" | "monthly" | "six_months" | "yearly" | null;
   receipt?: BillingReceiptEmailBlockInput | null;
 }) {
   try {
@@ -30,13 +30,15 @@ export async function sendSubscriptionPendingUserEmail(input: {
       .trim()
       .toLowerCase();
     const cycleLabel =
-      cycle === "monthly"
-        ? "Monthly"
-        : cycle === "six_months"
-          ? "6 months (upfront)"
-          : cycle === "yearly"
-            ? "Yearly (upfront)"
-            : null;
+      cycle === "weekly"
+        ? "Weekly"
+        : cycle === "monthly"
+          ? "Monthly"
+          : cycle === "six_months"
+            ? "6 months (upfront)"
+            : cycle === "yearly"
+              ? "Yearly (upfront)"
+              : null;
     const receiptHtml = input.receipt ? billingReceiptEmailBlock(input.receipt) : "";
     const bodyHtml = `
 ${greetingLine(input.name, input.to)}

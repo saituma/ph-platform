@@ -29,7 +29,7 @@ async function apiRequest<T>(
 	return res.json();
 }
 
-export type BillingCycle = "monthly" | "six_months" | "yearly";
+export type BillingCycle = "weekly" | "monthly" | "six_months" | "yearly";
 
 export type BillingPlan = {
 	id: number;

@@ -25,7 +25,7 @@ export async function sendSubscriptionPendingStaffEmail(input: {
   planName: string;
   planTier: string;
   amount?: string | null;
-  billingCycle?: "monthly" | "six_months" | "yearly" | null;
+  billingCycle?: "weekly" | "monthly" | "six_months" | "yearly" | null;
   paymentMode?: "subscription" | "payment" | null;
   requestId: number;
   adminReviewUrl?: string;
@@ -48,13 +48,15 @@ export async function sendSubscriptionPendingStaffEmail(input: {
       .trim()
       .toLowerCase();
     const cycleHuman =
-      cycle === "monthly"
-        ? "Monthly"
-        : cycle === "six_months"
-          ? "Every 6 months"
-          : cycle === "yearly"
-            ? "Yearly"
-            : null;
+      cycle === "weekly"
+        ? "Weekly"
+        : cycle === "monthly"
+          ? "Monthly"
+          : cycle === "six_months"
+            ? "Every 6 months"
+            : cycle === "yearly"
+              ? "Yearly"
+              : null;
     const modeLabel = input.paymentMode ? escapeHtml(input.paymentMode) : null;
 
     const detailRows: string[] = [
