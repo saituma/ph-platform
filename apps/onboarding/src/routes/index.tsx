@@ -157,7 +157,7 @@ const SERVICE_CARDS = [
         description:
             "Train smarter. Track progress. Nutrition guidance. GPS running. All in one place.",
         image: "/app%20screenshot/app-home-new.jpeg",
-        cta: "Join Waitlist",
+        cta: "Join Waiting List",
         href: "/register",
         isWaitlist: true,
     },

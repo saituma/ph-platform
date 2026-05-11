@@ -244,7 +244,7 @@ function ServicesPage() {
                                         onClick={() => setWaitlistOpen(true)}
                                         className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
                                     >
-                                        JOIN WAITLIST
+                                        JOIN WAITING LIST
                                         <ArrowRight size={12} />
                                     </button>
                                 ) : (

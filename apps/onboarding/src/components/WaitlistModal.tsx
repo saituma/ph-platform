@@ -64,7 +64,7 @@ export function WaitlistModal({ onClose }: { onClose: () => void }) {
                 ) : (
                     <div className="px-8 py-8">
                         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#8aff00] mb-2">PH Performance App</p>
-                        <h2 className="text-white text-xl font-bold mb-1">Join the Waitlist</h2>
+                        <h2 className="text-white text-xl font-bold mb-1">Join the Waiting List</h2>
                         <p className="text-white/40 text-xs leading-relaxed mb-6">
                             Track programmes, log nutrition, monitor GPS running data, book sessions, and review progress — all in one place.
                         </p>
@@ -97,7 +97,7 @@ export function WaitlistModal({ onClose }: { onClose: () => void }) {
                                 className="w-full mt-2 flex items-center justify-center gap-2 bg-[#8aff00] text-black text-[11px] font-bold uppercase tracking-widest py-3 rounded-lg hover:bg-[#7aef00] transition disabled:opacity-60"
                             >
                                 {loading ? <Loader2 size={14} className="animate-spin" /> : null}
-                                {loading ? "Joining…" : "Join Waitlist"}
+                                {loading ? "Joining…" : "Join Waiting List"}
                             </button>
                         </form>
                     </div>
