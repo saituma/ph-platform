@@ -461,6 +461,7 @@ function AttendanceCheckInsSection({
 
 export default function SessionSchedulePage() {
   const now = new Date();
+  const [activeTab, setActiveTab] = useState<"schedule" | "attendance" | "setup">("schedule");
   const [fromDate, setFromDate] = useState(toIsoDateInput(new Date(now.getFullYear(), now.getMonth(), 1)));
   const [toDate, setToDate] = useState(toIsoDateInput(new Date(now.getFullYear(), now.getMonth() + 2, 0)));
   const [calendarNotice, setCalendarNotice] = useState<string | null>(() => {
@@ -800,8 +801,183 @@ export default function SessionSchedulePage() {
     return cells;
   }, [calendarMonth]);
 
+  // ── RENDER ──────────────────────────────────────────────────────────────────
+  const calendarView = (
+    <Card className="overflow-hidden p-0">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Schedule</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" className="h-8 rounded-full px-3" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}>‹</Button>
+            <span className="text-sm font-semibold">{calendarMonth.toLocaleDateString([], { month: "long", year: "numeric" })}</span>
+            <Button size="sm" variant="outline" className="h-8 rounded-full px-3" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}>›</Button>
+            <Button size="sm" variant="outline" className="h-8 rounded-full px-3" onClick={() => setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1))}>Today</Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-0 p-0">
+        <div className="flex items-center gap-4 border-b px-4 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-primary" /> PH Sessions
+          </div>
+          {googleConnection?.connected ? (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" /> Google Calendar
+            </div>
+          ) : null}
+        </div>
+        <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
+            <div key={label} className="border-r py-2 last:border-r-0">{label}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {calendarCells.map((cell, idx) => {
+            if (!cell) return <div key={`empty-${idx}`} className="h-24 border-r border-b last:border-r-0" />;
+            const phCount = sessionCountsByDate.get(cell.key) ?? 0;
+            const gCalCount = googleEventCountsByDate.get(cell.key) ?? 0;
+            const totalCount = phCount + gCalCount;
+            const isToday = cell.key === todayKey;
+            const phItems = sessionsByDate.get(cell.key) ?? [];
+            const gCalItems = googleEventsByDate.get(cell.key) ?? [];
+            const maxPills = 3;
+            const phSlice = phItems.slice(0, maxPills);
+            const gCalSlice = gCalItems.slice(0, maxPills - phSlice.length);
+            const shownCount = phSlice.length + gCalSlice.length;
+            return (
+              <button type="button" key={cell.key}
+                className={`relative h-24 border-r border-b p-2 text-left transition hover:bg-muted/35 ${selectedDateKey === cell.key ? "bg-primary/10" : "bg-background"}`}
+                onClick={() => { setSelectedDateKey(cell.key); setDateModalOpen(true); }}
+              >
+                <div className="flex h-full flex-col justify-between">
+                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday ? "bg-primary font-semibold text-primary-foreground" : "text-foreground"}`}>
+                    {cell.date.getDate()}
+                  </span>
+                  {totalCount > 0 ? (
+                    <div className="space-y-1">
+                      {phSlice.map((item) => (
+                        <div key={`${cell.key}-ph-${item.id}`} className="truncate rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                          {new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} {item.name}
+                        </div>
+                      ))}
+                      {gCalSlice.map((item) => (
+                        <div key={`${cell.key}-gcal-${item.id}`} className="truncate rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          {item.isAllDay ? "All day" : new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{" "}{item.summary || "Google Event"}
+                        </div>
+                      ))}
+                      {totalCount > shownCount ? (
+                        <div className="text-[10px] font-medium text-primary">+{totalCount - shownCount} more</div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <AdminShell title="Session Attendance" subtitle="Create fixed sessions, generate recurring dates, and mark attendance.">
+    <AdminShell title="Session Schedule" subtitle="Create recurring sessions, mark attendance, and sync with Google Calendar.">
+      {/* ── Tab switcher ── */}
+      <div className="flex items-center gap-1 rounded-full border border-border bg-card p-1">
+        {(["schedule", "attendance", "setup"] as const).map((tab) => {
+          const labels: Record<typeof tab, string> = { schedule: "Schedule", attendance: "Attendance", setup: "Setup" };
+          return (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {labels[tab]}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Schedule tab ── */}
+      {activeTab === "schedule" && <>
+        <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <div className="space-y-1">
+            <Label>From</Label>
+            <Input type="date" className="w-40" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>To</Label>
+            <Input type="date" className="w-40" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+          <Button variant="outline" onClick={() => refetchSessions()}>Refresh</Button>
+          {sessions.length > 0 && (
+            <p className="ml-auto text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">{sessions.length}</span> session{sessions.length !== 1 ? "s" : ""} in range
+            </p>
+          )}
+        </div>
+        {calendarView}
+      </>}
+
+      {/* ── Attendance tab ── */}
+      {activeTab === "attendance" && <>
+        {isLoading && (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-40" /><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" />
+          </div>
+        )}
+        <AttendanceCheckInsSection sessions={sessions} marking={marking} markAttendanceWithRetry={markAttendanceWithRetry} refetchSessions={refetchSessions} />
+        <Card>
+          <CardHeader><CardTitle>Attendance Overview</CardTitle></CardHeader>
+          <CardContent>
+            <p className="mb-3 text-sm text-muted-foreground">Per-athlete attendance for the selected date range. Sorted by lowest attendance first.</p>
+            {!attendanceStatsData?.stats?.length ? (
+              <p className="text-sm text-muted-foreground">No attendance data for this date range.</p>
+            ) : (
+              <div className="overflow-auto rounded-md border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40 text-left">
+                      <th className="px-3 py-2 font-medium">Athlete</th>
+                      <th className="px-3 py-2 font-medium text-center">Total</th>
+                      <th className="px-3 py-2 font-medium text-center">Attended</th>
+                      <th className="px-3 py-2 font-medium text-center">Missed</th>
+                      <th className="px-3 py-2 font-medium text-center">Unmarked</th>
+                      <th className="px-3 py-2 font-medium text-center">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendanceStatsData.stats.map((s) => (
+                      <tr key={s.userId} className="border-b last:border-b-0 hover:bg-muted/20">
+                        <td className="px-3 py-2">
+                          <div className="font-medium">{s.userName || "Unnamed"}</div>
+                          <div className="text-xs text-muted-foreground">{s.userEmail?.endsWith("@athlete.local") ? "" : s.userEmail}</div>
+                        </td>
+                        <td className="px-3 py-2 text-center">{s.totalSessions}</td>
+                        <td className="px-3 py-2 text-center text-green-600">{s.attended}</td>
+                        <td className="px-3 py-2 text-center text-red-600">{s.missed}</td>
+                        <td className="px-3 py-2 text-center text-yellow-600">{s.unmarked}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${s.attendancePercent >= 80 ? "bg-green-100 text-green-800" : s.attendancePercent >= 50 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}>
+                            {s.attendancePercent}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </>}
+
+      {/* ── Setup tab ── */}
+      {activeTab === "setup" && <>
       <Card>
         <CardHeader>
           <CardTitle>Google Calendar Connection</CardTitle>
@@ -912,182 +1088,28 @@ export default function SessionSchedulePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Date Range</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label>From</Label>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>To</Label>
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </div>
-          <div className="flex items-end">
-            <Button variant="outline" onClick={() => refetchSessions()}>Refresh</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden p-0">
-        <CardHeader>
-          <CardTitle>PHP Calendar</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-0 p-0">
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-full px-3"
-                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-              >
-                ‹
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-full px-3"
-                onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-              >
-                ›
-              </Button>
-            </div>
-            <p className="text-base font-semibold text-foreground">
-              {calendarMonth.toLocaleDateString([], { month: "long", year: "numeric" })}
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 rounded-full px-3"
-              onClick={() => setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1))}
-            >
-              Today
-            </Button>
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-4 border-b px-4 py-2">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full bg-primary" />
-              PH Sessions
-            </div>
-            {googleConnection?.connected ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />
-                Google Calendar
-              </div>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-7 border-b bg-muted/20 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((label) => (
-              <div key={label} className="border-r py-2 last:border-r-0">{label}</div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7">
-            {calendarCells.map((cell, idx) => {
-              if (!cell) return <div key={`empty-${idx}`} className="h-24 border-r border-b last:border-r-0" />;
-              const phCount = sessionCountsByDate.get(cell.key) ?? 0;
-              const gCalCount = googleEventCountsByDate.get(cell.key) ?? 0;
-              const totalCount = phCount + gCalCount;
-              const isMarked = totalCount > 0;
-              const isToday = cell.key === todayKey;
-              const phItems = (sessionsByDate.get(cell.key) ?? []);
-              const gCalItems = (googleEventsByDate.get(cell.key) ?? []);
-              // Show up to 3 items total, mixing PH sessions first then Google events
-              const maxPills = 3;
-              const phSlice = phItems.slice(0, maxPills);
-              const gCalSlice = gCalItems.slice(0, maxPills - phSlice.length);
-              const shownCount = phSlice.length + gCalSlice.length;
-              return (
-                <button
-                  type="button"
-                  key={cell.key}
-                  className={`relative h-24 border-r border-b p-2 text-left transition hover:bg-muted/35 ${selectedDateKey === cell.key ? "bg-primary/10" : "bg-background"}`}
-                  onClick={() => {
-                    setSelectedDateKey(cell.key);
-                    setDateModalOpen(true);
-                  }}
-                >
-                  <div className="flex h-full flex-col justify-between">
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                        isToday ? "bg-primary font-semibold text-primary-foreground" : "text-foreground"
-                      }`}
-                    >
-                      {cell.date.getDate()}
-                    </span>
-                    {isMarked ? (
-                      <div className="space-y-1">
-                        {phSlice.map((item) => (
-                          <div
-                            key={`${cell.key}-ph-${item.id}`}
-                            className="truncate rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground"
-                          >
-                            {new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} {item.name}
-                          </div>
-                        ))}
-                        {gCalSlice.map((item) => (
-                          <div
-                            key={`${cell.key}-gcal-${item.id}`}
-                            className="truncate rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white"
-                          >
-                            {item.isAllDay ? "All day" : new Date(item.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}{" "}
-                            {item.summary || "Google Event"}
-                          </div>
-                        ))}
-                        {totalCount > shownCount ? (
-                          <div className="truncate text-[10px] font-medium text-primary">
-                            +{totalCount - shownCount} more
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Create Template</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Create Template</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name" />
             <div className="grid grid-cols-3 gap-2 text-sm">
-              <select
-                className="rounded-md border bg-background px-2 py-2"
-                value={type}
-                onChange={(e) => {
-                  const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
-                  setType(nextType);
-                  if (nextType === "team") setScope("team");
-                  if (nextType !== "team" && scope === "team") setScope("individual");
-                }}
-              >
+              <select className="rounded-md border bg-background px-2 py-2" value={type} onChange={(e) => {
+                const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
+                setType(nextType);
+                if (nextType === "team") setScope("team");
+                if (nextType !== "team" && scope === "team") setScope("individual");
+              }}>
                 <option value="one_to_one">1-1</option>
                 <option value="semi_private">Semi-Private</option>
                 <option value="in_person">In-Person</option>
                 <option value="team">Team</option>
               </select>
               {type === "team" ? (
-                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">
-                  Team
-                </div>
+                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">Team</div>
               ) : (
-                <select
-                  className="rounded-md border bg-background px-2 py-2"
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as any)}
-                >
+                <select className="rounded-md border bg-background px-2 py-2" value={scope} onChange={(e) => setScope(e.target.value as any)}>
                   <option value="individual">Individual</option>
                   <option value="group">Group</option>
                 </select>
@@ -1097,67 +1119,33 @@ export default function SessionSchedulePage() {
                 <option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
               </select>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Start Time</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
-                    className="rounded-md border bg-background px-2 py-2"
-                    value={startHour}
-                    onChange={(e) => setStartHour(e.target.value)}
-                  >
-                    {HOUR_VALUES.map((hour) => (
-                      <option key={`start-hour-${hour}`} value={hour}>
-                        {formatHourLabel(hour)}
-                      </option>
-                    ))}
+                  <select className="rounded-md border bg-background px-2 py-2" value={startHour} onChange={(e) => setStartHour(e.target.value)}>
+                    {HOUR_VALUES.map((hour) => <option key={`sh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>)}
                   </select>
-                  <select
-                    className="rounded-md border bg-background px-2 py-2"
-                    value={startMinute}
-                    onChange={(e) => setStartMinute(e.target.value)}
-                  >
-                    {MINUTE_VALUES.map((minute) => (
-                      <option key={`start-minute-${minute}`} value={minute}>
-                        :{minute}
-                      </option>
-                    ))}
+                  <select className="rounded-md border bg-background px-2 py-2" value={startMinute} onChange={(e) => setStartMinute(e.target.value)}>
+                    {MINUTE_VALUES.map((minute) => <option key={`sm-${minute}`} value={minute}>:{minute}</option>)}
                   </select>
                 </div>
               </div>
               <div className="space-y-1">
                 <Label>End Time</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
-                    className="rounded-md border bg-background px-2 py-2"
-                    value={endHour}
-                    onChange={(e) => setEndHour(e.target.value)}
-                  >
-                    {HOUR_VALUES.map((hour) => (
-                      <option key={`end-hour-${hour}`} value={hour}>
-                        {formatHourLabel(hour)}
-                      </option>
-                    ))}
+                  <select className="rounded-md border bg-background px-2 py-2" value={endHour} onChange={(e) => setEndHour(e.target.value)}>
+                    {HOUR_VALUES.map((hour) => <option key={`eh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>)}
                   </select>
-                  <select
-                    className="rounded-md border bg-background px-2 py-2"
-                    value={endMinute}
-                    onChange={(e) => setEndMinute(e.target.value)}
-                  >
-                    {MINUTE_VALUES.map((minute) => (
-                      <option key={`end-minute-${minute}`} value={minute}>
-                        :{minute}
-                      </option>
-                    ))}
+                  <select className="rounded-md border bg-background px-2 py-2" value={endMinute} onChange={(e) => setEndMinute(e.target.value)}>
+                    {MINUTE_VALUES.map((minute) => <option key={`em-${minute}`} value={minute}>:{minute}</option>)}
                   </select>
                 </div>
               </div>
             </div>
-
             {effectiveScope === "team" ? (
               <div className="space-y-2">
-                <Label>Team (search by name)</Label>
+                <Label>Team</Label>
                 <Input value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)} placeholder="Search team name" />
                 {selectedTeam ? (
                   <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
@@ -1167,14 +1155,8 @@ export default function SessionSchedulePage() {
                 ) : null}
                 <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-2">
                   {filteredTeams.map((team) => (
-                    <button
-                      type="button"
-                      key={team.id}
-                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm hover:bg-secondary"
-                      onClick={() => setSelectedTeamId(team.id)}
-                    >
-                      <span>{team.team}</span>
-                      <span className="text-xs text-muted-foreground">#{team.id}</span>
+                    <button type="button" key={team.id} className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm hover:bg-secondary" onClick={() => setSelectedTeamId(team.id)}>
+                      <span>{team.team}</span><span className="text-xs text-muted-foreground">#{team.id}</span>
                     </button>
                   ))}
                   {filteredTeams.length === 0 ? <p className="text-xs text-muted-foreground">No teams found.</p> : null}
@@ -1182,73 +1164,47 @@ export default function SessionSchedulePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <Label>Users (search by name/email)</Label>
-                <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Type 2+ chars to search users" />
+                <Label>Athletes</Label>
+                <Input value={userSearch} onChange={(e) => setUserSearch(e.target.value)} placeholder="Type 2+ chars to search" />
                 {selectedUsers.length > 0 ? (
                   <div className="flex flex-wrap gap-2 rounded-md border p-2">
                     {selectedUsers.map((u) => (
-                      <button
-                        type="button"
-                        key={u.id}
-                        className="rounded bg-secondary px-2 py-1 text-xs"
-                        onClick={() => setSelectedUserIds((prev) => prev.filter((id) => id !== Number(u.id)))}
-                      >
-                        {(u.name || u.email || `User ${u.id}`)} ×
+                      <button type="button" key={u.id} className="rounded bg-secondary px-2 py-1 text-xs" onClick={() => setSelectedUserIds((prev) => prev.filter((id) => id !== Number(u.id)))}>
+                        {u.name || u.email || `User ${u.id}`} ×
                       </button>
                     ))}
                   </div>
                 ) : null}
                 <div className="max-h-40 space-y-1 overflow-auto rounded-md border p-2">
-                  {usersLoading ? <p className="text-xs text-muted-foreground">Loading users...</p> : null}
-                  {!usersLoading && usersError ? (
-                    <p className="text-xs text-red-500">Failed to load users. Please refresh.</p>
-                  ) : null}
+                  {usersLoading ? <p className="text-xs text-muted-foreground">Loading...</p> : null}
+                  {!usersLoading && usersError ? <p className="text-xs text-red-500">Failed to load users.</p> : null}
                   {filteredUsers.map((u) => {
                     const selected = selectedUserIds.includes(Number(u.id));
                     return (
-                      <button
-                        type="button"
-                        key={u.id}
+                      <button type="button" key={u.id}
                         className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm ${selected ? "bg-secondary" : "hover:bg-secondary"}`}
-                        onClick={() => {
-                          const uid = Number(u.id);
-                          setSelectedUserIds((prev) => (prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]));
-                        }}
-                      >
+                        onClick={() => { const uid = Number(u.id); setSelectedUserIds((prev) => prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]); }}>
                         <span>{u.name || "Unnamed"} <span className="text-xs text-muted-foreground">{u.guardianEmail || u.email}</span></span>
                         {selected ? <span className="text-xs">Selected</span> : null}
                       </button>
                     );
                   })}
-                  {!usersLoading && !usersError && filteredUsers.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No users found.</p>
-                  ) : null}
+                  {!usersLoading && !usersError && filteredUsers.length === 0 ? <p className="text-xs text-muted-foreground">No users found.</p> : null}
                 </div>
               </div>
             )}
-
-            <p className="text-xs text-muted-foreground">Generated sessions auto-sync to Google Calendar when your calendar is connected.</p>
-
+            <p className="text-xs text-muted-foreground">Sessions auto-sync to Google Calendar when connected.</p>
             <Button
               disabled={creating || !name.trim()}
               onClick={async () => {
-                  await createTemplate({
-                    name: name.trim(),
-                    type,
-                    scope: effectiveScope,
-                    isRecurring: true,
-                    weekday: Number(weekday),
-                    startsAtTime,
-                    endsAtTime,
-                    targetUserIds: effectiveScope === "team" ? [] : selectedUserIds,
-                    teamId: effectiveScope === "team" ? selectedTeamId : null,
-                    googleSyncEnabled: true,
-                    isActive: true,
-                  }).unwrap();
-
-                setName("");
-                setSelectedUserIds([]);
-                setSelectedTeamId(null);
+                await createTemplate({
+                  name: name.trim(), type, scope: effectiveScope, isRecurring: true,
+                  weekday: Number(weekday), startsAtTime, endsAtTime,
+                  targetUserIds: effectiveScope === "team" ? [] : selectedUserIds,
+                  teamId: effectiveScope === "team" ? selectedTeamId : null,
+                  googleSyncEnabled: true, isActive: true,
+                }).unwrap();
+                setName(""); setSelectedUserIds([]); setSelectedTeamId(null);
                 await refetchTemplates();
               }}
             >
@@ -1258,77 +1214,44 @@ export default function SessionSchedulePage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Templates</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Templates</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {!templatesData ? (
               <div className="space-y-2">
                 {[1, 2].map((i) => (
                   <div key={i} className="rounded-lg border p-3 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-48" />
-                    <Skeleton className="h-8 w-28 mt-2" />
+                    <Skeleton className="h-4 w-32" /><Skeleton className="h-3 w-48" /><Skeleton className="h-8 w-28 mt-2" />
                   </div>
                 ))}
               </div>
             ) : templates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No templates yet.</p>
+              <p className="text-sm text-muted-foreground">No templates yet. Create one to start generating recurring sessions.</p>
             ) : (
               templates.map((t) => (
                 <div key={t.id} className="rounded-lg border p-3 text-sm">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-medium">{t.name}</div>
-                      <div className="text-muted-foreground">{typeLabel(t.type)} • {t.startsAtTime} - {t.endsAtTime}</div>
-                      <div className="mt-1 text-xs text-muted-foreground">Calendar sync: Auto (when connected)</div>
+                      <div className="text-muted-foreground">{typeLabel(t.type)} · {t.startsAtTime}–{t.endsAtTime}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">Auto-syncs to Google Calendar</div>
                     </div>
                     <div className="flex shrink-0 gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => openEditTemplate(t)}
-                        title="Edit template"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                        disabled={deletingTemplate}
-                        onClick={() => handleDeleteTemplate(t.id)}
-                        title="Delete template"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditTemplate(t)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" disabled={deletingTemplate} onClick={() => handleDeleteTemplate(t.id)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
-                  <div className="mt-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={materializing}
-                      onClick={async () => {
-                        const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
-                        if (result.created > 0) {
-                          setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
-                        } else if (result.reason === "already_exists") {
-                          setTemplateNotice("No new sessions were created because matching sessions already exist in that date range.");
-                        } else if (result.reason === "no_target_users") {
-                          setTemplateNotice("No sessions were created because no target users are assigned to this template.");
-                        } else if (result.reason === "template_inactive") {
-                          setTemplateNotice("This template is inactive. Activate it before generating sessions.");
-                        } else {
-                          setTemplateNotice("No sessions were created.");
-                        }
-                        await refetchSessions();
-                      }}
-                    >
-                      {materializing ? "Generating..." : "Generate Sessions"}
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="outline" className="mt-2" disabled={materializing}
+                    onClick={async () => {
+                      const result = await materializeTemplate({ templateId: t.id, from: fromIso, to: toIso }).unwrap();
+                      if (result.created > 0) setTemplateNotice(`Generated ${result.created} session${result.created === 1 ? "" : "s"}.`);
+                      else if (result.reason === "already_exists") setTemplateNotice("Sessions already exist for this date range.");
+                      else if (result.reason === "no_target_users") setTemplateNotice("No athletes assigned to this template.");
+                      else if (result.reason === "template_inactive") setTemplateNotice("Template is inactive — activate it first.");
+                      else setTemplateNotice("No sessions were created.");
+                      await refetchSessions();
+                    }}>
+                    {materializing ? "Generating..." : "Generate Sessions"}
+                  </Button>
                 </div>
               ))
             )}
@@ -1339,196 +1262,118 @@ export default function SessionSchedulePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Scheduled Sessions & Attendance</CardTitle>
+          <CardTitle>Athlete Preferred Days</CardTitle>
+          <p className="text-sm text-muted-foreground">Reference when scheduling — athletes set their preferred days from their profile.</p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Athlete Requested Days</p>
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead>
-                  <tr className="bg-muted/40 text-left">
-                    <th className="border-b px-3 py-2 font-medium">Athlete</th>
-                    {WEEK_DAY_COLUMNS.map((day) => (
-                      <th key={`pref-head-${day.id}`} className="border-b px-3 py-2 text-center font-medium">
-                        {day.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {athleteDayRows.map((u) => {
-                    const preferred = new Set((u.preferredTrainingDays ?? []).map((d) => String(d).toLowerCase()));
-                    return (
-                      <tr key={`pref-row-${u.id}`}>
-                        <td className="border-b px-3 py-2">
-                          <div className="font-medium">{u.name || u.email || `User ${u.id}`}</div>
-                          <div className="text-xs text-muted-foreground">{u.role || "athlete"}</div>
-                        </td>
-                        {WEEK_DAY_COLUMNS.map((day) => (
-                          <td key={`pref-cell-${u.id}-${day.id}`} className="border-b px-3 py-2 text-center">
-                            {preferred.has(day.id) ? "Yes" : "-"}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                  {athleteDayRows.length === 0 ? (
-                    <tr>
-                      <td className="border-b px-3 py-4 text-muted-foreground" colSpan={8}>
-                        No athlete preferred days found in the current user list.
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[820px] border-collapse text-sm">
+              <thead>
+                <tr className="bg-muted/40 text-left">
+                  <th className="border-b px-3 py-2 font-medium">Athlete</th>
+                  {WEEK_DAY_COLUMNS.map((day) => <th key={`ph-${day.id}`} className="border-b px-3 py-2 text-center font-medium">{day.label}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {athleteDayRows.map((u) => {
+                  const preferred = new Set((u.preferredTrainingDays ?? []).map((d) => String(d).toLowerCase()));
+                  return (
+                    <tr key={`pr-${u.id}`}>
+                      <td className="border-b px-3 py-2">
+                        <div className="font-medium">{u.name || u.email || `User ${u.id}`}</div>
+                        <div className="text-xs text-muted-foreground">{u.role || "athlete"}</div>
                       </td>
+                      {WEEK_DAY_COLUMNS.map((day) => (
+                        <td key={`pc-${u.id}-${day.id}`} className="border-b px-3 py-2 text-center">
+                          {preferred.has(day.id) ? <span className="inline-block h-2 w-2 rounded-full bg-primary" /> : <span className="text-muted-foreground/40">—</span>}
+                        </td>
+                      ))}
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+                {athleteDayRows.length === 0 ? (
+                  <tr><td className="border-b px-3 py-4 text-muted-foreground" colSpan={8}>No athletes with preferred training days set.</td></tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
-
-          {isLoading ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-            </div>
-          ) : null}
         </CardContent>
       </Card>
+      </>}
 
+      {/* ── Date modal (always mounted) ── */}
       <Dialog open={dateModalOpen} onOpenChange={setDateModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {selectedDateKey ? `Sessions on ${selectedDateKey}` : "Sessions"}
-            </DialogTitle>
+            <DialogTitle>{selectedDateKey ? `Sessions on ${selectedDateKey}` : "Sessions"}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-3 overflow-auto p-6 pt-0 text-sm">
             {selectedDateSessions.length === 0 && selectedDateGoogleEvents.length === 0 ? (
               <p className="text-muted-foreground">No sessions on this date.</p>
             ) : null}
-
-            {/* PH Sessions */}
             {selectedDateSessions.length > 0 ? (
               <div className="space-y-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-                  PH Sessions ({selectedDateSessions.length})
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" /> PH Sessions ({selectedDateSessions.length})
                 </p>
-              </div>
-            ) : null}
-            {selectedDateSessions.length > 0 ? (
-              selectedDateSessions.map((s) => {
-                const isCancelled = s.status === "cancelled";
-                return (
-                  <div key={s.id} className={`space-y-2 rounded-lg border p-3 ${isCancelled ? "opacity-60 border-dashed" : ""}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={`font-medium ${isCancelled ? "line-through text-muted-foreground" : ""}`}>{s.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {typeLabel(s.type)} • {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
-                          {new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                        {isCancelled ? (
-                          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                            Cancelled
-                          </span>
-                        ) : null}
+                {selectedDateSessions.map((s) => {
+                  const isCancelled = s.status === "cancelled";
+                  return (
+                    <div key={s.id} className={`space-y-2 rounded-lg border p-3 ${isCancelled ? "opacity-60 border-dashed" : ""}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className={`font-medium ${isCancelled ? "line-through text-muted-foreground" : ""}`}>{s.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {typeLabel(s.type)} · {new Date(s.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}–{new Date(s.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          {isCancelled ? <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">Cancelled</span> : null}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {!isCancelled ? (
+                            <>
+                              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setQrSessionId(s.id); setQrSessionName(s.name); setQrDialogOpen(true); }}>
+                                <QrCode className="h-4 w-4" /> QR
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-amber-600" disabled={cancellingSession} onClick={() => handleCancelSession(s.id)} title="Cancel">
+                                <Ban className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : null}
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-destructive" disabled={deletingSession} onClick={() => handleDeleteSession(s.id)} title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex shrink-0 gap-1">
-                        {!isCancelled ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1.5"
-                              onClick={() => {
-                                setQrSessionId(s.id);
-                                setQrSessionName(s.name);
-                                setQrDialogOpen(true);
-                              }}
-                            >
-                              <QrCode className="h-4 w-4" />
-                              QR
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700"
-                              disabled={cancellingSession}
-                              onClick={() => handleCancelSession(s.id)}
-                              title="Cancel session"
-                            >
-                              <Ban className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          disabled={deletingSession}
-                          onClick={() => handleDeleteSession(s.id)}
-                          title="Delete session"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    {!isCancelled ? (
-                      <>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {s.attendees?.length ?? 0} assigned users
-                        </p>
-                        <div className="space-y-1 rounded-md border p-2">
-                          {s.attendees?.length ? (
-                            s.attendees.map((a) => (
-                              <div
-                                key={`${s.id}-${a.userId}`}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/70 px-2 py-1.5"
-                              >
+                      {!isCancelled ? (
+                        <>
+                          <p className="text-xs text-muted-foreground">{s.attendees?.length ?? 0} assigned athletes</p>
+                          <div className="space-y-1 rounded-md border p-2">
+                            {s.attendees?.length ? s.attendees.map((a) => (
+                              <div key={`${s.id}-${a.userId}`} className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/70 px-2 py-1.5">
                                 <div className="min-w-0">
                                   <p className="truncate text-xs font-medium">{a.userName || a.userEmail || `User ${a.userId}`}</p>
                                   <p className="text-[11px] text-muted-foreground">
-                                    Status: {a.status}
-                                    {a.checkInAt ? ` • Client checked in at ${new Date(a.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
+                                    {a.status}{a.checkInAt ? ` · checked in at ${new Date(a.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}
                                   </p>
                                 </div>
-                                <div className="flex gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant={a.status === "attended" ? "secondary" : "default"}
-                                    disabled={marking}
-                                    onClick={async () => {
-                                      await markAttendanceWithRetry({
-                                        sessionId: s.id,
-                                        userId: a.userId,
-                                        status: a.status === "attended" ? "unmarked" : "attended",
-                                      });
-                                      await refetchSessions();
-                                    }}
-                                  >
-                                    {a.status === "attended" ? "Unattended" : "Attend"}
-                                  </Button>
-                                </div>
+                                <Button size="sm" variant={a.status === "attended" ? "secondary" : "default"} disabled={marking}
+                                  onClick={async () => { await markAttendanceWithRetry({ sessionId: s.id, userId: a.userId, status: a.status === "attended" ? "unmarked" : "attended" }); await refetchSessions(); }}>
+                                  {a.status === "attended" ? "Undo" : "Mark Attended"}
+                                </Button>
                               </div>
-                            ))
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No assigned users for this session.</p>
-                          )}
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
-                );
-              })
+                            )) : <p className="text-xs text-muted-foreground">No athletes assigned.</p>}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
             ) : null}
-
-            {/* Google Calendar Events */}
             {selectedDateGoogleEvents.length > 0 ? (
               <div className="space-y-2 pt-2">
                 <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span className="inline-block h-2 w-2 rounded-full bg-violet-500" />
-                  Google Calendar ({selectedDateGoogleEvents.length})
+                  <span className="inline-block h-2 w-2 rounded-full bg-violet-500" /> Google Calendar ({selectedDateGoogleEvents.length})
                 </p>
                 {selectedDateGoogleEvents.map((e) => (
                   <div key={e.id} className="rounded-lg border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-800 dark:bg-violet-950/20">
@@ -1536,26 +1381,13 @@ export default function SessionSchedulePage() {
                       <div className="min-w-0">
                         <p className="font-medium">{e.summary || "Untitled event"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {e.isAllDay
-                            ? "All day"
-                            : `${new Date(e.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${new Date(e.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+                          {e.isAllDay ? "All day" : `${new Date(e.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}–${new Date(e.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
                         </p>
-                        {e.location ? (
-                          <p className="mt-1 text-xs text-muted-foreground">Location: {e.location}</p>
-                        ) : null}
-                        {e.description ? (
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{e.description}</p>
-                        ) : null}
+                        {e.location ? <p className="mt-1 text-xs text-muted-foreground">{e.location}</p> : null}
+                        {e.description ? <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{e.description}</p> : null}
                       </div>
                       {e.htmlLink ? (
-                        <a
-                          href={e.htmlLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-100 dark:text-violet-400 dark:hover:bg-violet-900/30"
-                        >
-                          Open in Google
-                        </a>
+                        <a href={e.htmlLink} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md border px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-100">Open in Google</a>
                       ) : null}
                     </div>
                   </div>
@@ -1566,106 +1398,31 @@ export default function SessionSchedulePage() {
         </DialogContent>
       </Dialog>
 
-      <AttendanceCheckInsSection
-        sessions={sessions}
-        marking={marking}
-        markAttendanceWithRetry={markAttendanceWithRetry}
-        refetchSessions={refetchSessions}
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Attendance Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="mb-3 text-sm text-muted-foreground">
-            Per-athlete attendance stats for the selected date range. Sorted by lowest attendance first.
-          </p>
-          {!attendanceStatsData?.stats?.length ? (
-            <p className="text-sm text-muted-foreground">No attendance data for this date range.</p>
-          ) : (
-            <div className="overflow-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/40 text-left">
-                    <th className="px-3 py-2 font-medium">Athlete</th>
-                    <th className="px-3 py-2 font-medium text-center">Total</th>
-                    <th className="px-3 py-2 font-medium text-center">Attended</th>
-                    <th className="px-3 py-2 font-medium text-center">Missed</th>
-                    <th className="px-3 py-2 font-medium text-center">Unmarked</th>
-                    <th className="px-3 py-2 font-medium text-center">Rate</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attendanceStatsData.stats.map((s) => (
-                    <tr key={s.userId} className="border-b last:border-b-0 hover:bg-muted/20">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{s.userName || "Unnamed"}</div>
-                        <div className="text-xs text-muted-foreground">{s.userEmail?.endsWith("@athlete.local") ? "" : s.userEmail}</div>
-                      </td>
-                      <td className="px-3 py-2 text-center">{s.totalSessions}</td>
-                      <td className="px-3 py-2 text-center text-green-600">{s.attended}</td>
-                      <td className="px-3 py-2 text-center text-red-600">{s.missed}</td>
-                      <td className="px-3 py-2 text-center text-yellow-600">{s.unmarked}</td>
-                      <td className="px-3 py-2 text-center">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          s.attendancePercent >= 80 ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" :
-                          s.attendancePercent >= 50 ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" :
-                          "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                        }`}>
-                          {s.attendancePercent}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
       {qrSessionId !== null && (
-        <AttendanceQrDialog
-          sessionId={qrSessionId}
-          sessionName={qrSessionName}
-          open={qrDialogOpen}
-          onOpenChange={setQrDialogOpen}
-        />
+        <AttendanceQrDialog sessionId={qrSessionId} sessionName={qrSessionName} open={qrDialogOpen} onOpenChange={setQrDialogOpen} />
       )}
 
       <Dialog open={editTemplateOpen} onOpenChange={setEditTemplateOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Template</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Edit Template</DialogTitle></DialogHeader>
           <div className="space-y-3 p-6 pt-0">
             <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Template name" />
             <div className="grid grid-cols-3 gap-2 text-sm">
-              <select
-                className="rounded-md border bg-background px-2 py-2"
-                value={editType}
-                onChange={(e) => {
-                  const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
-                  setEditType(nextType);
-                  if (nextType === "team") setEditScope("team");
-                  if (nextType !== "team" && editScope === "team") setEditScope("individual");
-                }}
-              >
+              <select className="rounded-md border bg-background px-2 py-2" value={editType} onChange={(e) => {
+                const nextType = e.target.value as "one_to_one" | "semi_private" | "in_person" | "team";
+                setEditType(nextType);
+                if (nextType === "team") setEditScope("team");
+                if (nextType !== "team" && editScope === "team") setEditScope("individual");
+              }}>
                 <option value="one_to_one">1-1</option>
                 <option value="semi_private">Semi-Private</option>
                 <option value="in_person">In-Person</option>
                 <option value="team">Team</option>
               </select>
               {editType === "team" ? (
-                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">
-                  Team
-                </div>
+                <div className="flex items-center rounded-md border bg-muted/20 px-3 py-2 text-sm text-foreground">Team</div>
               ) : (
-                <select
-                  className="rounded-md border bg-background px-2 py-2"
-                  value={editScope}
-                  onChange={(e) => setEditScope(e.target.value as any)}
-                >
+                <select className="rounded-md border bg-background px-2 py-2" value={editScope} onChange={(e) => setEditScope(e.target.value as any)}>
                   <option value="individual">Individual</option>
                   <option value="group">Group</option>
                 </select>
@@ -1675,20 +1432,15 @@ export default function SessionSchedulePage() {
                 <option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
               </select>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Start Time</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <select className="rounded-md border bg-background px-2 py-2" value={editStartHour} onChange={(e) => setEditStartHour(e.target.value)}>
-                    {HOUR_VALUES.map((hour) => (
-                      <option key={`edit-sh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>
-                    ))}
+                    {HOUR_VALUES.map((hour) => <option key={`esh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>)}
                   </select>
                   <select className="rounded-md border bg-background px-2 py-2" value={editStartMinute} onChange={(e) => setEditStartMinute(e.target.value)}>
-                    {MINUTE_VALUES.map((minute) => (
-                      <option key={`edit-sm-${minute}`} value={minute}>:{minute}</option>
-                    ))}
+                    {MINUTE_VALUES.map((minute) => <option key={`esm-${minute}`} value={minute}>:{minute}</option>)}
                   </select>
                 </div>
               </div>
@@ -1696,19 +1448,14 @@ export default function SessionSchedulePage() {
                 <Label>End Time</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <select className="rounded-md border bg-background px-2 py-2" value={editEndHour} onChange={(e) => setEditEndHour(e.target.value)}>
-                    {HOUR_VALUES.map((hour) => (
-                      <option key={`edit-eh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>
-                    ))}
+                    {HOUR_VALUES.map((hour) => <option key={`eeh-${hour}`} value={hour}>{formatHourLabel(hour)}</option>)}
                   </select>
                   <select className="rounded-md border bg-background px-2 py-2" value={editEndMinute} onChange={(e) => setEditEndMinute(e.target.value)}>
-                    {MINUTE_VALUES.map((minute) => (
-                      <option key={`edit-em-${minute}`} value={minute}>:{minute}</option>
-                    ))}
+                    {MINUTE_VALUES.map((minute) => <option key={`eem-${minute}`} value={minute}>:{minute}</option>)}
                   </select>
                 </div>
               </div>
             </div>
-
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setEditTemplateOpen(false)}>Cancel</Button>
               <Button disabled={updatingTemplate || !editName.trim()} onClick={handleUpdateTemplate}>

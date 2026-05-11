@@ -353,7 +353,8 @@ function AudienceDetailPageInner() {
 
   const moduleByOrder = new Map(modules.map((module) => [module.order, module]));
   const maxModuleOrder = modules.reduce((max, m) => Math.max(max, m.order), 0);
-  const slotCount = Math.max(12, maxModuleOrder);
+  // Show real modules + one empty slot at the end (not 12 empty slots)
+  const slotCount = Math.max(1, maxModuleOrder + 1);
   const moduleSlots = Array.from({ length: slotCount }, (_, index) => {
     const order = index + 1;
     return {
@@ -361,6 +362,7 @@ function AudienceDetailPageInner() {
       module: moduleByOrder.get(order) ?? null,
     };
   });
+  const hasPlaceholderModules = modules.some((m) => /^Module \d+(\s*\|.*)?$/.test(m.title));
   const lockModalModuleOrder = lockForm.moduleId ? moduleOrderById.get(lockForm.moduleId) ?? null : null;
   const selectableProgramTiers = useMemo(
     () =>
@@ -410,15 +412,20 @@ function AudienceDetailPageInner() {
   };
 
   return (
-    <AdminShell title="Exercise library" subtitle={fromAdultMode ? `Adult tier ${audienceLabel}` : `Age ${audienceLabel}`}>
+    <AdminShell
+      title={storageAudienceLabel.startsWith("team::") ? `${storageAudienceLabel.slice("team::".length)} Training` : fromAdultMode ? `${audienceLabel} Programme` : `Age ${audienceLabel} Training`}
+      subtitle={storageAudienceLabel.startsWith("team::") ? "Team training content" : fromAdultMode ? "Adult tier · programme modules and supplementary content" : "Youth training content · modules and supplementary sessions"}
+    >
       <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-3">
           <Link href={fromAdultMode ? "/exercise-library?mode=adult" : "/exercise-library"}>
             <Button variant="outline">{fromAdultMode ? "Back to adult tiers" : "Back to age groups"}</Button>
           </Link>
-          <Button variant="outline" disabled={isSaving || isUpdatingLocks} onClick={() => void cleanupPlaceholderModules()}>
-            Clean placeholders
-          </Button>
+          {hasPlaceholderModules && (
+            <Button variant="outline" disabled={isSaving || isUpdatingLocks} onClick={() => void cleanupPlaceholderModules()}>
+              Remove empty modules
+            </Button>
+          )}
           <Button variant="outline" onClick={() => void openCopyModal()}>
             Copy from plan
           </Button>
@@ -438,7 +445,7 @@ function AudienceDetailPageInner() {
             Modules
           </Button>
           <Button className="flex-1" variant={activeTab === "others" ? "default" : "outline"} onClick={() => setActiveTab("others")}>
-            Others
+            Supplementary Content
           </Button>
         </div>
 
@@ -449,8 +456,8 @@ function AudienceDetailPageInner() {
           <Card>
             <CardHeader>
               <SectionHeader
-                title={`Program modules (1-${slotCount})`}
-                description={`Build the ${audienceNoun} program as Module 1 through Module ${slotCount}. Each module includes module number, module name, and focus.`}
+                title={modules.length === 0 ? "No modules yet" : `${modules.length} module${modules.length !== 1 ? "s" : ""}`}
+                description={`Each module contains sessions coaches can work through. Click a module to add or edit its sessions.`}
               />
             </CardHeader>
             <CardContent className="space-y-3">
@@ -459,13 +466,34 @@ function AudienceDetailPageInner() {
                   const module = slot.module;
                   const slotLockedTiers = lockedTiersByOrder.get(slot.order) ?? [];
                   const parsed = module ? parseModuleTitle(module.title) : { name: "", focus: "" };
+
+                  if (!module) {
+                    return (
+                      <div key={slot.order} className="flex items-center justify-between rounded-xl border border-dashed border-border px-4 py-3">
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium text-foreground">Module {slot.order}</span> · not set up yet
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setModuleForm({ id: null, name: "", focus: "", targetOrder: slot.order });
+                            setModuleModalOpen(true);
+                          }}
+                        >
+                          Set up
+                        </Button>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div key={slot.order} className="rounded-2xl border border-border p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module {slot.order}</p>
-                      <p className="mt-2 text-base font-semibold text-foreground">{module ? parsed.name || module.title : "Not set yet"}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">Focus: {module ? parsed.focus || "Not set yet" : "Not set yet"}</p>
+                      <p className="mt-2 text-base font-semibold text-foreground">{parsed.name || module.title}</p>
+                      {parsed.focus && <p className="mt-1 text-sm text-muted-foreground">Focus: {parsed.focus}</p>}
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {module ? `${module.sessions.length} sessions · ${module.totalDayLength} total days` : "0 sessions · 0 total days"}
+                        {module.sessions.length} session{module.sessions.length !== 1 ? "s" : ""} · {module.totalDayLength} total days
                       </p>
                       {slotLockedTiers.filter((t) => t !== currentTierValue).length ? (
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -480,66 +508,50 @@ function AudienceDetailPageInner() {
                         </div>
                       ) : null}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {module ? (
-                          <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}${fromAdultMode ? "?mode=adult" : ""}`}>
-                            <Button size="sm">Open module</Button>
-                          </Link>
-                        ) : null}
+                        <Link href={`/exercise-library/${encodeURIComponent(audienceLabel)}/modules/${module.id}${fromAdultMode ? "?mode=adult" : ""}`}>
+                          <Button size="sm">Open module</Button>
+                        </Link>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => {
                             setModuleForm({
-                              id: module?.id ?? null,
-                              name: module ? parsed.name || module.title : "",
-                              focus: module ? parsed.focus : "",
+                              id: module.id,
+                              name: parsed.name || module.title,
+                              focus: parsed.focus,
                               targetOrder: slot.order,
                             });
                             setModuleModalOpen(true);
                           }}
                         >
-                          Edit
+                          Rename
                         </Button>
-                        {module ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setLockModalMode("lock");
-                              setLockForm({
-                                moduleId: module.id,
-                                moduleTitle: parsed.name || module.title,
-                                programTiers: [],
-                              });
-                              setLockModalOpen(true);
-                            }}
-                          >
-                            Lock plan
-                          </Button>
-                        ) : null}
-                        {module ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={!slotLockedTiers.length}
-                            onClick={() => {
-                              setLockModalMode("unlock");
-                              setLockForm({
-                                moduleId: module.id,
-                                moduleTitle: parsed.name || module.title,
-                                programTiers: [],
-                              });
-                              setLockModalOpen(true);
-                            }}
-                          >
-                            Unlock plan
-                          </Button>
-                        ) : null}
-                        {module ? (
-                          <Button size="sm" variant="ghost" onClick={() => void deleteModule(module.id)}>
-                            Delete
-                          </Button>
-                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            setLockModalMode("lock");
+                            setLockForm({ moduleId: module.id, moduleTitle: parsed.name || module.title, programTiers: [] });
+                            setLockModalOpen(true);
+                          }}
+                        >
+                          Lock plan
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={!slotLockedTiers.length}
+                          onClick={() => {
+                            setLockModalMode("unlock");
+                            setLockForm({ moduleId: module.id, moduleTitle: parsed.name || module.title, programTiers: [] });
+                            setLockModalOpen(true);
+                          }}
+                        >
+                          Unlock plan
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => void deleteModule(module.id)}>
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   );
@@ -551,13 +563,13 @@ function AudienceDetailPageInner() {
           <Card>
             <CardHeader>
               <SectionHeader
-                title="Other Editable Content"
-                description={`Manage supporting program content for this ${audienceNoun}.`}
+                title="Supplementary Content"
+                description={`Supporting content outside the main programme modules — warm-ups, cool-downs, mobility, and recovery.`}
               />
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Editable in this Others area</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Session bookends</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <Link
                     href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/warmup${fromAdultMode ? "?mode=adult" : ""}`}
@@ -588,7 +600,7 @@ function AudienceDetailPageInner() {
               </div>
 
               <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directly editable here</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Training support sessions</p>
                 <div className="mt-3 space-y-3">
                   <Link
                     href={`/exercise-library/${encodeURIComponent(audienceLabel)}/others/mobility${fromAdultMode ? "?mode=adult" : ""}`}

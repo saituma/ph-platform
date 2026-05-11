@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { BookOpen, Layers, Users } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
-import { SectionHeader } from "../../components/admin/section-header";
 import { AdultAthleteAssignment } from "../../components/admin/exercise-library/adult-athlete-assignment";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent, CardHeader } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import {
   AudienceSummary,
+  PROGRAM_TIERS,
+  isAdultStorageAudienceLabel,
   isYouthAgeAudienceLabel,
   isTeamStorageAudienceLabel,
   fromTeamStorageAudienceLabel,
@@ -19,9 +20,9 @@ import {
   clearTrainingContentCache,
 } from "../../components/admin/training-content-v2/api";
 
-const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, index) =>
-  String(index + 7),
-);
+const BASE_AGE_CARDS = Array.from({ length: 12 }, (_, i) => String(i + 7));
+
+type ViewMode = "youth" | "adult" | "team";
 
 type AudienceCard = {
   label: string;
@@ -39,20 +40,59 @@ type TeamSummary = {
   athleteType?: "youth" | "adult";
 };
 
-export default function ExerciseLibraryAudiencePage() {
+const MODES: {
+  id: ViewMode;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  {
+    id: "youth",
+    label: "Youth Players",
+    description: "Weekly programme content by age group (ages 7–18)",
+    icon: BookOpen,
+  },
+  {
+    id: "adult",
+    label: "Adult Athletes",
+    description: "Content per subscription tier — PHP, Premium, Pro",
+    icon: Users,
+  },
+  {
+    id: "team",
+    label: "Teams",
+    description: "Training content posted to specific teams",
+    icon: Layers,
+  },
+];
+
+function contentSummary(moduleCount: number, otherCount: number) {
+  if (moduleCount === 0 && otherCount === 0)
+    return "No content yet — click to start building";
+  const parts: string[] = [];
+  if (moduleCount > 0)
+    parts.push(`${moduleCount} programme week${moduleCount !== 1 ? "s" : ""}`);
+  if (otherCount > 0)
+    parts.push(
+      `${otherCount} supplementary session${otherCount !== 1 ? "s" : ""}`,
+    );
+  return parts.join(" · ");
+}
+
+export default function TrainingContentPage() {
   return (
     <Suspense fallback={null}>
-      <ExerciseLibraryAudiencePageInner />
+      <TrainingContentPageInner />
     </Suspense>
   );
 }
 
-function ExerciseLibraryAudiencePageInner() {
+function TrainingContentPageInner() {
   const searchParams = useSearchParams();
   const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
-  const [viewMode, setViewMode] = useState<"youth" | "adult" | "team">(
-    (searchParams.get("mode") as any) === "team"
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    searchParams.get("mode") === "team"
       ? "team"
       : searchParams.get("mode") === "adult"
         ? "adult"
@@ -72,7 +112,7 @@ function ExerciseLibraryAudiencePageInner() {
       setAudiences(data.items ?? []);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load ages.");
+      setError(err instanceof Error ? err.message : "Failed to load content.");
     } finally {
       setIsLoading(false);
     }
@@ -85,9 +125,8 @@ function ExerciseLibraryAudiencePageInner() {
         credentials: "include",
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(payload?.error ?? "Failed to load teams.");
-      }
       setTeams(Array.isArray(payload?.teams) ? payload.teams : []);
       setTeamError(null);
     } catch (err) {
@@ -101,20 +140,19 @@ function ExerciseLibraryAudiencePageInner() {
 
   useEffect(() => {
     void loadAudiences();
-
     const refetch = () => {
       clearTrainingContentCache();
       void loadAudiences();
       void loadTeams();
     };
-    const onVisibilityChange = () => {
+    const onVisibility = () => {
       if (document.visibilityState === "visible") refetch();
     };
     window.addEventListener("focus", refetch);
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       window.removeEventListener("focus", refetch);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -130,17 +168,14 @@ function ExerciseLibraryAudiencePageInner() {
     else setViewMode("youth");
   }, [searchParams]);
 
+  // ── Youth cards ────────────────────────────────────────────────────────────
   const youthCards = useMemo<AudienceCard[]>(() => {
-    const youthAudiences = audiences.filter((audience) =>
-      isYouthAgeAudienceLabel(audience.label, 18),
+    const youthAudiences = audiences.filter((a) =>
+      isYouthAgeAudienceLabel(a.label, 18),
     );
     const byLabel = new Map(
-      youthAudiences.map((audience) => [
-        normalizeAudienceLabelInput(audience.label),
-        audience,
-      ]),
+      youthAudiences.map((a) => [normalizeAudienceLabelInput(a.label), a]),
     );
-
     const primary = BASE_AGE_CARDS.map((label) => {
       const existing = byLabel.get(label);
       return {
@@ -149,52 +184,61 @@ function ExerciseLibraryAudiencePageInner() {
         otherCount: existing?.otherCount ?? 0,
       };
     });
-
     const additional = youthAudiences
       .filter(
-        (audience) =>
-          !BASE_AGE_CARDS.includes(normalizeAudienceLabelInput(audience.label)),
+        (a) => !BASE_AGE_CARDS.includes(normalizeAudienceLabelInput(a.label)),
       )
-      .sort((a, b) =>
-        a.label.localeCompare(b.label, undefined, { numeric: true }),
-      )
-      .map((audience) => ({
-        label: normalizeAudienceLabelInput(audience.label),
-        moduleCount: audience.moduleCount,
-        otherCount: audience.otherCount,
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+      .map((a) => ({
+        label: normalizeAudienceLabelInput(a.label),
+        moduleCount: a.moduleCount,
+        otherCount: a.otherCount,
       }));
-
     return [...primary, ...additional];
   }, [audiences]);
 
-  const teamCards = useMemo<AudienceCard[]>(() => {
-    const audienceSummaryByTeamName = new Map(
+  // ── Adult tier cards ───────────────────────────────────────────────────────
+  const adultTierCards = useMemo(() => {
+    const byTier = new Map(
       audiences
-        .filter((audience) => isTeamStorageAudienceLabel(audience.label))
-        .map((audience) => [
-          normalizeAudienceLabelInput(
-            fromTeamStorageAudienceLabel(audience.label),
-          ),
-          audience,
+        .filter((a) => isAdultStorageAudienceLabel(a.label))
+        .map((a) => {
+          const tierValue = a.label.replace("adult::", "");
+          return [tierValue, a] as const;
+        }),
+    );
+    return PROGRAM_TIERS.map((tier) => {
+      const existing = byTier.get(tier.value);
+      return {
+        value: tier.value,
+        label: tier.label,
+        moduleCount: existing?.moduleCount ?? 0,
+        otherCount: existing?.otherCount ?? 0,
+      };
+    });
+  }, [audiences]);
+
+  // ── Team cards ─────────────────────────────────────────────────────────────
+  const teamCards = useMemo<AudienceCard[]>(() => {
+    const byTeamName = new Map(
+      audiences
+        .filter((a) => isTeamStorageAudienceLabel(a.label))
+        .map((a) => [
+          normalizeAudienceLabelInput(fromTeamStorageAudienceLabel(a.label)),
+          a,
         ]),
     );
-
     const teamByNormalized = new Map(
-      teams.map(
-        (team) => [normalizeAudienceLabelInput(team.team), team] as const,
-      ),
+      teams.map((t) => [normalizeAudienceLabelInput(t.team), t] as const),
     );
-
-    const allNormalizedTeamNames = new Set<string>([
-      ...teams.map((team) => normalizeAudienceLabelInput(team.team)),
-      ...Array.from(audienceSummaryByTeamName.keys()),
+    const allNames = new Set<string>([
+      ...teams.map((t) => normalizeAudienceLabelInput(t.team)),
+      ...Array.from(byTeamName.keys()),
     ]);
-
-    return [...allNormalizedTeamNames]
+    return [...allNames]
       .map((normalized) => {
-        const existing = audienceSummaryByTeamName.get(normalized);
+        const existing = byTeamName.get(normalized);
         const teamInfo = teamByNormalized.get(normalized);
-        const label = teamInfo?.team ?? normalized;
         const youthCount = teamInfo?.youthCount ?? 0;
         const adultCount = teamInfo?.adultCount ?? 0;
         const athleteType: AudienceCard["athleteType"] =
@@ -204,7 +248,7 @@ function ExerciseLibraryAudiencePageInner() {
               ? "mixed"
               : "youth";
         return {
-          label,
+          label: teamInfo?.team ?? normalized,
           moduleCount: existing?.moduleCount ?? 0,
           otherCount: existing?.otherCount ?? 0,
           athleteType,
@@ -214,142 +258,217 @@ function ExerciseLibraryAudiencePageInner() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [audiences, teams]);
 
-  const activeCards = useMemo(() => {
-    if (viewMode === "adult") return [];
-    if (viewMode === "team") return teamCards;
-    return youthCards;
-  }, [viewMode, teamCards, youthCards]);
+  const subtitle = {
+    youth:
+      "Each age group (7–18) has its own programme. Open an age to build out weekly modules, sessions, warm-ups, mobility and recovery content.",
+    adult:
+      "Manage what athletes on each subscription tier can access, then assign athletes to their tier below.",
+    team: "Open a team to manage the training content posted specifically to that group.",
+  }[viewMode];
 
   return (
-    <AdminShell
-      title="Training Content"
-      subtitle={
-        viewMode === "adult"
-          ? "Adult mode — assign programs to adult athletes below."
-          : viewMode === "team"
-            ? "Team mode is on. Open a team to manage training content for that team."
-            : "Organized by age. Open an age card to manage modules and session content."
-      }
-    >
+    <AdminShell title="Training Content" subtitle={subtitle}>
       <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="space-y-4">
-              <div className="flex w-full items-center gap-2 rounded-full border border-border bg-card p-1 sm:w-fit">
-                <Button
-                  variant={viewMode === "youth" ? "default" : "outline"}
-                  onClick={() => setViewMode("youth")}
-                >
-                  Youth mode
-                </Button>
-                <Button
-                  variant={viewMode === "adult" ? "default" : "outline"}
-                  onClick={() => setViewMode("adult")}
-                >
-                  Adult mode
-                </Button>
-                <Button
-                  variant={viewMode === "team" ? "default" : "outline"}
-                  onClick={() => setViewMode("team")}
-                >
-                  Team mode
-                </Button>
-              </div>
-              <SectionHeader
-                title={
-                  viewMode === "adult"
-                    ? "Adult Athletes"
-                    : viewMode === "team"
-                      ? "Team training"
-                      : "Age groups"
-                }
-                description={
-                  viewMode === "adult"
-                    ? "Assign training programs to adult athletes."
-                    : viewMode === "team"
-                      ? "Manage training content posted to specific teams."
-                      : "Start with ages 7 to 18. Open any card to manage modules, sessions, warm-up, sessions A/B/C, mobility, recovery, and cool-down content."
-                }
-              />
-            </div>
-          </CardHeader>
-          {viewMode !== "adult" && (
-          <CardContent className="space-y-4">
-            {error || teamError ? (
-              <p className="text-sm text-red-600">{error ?? teamError}</p>
-            ) : null}
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground">
-                {viewMode === "team"
-                    ? "Loading teams..."
-                    : "Loading age groups..."}
-              </p>
-            ) : null}
-            {viewMode === "team" && isTeamsLoading ? (
-              <p className="text-sm text-muted-foreground">Loading teams...</p>
-            ) : null}
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {activeCards.map((audience) => {
-                const isAdultTeam = viewMode === "team" && audience.athleteType === "adult";
-                const href = viewMode === "team"
-                  ? isAdultTeam
-                    ? `/exercise-library/teams/${encodeURIComponent(audience.label)}/members`
-                    : `/exercise-library/teams/${encodeURIComponent(audience.label)}`
-                  : `/exercise-library/${encodeURIComponent(audience.label)}`;
-                const typeLabel = audience.athleteType === "adult"
-                  ? "Adult team"
-                  : audience.athleteType === "mixed"
-                    ? "Mixed team"
-                    : "Youth team";
-                const typeDotColor = audience.athleteType === "adult"
-                  ? "bg-blue-500"
-                  : audience.athleteType === "mixed"
-                    ? "bg-amber-500"
-                    : "bg-green-500";
-                return (
-                  <Link
-                    key={audience.label}
-                    href={href}
-                    className="rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
-                  >
-                    {viewMode === "team" && (
+        {/* ── Mode switcher ──────────────────────────────────────────────── */}
+        <div className="grid gap-3 sm:grid-cols-3">
+          {MODES.map((mode) => {
+            const Icon = mode.icon;
+            const isActive = viewMode === mode.id;
+            return (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => setViewMode(mode.id)}
+                className={`flex items-start gap-3 rounded-2xl border p-4 text-left transition ${
+                  isActive
+                    ? "border-primary/50 bg-primary/8 ring-1 ring-primary/20"
+                    : "border-border bg-card hover:border-primary/30 hover:bg-primary/5"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    isActive ? "bg-primary text-primary-foreground" : "bg-secondary/60 text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className={`text-sm font-semibold ${isActive ? "text-primary" : "text-foreground"}`}>
+                    {mode.label}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {mode.description}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Youth cards ────────────────────────────────────────────────── */}
+        {viewMode === "youth" && (
+          <div className="space-y-3">
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            {isLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-2xl bg-secondary/40" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {youthCards.map((card) => {
+                  const hasContent = card.moduleCount > 0 || card.otherCount > 0;
+                  return (
+                    <Link
+                      key={card.label}
+                      href={`/exercise-library/${encodeURIComponent(card.label)}`}
+                      className="group rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xl font-bold text-foreground">
+                          Age {card.label}
+                        </p>
+                        {hasContent ? (
+                          <span className="h-2 w-2 rounded-full bg-green-500" title="Has content" />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-border" title="Empty" />
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {contentSummary(card.moduleCount, card.otherCount)}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Adult tier content + athlete assignment ─────────────────────── */}
+        {viewMode === "adult" && (
+          <div className="space-y-6">
+            {/* Tier content cards */}
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Subscription tier content
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Open a tier to build the programme content athletes on that plan can access.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {adultTierCards.map((tier) => {
+                  const hasContent = tier.moduleCount > 0 || tier.otherCount > 0;
+                  return (
+                    <Link
+                      key={tier.value}
+                      href={`/exercise-library/${encodeURIComponent(tier.value)}?mode=adult`}
+                      className="group rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">{tier.label}</p>
+                        {hasContent ? (
+                          <span className="h-2 w-2 rounded-full bg-green-500" />
+                        ) : (
+                          <span className="h-2 w-2 rounded-full bg-border" />
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {contentSummary(tier.moduleCount, tier.otherCount)}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs font-medium text-muted-foreground">
+                Assign athletes to a tier
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <AdultAthleteAssignment />
+          </div>
+        )}
+
+        {/* ── Team cards ─────────────────────────────────────────────────── */}
+        {viewMode === "team" && (
+          <div className="space-y-3">
+            {teamError && <p className="text-sm text-red-600">{teamError}</p>}
+            {(isLoading || isTeamsLoading) ? (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-24 animate-pulse rounded-2xl bg-secondary/40" />
+                ))}
+              </div>
+            ) : teamCards.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+                <Layers className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-foreground">No teams yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Create teams under People → Teams, then return here to add content.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {teamCards.map((card) => {
+                  const isAdultTeam = card.athleteType === "adult";
+                  const href = isAdultTeam
+                    ? `/exercise-library/teams/${encodeURIComponent(card.label)}/members`
+                    : `/exercise-library/teams/${encodeURIComponent(card.label)}`;
+
+                  const typeLabel =
+                    card.athleteType === "adult"
+                      ? "Adult team"
+                      : card.athleteType === "mixed"
+                        ? "Mixed team"
+                        : "Youth team";
+                  const typeDotColor =
+                    card.athleteType === "adult"
+                      ? "bg-blue-500"
+                      : card.athleteType === "mixed"
+                        ? "bg-amber-500"
+                        : "bg-green-500";
+
+                  return (
+                    <Link
+                      key={card.label}
+                      href={href}
+                      className="group rounded-2xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-primary/5"
+                    >
                       <div className="mb-2 flex items-center gap-1.5">
                         <span className={`h-2 w-2 rounded-full ${typeDotColor}`} />
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                           {typeLabel}
                         </span>
+                        {(card.memberCount ?? 0) > 0 && (
+                          <Badge variant="secondary" className="ml-auto text-[10px]">
+                            {card.memberCount} members
+                          </Badge>
+                        )}
                       </div>
-                    )}
-                    <p className="text-lg font-semibold text-foreground">
-                      {viewMode === "team" ? audience.label : `Age ${audience.label}`}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {viewMode === "team"
-                        ? isAdultTeam
-                          ? `${audience.memberCount ?? 0} member${(audience.memberCount ?? 0) !== 1 ? "s" : ""} · tap to manage`
-                          : `${audience.moduleCount} modules · ${audience.otherCount} other items`
-                        : `${audience.moduleCount} modules · ${audience.otherCount} other items`}
-                    </p>
-                  </Link>
-                );
-              })}
-              {viewMode === "team" &&
-                activeCards.length === 0 &&
-                !isLoading &&
-                !isTeamsLoading && (
-                  <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-                    No teams yet.
-                  </p>
-                )}
-            </div>
-          </CardContent>
-          )}
-        </Card>
-
-        {viewMode === "adult" && <AdultAthleteAssignment />}
+                      <p className="font-semibold text-foreground">{card.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {isAdultTeam
+                          ? "Tap to manage athlete assignments"
+                          : contentSummary(card.moduleCount, card.otherCount)}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
     </AdminShell>
   );
 }
