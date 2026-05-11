@@ -156,7 +156,7 @@ const SERVICE_CARDS = [
         title: "PH PERFORMANCE APP",
         description:
             "Train smarter. Track progress. Nutrition guidance. GPS running. All in one place.",
-        image: "/app%20screenshot/app-home.png",
+        image: "/app%20screenshot/app-home-new.jpeg",
         cta: "Join Waitlist",
         href: "/register",
         isWaitlist: true,
@@ -437,7 +437,7 @@ function LandingPage() {
                                         {/* Phone 2 — center front */}
                                         <div className="absolute left-[95px] bottom-0 w-[125px] rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/60 z-[3]">
                                             <img
-                                                src="/app%20screenshot/app-home.png"
+                                                src="/app%20screenshot/app-home-new.jpeg"
                                                 alt="PH Performance App Home"
                                                 loading="lazy"
                                                 className="w-full h-auto"
