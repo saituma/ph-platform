@@ -115,7 +115,7 @@ const SERVICES = [
             "Nutrition logging",
             "Session booking",
         ],
-        image: "/app%20screenshot/app-home.jpg",
+        image: "/app%20screenshot/app-home.png",
         isWaitlist: true,
     },
 ] as const;
