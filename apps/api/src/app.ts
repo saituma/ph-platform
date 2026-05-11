@@ -105,6 +105,20 @@ export function createApp() {
   app.head("/", (_req, res) => res.sendStatus(200));
   app.get("/health", healthCheck);
   app.head("/health", (_req, res) => res.sendStatus(200));
+  app.get("/.well-known/apple-app-site-association", (_req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.json({
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appIDs: ["N2YU836RHA.com.phperformance.uk"],
+            components: [{ "/": "*" }],
+          },
+        ],
+      },
+    });
+  });
 
   app.use(requestLogger);
   const bodyLimit = env.requestBodyLimit ?? "1mb";
