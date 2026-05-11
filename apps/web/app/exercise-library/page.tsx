@@ -222,7 +222,7 @@ function ExerciseLibraryAudiencePageInner() {
 
   return (
     <AdminShell
-      title="Exercise library"
+      title="Training Content"
       subtitle={
         viewMode === "adult"
           ? "Adult mode — assign programs to adult athletes below."

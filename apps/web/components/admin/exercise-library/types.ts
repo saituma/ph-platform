@@ -13,4 +13,5 @@ export type Exercise = {
   howTo?: string;
   progression?: string;
   regression?: string;
+  usageCount?: number;
 };

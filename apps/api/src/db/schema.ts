@@ -859,6 +859,10 @@ export const sessionExerciseTable = pgTable("session_exercises", {
   coachingNotes: varchar({ length: 500 }),
   progressionNotes: varchar({ length: 500 }),
   regressionNotes: varchar({ length: 500 }),
+  setsOverride: integer(),
+  repsOverride: integer(),
+  durationOverride: integer(),
+  restSecondsOverride: integer(),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

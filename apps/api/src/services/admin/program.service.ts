@@ -192,7 +192,31 @@ export async function listExercises(options?: { limit?: number }) {
       ? Math.max(1, Math.min(200, Math.floor(options.limit)))
       : 200;
 
-  return db.select().from(exerciseTable).orderBy(desc(exerciseTable.createdAt)).limit(effectiveLimit);
+  return db
+    .select({
+      id: exerciseTable.id,
+      name: exerciseTable.name,
+      category: exerciseTable.category,
+      cues: exerciseTable.cues,
+      howTo: exerciseTable.howTo,
+      progression: exerciseTable.progression,
+      regression: exerciseTable.regression,
+      sets: exerciseTable.sets,
+      reps: exerciseTable.reps,
+      duration: exerciseTable.duration,
+      restSeconds: exerciseTable.restSeconds,
+      notes: exerciseTable.notes,
+      videoUrl: exerciseTable.videoUrl,
+      createdAt: exerciseTable.createdAt,
+      updatedAt: exerciseTable.updatedAt,
+      usageCount: sql<number>`(
+        SELECT COUNT(*)::int FROM session_exercises
+        WHERE exercise_id = ${exerciseTable.id}
+      )`,
+    })
+    .from(exerciseTable)
+    .orderBy(desc(exerciseTable.createdAt))
+    .limit(effectiveLimit);
 }
 
 export async function updateExercise(

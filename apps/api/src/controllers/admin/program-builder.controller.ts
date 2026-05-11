@@ -128,6 +128,10 @@ export async function updateSessionExercise(req: Request, res: Response) {
       coachingNotes: z.string().max(500).optional().nullable(),
       progressionNotes: z.string().max(500).optional().nullable(),
       regressionNotes: z.string().max(500).optional().nullable(),
+      setsOverride: z.number().int().min(1).optional().nullable(),
+      repsOverride: z.number().int().min(1).optional().nullable(),
+      durationOverride: z.number().int().min(1).optional().nullable(),
+      restSecondsOverride: z.number().int().min(1).optional().nullable(),
     })
     .parse(req.body);
   const exercise = await ProgramBuilderService.updateSessionExercise(id, input);

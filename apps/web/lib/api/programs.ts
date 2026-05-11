@@ -184,6 +184,17 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ProgramBuilder"],
     }),
+    reorderSessionExercises: builder.mutation<
+      { ok: boolean },
+      { sessionId: number; ids: number[] }
+    >({
+      query: ({ sessionId, ids }) => ({
+        url: `/admin/sessions/${sessionId}/exercises/reorder`,
+        method: "PATCH",
+        body: { ids },
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
     getScheduledAssignments: builder.query<
       {
         items: {
@@ -255,7 +266,7 @@ const programsApi = apiSlice.injectEndpoints({
     }),
     getExercises: builder.query<{ exercises: any[] }, void>({
       query: () => "/admin/exercises",
-      providesTags: ["Content"],
+      providesTags: ["Exercises"],
       transformResponse: (response: { exercises?: any[] } | undefined) => ({
         exercises: response?.exercises ?? [],
       }),
@@ -282,7 +293,7 @@ const programsApi = apiSlice.injectEndpoints({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Content"],
+      invalidatesTags: ["Exercises"],
     }),
     updateExercise: builder.mutation<
       { exercise: any },
@@ -293,7 +304,17 @@ const programsApi = apiSlice.injectEndpoints({
         method: "PATCH",
         body: patch,
       }),
-      invalidatesTags: ["Content", "ProgramBuilder"],
+      invalidatesTags: ["Exercises", "ProgramBuilder"],
+    }),
+    deleteExercise: builder.mutation<
+      { deleted: boolean },
+      { exerciseId: number }
+    >({
+      query: ({ exerciseId }) => ({
+        url: `/admin/exercises/${exerciseId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Exercises", "ProgramBuilder"],
     }),
   }),
   overrideExisting: false,
@@ -317,6 +338,7 @@ export const {
   useUpdateSessionExerciseMutation,
   useAddSessionExerciseMutation,
   useDeleteSessionExerciseMutation,
+  useReorderSessionExercisesMutation,
   useGetScheduledAssignmentsQuery,
   useGetAdultAthletesQuery,
   useGetAthleteDetailQuery,
@@ -327,4 +349,5 @@ export const {
   useGetExercisesQuery,
   useCreateExerciseMutation,
   useUpdateExerciseMutation,
+  useDeleteExerciseMutation,
 } = programsApi;

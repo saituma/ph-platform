@@ -222,6 +222,10 @@ export async function updateSessionExercise(
     coachingNotes?: string | null;
     progressionNotes?: string | null;
     regressionNotes?: string | null;
+    setsOverride?: number | null;
+    repsOverride?: number | null;
+    durationOverride?: number | null;
+    restSecondsOverride?: number | null;
   },
 ) {
   const updatePayload: Record<string, any> = { updatedAt: new Date() };
@@ -229,6 +233,10 @@ export async function updateSessionExercise(
   if (input.coachingNotes !== undefined) updatePayload.coachingNotes = input.coachingNotes;
   if (input.progressionNotes !== undefined) updatePayload.progressionNotes = input.progressionNotes;
   if (input.regressionNotes !== undefined) updatePayload.regressionNotes = input.regressionNotes;
+  if (input.setsOverride !== undefined) updatePayload.setsOverride = input.setsOverride;
+  if (input.repsOverride !== undefined) updatePayload.repsOverride = input.repsOverride;
+  if (input.durationOverride !== undefined) updatePayload.durationOverride = input.durationOverride;
+  if (input.restSecondsOverride !== undefined) updatePayload.restSecondsOverride = input.restSecondsOverride;
 
   const result = await db
     .update(sessionExerciseTable)
