@@ -6,6 +6,7 @@ import {
   getEnquiryStatsAdmin,
   listEnquiriesAdmin,
   submitEnquiry,
+  submitWaitlist,
   updateEnquiryAdmin,
 } from "../controllers/enquiry.controller";
 import { requireAuth } from "../middlewares/auth";
@@ -16,6 +17,7 @@ const router = Router();
 
 // Public — submit an enquiry from the website
 router.post("/enquiries", rateLimiters.auth, submitEnquiry);
+router.post("/waitlist", rateLimiters.auth, submitWaitlist);
 
 // Admin — manage enquiries
 const adminAuth = [requireAuth, requireRole(["coach", "admin", "superAdmin"])] as const;

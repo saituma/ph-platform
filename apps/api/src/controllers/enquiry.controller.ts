@@ -117,6 +117,39 @@ export async function deleteEnquiryAdmin(req: Request, res: Response) {
   return res.status(200).json({ ok: true });
 }
 
+const waitlistSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  email: z.string().trim().email().max(255),
+});
+
+export async function submitWaitlist(req: Request, res: Response) {
+  const parsed = waitlistSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  const enquiry = await createEnquiry({
+    athleteType: "adult",
+    athleteName: parsed.data.name,
+    age: null,
+    parentName: null,
+    phone: "N/A",
+    email: parsed.data.email,
+    interestedIn: "App Only",
+    locationPreference: [],
+    groupNeeded: false,
+    teamName: null,
+    ageGroup: null,
+    squadSize: null,
+    availabilityDays: [],
+    availabilityTime: null,
+    goal: "App waitlist sign-up",
+    photoUrl: null,
+  });
+
+  return res.status(201).json({ ok: true, enquiry });
+}
+
 export async function getEnquiryStatsAdmin(req: Request, res: Response) {
   const { from, to } = req.query;
   let period: { from: Date; to: Date } | undefined;
