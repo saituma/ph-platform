@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
@@ -530,4 +530,133 @@ export async function getAthleteDetail(athleteId: number) {
     videoUploads: mergedVideoUploads,
     nutritionOnboarding: nutritionOnboarding ?? null,
   };
+}
+
+// --- Module Library ---
+
+export async function listLibraryModules() {
+  return db
+    .select({
+      id: programModuleTable.id,
+      title: programModuleTable.title,
+      description: programModuleTable.description,
+      order: programModuleTable.order,
+      createdAt: programModuleTable.createdAt,
+      sessionCount: count(sessionTable.id),
+    })
+    .from(programModuleTable)
+    .leftJoin(sessionTable, eq(sessionTable.moduleId, programModuleTable.id))
+    .where(isNull(programModuleTable.programId))
+    .groupBy(programModuleTable.id)
+    .orderBy(asc(programModuleTable.order));
+}
+
+export async function createLibraryModule(input: {
+  title: string;
+  description?: string | null;
+}) {
+  const maxOrder = await db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${programModuleTable.order}), 0)` })
+    .from(programModuleTable)
+    .where(isNull(programModuleTable.programId));
+
+  const order = (maxOrder[0]?.maxOrder ?? 0) + 1;
+
+  const result = await db
+    .insert(programModuleTable)
+    .values({ programId: null, title: input.title, description: input.description ?? null, order })
+    .returning();
+
+  return result[0];
+}
+
+export async function createLibraryModuleSession(input: {
+  moduleId: number;
+  title?: string | null;
+  description?: string | null;
+  weekNumber: number;
+  sessionNumber: number;
+  type?: string;
+}) {
+  const result = await db
+    .insert(sessionTable)
+    .values({
+      programId: null,
+      moduleId: input.moduleId,
+      weekNumber: input.weekNumber,
+      sessionNumber: input.sessionNumber,
+      title: input.title ?? null,
+      description: input.description ?? null,
+      type: (input.type as any) ?? "program",
+    })
+    .returning();
+
+  return result[0];
+}
+
+export async function copyModuleToProgram(moduleId: number, programId: number) {
+  return db.transaction(async (tx) => {
+    const [sourceModule] = await tx
+      .select()
+      .from(programModuleTable)
+      .where(eq(programModuleTable.id, moduleId))
+      .limit(1);
+
+    if (!sourceModule) throw new Error("Module not found");
+
+    const maxOrder = await tx
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${programModuleTable.order}), 0)` })
+      .from(programModuleTable)
+      .where(eq(programModuleTable.programId, programId));
+
+    const [newModule] = await tx
+      .insert(programModuleTable)
+      .values({
+        programId,
+        title: sourceModule.title,
+        description: sourceModule.description,
+        order: (maxOrder[0]?.maxOrder ?? 0) + 1,
+      })
+      .returning();
+
+    const sourceSessions = await tx
+      .select()
+      .from(sessionTable)
+      .where(eq(sessionTable.moduleId, moduleId))
+      .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+
+    for (const src of sourceSessions) {
+      const [newSession] = await tx
+        .insert(sessionTable)
+        .values({
+          programId,
+          moduleId: newModule.id,
+          weekNumber: src.weekNumber,
+          sessionNumber: src.sessionNumber,
+          title: src.title,
+          description: src.description,
+          type: src.type,
+        })
+        .returning();
+
+      const sourceExercises = await tx
+        .select()
+        .from(sessionExerciseTable)
+        .where(eq(sessionExerciseTable.sessionId, src.id))
+        .orderBy(asc(sessionExerciseTable.order));
+
+      for (const ex of sourceExercises) {
+        await tx.insert(sessionExerciseTable).values({
+          sessionId: newSession.id,
+          exerciseId: ex.exerciseId,
+          order: ex.order,
+          coachingNotes: ex.coachingNotes,
+          progressionNotes: ex.progressionNotes,
+          regressionNotes: ex.regressionNotes,
+        });
+      }
+    }
+
+    return newModule;
+  });
 }

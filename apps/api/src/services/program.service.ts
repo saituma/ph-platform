@@ -360,7 +360,7 @@ export async function completeMySession(
     .onConflictDoNothing();
 
   let next = null;
-  if (session.moduleId) {
+  if (session.moduleId && session.programId != null) {
     const nextSession = await db
       .select({ id: sessionTable.id, title: sessionTable.title, sessionNumber: sessionTable.sessionNumber })
       .from(sessionTable)

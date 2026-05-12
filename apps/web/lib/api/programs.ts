@@ -316,6 +316,68 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Exercises", "ProgramBuilder"],
     }),
+    // Module Library
+    getModuleLibrary: builder.query<{ modules: any[] }, void>({
+      query: () => "/admin/modules/library",
+      providesTags: ["ModuleLibrary"],
+    }),
+    createLibraryModule: builder.mutation<
+      { module: any },
+      { title: string; description?: string | null }
+    >({
+      query: (body) => ({
+        url: "/admin/modules/library",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ModuleLibrary"],
+    }),
+    updateLibraryModule: builder.mutation<
+      { module: any },
+      { moduleId: number; patch: { title?: string; description?: string | null } }
+    >({
+      query: ({ moduleId, patch }) => ({
+        url: `/admin/modules/library/${moduleId}`,
+        method: "PATCH",
+        body: patch,
+      }),
+      invalidatesTags: ["ModuleLibrary"],
+    }),
+    deleteLibraryModule: builder.mutation<{ module: any }, { moduleId: number }>({
+      query: ({ moduleId }) => ({
+        url: `/admin/modules/library/${moduleId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["ModuleLibrary"],
+    }),
+    createLibrarySession: builder.mutation<
+      { session: any },
+      {
+        moduleId: number;
+        title?: string | null;
+        description?: string | null;
+        weekNumber: number;
+        sessionNumber: number;
+        type?: string;
+      }
+    >({
+      query: ({ moduleId, ...body }) => ({
+        url: `/admin/modules/library/${moduleId}/sessions`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ModuleLibrary", "ProgramBuilder"],
+    }),
+    copyModuleToProgram: builder.mutation<
+      { module: any },
+      { programId: number; moduleId: number }
+    >({
+      query: ({ programId, moduleId }) => ({
+        url: `/admin/programs/${programId}/modules/from-library/${moduleId}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -350,4 +412,10 @@ export const {
   useCreateExerciseMutation,
   useUpdateExerciseMutation,
   useDeleteExerciseMutation,
+  useGetModuleLibraryQuery,
+  useCreateLibraryModuleMutation,
+  useUpdateLibraryModuleMutation,
+  useDeleteLibraryModuleMutation,
+  useCreateLibrarySessionMutation,
+  useCopyModuleToProgramMutation,
 } = programsApi;

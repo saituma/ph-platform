@@ -113,6 +113,14 @@ router.get("/admin/sessions/:sessionId/exercises", AdminProgramBuilderController
 router.patch("/admin/session-exercises/:id", AdminProgramBuilderController.updateSessionExercise);
 router.patch("/admin/sessions/:sessionId/exercises/reorder", AdminProgramBuilderController.reorderSessionExercises);
 
+// Module Library
+router.get("/admin/modules/library", AdminProgramBuilderController.listLibraryModules);
+router.post("/admin/modules/library", AdminProgramBuilderController.createLibraryModule);
+router.patch("/admin/modules/library/:moduleId", AdminProgramBuilderController.updateModule);
+router.delete("/admin/modules/library/:moduleId", AdminProgramBuilderController.deleteModule);
+router.post("/admin/modules/library/:moduleId/sessions", AdminProgramBuilderController.createLibrarySession);
+router.post("/admin/programs/:programId/modules/from-library/:moduleId", AdminProgramBuilderController.copyModuleToProgram);
+
 // Adult Athletes & Program Assignments
 router.get("/admin/scheduled-assignments", AdminProgramBuilderController.listScheduledAssignments);
 router.get("/admin/adult-athletes", AdminProgramBuilderController.listAdultAthletes);

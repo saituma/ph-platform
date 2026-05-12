@@ -297,3 +297,47 @@ export async function getAthleteDetail(req: Request, res: Response) {
     throw err;
   }
 }
+
+// --- Module Library ---
+
+export async function listLibraryModules(_req: Request, res: Response) {
+  const modules = await ProgramBuilderService.listLibraryModules();
+  return res.status(200).json({ modules });
+}
+
+export async function createLibraryModule(req: Request, res: Response) {
+  const input = moduleSchema.parse(req.body);
+  const module = await ProgramBuilderService.createLibraryModule({
+    title: input.title,
+    description: input.description ?? null,
+  });
+  return res.status(201).json({ module });
+}
+
+export async function createLibrarySession(req: Request, res: Response) {
+  const moduleId = z.coerce.number().int().min(1).parse(req.params.moduleId);
+  const input = sessionSchema.parse(req.body);
+  const session = await ProgramBuilderService.createLibraryModuleSession({
+    moduleId,
+    title: input.title ?? null,
+    description: input.description ?? null,
+    weekNumber: input.weekNumber,
+    sessionNumber: input.sessionNumber,
+    type: input.type,
+  });
+  return res.status(201).json({ session });
+}
+
+export async function copyModuleToProgram(req: Request, res: Response) {
+  const programId = z.coerce.number().int().min(1).parse(req.params.programId);
+  const moduleId = z.coerce.number().int().min(1).parse(req.params.moduleId);
+  try {
+    const module = await ProgramBuilderService.copyModuleToProgram(moduleId, programId);
+    broadcastProgramChanged();
+    return res.status(201).json({ module });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found")) return res.status(404).json({ error: msg });
+    throw err;
+  }
+}

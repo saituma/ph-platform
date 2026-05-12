@@ -445,9 +445,7 @@ export const programModuleTable = pgTable(
   "program_modules",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    programId: integer()
-      .notNull()
-      .references(() => programTable.id),
+    programId: integer().references(() => programTable.id),
     title: varchar({ length: 255 }).notNull(),
     description: varchar({ length: 500 }),
     order: integer().notNull().default(1),
@@ -462,9 +460,7 @@ export const programModuleTable = pgTable(
 
 export const sessionTable = pgTable("sessions", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  programId: integer()
-    .notNull()
-    .references(() => programTable.id),
+  programId: integer().references(() => programTable.id),
   moduleId: integer().references(() => programModuleTable.id),
   weekNumber: integer().notNull(),
   sessionNumber: integer().notNull(),

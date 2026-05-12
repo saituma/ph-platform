@@ -101,6 +101,7 @@ const NAV: NavEntry[] = [
     children: [
       { label: "Programs",           href: "/programs",                icon: BookOpen },
       { label: "Exercise Library",  href: "/programs/exercises",      icon: Dumbbell },
+      { label: "Module Library",    href: "/programs/modules",        icon: Library },
       { label: "Training Content",  href: "/exercise-library",        icon: ClipboardList },
       { label: "Client Training",   href: "/training-snapshot",       icon: ClipboardList },
       { label: "Questionnaires",    href: "/training-questionnaires", icon: ClipboardCheck },

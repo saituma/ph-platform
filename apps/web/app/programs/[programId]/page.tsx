@@ -18,17 +18,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
-import { ChevronRight, Layers, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, Layers, Plus, Settings, Trash2 } from "lucide-react";
 import {
   useGetProgramsQuery,
   useGetProgramModulesQuery,
   useCreateProgramModuleMutation,
   useUpdateProgramModuleMutation,
   useDeleteProgramModuleMutation,
+  useGetModuleLibraryQuery,
+  useCopyModuleToProgramMutation,
 } from "../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
-type ModuleDialog = null | "create" | "edit";
+type ModuleDialog = null | "create" | "edit" | "library";
 
 type ProgramSummary = {
   id: number;
@@ -59,6 +61,8 @@ export default function ProgramDetailPage() {
   const [createModule, { isLoading: isCreating }] = useCreateProgramModuleMutation();
   const [updateModule, { isLoading: isUpdating }] = useUpdateProgramModuleMutation();
   const [deleteModule, { isLoading: isDeleting }] = useDeleteProgramModuleMutation();
+  const [copyModuleToProgram, { isLoading: isCopying }] = useCopyModuleToProgramMutation();
+  const { data: libraryData } = useGetModuleLibraryQuery();
 
   const [dialog, setDialog] = useState<ModuleDialog>(null);
   const [editModuleId, setEditModuleId] = useState<number | null>(null);
@@ -71,7 +75,8 @@ export default function ProgramDetailPage() {
   );
   const modules: ProgramModule[] = modulesData?.modules ?? [];
 
-  const isSaving = isCreating || isUpdating || isDeleting;
+  const isSaving = isCreating || isUpdating || isDeleting || isCopying;
+  const libraryModules = libraryData?.modules ?? [];
 
   const accessLabel = (type?: string) => {
     if (type === "PHP_Pro") return "Elite";
@@ -131,6 +136,17 @@ export default function ProgramDetailPage() {
     }
   };
 
+  const handleCopyFromLibrary = async (moduleId: number) => {
+    try {
+      await copyModuleToProgram({ programId, moduleId }).unwrap();
+      await refetchModules();
+      toast.success("Module copied to program");
+      setDialog(null);
+    } catch {
+      toast.error("Failed to copy module");
+    }
+  };
+
   if (isLoading) {
     return (
       <AdminShell title="Program" subtitle="Loading...">
@@ -156,9 +172,14 @@ export default function ProgramDetailPage() {
         </span>
       }
       actions={
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" /> Add Module
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDialog("library")} disabled={libraryModules.length === 0}>
+            <Copy className="mr-1 h-4 w-4" /> From Library
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 h-4 w-4" /> Add Module
+          </Button>
+        </div>
       }
     >
       {program && (
@@ -246,7 +267,7 @@ export default function ProgramDetailPage() {
         </div>
       )}
 
-      <Dialog open={dialog !== null} onOpenChange={() => setDialog(null)}>
+      <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={() => setDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{dialog === "edit" ? "Edit Module" : "Add Module"}</DialogTitle>
@@ -275,6 +296,45 @@ export default function ProgramDetailPage() {
                 {isSaving ? "Saving..." : dialog === "edit" ? "Save" : "Create"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog === "library"} onOpenChange={() => setDialog(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Copy from Module Library</DialogTitle>
+            <DialogDescription>
+              Pick a library module to copy into this program. Sessions and exercises are deep-copied.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 space-y-2">
+            {libraryModules.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No modules in library yet. Create some at Programs → Module Library.
+              </p>
+            ) : (
+              libraryModules.map((mod: any) => (
+                <button
+                  key={mod.id}
+                  type="button"
+                  disabled={isCopying}
+                  onClick={() => handleCopyFromLibrary(mod.id)}
+                  className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                >
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-foreground">{mod.title}</div>
+                    {mod.description && (
+                      <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{mod.description}</div>
+                    )}
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {mod.sessionCount ?? 0} session{(mod.sessionCount ?? 0) !== 1 ? "s" : ""}
+                    </div>
+                  </div>
+                  <Copy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
