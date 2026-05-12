@@ -39,20 +39,6 @@ export function MoreStackHeader({
           borderColor: p.divider,
         }}
       >
-        {/* Subtle accent glow top-right */}
-        <View
-          style={{
-            position: "absolute",
-            right: -28,
-            top: -28,
-            height: 96,
-            width: 96,
-            borderRadius: 48,
-            backgroundColor: p.accentSoft,
-            opacity: 0.6,
-          }}
-        />
-
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <Pressable
             onPress={() => {
