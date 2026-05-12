@@ -19,7 +19,6 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
   switch (appRole) {
     case "coach":
       return [
-        { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
         { label: "Nutrition", icon: "tracking", route: "/nutrition" },
         { label: "Schedule", icon: "calendar", route: "/(tabs)/schedule" },
         { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
@@ -35,7 +34,6 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
     case "adult_athlete_team":
     case "team":
       return [
-        { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
         { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
         { label: "Progress", icon: "stats", route: "/progress" },
         { label: "Sleep", icon: "sleep", route: "/sleep" },
@@ -45,7 +43,6 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
     case "youth_athlete_guardian_only":
     case "youth_athlete_team_guardian":
       return [
-        { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
         { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
         { label: "Sleep", icon: "sleep", route: "/sleep" },
         { label: "Parent", icon: "parents", route: "/parent-platform" },
@@ -53,7 +50,6 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
       ];
     default:
       return [
-        { label: "Programs", icon: "programs", route: "/(tabs)/programs" },
         { label: "Nutrition", icon: "tracking", route: "/nutrition" },
         { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
         { label: "More", icon: "more", route: "/(tabs)/more" },
