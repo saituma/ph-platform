@@ -353,7 +353,6 @@ export default function ThreadScreen() {
         onAttachImage={handleAttachImage}
         onAttachVideo={handleAttachVideo}
         onTakePhoto={handleTakePhoto}
-        onRecordVideo={handleRecordVideo}
         onOpenEmojis={() => setEmojiPickerOpen(true)}
       />
       <EmojiPickerModal

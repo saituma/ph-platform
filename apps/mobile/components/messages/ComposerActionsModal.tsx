@@ -16,7 +16,6 @@ type ComposerActionsModalProps = {
   onAttachImage: () => void;
   onAttachVideo: () => void;
   onTakePhoto: () => void;
-  onRecordVideo: () => void;
   onOpenEmojis: () => void;
 };
 
@@ -86,11 +85,10 @@ export function ComposerActionsModal({
   onAttachImage,
   onAttachVideo,
   onTakePhoto,
-  onRecordVideo,
   onOpenEmojis,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
-  const snapPoints = React.useMemo(() => ["68%"], []);
+  const snapPoints = React.useMemo(() => ["52%"], []);
 
   const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
   const cardBorder = isDark
@@ -204,16 +202,6 @@ export function ComposerActionsModal({
                 onClose();
               }}
               color={isDark ? "hsl(40, 30%, 60%)" : "hsl(40, 40%, 45%)"}
-              isDark={isDark}
-            />
-            <ActionItem
-              icon="radio-outline"
-              label="Record"
-              onPress={() => {
-                onRecordVideo();
-                onClose();
-              }}
-              color={isDark ? "hsl(0, 30%, 60%)" : "hsl(0, 35%, 48%)"}
               isDark={isDark}
             />
           </View>
