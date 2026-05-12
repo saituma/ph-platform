@@ -113,19 +113,27 @@ export function EmojiPickerModal({
         onPress={() => onSelectEmoji(item.emoji)}
         style={({ pressed }) => ({
           width: `${100 / COLS}%`,
-          aspectRatio: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 12,
-          backgroundColor: pressed
-            ? "rgba(255,255,255,0.08)"
-            : "transparent",
+          padding: 3,
         })}
       >
-        <Text style={{ fontSize: 26, lineHeight: 32 }}>{item.emoji}</Text>
+        {({ pressed }) => (
+          <View
+            style={{
+              aspectRatio: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 14,
+              backgroundColor: pressed ? p.accentSoft : p.inputBg,
+              borderWidth: 1,
+              borderColor: pressed ? p.accent : p.divider,
+            }}
+          >
+            <Text style={{ fontSize: 22, lineHeight: 28 }}>{item.emoji}</Text>
+          </View>
+        )}
       </Pressable>
     ),
-    [onSelectEmoji],
+    [onSelectEmoji, p],
   );
 
   return (
