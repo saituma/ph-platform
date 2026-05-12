@@ -2,7 +2,6 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { ChatMessage } from "@/constants/messages";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
-import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
 import ForwardMessageSheet from "@/components/messages/ForwardMessageSheet";
 import { MessageContextMenu } from "@/components/messages/MessageContextMenu";
@@ -87,7 +86,6 @@ export default function ThreadScreen() {
     handleDeleteMessage,
   } = useMessagesController();
 
-  const [gifPickerOpen, setGifPickerOpen] = React.useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
   const [reactionEmojiTarget, setReactionEmojiTarget] =
     React.useState<ChatMessage | null>(null);
@@ -356,17 +354,7 @@ export default function ThreadScreen() {
         onAttachVideo={handleAttachVideo}
         onTakePhoto={handleTakePhoto}
         onRecordVideo={handleRecordVideo}
-        onOpenGifs={() => setGifPickerOpen(true)}
         onOpenEmojis={() => setEmojiPickerOpen(true)}
-      />
-      <GifPickerModal
-        open={gifPickerOpen}
-        onClose={() => setGifPickerOpen(false)}
-        token={token}
-        onSelectGif={(url) => {
-          setGifPickerOpen(false);
-          void handleSendGif(url);
-        }}
       />
       <EmojiPickerModal
         open={emojiPickerOpen || Boolean(reactionEmojiTarget)}

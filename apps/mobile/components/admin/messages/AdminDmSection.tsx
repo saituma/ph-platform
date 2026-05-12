@@ -33,7 +33,6 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
-import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import { MessageContextMenu } from "@/components/messages/MessageContextMenu";
 import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import ForwardMessageSheet from "@/components/messages/ForwardMessageSheet";
@@ -81,7 +80,6 @@ export function AdminDmSection({
   const [isSending, setIsSending] = useState(false);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
@@ -816,7 +814,6 @@ export function AdminDmSection({
           onTakePhoto={takePhoto}
           onRecordVideo={recordVideo}
           onOpenEmojis={() => setEmojiPickerOpen(true)}
-          onOpenGifs={() => setGifPickerOpen(true)}
         />
         <EmojiPickerModal
           open={emojiPickerOpen || Boolean(reactionEmojiTarget)}
@@ -833,15 +830,6 @@ export function AdminDmSection({
               return;
             }
             setDraft((prev) => prev + emoji);
-          }}
-        />
-        <GifPickerModal
-          open={gifPickerOpen}
-          onClose={() => setGifPickerOpen(false)}
-          token={token}
-          onSelectGif={(url: string) => {
-            setDraft((prev) => prev + ` ${url}`);
-            setGifPickerOpen(false);
           }}
         />
         <MessageContextMenu

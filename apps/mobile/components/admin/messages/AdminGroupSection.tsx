@@ -49,7 +49,6 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useSocket } from "@/context/SocketContext";
 import { ComposerActionsModal } from "@/components/messages/ComposerActionsModal";
 import { EmojiPickerModal } from "@/components/messages/EmojiPickerModal";
-import { GifPickerModal } from "@/components/messages/GifPickerModal";
 import * as ImagePicker from "expo-image-picker";
 import { Image as ExpoImage } from "expo-image";
 import {
@@ -112,7 +111,6 @@ export function AdminGroupSection({
   const [isSending, setIsSending] = useState(false);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [gifPickerOpen, setGifPickerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
@@ -963,7 +961,6 @@ export function AdminGroupSection({
           onTakePhoto={takePhoto}
           onRecordVideo={() => setComposerMenuOpen(false)}
           onOpenEmojis={() => setEmojiPickerOpen(true)}
-          onOpenGifs={() => setGifPickerOpen(true)}
         />
         <EmojiPickerModal
           open={emojiPickerOpen}
@@ -971,15 +968,6 @@ export function AdminGroupSection({
           onSelectEmoji={(emoji: string) =>
             setDraft((prev) => prev + emoji)
           }
-        />
-        <GifPickerModal
-          open={gifPickerOpen}
-          onClose={() => setGifPickerOpen(false)}
-          token={token}
-          onSelectGif={(url: string) => {
-            setDraft((prev) => prev + ` ${url}`);
-            setGifPickerOpen(false);
-          }}
         />
         </GestureHandlerRootView>
       </Modal>

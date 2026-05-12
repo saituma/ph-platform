@@ -17,7 +17,6 @@ type ComposerActionsModalProps = {
   onAttachVideo: () => void;
   onTakePhoto: () => void;
   onRecordVideo: () => void;
-  onOpenGifs: () => void;
   onOpenEmojis: () => void;
 };
 
@@ -88,7 +87,6 @@ export function ComposerActionsModal({
   onAttachVideo,
   onTakePhoto,
   onRecordVideo,
-  onOpenGifs,
   onOpenEmojis,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
@@ -166,16 +164,6 @@ export function ComposerActionsModal({
                 onClose();
               }}
               color={isDark ? "hsl(220, 30%, 65%)" : "hsl(220, 40%, 50%)"}
-              isDark={isDark}
-            />
-            <ActionItem
-              icon="gift-outline"
-              label="GIFs"
-              onPress={() => {
-                onOpenGifs();
-                onClose();
-              }}
-              color={isDark ? "hsl(270, 25%, 65%)" : "hsl(270, 35%, 50%)"}
               isDark={isDark}
             />
             <ActionItem

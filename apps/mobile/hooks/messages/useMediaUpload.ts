@@ -7,13 +7,7 @@ export function useMediaUpload(token: string | null) {
   const uploadAttachment = useCallback(async (input: PendingAttachment) => {
     if (!token) throw new Error("Authentication required");
 
-    const mimeLower = input.mimeType.toLowerCase();
-    const isVideo = mimeLower.startsWith("video/");
-    const folder = input.isImage
-      ? "messages/images"
-      : isVideo
-        ? "messages/videos"
-        : "messages/files";
+    const folder = "chat-media";
     const presign = await apiRequest<{
       uploadUrl: string;
       publicUrl: string;
