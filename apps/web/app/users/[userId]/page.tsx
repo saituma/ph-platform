@@ -335,7 +335,7 @@ export default function UserDetailPage() {
     try {
       // 1. Get pre-signed URL
       const { uploadUrl, publicUrl } = await createMediaUploadUrl({
-        folder: "profile-pictures",
+        folder: "profile-photos",
         fileName: file.name,
         contentType: file.type,
         sizeBytes: file.size,

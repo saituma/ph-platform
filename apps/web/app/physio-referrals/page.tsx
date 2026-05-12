@@ -557,7 +557,7 @@ function ReferralsPageInner() {
     try {
       setUploading(true);
       const { uploadUrl, publicUrl } = await createUploadUrl({
-        folder: "referrals",
+        folder: "content",
         fileName: `${Date.now()}-${file.name}`,
         contentType: file.type || "application/octet-stream",
         sizeBytes: file.size,

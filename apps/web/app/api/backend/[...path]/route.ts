@@ -29,6 +29,8 @@ async function forward(req: NextRequest) {
 
   const url = new URL(req.url);
   const path = url.pathname.replace("/api/backend", "");
+  // Next.js edge runtime injects catch-all segments as a "path" search param — strip it before forwarding
+  url.searchParams.delete("path");
   const target = `${apiBase}/api${path}${url.search}`;
 
   const accessToken = req.cookies.get("accessToken")?.value;

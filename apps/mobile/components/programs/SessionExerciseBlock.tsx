@@ -40,6 +40,7 @@ interface Props {
   completionAnchorItemId?: number;
   onCompleteSession?: () => void;
   completeSessionLabel?: string;
+  sessionCompleted?: boolean;
 }
 
 function formatMb(bytes: number | undefined) {
@@ -64,7 +65,8 @@ export function SessionExerciseBlock({
   onPendingSend,
   completionAnchorItemId,
   onCompleteSession,
-  completeSessionLabel = "Complete Session",
+  completeSessionLabel = "Finish Session",
+  sessionCompleted = false,
 }: Props) {
   const p = useAdminPastel();
   if (items.length === 0) return null;
@@ -92,7 +94,7 @@ export function SessionExerciseBlock({
           paddingHorizontal: 16,
           paddingVertical: 16,
           gap: 12,
-          backgroundColor: p.cardSage,
+          backgroundColor: p.inputBg,
           width: "100%",
           alignSelf: "stretch",
         }}
@@ -213,7 +215,7 @@ export function SessionExerciseBlock({
               borderWidth: 1,
               borderColor: p.divider,
               padding: 16,
-              backgroundColor: p.cardWhite,
+              backgroundColor: p.inputBg,
             }}
           >
             {item.videoUrl?.trim()
@@ -254,7 +256,7 @@ export function SessionExerciseBlock({
                         gap: 12,
                         marginBottom: 16,
                         borderWidth: 1,
-                        backgroundColor: p.cardSage,
+                        backgroundColor: p.inputBg,
                         borderColor: p.divider,
                       }}
                     >
@@ -346,7 +348,7 @@ export function SessionExerciseBlock({
                               paddingHorizontal: 16,
                               paddingVertical: 12,
                               borderWidth: 1,
-                              backgroundColor: p.cardSage,
+                              backgroundColor: p.inputBg,
                               borderColor: p.divider,
                             }}
                           >
@@ -381,7 +383,7 @@ export function SessionExerciseBlock({
                               paddingHorizontal: 16,
                               paddingVertical: 12,
                               borderWidth: 1,
-                              backgroundColor: p.cardSage,
+                              backgroundColor: p.inputBg,
                               borderColor: p.divider,
                             }}
                           >
@@ -419,7 +421,7 @@ export function SessionExerciseBlock({
                                   paddingHorizontal: 16,
                                   paddingVertical: 12,
                                   borderWidth: 1,
-                                  backgroundColor: p.cardSage,
+                                  backgroundColor: p.inputBg,
                                   borderColor: p.divider,
                                 }}
                               >
@@ -515,7 +517,7 @@ export function SessionExerciseBlock({
                             paddingHorizontal: 16,
                             paddingVertical: 12,
                             borderWidth: 1,
-                            backgroundColor: p.cardSage,
+                            backgroundColor: p.inputBg,
                             borderColor: p.divider,
                           }}
                         >
@@ -584,7 +586,7 @@ export function SessionExerciseBlock({
                               paddingVertical: 12,
                               alignItems: "center",
                               borderWidth: 1,
-                              backgroundColor: p.cardSage,
+                              backgroundColor: p.inputBg,
                               borderColor: p.divider,
                             }}
                           >
@@ -783,7 +785,7 @@ export function SessionExerciseBlock({
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderColor: p.divider,
-                  backgroundColor: p.cardSage,
+                  backgroundColor: p.inputBg,
                 }}
               >
                 <Text
@@ -805,7 +807,7 @@ export function SessionExerciseBlock({
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                   borderColor: p.divider,
-                  backgroundColor: p.cardSage,
+                  backgroundColor: p.inputBg,
                 }}
               >
                 <Text
@@ -821,27 +823,49 @@ export function SessionExerciseBlock({
             ) : null}
 
             {completionAnchorItemId === item.id && onCompleteSession ? (
-              <Pressable
-                onPress={onCompleteSession}
-                style={{
-                  backgroundColor: p.accent,
-                  paddingVertical: 16,
-                  borderRadius: 100,
-                  alignItems: "center",
-                  marginTop: 12,
-                }}
-              >
-                <Text
+              sessionCompleted ? (
+                <View
                   style={{
-                    fontFamily: "Outfit-Bold",
-                    textTransform: "uppercase",
-                    fontSize: 14,
-                    color: p.buttonPrimaryText,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    borderRadius: 100,
+                    backgroundColor: "rgba(34,197,94,0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(34,197,94,0.3)",
+                    marginTop: 12,
                   }}
                 >
-                  {completeSessionLabel}
-                </Text>
-              </Pressable>
+                  <Text style={{ fontSize: 16 }}>✓</Text>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#22c55e", textTransform: "uppercase" }}>
+                    Session Completed
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={onCompleteSession}
+                  style={{
+                    backgroundColor: p.accent,
+                    paddingVertical: 16,
+                    borderRadius: 100,
+                    alignItems: "center",
+                    marginTop: 12,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      textTransform: "uppercase",
+                      fontSize: 14,
+                      color: p.buttonPrimaryText,
+                    }}
+                  >
+                    {completeSessionLabel}
+                  </Text>
+                </Pressable>
+              )
             ) : null}
           </View>
         ))}

@@ -67,7 +67,7 @@ async function uploadVideoToR2(
   presign: ReturnType<typeof useCreateMediaUploadUrlMutation>[0],
 ) {
   const result = await presign({
-    folder: "video-review/coach-response",
+    folder: "training-videos",
     fileName: `coach-response-${Date.now()}-${file.name}`,
     contentType: file.type || "video/mp4",
     sizeBytes: file.size,

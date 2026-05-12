@@ -1573,7 +1573,7 @@ function MessagingPageInner() {
     try {
       setIsUploadingMedia(true);
 	      const presign = await createMediaUploadUrl({
-	        folder: "messages",
+	        folder: "chat-media",
 	        fileName: safeName,
 	        contentType: file.type || "application/octet-stream",
 	        sizeBytes: file.size,

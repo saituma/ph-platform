@@ -149,7 +149,7 @@ export default function SessionDetailPage() {
       setUploadProgress(0);
       const fileName = `${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
 	      const result = await createUploadUrl({
-	        folder: "training-content/session-items",
+	        folder: "content",
 	        fileName,
 	        contentType: file.type || "application/octet-stream",
 	        sizeBytes: file.size,

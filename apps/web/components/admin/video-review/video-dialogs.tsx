@@ -233,7 +233,7 @@ export function VideoDialogs({
       setUploadProgress(0);
       const uniqueName = makeUniqueName(fileName);
 	      const result = await createUploadUrl({
-	        folder: "video-review/coach-response",
+	        folder: "training-videos",
 	        fileName: uniqueName,
 	        contentType: blob.type || "application/octet-stream",
 	        sizeBytes: blob.size,

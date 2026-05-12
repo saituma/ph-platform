@@ -42,7 +42,7 @@ export function ProgramMetricTile({ item }: { item: ProgramMetricItem }) {
         borderRadius: radius.xl,
         borderWidth: 1,
         borderColor: p.divider,
-        backgroundColor: p.cardSage,
+        backgroundColor: p.inputBg,
         padding: 14,
         paddingLeft: item.accent && !isText ? 18 : 14,
         overflow: "hidden",

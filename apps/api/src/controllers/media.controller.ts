@@ -62,7 +62,7 @@ async function verifyUploadToken(token: string): Promise<UploadTokenClaims> {
   return { key, contentType, sizeBytes };
 }
 
-const ALLOWED_FOLDERS = [
+const ALLOWED_TOP_FOLDERS = new Set([
   "profile-photos",
   "training-videos",
   "chat-media",
@@ -75,12 +75,23 @@ const ALLOWED_FOLDERS = [
   "announcements",
   "exercises",
   "exercise-videos",
-] as const;
+  "home",
+  "portal",
+  "parent-courses",
+  "parent-content",
+  "referrals",
+]);
 
 export async function createMediaUploadUrl(req: Request, res: Response) {
   const input = uploadSchema.parse(req.body);
-  const safeFolder = input.folder.replace(/[\/\\\.]+/g, "");
-  if (!ALLOWED_FOLDERS.includes(safeFolder as any)) {
+  // Allow sub-paths (e.g. "home/hero") but sanitise each segment and check the top-level bucket
+  const safeFolder = input.folder
+    .split("/")
+    .map((seg) => seg.replace(/[^a-zA-Z0-9_-]/g, ""))
+    .filter(Boolean)
+    .join("/");
+  const topLevel = safeFolder.split("/")[0] ?? "";
+  if (!ALLOWED_TOP_FOLDERS.has(topLevel)) {
     return res.status(400).json({ error: "Invalid upload folder" });
   }
   input.folder = safeFolder;

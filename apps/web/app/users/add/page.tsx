@@ -151,7 +151,7 @@ function AddUserPageInner() {
     try {
       setIsUploadingAthletePhoto(true);
 	      const { uploadUrl, publicUrl } = await createUploadUrl({
-	        folder: "athlete-profile-pictures",
+	        folder: "profile-photos",
 	        fileName: `${Date.now()}-${file.name}`,
 	        contentType: file.type,
 	        sizeBytes: file.size,

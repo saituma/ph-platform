@@ -142,7 +142,7 @@ export default function SettingsPage() {
     try {
       setIsUploading(true);
 	      const { uploadUrl, publicUrl } = await createUploadUrl({
-	        folder: "profile-pictures",
+	        folder: "profile-photos",
 	        fileName: `${Date.now()}-${file.name}`,
 	        contentType: file.type,
 	        sizeBytes: file.size,
