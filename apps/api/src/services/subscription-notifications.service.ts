@@ -121,6 +121,9 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     }
   }
 
+  const onboardingBase = env.onboardingUrl.replace(/\/$/, "");
+  const invoiceUrl = row.receiptPublicId ? `${onboardingBase}/invoice/${row.receiptPublicId}` : null;
+
   await sendSubscriptionPendingUserEmail({
     to: row.userEmail,
     name: row.userName || "there",
@@ -129,6 +132,7 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     amount: quote?.amount ?? null,
     billingCycle: billingCycle,
     receipt,
+    invoiceUrl,
   });
 
   void createPushIntent({

@@ -14,11 +14,13 @@ import { Route as TestimonialsDemoRouteImport } from './routes/testimonials-demo
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
-import { Route as ForgotRouteImport } from './routes/forgot'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as InvoiceRouteImport } from './routes/invoice'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as ForgotRouteImport } from './routes/forgot'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EnquiryRouteImport } from './routes/enquiry'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
@@ -58,6 +60,7 @@ import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
 import { Route as OnboardingDashboardRouteImport } from './routes/onboarding/dashboard'
+import { Route as InvoiceReceiptIdRouteImport } from './routes/invoice/$receiptId'
 import { Route as EnquiryTeamRouteImport } from './routes/enquiry/team'
 import { Route as EnquirySemiPrivateRouteImport } from './routes/enquiry/semi-private'
 import { Route as Enquiry121RouteImport } from './routes/enquiry/121'
@@ -97,6 +100,11 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
@@ -107,19 +115,24 @@ const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   path: '/payment-success',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ForgotRoute = ForgotRouteImport.update({
-  id: '/forgot',
-  path: '/forgot',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvoiceRoute = InvoiceRouteImport.update({
+  id: '/invoice',
+  path: '/invoice',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GalleryRoute = GalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotRoute = ForgotRouteImport.update({
+  id: '/forgot',
+  path: '/forgot',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -317,6 +330,11 @@ const OnboardingDashboardRoute = OnboardingDashboardRouteImport.update({
   path: '/onboarding/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvoiceReceiptIdRoute = InvoiceReceiptIdRouteImport.update({
+  id: '/$receiptId',
+  path: '/$receiptId',
+  getParentRoute: () => InvoiceRoute,
+} as any)
 const EnquiryTeamRoute = EnquiryTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -401,9 +419,11 @@ export interface FileRoutesByFullPath {
   '/features': typeof FeaturesRoute
   '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
+  '/invoice': typeof InvoiceRouteWithChildren
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
@@ -413,6 +433,7 @@ export interface FileRoutesByFullPath {
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
+  '/invoice/$receiptId': typeof InvoiceReceiptIdRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -465,9 +486,11 @@ export interface FileRoutesByTo {
   '/features': typeof FeaturesRoute
   '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
+  '/invoice': typeof InvoiceRouteWithChildren
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
@@ -477,6 +500,7 @@ export interface FileRoutesByTo {
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
+  '/invoice/$receiptId': typeof InvoiceReceiptIdRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -529,9 +553,11 @@ export interface FileRoutesById {
   '/features': typeof FeaturesRoute
   '/forgot': typeof ForgotRoute
   '/gallery': typeof GalleryRoute
+  '/invoice': typeof InvoiceRouteWithChildren
   '/login': typeof LoginRoute
   '/payment-success': typeof PaymentSuccessRoute
   '/portal': typeof PortalRouteWithChildren
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
@@ -541,6 +567,7 @@ export interface FileRoutesById {
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
   '/enquiry/team': typeof EnquiryTeamRoute
+  '/invoice/$receiptId': typeof InvoiceReceiptIdRoute
   '/onboarding/dashboard': typeof OnboardingDashboardRoute
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
@@ -595,9 +622,11 @@ export interface FileRouteTypes {
     | '/features'
     | '/forgot'
     | '/gallery'
+    | '/invoice'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/privacy'
     | '/register'
     | '/services'
     | '/terms-privacy'
@@ -607,6 +636,7 @@ export interface FileRouteTypes {
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
+    | '/invoice/$receiptId'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -659,9 +689,11 @@ export interface FileRouteTypes {
     | '/features'
     | '/forgot'
     | '/gallery'
+    | '/invoice'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/privacy'
     | '/register'
     | '/services'
     | '/terms-privacy'
@@ -671,6 +703,7 @@ export interface FileRouteTypes {
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
+    | '/invoice/$receiptId'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -722,9 +755,11 @@ export interface FileRouteTypes {
     | '/features'
     | '/forgot'
     | '/gallery'
+    | '/invoice'
     | '/login'
     | '/payment-success'
     | '/portal'
+    | '/privacy'
     | '/register'
     | '/services'
     | '/terms-privacy'
@@ -734,6 +769,7 @@ export interface FileRouteTypes {
     | '/enquiry/121'
     | '/enquiry/semi-private'
     | '/enquiry/team'
+    | '/invoice/$receiptId'
     | '/onboarding/dashboard'
     | '/onboarding/step-1'
     | '/onboarding/step-2'
@@ -787,9 +823,11 @@ export interface RootRouteChildren {
   FeaturesRoute: typeof FeaturesRoute
   ForgotRoute: typeof ForgotRoute
   GalleryRoute: typeof GalleryRoute
+  InvoiceRoute: typeof InvoiceRouteWithChildren
   LoginRoute: typeof LoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   PortalRoute: typeof PortalRouteWithChildren
+  PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
   ServicesRoute: typeof ServicesRoute
   TermsPrivacyRoute: typeof TermsPrivacyRoute
@@ -842,6 +880,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/portal': {
       id: '/portal'
       path: '/portal'
@@ -856,13 +901,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forgot': {
-      id: '/forgot'
-      path: '/forgot'
-      fullPath: '/forgot'
-      preLoaderRoute: typeof ForgotRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -870,11 +908,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invoice': {
+      id: '/invoice'
+      path: '/invoice'
+      fullPath: '/invoice'
+      preLoaderRoute: typeof InvoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gallery': {
       id: '/gallery'
       path: '/gallery'
       fullPath: '/gallery'
       preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot': {
+      id: '/forgot'
+      path: '/forgot'
+      fullPath: '/forgot'
+      preLoaderRoute: typeof ForgotRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -1150,6 +1202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invoice/$receiptId': {
+      id: '/invoice/$receiptId'
+      path: '/$receiptId'
+      fullPath: '/invoice/$receiptId'
+      preLoaderRoute: typeof InvoiceReceiptIdRouteImport
+      parentRoute: typeof InvoiceRoute
+    }
     '/enquiry/team': {
       id: '/enquiry/team'
       path: '/team'
@@ -1269,6 +1328,17 @@ const EnquiryRouteChildren: EnquiryRouteChildren = {
 const EnquiryRouteWithChildren =
   EnquiryRoute._addFileChildren(EnquiryRouteChildren)
 
+interface InvoiceRouteChildren {
+  InvoiceReceiptIdRoute: typeof InvoiceReceiptIdRoute
+}
+
+const InvoiceRouteChildren: InvoiceRouteChildren = {
+  InvoiceReceiptIdRoute: InvoiceReceiptIdRoute,
+}
+
+const InvoiceRouteWithChildren =
+  InvoiceRoute._addFileChildren(InvoiceRouteChildren)
+
 interface PortalParentPlatformRouteChildren {
   PortalParentPlatformCourseIdRoute: typeof PortalParentPlatformCourseIdRoute
   PortalParentPlatformIndexRoute: typeof PortalParentPlatformIndexRoute
@@ -1362,9 +1432,11 @@ const rootRouteChildren: RootRouteChildren = {
   FeaturesRoute: FeaturesRoute,
   ForgotRoute: ForgotRoute,
   GalleryRoute: GalleryRoute,
+  InvoiceRoute: InvoiceRouteWithChildren,
   LoginRoute: LoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   PortalRoute: PortalRouteWithChildren,
+  PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
   ServicesRoute: ServicesRoute,
   TermsPrivacyRoute: TermsPrivacyRoute,

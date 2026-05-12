@@ -841,6 +841,124 @@ export async function confirmCheckoutPublic(req: Request, res: Response) {
   }
 }
 
+export async function getPublicInvoice(req: Request, res: Response) {
+  const receiptId = receiptPublicIdSchema.safeParse(req.params.receiptId);
+  if (!receiptId.success) {
+    return res.status(400).json({ error: "Invalid invoice id" });
+  }
+  try {
+    const [teamRow] = await db
+      .select({
+        internalId: teamSubscriptionRequestTable.id,
+        status: teamSubscriptionRequestTable.status,
+        paymentStatus: teamSubscriptionRequestTable.paymentStatus,
+        planBillingCycle: teamSubscriptionRequestTable.planBillingCycle,
+        stripeSessionId: teamSubscriptionRequestTable.stripeSessionId,
+        stripePaymentIntentId: teamSubscriptionRequestTable.stripePaymentIntentId,
+        paymentAmountCents: teamSubscriptionRequestTable.paymentAmountCents,
+        paymentCurrency: teamSubscriptionRequestTable.paymentCurrency,
+        createdAt: teamSubscriptionRequestTable.createdAt,
+        payerName: userTable.name,
+        payerEmail: userTable.email,
+        teamName: teamTable.name,
+        planName: subscriptionPlanTable.name,
+        planTier: subscriptionPlanTable.tier,
+        receiptPublicId: teamSubscriptionRequestTable.receiptPublicId,
+      })
+      .from(teamSubscriptionRequestTable)
+      .innerJoin(userTable, eq(teamSubscriptionRequestTable.adminId, userTable.id))
+      .innerJoin(teamTable, eq(teamSubscriptionRequestTable.teamId, teamTable.id))
+      .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+      .where(eq(teamSubscriptionRequestTable.receiptPublicId, receiptId.data))
+      .limit(1);
+
+    if (teamRow) {
+      const { stripeSummary } = await enrichReceiptWithStripeSession({
+        stripeSessionId: teamRow.stripeSessionId,
+        paymentAmountCents: teamRow.paymentAmountCents,
+        paymentCurrency: teamRow.paymentCurrency,
+      });
+      return res.status(200).json({
+        invoice: {
+          kind: "team",
+          invoiceNumber: teamRow.internalId,
+          receiptPublicId: teamRow.receiptPublicId,
+          status: teamRow.status,
+          paymentStatus: teamRow.paymentStatus,
+          planBillingCycle: teamRow.planBillingCycle,
+          paymentAmountCents: teamRow.paymentAmountCents,
+          paymentCurrency: teamRow.paymentCurrency,
+          createdAt: teamRow.createdAt,
+          payerName: teamRow.payerName,
+          payerEmail: teamRow.payerEmail,
+          entityName: teamRow.teamName,
+          planName: teamRow.planName,
+          planTier: teamRow.planTier,
+          stripeSummary,
+        },
+      });
+    }
+
+    const [athleteRow] = await db
+      .select({
+        internalId: subscriptionRequestTable.id,
+        status: subscriptionRequestTable.status,
+        paymentStatus: subscriptionRequestTable.paymentStatus,
+        planBillingCycle: subscriptionRequestTable.planBillingCycle,
+        stripeSessionId: subscriptionRequestTable.stripeSessionId,
+        stripePaymentIntentId: subscriptionRequestTable.stripePaymentIntentId,
+        paymentAmountCents: subscriptionRequestTable.paymentAmountCents,
+        paymentCurrency: subscriptionRequestTable.paymentCurrency,
+        createdAt: subscriptionRequestTable.createdAt,
+        payerName: userTable.name,
+        payerEmail: userTable.email,
+        athleteName: athleteTable.name,
+        planName: subscriptionPlanTable.name,
+        planTier: subscriptionPlanTable.tier,
+        receiptPublicId: subscriptionRequestTable.receiptPublicId,
+      })
+      .from(subscriptionRequestTable)
+      .innerJoin(userTable, eq(subscriptionRequestTable.userId, userTable.id))
+      .leftJoin(athleteTable, eq(subscriptionRequestTable.athleteId, athleteTable.id))
+      .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+      .where(eq(subscriptionRequestTable.receiptPublicId, receiptId.data))
+      .limit(1);
+
+    if (!athleteRow) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+
+    const { stripeSummary } = await enrichReceiptWithStripeSession({
+      stripeSessionId: athleteRow.stripeSessionId,
+      paymentAmountCents: athleteRow.paymentAmountCents,
+      paymentCurrency: athleteRow.paymentCurrency,
+    });
+
+    return res.status(200).json({
+      invoice: {
+        kind: "athlete",
+        invoiceNumber: athleteRow.internalId,
+        receiptPublicId: athleteRow.receiptPublicId,
+        status: athleteRow.status,
+        paymentStatus: athleteRow.paymentStatus,
+        planBillingCycle: athleteRow.planBillingCycle,
+        paymentAmountCents: athleteRow.paymentAmountCents,
+        paymentCurrency: athleteRow.paymentCurrency,
+        createdAt: athleteRow.createdAt,
+        payerName: athleteRow.payerName,
+        payerEmail: athleteRow.payerEmail,
+        entityName: athleteRow.athleteName,
+        planName: athleteRow.planName,
+        planTier: athleteRow.planTier,
+        stripeSummary,
+      },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to load invoice";
+    return res.status(500).json({ error: message });
+  }
+}
+
 export async function getPaymentReceipt(req: Request, res: Response) {
   const receiptId = receiptPublicIdSchema.safeParse(req.params.receiptId);
   if (!receiptId.success) {

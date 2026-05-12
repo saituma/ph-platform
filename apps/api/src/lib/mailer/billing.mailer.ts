@@ -17,6 +17,7 @@ export async function sendSubscriptionPendingUserEmail(input: {
   amount?: string | null;
   billingCycle?: "weekly" | "monthly" | "six_months" | "yearly" | null;
   receipt?: BillingReceiptEmailBlockInput | null;
+  invoiceUrl?: string | null;
 }) {
   try {
     const tierLabel = formatProgramTierLabel(input.planTier);
@@ -40,10 +41,22 @@ export async function sendSubscriptionPendingUserEmail(input: {
               ? "Yearly (upfront)"
               : null;
     const receiptHtml = input.receipt ? billingReceiptEmailBlock(input.receipt) : "";
+    const invoiceBtnHtml = input.invoiceUrl
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
+  <tr>
+    <td style="border-radius:10px;background:#16a34a;">
+      <a href="${escapeHtml(input.invoiceUrl)}" style="display:inline-block;padding:13px 26px;font-family:${E.font};font-weight:700;font-size:14px;color:#ffffff;text-decoration:none;border-radius:10px;">
+        View Invoice
+      </a>
+    </td>
+  </tr>
+</table>`
+      : "";
     const bodyHtml = `
 ${greetingLine(input.name, input.to)}
 ${textP(`We’ve successfully received your payment for <strong>${plan}</strong> <span style="color:${E.muted};">(${tier})</span>.`)}
 ${amount ? textP(`Amount paid: <strong>${amount}</strong>${cycleLabel ? ` <span style="color:${E.muted};">(${escapeHtml(cycleLabel)})</span>` : ""}.`) : ""}
+${invoiceBtnHtml}
 ${receiptHtml}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin:0 0 24px;">
   <tr>

@@ -514,10 +514,12 @@ function BillingPage() {
 											</span>
 											{inv.receiptPublicId && (
 												<a
-													href={`/portal/billing/receipt/${inv.receiptPublicId}`}
+													href={`/invoice/${inv.receiptPublicId}`}
+													target="_blank"
+													rel="noopener noreferrer"
 													className="text-xs text-primary hover:underline font-semibold"
 												>
-													Receipt
+													Invoice
 												</a>
 											)}
 										</div>

@@ -103,6 +103,9 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
     }
   }
 
+  const onboardingBase = env.onboardingUrl.replace(/\/$/, "");
+  const invoiceUrl = row.receiptPublicId ? `${onboardingBase}/invoice/${row.receiptPublicId}` : null;
+
   await sendSubscriptionPendingUserEmail({
     to: row.adminEmail,
     name: row.adminName || "there",
@@ -111,6 +114,7 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
     amount,
     billingCycle: (row.planBillingCycle as any) ?? null,
     receipt,
+    invoiceUrl,
   });
 
   const staff = await db
