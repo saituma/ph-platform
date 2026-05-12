@@ -462,6 +462,7 @@ export const sessionTable = pgTable("sessions", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   programId: integer().references(() => programTable.id),
   moduleId: integer().references(() => programModuleTable.id),
+  teamId: integer().references(() => teamTable.id),
   weekNumber: integer().notNull(),
   sessionNumber: integer().notNull(),
   title: varchar({ length: 255 }),

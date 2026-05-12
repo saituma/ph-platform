@@ -532,6 +532,151 @@ export async function getAthleteDetail(athleteId: number) {
   };
 }
 
+// --- Standalone Session Library ---
+
+export async function listLibrarySessions() {
+  return db
+    .select({
+      id: sessionTable.id,
+      title: sessionTable.title,
+      description: sessionTable.description,
+      weekNumber: sessionTable.weekNumber,
+      sessionNumber: sessionTable.sessionNumber,
+      type: sessionTable.type,
+      createdAt: sessionTable.createdAt,
+      exerciseCount: count(sessionExerciseTable.id),
+    })
+    .from(sessionTable)
+    .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+    .where(and(isNull(sessionTable.programId), isNull(sessionTable.moduleId), isNull(sessionTable.teamId)))
+    .groupBy(sessionTable.id)
+    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+}
+
+export async function createStandaloneLibrarySession(input: {
+  title?: string | null;
+  description?: string | null;
+  weekNumber?: number;
+  sessionNumber?: number;
+  type?: string;
+}) {
+  const result = await db
+    .insert(sessionTable)
+    .values({
+      programId: null,
+      moduleId: null,
+      teamId: null,
+      weekNumber: input.weekNumber ?? 1,
+      sessionNumber: input.sessionNumber ?? 1,
+      title: input.title ?? null,
+      description: input.description ?? null,
+      type: (input.type as any) ?? "program",
+    })
+    .returning();
+  return result[0];
+}
+
+export async function copySessionToModule(sessionId: number, moduleId: number, programId: number | null) {
+  return db.transaction(async (tx) => {
+    const [src] = await tx.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
+    if (!src) throw new Error("Session not found");
+
+    const [newSession] = await tx
+      .insert(sessionTable)
+      .values({
+        programId: programId ?? null,
+        moduleId,
+        teamId: null,
+        weekNumber: src.weekNumber,
+        sessionNumber: src.sessionNumber,
+        title: src.title,
+        description: src.description,
+        type: src.type,
+      })
+      .returning();
+
+    const exercises = await tx
+      .select()
+      .from(sessionExerciseTable)
+      .where(eq(sessionExerciseTable.sessionId, sessionId))
+      .orderBy(asc(sessionExerciseTable.order));
+
+    for (const ex of exercises) {
+      await tx.insert(sessionExerciseTable).values({
+        sessionId: newSession.id,
+        exerciseId: ex.exerciseId,
+        order: ex.order,
+        coachingNotes: ex.coachingNotes,
+        progressionNotes: ex.progressionNotes,
+        regressionNotes: ex.regressionNotes,
+      });
+    }
+
+    return newSession;
+  });
+}
+
+// --- Team Sessions ---
+
+export async function listTeamSessions(teamId: number) {
+  return db
+    .select({
+      id: sessionTable.id,
+      title: sessionTable.title,
+      description: sessionTable.description,
+      weekNumber: sessionTable.weekNumber,
+      sessionNumber: sessionTable.sessionNumber,
+      type: sessionTable.type,
+      createdAt: sessionTable.createdAt,
+      exerciseCount: count(sessionExerciseTable.id),
+    })
+    .from(sessionTable)
+    .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+    .where(eq(sessionTable.teamId, teamId))
+    .groupBy(sessionTable.id)
+    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+}
+
+export async function copySessionToTeam(sessionId: number, teamId: number) {
+  return db.transaction(async (tx) => {
+    const [src] = await tx.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
+    if (!src) throw new Error("Session not found");
+
+    const [newSession] = await tx
+      .insert(sessionTable)
+      .values({
+        programId: null,
+        moduleId: null,
+        teamId,
+        weekNumber: src.weekNumber,
+        sessionNumber: src.sessionNumber,
+        title: src.title,
+        description: src.description,
+        type: src.type,
+      })
+      .returning();
+
+    const exercises = await tx
+      .select()
+      .from(sessionExerciseTable)
+      .where(eq(sessionExerciseTable.sessionId, sessionId))
+      .orderBy(asc(sessionExerciseTable.order));
+
+    for (const ex of exercises) {
+      await tx.insert(sessionExerciseTable).values({
+        sessionId: newSession.id,
+        exerciseId: ex.exerciseId,
+        order: ex.order,
+        coachingNotes: ex.coachingNotes,
+        progressionNotes: ex.progressionNotes,
+        regressionNotes: ex.regressionNotes,
+      });
+    }
+
+    return newSession;
+  });
+}
+
 // --- Module Library ---
 
 export async function listLibraryModules() {

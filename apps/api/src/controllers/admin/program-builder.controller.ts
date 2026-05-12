@@ -298,6 +298,66 @@ export async function getAthleteDetail(req: Request, res: Response) {
   }
 }
 
+// --- Standalone Session Library ---
+
+export async function listLibrarySessions(_req: Request, res: Response) {
+  const sessions = await ProgramBuilderService.listLibrarySessions();
+  return res.status(200).json({ sessions });
+}
+
+export async function createStandaloneLibrarySession(req: Request, res: Response) {
+  const input = sessionSchema.partial().parse(req.body);
+  const session = await ProgramBuilderService.createStandaloneLibrarySession({
+    title: input.title ?? null,
+    description: input.description ?? null,
+    weekNumber: input.weekNumber ?? 1,
+    sessionNumber: input.sessionNumber ?? 1,
+    type: input.type,
+  });
+  return res.status(201).json({ session });
+}
+
+export async function copySessionToModule(req: Request, res: Response) {
+  const moduleId = z.coerce.number().int().min(1).parse(req.params.moduleId);
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const { programId } = z.object({ programId: z.number().int().min(1).optional() }).parse(req.body);
+  try {
+    const session = await ProgramBuilderService.copySessionToModule(sessionId, moduleId, programId ?? null);
+    broadcastProgramChanged();
+    return res.status(201).json({ session });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found")) return res.status(404).json({ error: msg });
+    throw err;
+  }
+}
+
+export async function listTeamSessions(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const sessions = await ProgramBuilderService.listTeamSessions(teamId);
+  return res.status(200).json({ sessions });
+}
+
+export async function copySessionToTeam(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  try {
+    const session = await ProgramBuilderService.copySessionToTeam(sessionId, teamId);
+    return res.status(201).json({ session });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found")) return res.status(404).json({ error: msg });
+    throw err;
+  }
+}
+
+export async function deleteTeamSession(req: Request, res: Response) {
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const session = await ProgramBuilderService.deleteSession(sessionId);
+  if (!session) return res.status(404).json({ error: "Session not found." });
+  return res.status(200).json({ session });
+}
+
 // --- Module Library ---
 
 export async function listLibraryModules(_req: Request, res: Response) {

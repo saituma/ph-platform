@@ -113,6 +113,14 @@ router.get("/admin/sessions/:sessionId/exercises", AdminProgramBuilderController
 router.patch("/admin/session-exercises/:id", AdminProgramBuilderController.updateSessionExercise);
 router.patch("/admin/sessions/:sessionId/exercises/reorder", AdminProgramBuilderController.reorderSessionExercises);
 
+// Session Library
+router.get("/admin/sessions/library", AdminProgramBuilderController.listLibrarySessions);
+router.post("/admin/sessions/library", AdminProgramBuilderController.createStandaloneLibrarySession);
+router.post("/admin/modules/:moduleId/sessions/from-library/:sessionId", AdminProgramBuilderController.copySessionToModule);
+router.get("/admin/teams/:teamId/sessions", AdminProgramBuilderController.listTeamSessions);
+router.post("/admin/teams/:teamId/sessions/from-library/:sessionId", AdminProgramBuilderController.copySessionToTeam);
+router.delete("/admin/team-sessions/:sessionId", AdminProgramBuilderController.deleteTeamSession);
+
 // Module Library
 router.get("/admin/modules/library", AdminProgramBuilderController.listLibraryModules);
 router.post("/admin/modules/library", AdminProgramBuilderController.createLibraryModule);

@@ -433,6 +433,8 @@ export const apiSlice = createApi({
     "BetaTesters",
     "Exercises",
     "ModuleLibrary",
+    "SessionLibrary",
+    "TeamSessions",
   ],
   endpoints: () => ({}),
 });

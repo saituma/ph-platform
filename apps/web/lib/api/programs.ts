@@ -316,6 +316,47 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Exercises", "ProgramBuilder"],
     }),
+    // Session Library
+    getSessionLibrary: builder.query<{ sessions: any[] }, void>({
+      query: () => "/admin/sessions/library",
+      providesTags: ["SessionLibrary"],
+    }),
+    createLibrarySession: builder.mutation<
+      { session: any },
+      { title?: string | null; description?: string | null; weekNumber?: number; sessionNumber?: number; type?: string }
+    >({
+      query: (body) => ({ url: "/admin/sessions/library", method: "POST", body }),
+      invalidatesTags: ["SessionLibrary"],
+    }),
+    copySessionToModule: builder.mutation<
+      { session: any },
+      { moduleId: number; sessionId: number; programId?: number }
+    >({
+      query: ({ moduleId, sessionId, ...body }) => ({
+        url: `/admin/modules/${moduleId}/sessions/from-library/${sessionId}`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ProgramBuilder", "ModuleLibrary"],
+    }),
+    getTeamSessions: builder.query<{ sessions: any[] }, { teamId: number }>({
+      query: ({ teamId }) => `/admin/teams/${teamId}/sessions`,
+      providesTags: ["TeamSessions"],
+    }),
+    copySessionToTeam: builder.mutation<
+      { session: any },
+      { teamId: number; sessionId: number }
+    >({
+      query: ({ teamId, sessionId }) => ({
+        url: `/admin/teams/${teamId}/sessions/from-library/${sessionId}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["TeamSessions"],
+    }),
+    deleteTeamSession: builder.mutation<{ session: any }, { sessionId: number }>({
+      query: ({ sessionId }) => ({ url: `/admin/team-sessions/${sessionId}`, method: "DELETE" }),
+      invalidatesTags: ["TeamSessions"],
+    }),
     // Module Library
     getModuleLibrary: builder.query<{ modules: any[] }, void>({
       query: () => "/admin/modules/library",
@@ -350,7 +391,7 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ModuleLibrary"],
     }),
-    createLibrarySession: builder.mutation<
+    createLibraryModuleSession: builder.mutation<
       { session: any },
       {
         moduleId: number;
@@ -412,10 +453,16 @@ export const {
   useCreateExerciseMutation,
   useUpdateExerciseMutation,
   useDeleteExerciseMutation,
+  useGetSessionLibraryQuery,
+  useCreateLibrarySessionMutation,
+  useCopySessionToModuleMutation,
+  useGetTeamSessionsQuery,
+  useCopySessionToTeamMutation,
+  useDeleteTeamSessionMutation,
   useGetModuleLibraryQuery,
   useCreateLibraryModuleMutation,
   useUpdateLibraryModuleMutation,
   useDeleteLibraryModuleMutation,
-  useCreateLibrarySessionMutation,
+  useCreateLibraryModuleSessionMutation,
   useCopyModuleToProgramMutation,
 } = programsApi;

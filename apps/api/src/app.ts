@@ -112,7 +112,7 @@ export function createApp() {
         apps: [],
         details: [
           {
-            appIDs: ["N2YU836RHA.com.phperformance.uk"],
+            appIDs: ["N2YU836RHA.uk.phperformance.app"],
             components: [{ "/": "*" }],
           },
         ],

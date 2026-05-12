@@ -24,17 +24,19 @@ import {
   SelectPopup,
   SelectItem,
 } from "../../../../components/ui/select";
-import { ChevronRight, ClipboardList, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, ClipboardList, Library, Plus, Settings, Trash2 } from "lucide-react";
 import {
   useGetModuleLibraryQuery,
   useGetModuleSessionsQuery,
-  useCreateLibrarySessionMutation,
+  useCreateLibraryModuleSessionMutation,
   useUpdateBuilderSessionMutation,
   useDeleteBuilderSessionMutation,
+  useGetSessionLibraryQuery,
+  useCopySessionToModuleMutation,
 } from "../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
-type SessionDialog = null | "create" | "edit";
+type SessionDialog = null | "create" | "edit" | "from-library";
 
 type BuilderSession = {
   id: number;
@@ -69,10 +71,12 @@ export default function LibraryModuleDetailPage() {
     { moduleId },
     { skip: !Number.isFinite(moduleId) || moduleId <= 0 },
   );
+  const { data: sessionLibraryData } = useGetSessionLibraryQuery();
 
-  const [createSession, { isLoading: isCreating }] = useCreateLibrarySessionMutation();
+  const [createSession, { isLoading: isCreating }] = useCreateLibraryModuleSessionMutation();
   const [updateSession, { isLoading: isUpdating }] = useUpdateBuilderSessionMutation();
   const [deleteSession, { isLoading: isDeletingSession }] = useDeleteBuilderSessionMutation();
+  const [copySession, { isLoading: isCopying }] = useCopySessionToModuleMutation();
 
   const [dialog, setDialog] = useState<SessionDialog>(null);
   const [editSessionId, setEditSessionId] = useState<number | null>(null);
@@ -84,7 +88,8 @@ export default function LibraryModuleDetailPage() {
 
   const currentModule = (libraryData?.modules ?? []).find((m: any) => m.id === moduleId);
   const sessions: BuilderSession[] = sessionsData?.sessions ?? [];
-  const isSaving = isCreating || isUpdating || isDeletingSession;
+  const librarySessionsList = sessionLibraryData?.sessions ?? [];
+  const isSaving = isCreating || isUpdating || isDeletingSession || isCopying;
 
   const openCreate = () => {
     setTitle("");
@@ -150,6 +155,17 @@ export default function LibraryModuleDetailPage() {
     }
   };
 
+  const handleCopyFromLibrary = async (sessionId: number) => {
+    try {
+      await copySession({ moduleId, sessionId }).unwrap();
+      await refetchSessions();
+      toast.success("Session copied from library");
+      setDialog(null);
+    } catch {
+      toast.error("Failed to copy session");
+    }
+  };
+
   return (
     <AdminShell
       title={currentModule?.title ?? "Library Module"}
@@ -167,9 +183,14 @@ export default function LibraryModuleDetailPage() {
         </span>
       }
       actions={
-        <Button onClick={openCreate}>
-          <Plus className="mr-1 h-4 w-4" /> Add Session
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDialog("from-library")}>
+            <Library className="mr-1 h-4 w-4" /> From Session Library
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="mr-1 h-4 w-4" /> Add Session
+          </Button>
+        </div>
       }
     >
       <SectionHeader
@@ -249,7 +270,8 @@ export default function LibraryModuleDetailPage() {
         </div>
       )}
 
-      <Dialog open={dialog !== null} onOpenChange={() => setDialog(null)}>
+      {/* Create / Edit dialog */}
+      <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={() => setDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{dialog === "edit" ? "Edit Session" : "Add Session"}</DialogTitle>
@@ -311,6 +333,51 @@ export default function LibraryModuleDetailPage() {
                 {isSaving ? "Saving..." : dialog === "edit" ? "Save Changes" : "Add Session"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* From Session Library picker */}
+      <Dialog open={dialog === "from-library"} onOpenChange={() => setDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Copy from Session Library</DialogTitle>
+            <DialogDescription>
+              Select a library session to copy into this module. Its exercises will be included.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+            {librarySessionsList.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No sessions in library yet.{" "}
+                <Link href="/programs/sessions" className="text-primary hover:underline">
+                  Create one first.
+                </Link>
+              </div>
+            ) : (
+              librarySessionsList.map((s: any) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={isCopying}
+                  onClick={() => handleCopyFromLibrary(s.id)}
+                  className="w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                >
+                  <div className="text-sm font-medium text-foreground">
+                    {s.title || `Session ${s.sessionNumber ?? 1}`}
+                  </div>
+                  {s.description && (
+                    <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{s.description}</div>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">{s.type ?? "program"}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {s.exerciseCount ?? 0} exercise{(s.exerciseCount ?? 0) !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>

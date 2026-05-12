@@ -18,9 +18,16 @@ import {
   DialogPanel,
   DialogTitle,
 } from "../../../components/ui/dialog";
+import { Badge } from "../../../components/ui/badge";
+import { PlaySquare, Plus, Trash2 } from "lucide-react";
+import { toast } from "@/lib/toast";
 import {
   useProvisionAdultAthleteMutation,
   useProvisionGuardianMutation,
+  useGetTeamSessionsQuery,
+  useCopySessionToTeamMutation,
+  useDeleteTeamSessionMutation,
+  useGetSessionLibraryQuery,
 } from "../../../lib/apiSlice";
 
 type SubscriptionPlan = {
@@ -319,6 +326,42 @@ export default function TeamDetailPage() {
   const [provisionAdult, { isLoading: isProvisioningAdult }] = useProvisionAdultAthleteMutation();
   const [provisionGuardian, { isLoading: isProvisioningGuardian }] = useProvisionGuardianMutation();
   const isProvisioning = isProvisioningAdult || isProvisioningGuardian;
+
+  // Session library state
+  const [sessionLibraryOpen, setSessionLibraryOpen] = useState(false);
+  const teamId = details?.teamId ?? 0;
+  const { data: teamSessionsData, refetch: refetchTeamSessions } = useGetTeamSessionsQuery(
+    { teamId },
+    { skip: !teamId },
+  );
+  const { data: sessionLibraryData } = useGetSessionLibraryQuery();
+  const [copySessionToTeam, { isLoading: isCopyingSession }] = useCopySessionToTeamMutation();
+  const [deleteTeamSession, { isLoading: isDeletingTeamSession }] = useDeleteTeamSessionMutation();
+  const teamSessions = teamSessionsData?.sessions ?? [];
+  const librarySessionsList = sessionLibraryData?.sessions ?? [];
+
+  const handleCopySessionToTeam = async (sessionId: number) => {
+    if (!teamId) return;
+    try {
+      await copySessionToTeam({ teamId, sessionId }).unwrap();
+      await refetchTeamSessions();
+      toast.success("Session added to team");
+      setSessionLibraryOpen(false);
+    } catch {
+      toast.error("Failed to add session");
+    }
+  };
+
+  const handleDeleteTeamSession = async (sessionId: number) => {
+    if (!window.confirm("Remove this session from the team?")) return;
+    try {
+      await deleteTeamSession({ sessionId }).unwrap();
+      await refetchTeamSessions();
+      toast.success("Session removed");
+    } catch {
+      toast.error("Failed to remove session");
+    }
+  };
 
   const generatedEmail = useMemo(() => {
     const slug = newAthleteName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -876,6 +919,68 @@ export default function TeamDetailPage() {
             </CardContent>
           </Card>
 
+        {/* Team Sessions */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">Team Sessions</h2>
+                <p className="text-sm text-muted-foreground">Training sessions assigned to this team from the session library.</p>
+              </div>
+              <Button size="sm" onClick={() => setSessionLibraryOpen(true)}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> From Session Library
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {teamSessions.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                <PlaySquare className="mx-auto mb-2 h-7 w-7 text-muted-foreground/40" />
+                <p>No sessions assigned yet.</p>
+                <button
+                  type="button"
+                  onClick={() => setSessionLibraryOpen(true)}
+                  className="mt-1 text-primary hover:underline"
+                >
+                  Add from Session Library
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {teamSessions.map((s: any) => (
+                  <div key={s.id} className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">
+                          {s.title || `Session ${s.sessionNumber ?? 1}`}
+                        </p>
+                        {s.description && (
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{s.description}</p>
+                        )}
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge variant="secondary" className="text-[10px]">{s.type ?? "program"}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {s.exerciseCount ?? 0} exercise{(s.exerciseCount ?? 0) !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 shrink-0 p-0 text-destructive"
+                        onClick={() => handleDeleteTeamSession(s.id)}
+                        disabled={isDeletingTeamSession}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <SectionHeader
@@ -1046,6 +1151,51 @@ export default function TeamDetailPage() {
               </Button>
             </div>
           </DialogPanel>
+        </DialogContent>
+      </Dialog>
+
+      {/* Session Library Picker */}
+      <Dialog open={sessionLibraryOpen} onOpenChange={setSessionLibraryOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Session to Team</DialogTitle>
+            <DialogDescription>
+              Select a library session to assign to this team. Exercises will be copied.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+            {librarySessionsList.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No sessions in library yet.{" "}
+                <Link href="/programs/sessions" className="text-primary hover:underline">
+                  Create one first.
+                </Link>
+              </div>
+            ) : (
+              librarySessionsList.map((s: any) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={isCopyingSession}
+                  onClick={() => handleCopySessionToTeam(s.id)}
+                  className="w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                >
+                  <div className="text-sm font-medium text-foreground">
+                    {s.title || `Session ${s.sessionNumber ?? 1}`}
+                  </div>
+                  {s.description && (
+                    <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{s.description}</div>
+                  )}
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px]">{s.type ?? "program"}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {s.exerciseCount ?? 0} exercise{(s.exerciseCount ?? 0) !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
