@@ -211,7 +211,7 @@ export async function listExercises(options?: { limit?: number }) {
       updatedAt: exerciseTable.updatedAt,
       usageCount: sql<number>`(
         SELECT COUNT(*)::int FROM session_exercises
-        WHERE exercise_id = ${exerciseTable.id}
+        WHERE "exerciseId" = ${exerciseTable.id}
       )`,
     })
     .from(exerciseTable)
