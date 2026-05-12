@@ -218,7 +218,7 @@ export default function NotificationsScreen() {
           {loadingNotifications ? (
             <SkeletonNotificationsScreen />
           ) : notifications.length === 0 ? (
-            <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 24 }}>
+            <View style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: p.divider }}>
               <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
                 No notifications yet.
               </Text>

@@ -32,31 +32,24 @@ export function MoreStackHeader({
           overflow: "hidden",
           borderRadius: 24,
           paddingHorizontal: 16,
-          paddingBottom: 16,
+          paddingBottom: 20,
           paddingTop: 16,
-          backgroundColor: p.cardSage,
+          backgroundColor: p.inputBg,
+          borderWidth: 1,
+          borderColor: p.divider,
         }}
       >
+        {/* Subtle accent glow top-right */}
         <View
           style={{
             position: "absolute",
-            right: -40,
-            top: -32,
-            height: 112,
-            width: 112,
-            borderRadius: 56,
-            backgroundColor: p.accentSoft,
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            bottom: -32,
-            left: 48,
+            right: -28,
+            top: -28,
             height: 96,
             width: 96,
             borderRadius: 48,
-            backgroundColor: p.cardMint,
+            backgroundColor: p.accentSoft,
+            opacity: 0.6,
           }}
         />
 
@@ -75,16 +68,16 @@ export function MoreStackHeader({
             }}
             hitSlop={10}
             style={({ pressed }) => ({
-              height: 44,
-              width: 44,
+              height: 40,
+              width: 40,
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 100,
-              backgroundColor: p.cardWhite,
-              opacity: pressed ? 0.8 : 1,
+              backgroundColor: p.accentSoft,
+              opacity: pressed ? 0.7 : 1,
             })}
           >
-            <ArrowLeft size={20} color={p.accent} strokeWidth={2} />
+            <ArrowLeft size={18} color={p.accent} strokeWidth={2} />
           </Pressable>
 
           {rightSlot ?? (badge ? (
@@ -93,7 +86,9 @@ export function MoreStackHeader({
                 borderRadius: 99,
                 paddingHorizontal: 12,
                 paddingVertical: 6,
-                backgroundColor: p.cardWhite,
+                backgroundColor: p.accentSoft,
+                borderWidth: 1,
+                borderColor: p.divider,
               }}
             >
               <Text
@@ -108,7 +103,7 @@ export function MoreStackHeader({
                 {badge}
               </Text>
             </View>
-          ) : <View style={{ width: 44 }} />)}
+          ) : <View style={{ width: 40 }} />)}
         </View>
 
         <View style={{ marginTop: 16 }}>
@@ -125,11 +120,11 @@ export function MoreStackHeader({
           {subtitle ? (
             <Text
               style={{
-                marginTop: 8,
-                fontSize: 15,
-                lineHeight: 22,
+                marginTop: 6,
+                fontSize: 14,
+                lineHeight: 20,
                 fontFamily: "Outfit-Regular",
-                color: p.textMuted,
+                color: p.textSecondary,
               }}
             >
               {subtitle}
