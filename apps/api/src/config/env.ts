@@ -207,7 +207,7 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   // Onboarding/portal (Vite) + web often run on 5173; allow socket + fetch in local dev.
   corsOrigins:
     raw.CORS_ORIGINS ??
-    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,https://ph-platform-onboarding.vercel.app",
+    "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,https://phperformance.uk,https://ph-platform-onboarding.vercel.app",
 	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
 	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
 	  sentryDsn: raw.SENTRY_DSN ?? "",
@@ -218,7 +218,7 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   turnstileSecretKey2: raw.TURNSTILE_SECRET_KEY_2 ?? "",
   turnstileSecretKey3: raw.TURNSTILE_SECRET_KEY_3 ?? "",
   turnstileBypass: raw.TURNSTILE_BYPASS === "true",
-  onboardingUrl: raw.ONBOARDING_URL ?? "https://ph-platform-onboarding.vercel.app",
+  onboardingUrl: raw.ONBOARDING_URL ?? "https://phperformance.uk",
   googleOAuthClientId: raw.GOOGLE_OAUTH_CLIENT_ID ?? "",
   googleOAuthClientSecret: raw.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
   googleCalendarId: raw.GOOGLE_CALENDAR_ID ?? "",
