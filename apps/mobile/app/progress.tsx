@@ -483,7 +483,7 @@ export default function ProgressScreen() {
   const activeSeries = tab === "strength" ? strengthSeries : tab === "weight" ? weightSeries : measureSeries;
   const activeMax = Math.max(...activeSeries, 1);
 
-  const heroBg = isDark ? "#0A0F00" : "#1A3A1F";
+  const heroBg = isDark ? "#000000" : "#1A3A1F";
   const heroText = "#FFFFFF";
   const accentRing = isDark ? "#2D6A1A" : "#2F9F3D";
   const trackColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)";
@@ -689,7 +689,7 @@ export default function ProgressScreen() {
               label="Best Lift"
               value={bestLift ? `${bestLift.weight_kg}` : "—"}
               unit={bestLift ? "kg" : undefined}
-              cardBg={isDark ? p.inputBg : "#ECFCCB"}
+              cardBg={isDark ? "#000000" : "#ECFCCB"}
               textColor={isDark ? p.textPrimary : "#166534"}
               subtextColor={isDark ? p.textSecondary : "#2F9F3D"}
               delay={100}
@@ -738,7 +738,7 @@ export default function ProgressScreen() {
                   isActive={tab === key}
                   onPress={() => setTab(key)}
                   activeColor={isDark ? "#1E4A12" : "#2C2140"}
-                  inactiveColor={isDark ? p.inputBg : "#F1F5F2"}
+                  inactiveColor={isDark ? "#000000" : "#F1F5F2"}
                   activeTextColor={isDark ? p.accent : "#FFFFFF"}
                   inactiveTextColor={p.textMuted}
                 />
@@ -749,7 +749,7 @@ export default function ProgressScreen() {
           {/* ── Trend chart card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(350).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: isDark ? "#000000" : p.inputBg, shadowColor: p.shadow }]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: p.textPrimary }}>
@@ -789,7 +789,7 @@ export default function ProgressScreen() {
           {/* ── Recent entries card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(450).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: isDark ? "#000000" : p.inputBg, shadowColor: p.shadow }]}
           >
             <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: p.textPrimary, marginBottom: 14 }}>
               Recent
@@ -898,7 +898,7 @@ export default function ProgressScreen() {
           {/* ── Reminder card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(550).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: isDark ? "#000000" : p.inputBg, shadowColor: p.shadow }]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1, paddingRight: 12 }}>
