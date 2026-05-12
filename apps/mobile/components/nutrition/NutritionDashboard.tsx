@@ -188,9 +188,13 @@ export function NutritionDashboard() {
         {/* Hero section */}
         <View
           style={{
-            backgroundColor: p.cardWhite,
+            backgroundColor: p.inputBg,
             borderBottomLeftRadius: 32,
             borderBottomRightRadius: 32,
+            borderBottomWidth: 1,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderColor: p.divider,
             paddingHorizontal: 24,
             paddingTop: 8,
             paddingBottom: 32,
@@ -215,7 +219,7 @@ export function NutritionDashboard() {
                 width: 44,
                 height: 44,
                 borderRadius: 100,
-                backgroundColor: p.cardWhite,
+                backgroundColor: p.inputBg,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: pressed ? 0.7 : 1,
@@ -241,7 +245,7 @@ export function NutritionDashboard() {
                 width: 36,
                 height: 36,
                 borderRadius: 100,
-                backgroundColor: p.cardWhite,
+                backgroundColor: p.inputBg,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: pressed ? 0.7 : 1,
@@ -282,7 +286,7 @@ export function NutritionDashboard() {
                 width: 36,
                 height: 36,
                 borderRadius: 100,
-                backgroundColor: p.cardWhite,
+                backgroundColor: p.inputBg,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: isToday ? 0.3 : pressed ? 0.7 : 1,
@@ -365,7 +369,7 @@ export function NutritionDashboard() {
           <View style={{ paddingHorizontal: 20, gap: 12, marginBottom: 12 }}>
             {/* 3 stat pills */}
             <View style={{ flexDirection: "row", gap: 10 }}>
-              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.cardSage, paddingVertical: 14, alignItems: "center" }}>
+              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.inputBg, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: p.divider }}>
                 <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
                   <Target size={16} color={p.accent} />
                 </View>
@@ -376,7 +380,7 @@ export function NutritionDashboard() {
                   of daily goal
                 </Text>
               </View>
-              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.cardMint, paddingVertical: 14, alignItems: "center" }}>
+              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.inputBg, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: p.divider }}>
                 <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
                   <Utensils size={16} color={p.accent} />
                 </View>
@@ -387,7 +391,7 @@ export function NutritionDashboard() {
                   meals logged
                 </Text>
               </View>
-              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.cardLavender, paddingVertical: 14, alignItems: "center" }}>
+              <View style={{ flex: 1, borderRadius: 20, backgroundColor: p.inputBg, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: p.divider }}>
                 <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
                   <Flame size={16} color={p.accent} />
                 </View>
@@ -401,7 +405,7 @@ export function NutritionDashboard() {
             </View>
 
             {/* Macro breakdown card */}
-            <View style={{ borderRadius: 22, backgroundColor: p.cardSage, padding: 16 }}>
+            <View style={{ borderRadius: 22, backgroundColor: p.inputBg, padding: 16, borderWidth: 1, borderColor: p.divider }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
                   <TrendingUp size={14} color={p.accent} />
@@ -420,7 +424,7 @@ export function NutritionDashboard() {
                   const pct = total > 0 ? Math.round((m.g / total) * 100) : 0;
                   return (
                     <View key={m.label} style={{ flex: 1, alignItems: "center", gap: 6 }}>
-                      <View style={{ width: 44, height: 44, borderRadius: 100, borderWidth: 3, borderColor: m.color, backgroundColor: p.cardWhite, alignItems: "center", justifyContent: "center" }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 100, borderWidth: 3, borderColor: m.color, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center" }}>
                         <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: m.color }}>
                           {pct}%
                         </Text>
@@ -514,7 +518,7 @@ export function NutritionDashboard() {
             <View
               style={{
                 borderRadius: 22,
-                backgroundColor: p.cardWhite,
+                backgroundColor: p.inputBg,
                 padding: 20,
                 alignItems: "center",
               }}
@@ -564,7 +568,9 @@ export function NutritionDashboard() {
                     gap: 6,
                     height: 44,
                     borderRadius: 100,
-                    backgroundColor: p.cardSage,
+                    backgroundColor: p.inputBg,
+                    borderWidth: 1,
+                    borderColor: p.divider,
                     opacity: pressed ? 0.8 : 1,
                   })}
                 >
@@ -610,7 +616,7 @@ function CoachFeedbackCard({
       onPress={onPress}
       style={({ pressed }) => ({
         borderRadius: 22,
-        backgroundColor: p.cardWhite,
+        backgroundColor: p.inputBg,
         padding: 16,
         opacity: pressed ? 0.88 : 1,
         transform: [{ scale: pressed ? 0.985 : 1 }],
@@ -641,7 +647,7 @@ function CoachFeedbackCard({
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 borderRadius: 100,
-                backgroundColor: p.cardMint,
+                backgroundColor: p.accentSoft,
               }}
             >
               <Play size={10} color={p.accent} />
