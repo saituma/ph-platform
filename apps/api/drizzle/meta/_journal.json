@@ -1065,6 +1065,13 @@
       "when": 1747612800000,
       "tag": "0151_session_exercise_overrides",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1778565107598,
+      "tag": "0152_module_library",
+      "breakpoints": true
     }
   ]
 }
