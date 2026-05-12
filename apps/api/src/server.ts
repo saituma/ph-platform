@@ -66,12 +66,13 @@ export async function startServer() {
       } catch { /* best effort */ }
     }
 
+    stopOutboxWorker();
+
     try {
       await pool.end();
       logger.info("Database pool drained");
     } catch { /* best effort */ }
 
-    stopOutboxWorker();
     stopEventLoopDelayLogging();
     logger.info("Clean exit");
     process.exit(0);
