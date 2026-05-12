@@ -233,7 +233,9 @@ function MessageBubbleComponent({
 	const bubbleGesture = Gesture.Exclusive(bubbleLongPress, bubbleTap);
 
 	const bubbleBackgroundColor = isUser
-		? colors.accent
+		? isDark
+			? "#1E4028"
+			: colors.accent
 		: isDark
 			? "rgba(255,255,255,0.08)"
 			: "hsl(220, 10%, 96%)";
