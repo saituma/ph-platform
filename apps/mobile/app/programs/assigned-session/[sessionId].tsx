@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -88,6 +88,8 @@ export default function AssignedSessionDetailScreen() {
     isUploading,
     status: uploadStatus,
   } = useVideoUploadLogic(token, athleteUserId);
+  const sessionStartTime = useRef<number>(Date.now());
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionFinished, setSessionFinished] = useState(false);
   const [finishNextLabel, setFinishNextLabel] = useState<string | null>(null);
@@ -233,7 +235,8 @@ export default function AssignedSessionDetailScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    useStreakStore.getState().recordSession(0);
+    const durationMinutes = (Date.now() - sessionStartTime.current) / 60000;
+    useStreakStore.getState().recordSession(durationMinutes);
     if (token) void useStreakStore.getState().syncToServer(token);
     setSessionFinished(true);
     if (result.nextSession) {

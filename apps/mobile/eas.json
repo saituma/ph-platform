@@ -40,7 +40,8 @@
     },
     "production": {
       "ios": {
-        "companyName": "PH Performance"
+        "companyName": "PH Performance",
+        "ascAppId": "6768563715"
       }
     }
   }

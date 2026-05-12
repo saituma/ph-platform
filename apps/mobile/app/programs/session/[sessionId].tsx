@@ -122,6 +122,8 @@ export default function ProgramSessionDetailScreen() {
     setStatus: setUploadStatus,
   } = useVideoUploadLogic(token, athleteUserId);
 
+  const sessionStartTime = useRef<number>(Date.now());
+
   const [workoutSheetOpen, setWorkoutSheetOpen] = useState(false);
   const [weightsUsed, setWeightsUsed] = useState("");
   const [repsCompleted, setRepsCompleted] = useState("");
@@ -578,7 +580,8 @@ export default function ProgramSessionDetailScreen() {
       setFinishError(null);
       try {
         await finishTrainingContentV2Session(token, sessionIdNum, workoutLog);
-        useStreakStore.getState().recordSession(0);
+        const durationMinutes = (Date.now() - sessionStartTime.current) / 60000;
+        useStreakStore.getState().recordSession(durationMinutes);
         void useStreakStore.getState().syncToServer(token);
         const updated = await load(true);
         const sessionTitle = session?.title ?? "Your session";

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Dimensions,
   Modal,
@@ -21,14 +21,14 @@ import Animated, {
   useReducedMotion,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Flame, Check, X } from "lucide-react-native";
+import { Flame, Check, X, Snowflake, Calendar, ChevronLeft, ChevronRight } from "lucide-react-native";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
-import { useStreakStore, type WeekDay } from "@/lib/streakStore";
-import { fonts } from "@/constants/theme";
+import { useStreakStore, type WeekDay, type MonthDay } from "@/lib/streakStore";
+import { fonts, colors } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = Math.min(SCREEN_WIDTH - 48, 360);
@@ -53,7 +53,11 @@ export const StreakModal = React.memo(function StreakModal({
   const reduceMotion = useReducedMotion();
   const store = useStreakStore();
 
+  const [calendarView, setCalendarView] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
   const weekDays = store.getWeekDays();
+  const monthGrid = store.getMonthGrid(calendarMonth);
   const streakWeeks = Math.max(1, Math.floor(store.currentStreak / 7));
   const streakDays = store.currentStreak;
   const displayStreak = streakDays >= 7 ? streakWeeks : streakDays;
@@ -87,11 +91,32 @@ export const StreakModal = React.memo(function StreakModal({
     onClose();
   }, [onClose, store]);
 
+  const prevMonth = useCallback(() => {
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m - 2, 1));
+    setCalendarMonth(d.toISOString().slice(0, 7));
+  }, [calendarMonth]);
+
+  const nextMonth = useCallback(() => {
+    const [y, m] = calendarMonth.split("-").map(Number);
+    const d = new Date(Date.UTC(y, m, 1));
+    const next = d.toISOString().slice(0, 7);
+    if (next <= new Date().toISOString().slice(0, 7)) {
+      setCalendarMonth(next);
+    }
+  }, [calendarMonth]);
+
   const cardBg = isDark ? "#1A201A" : "#FFFFFF";
   const statsBg = isDark ? "#141C14" : "#F8FAF7";
   const accent = p.accent;
   const accentSoft = isDark ? "rgba(158,247,0,0.15)" : "rgba(47,159,61,0.12)";
   const ringTrack = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)";
+
+  const monthLabel = new Date(calendarMonth + "-15").toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  const isCurrentMonth = calendarMonth === new Date().toISOString().slice(0, 7);
 
   return (
     <Modal
@@ -115,6 +140,18 @@ export const StreakModal = React.memo(function StreakModal({
           {/* Close button */}
           <Pressable style={styles.closeBtn} onPress={handleClose} hitSlop={12}>
             <X size={20} color={p.textMuted} />
+          </Pressable>
+
+          {/* Calendar toggle */}
+          <Pressable
+            style={styles.calendarToggle}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setCalendarView((v) => !v);
+            }}
+            hitSlop={8}
+          >
+            <Calendar size={18} color={calendarView ? accent : p.textMuted} />
           </Pressable>
 
           {/* Fire icon with ring */}
@@ -166,26 +203,70 @@ export const StreakModal = React.memo(function StreakModal({
             <Text style={[styles.streakSubtitle, { color: p.textMuted }]}>
               You are doing really great, {firstName}!
             </Text>
+            {store.freezesAvailable > 0 && (
+              <View style={styles.freezeRow}>
+                <Snowflake size={13} color={colors.streakFreeze} />
+                <Text style={[styles.freezeText, { color: colors.streakFreeze }]}>
+                  {store.freezesAvailable} freeze{store.freezesAvailable > 1 ? "s" : ""} available
+                </Text>
+              </View>
+            )}
           </Animated.View>
 
-          {/* Week days row */}
-          <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(400).duration(350)}
-            style={styles.weekRow}
-          >
-            {weekDays.map((day, i) => (
-              <WeekDayItem
-                key={i}
-                day={day}
-                accent={accent}
-                accentSoft={accentSoft}
-                textPrimary={p.textPrimary}
-                textMuted={p.textMuted}
-                delay={450 + i * 50}
-                reduceMotion={reduceMotion}
-              />
-            ))}
-          </Animated.View>
+          {/* Week or Month view */}
+          {calendarView ? (
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(400).duration(350)}
+              style={styles.calendarContainer}
+            >
+              <View style={styles.calendarNav}>
+                <Pressable onPress={prevMonth} hitSlop={8}>
+                  <ChevronLeft size={20} color={p.textMuted} />
+                </Pressable>
+                <Text style={[styles.monthLabel, { color: p.textPrimary }]}>{monthLabel}</Text>
+                <Pressable onPress={nextMonth} hitSlop={8} style={{ opacity: isCurrentMonth ? 0.3 : 1 }}>
+                  <ChevronRight size={20} color={p.textMuted} />
+                </Pressable>
+              </View>
+              <View style={styles.calendarHeaderRow}>
+                {["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((l) => (
+                  <Text key={l} style={[styles.calHeaderLabel, { color: p.textMuted }]}>{l}</Text>
+                ))}
+              </View>
+              {monthGrid.map((week, wi) => (
+                <View key={wi} style={styles.calendarRow}>
+                  {week.map((day, di) => (
+                    <MonthDayItem
+                      key={di}
+                      day={day}
+                      accent={accent}
+                      accentSoft={accentSoft}
+                      textPrimary={p.textPrimary}
+                      textMuted={p.textMuted}
+                    />
+                  ))}
+                </View>
+              ))}
+            </Animated.View>
+          ) : (
+            <Animated.View
+              entering={reduceMotion ? undefined : FadeInDown.delay(400).duration(350)}
+              style={styles.weekRow}
+            >
+              {weekDays.map((day, i) => (
+                <WeekDayItem
+                  key={i}
+                  day={day}
+                  accent={accent}
+                  accentSoft={accentSoft}
+                  textPrimary={p.textPrimary}
+                  textMuted={p.textMuted}
+                  delay={450 + i * 50}
+                  reduceMotion={reduceMotion}
+                />
+              ))}
+            </Animated.View>
+          )}
 
           {/* Your Stats */}
           <Animated.View
@@ -226,12 +307,12 @@ const WeekDayItem = React.memo(function WeekDayItem({
 }) {
   const scale = useSharedValue(0);
   useEffect(() => {
-    if (day.completed && !reduceMotion) {
+    if ((day.completed || day.frozen) && !reduceMotion) {
       scale.value = withDelay(delay, withSpring(1, { damping: 12, stiffness: 200 }));
     } else {
       scale.value = 1;
     }
-  }, [day.completed, reduceMotion, delay]);
+  }, [day.completed, day.frozen, reduceMotion, delay]);
   const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
@@ -248,6 +329,10 @@ const WeekDayItem = React.memo(function WeekDayItem({
       {day.completed ? (
         <Animated.View style={[styles.weekDayCircle, { backgroundColor: accent }, checkStyle]}>
           <Check size={14} color="#FFFFFF" strokeWidth={3} />
+        </Animated.View>
+      ) : day.frozen ? (
+        <Animated.View style={[styles.weekDayCircle, { backgroundColor: colors.streakFreeze + "33" }, checkStyle]}>
+          <Snowflake size={13} color={colors.streakFreeze} strokeWidth={2} />
         </Animated.View>
       ) : (
         <View
@@ -273,6 +358,55 @@ const WeekDayItem = React.memo(function WeekDayItem({
           </Text>
         </View>
       )}
+    </View>
+  );
+});
+
+const MonthDayItem = React.memo(function MonthDayItem({
+  day,
+  accent,
+  accentSoft,
+  textPrimary,
+  textMuted,
+}: {
+  day: MonthDay;
+  accent: string;
+  accentSoft: string;
+  textPrimary: string;
+  textMuted: string;
+}) {
+  if (day.isEmpty) {
+    return <View style={styles.calDayCell} />;
+  }
+  return (
+    <View style={styles.calDayCell}>
+      <View
+        style={[
+          styles.calDayCircle,
+          day.completed && { backgroundColor: accent },
+          day.frozen && !day.completed && { backgroundColor: colors.streakFreeze + "33" },
+          day.isToday && !day.completed && !day.frozen && { borderWidth: 1.5, borderColor: accent },
+        ]}
+      >
+        {day.completed ? (
+          <Check size={11} color="#FFFFFF" strokeWidth={3} />
+        ) : day.frozen ? (
+          <Snowflake size={11} color={colors.streakFreeze} strokeWidth={2} />
+        ) : (
+          <Text
+            style={[
+              styles.calDayText,
+              {
+                color: day.isFuture ? textMuted : textPrimary,
+                opacity: day.isFuture ? 0.4 : 1,
+                fontFamily: day.isToday ? fonts.labelBold : fonts.bodyRegular,
+              },
+            ]}
+          >
+            {day.date}
+          </Text>
+        )}
+      </View>
     </View>
   );
 });
@@ -321,6 +455,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
+  calendarToggle: {
+    position: "absolute",
+    top: 16,
+    left: 16,
+    zIndex: 10,
+    padding: 4,
+  },
   fireContainer: {
     width: RING_SIZE,
     height: RING_SIZE,
@@ -362,6 +503,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyRegular,
     fontSize: 14,
   },
+  freezeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+  },
+  freezeText: {
+    fontFamily: fonts.labelMedium,
+    fontSize: 12,
+  },
+  // Week view
   weekRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -388,6 +540,51 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: 13,
   },
+  // Calendar view
+  calendarContainer: {
+    width: "100%",
+    marginTop: 20,
+  },
+  calendarNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  monthLabel: {
+    fontFamily: fonts.labelBold,
+    fontSize: 14,
+  },
+  calendarHeaderRow: {
+    flexDirection: "row",
+    marginBottom: 4,
+  },
+  calHeaderLabel: {
+    flex: 1,
+    textAlign: "center",
+    fontFamily: fonts.labelMedium,
+    fontSize: 11,
+  },
+  calendarRow: {
+    flexDirection: "row",
+    marginBottom: 2,
+  },
+  calDayCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 2,
+  },
+  calDayCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calDayText: {
+    fontSize: 11,
+  },
+  // Stats
   statsCard: {
     width: "100%",
     borderRadius: 16,

@@ -6,9 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "phperformance",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "appleTeamId": "N2YU836RHA",
       "supportsTablet": true,
       "associatedDomains": [
         "applinks:ph-platform-onboarding.vercel.app",
@@ -23,7 +22,7 @@
           "location"
         ]
       },
-      "bundleIdentifier": "com.phperformance.uk",
+      "bundleIdentifier": "uk.phperformance.app",
       "entitlements": {
         "aps-environment": "production"
       },
@@ -98,7 +97,7 @@
       "compileSdk": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "package": "com.phperformance.uk",
+      "package": "uk.phperformance.app",
       "intentFilters": [
         {
           "action": "VIEW",

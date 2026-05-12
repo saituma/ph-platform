@@ -47,7 +47,9 @@ import { IntroVideoSection } from "@/components/home/IntroVideoSection";
 import { QuickLinksSection } from "@/components/home/QuickLinksSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { StreakModal } from "@/components/home/StreakModal";
+import { StreakMilestoneModal } from "@/components/home/StreakMilestoneModal";
 import { useStreakStore } from "@/lib/streakStore";
+import { scheduleStreakReminder } from "@/lib/streakReminder";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
@@ -258,15 +260,58 @@ const HomeScreen = memo(function HomeScreen() {
   const greeting = useMemo(() => getGreeting(), []);
   const motivation = useMemo(() => getDailyMotivation(), []);
   const streak = useStreakStore((s) => s.currentStreak);
-
+  const freezesAvailable = useStreakStore((s) => s.freezesAvailable);
   const shouldShowStreak = useStreakStore((s) => s.shouldShowStreak);
+  const shouldShowMilestone = useStreakStore((s) => s.shouldShowMilestone);
+  const hydrateFromServer = useStreakStore((s) => s.hydrateFromServer);
+
   const [streakVisible, setStreakVisible] = useState(false);
+  const [milestoneVisible, setMilestoneVisible] = useState(false);
+  const [activeMilestoneDay, setActiveMilestoneDay] = useState(0);
+
+  // Hydrate streak from server on boot, then open modal if needed
   useEffect(() => {
-    if (bootstrapReady && shouldShowStreak()) {
-      const timer = setTimeout(() => setStreakVisible(true), 600);
-      return () => clearTimeout(timer);
-    }
-  }, [bootstrapReady]);
+    if (!bootstrapReady || !token) return;
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const result = await apiRequest<{
+          currentStreak: number;
+          longestStreak: number;
+          totalDays: number;
+          totalSessions: number;
+          totalMinutes: number;
+          completedDates: string[];
+          freezesAvailable: number;
+          freezesUsedDates: string[];
+          timezone: string | null;
+          lastActivityDate: string | null;
+        }>("/streaks/me", { token });
+        if (!cancelled && result) {
+          hydrateFromServer(result);
+        }
+      } catch {
+        // non-critical
+      }
+
+      if (cancelled) return;
+
+      const storeState = useStreakStore.getState();
+      if (storeState.shouldShowMilestone()) {
+        setActiveMilestoneDay(storeState.currentStreak);
+        setTimeout(() => { if (!cancelled) setMilestoneVisible(true); }, 800);
+      } else if (storeState.shouldShowStreak()) {
+        setTimeout(() => { if (!cancelled) setStreakVisible(true); }, 600);
+      }
+
+      // Schedule daily local reminder
+      void scheduleStreakReminder(storeState.currentStreak);
+    };
+
+    void run();
+    return () => { cancelled = true; };
+  }, [bootstrapReady, token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -426,9 +471,14 @@ const HomeScreen = memo(function HomeScreen() {
               </View>
               <View style={s.topBarRight}>
                 {streak > 0 && (
-                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={s.streakBadge}>
-                    <Flame size={13} color="#FF9500" fill="#FF9500" />
-                    <Text style={s.streakText}>{streak}</Text>
+                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)}>
+                    <Pressable style={s.streakBadge} onPress={() => setStreakVisible(true)} hitSlop={8}>
+                      <Flame size={13} color="#FF9500" fill="#FF9500" />
+                      <Text style={s.streakText}>{streak}</Text>
+                      {freezesAvailable > 0 && (
+                        <Text style={s.freezePip}>❄️{freezesAvailable}</Text>
+                      )}
+                    </Pressable>
                   </Animated.View>
                 )}
                 <Pressable onPress={navigateToNotifications} style={[s.bellBtn, {
@@ -533,6 +583,15 @@ const HomeScreen = memo(function HomeScreen() {
         onClose={() => setStreakVisible(false)}
         firstName={firstName}
       />
+      <StreakMilestoneModal
+        visible={milestoneVisible}
+        onClose={() => {
+          setMilestoneVisible(false);
+          useStreakStore.getState().markMilestoneShown(activeMilestoneDay);
+        }}
+        milestoneDay={activeMilestoneDay}
+        firstName={firstName}
+      />
     </View>
   );
 });
@@ -607,6 +666,12 @@ const s = StyleSheet.create({
     fontFamily: "Outfit-Bold",
     fontSize: 14,
     color: "#FF9500",
+  },
+  freezePip: {
+    fontFamily: "Outfit-Bold",
+    fontSize: 11,
+    color: "#5AC8FA",
+    marginLeft: 2,
   },
   bellBtn: {
     width: 42,

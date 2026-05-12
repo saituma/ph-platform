@@ -24,7 +24,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "../../../../../components/ui/select";
-import { ChevronRight, ClipboardList, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, ClipboardList, Library, Plus, Settings, Trash2 } from "lucide-react";
 import {
   useGetProgramsQuery,
   useGetProgramModulesQuery,
@@ -32,10 +32,12 @@ import {
   useCreateModuleSessionMutation,
   useUpdateBuilderSessionMutation,
   useDeleteBuilderSessionMutation,
+  useGetSessionLibraryQuery,
+  useCopySessionToModuleMutation,
 } from "../../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
-type SessionDialog = null | "create" | "edit";
+type SessionDialog = null | "create" | "edit" | "from-library";
 
 type BuilderModule = {
   id: number;
@@ -89,6 +91,8 @@ export default function ModuleDetailPage() {
   const [createSession, { isLoading: isCreating }] = useCreateModuleSessionMutation();
   const [updateSession, { isLoading: isUpdating }] = useUpdateBuilderSessionMutation();
   const [deleteSession, { isLoading: isDeletingSession }] = useDeleteBuilderSessionMutation();
+  const [copySession, { isLoading: isCopying }] = useCopySessionToModuleMutation();
+  const { data: sessionLibraryData } = useGetSessionLibraryQuery();
 
   const [dialog, setDialog] = useState<SessionDialog>(null);
   const [editSessionId, setEditSessionId] = useState<number | null>(null);
@@ -107,7 +111,8 @@ export default function ModuleDetailPage() {
     [modulesData, moduleId],
   );
   const sessions: BuilderSession[] = sessionsData?.sessions ?? [];
-  const isSaving = isCreating || isUpdating || isDeletingSession;
+  const librarySessionsList = sessionLibraryData?.sessions ?? [];
+  const isSaving = isCreating || isUpdating || isDeletingSession || isCopying;
 
   const openCreate = () => {
     setTitle("");
@@ -160,6 +165,17 @@ export default function ModuleDetailPage() {
       setDialog(null);
     } catch {
       toast.error(dialog === "edit" ? "Failed to update session" : "Failed to create session");
+    }
+  };
+
+  const handleCopyFromLibrary = async (sessionId: number) => {
+    try {
+      await copySession({ moduleId, sessionId }).unwrap();
+      await refetchSessions();
+      toast.success("Session copied from library");
+      setDialog(null);
+    } catch {
+      toast.error("Failed to copy session");
     }
   };
 

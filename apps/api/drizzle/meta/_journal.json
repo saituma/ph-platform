@@ -1079,6 +1079,13 @@
       "when": 1778651500000,
       "tag": "0153_team_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1778584475933,
+      "tag": "0154_whole_hitman",
+      "breakpoints": true
     }
   ]
 }

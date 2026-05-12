@@ -158,6 +158,9 @@ export const userStreakTable = pgTable("user_streaks", {
   totalSessions: integer("total_sessions").notNull().default(0),
   totalMinutes: integer("total_minutes").notNull().default(0),
   completedDates: jsonb("completed_dates").$type<string[]>().notNull().default([]),
+  freezesAvailable: integer("freezes_available").notNull().default(0),
+  freezesUsedDates: jsonb("freezes_used_dates").$type<string[]>().notNull().default([]),
+  timezone: text("timezone"),
   lastActivityDate: varchar("last_activity_date", { length: 10 }),
   updatedAt: timestamp().notNull().defaultNow(),
 });

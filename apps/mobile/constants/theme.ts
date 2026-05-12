@@ -79,6 +79,10 @@ export const colors = {
   mapRoute:        '#9EF700',
   mapStart:        '#9EF700',
   mapEnd:          '#FF6B6B',
+  streakFlame:     '#FF9500',
+  streakFlameSoft: 'rgba(255,149,0,0.15)',
+  streakFlameBorder: 'rgba(255,149,0,0.25)',
+  streakFreeze:    '#5AC8FA',
 } as const;
 
 export const Shadows = {
