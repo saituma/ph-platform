@@ -812,7 +812,6 @@ export function AdminDmSection({
           onAttachImage={pickImage}
           onAttachVideo={pickVideo}
           onTakePhoto={takePhoto}
-          onOpenEmojis={() => setEmojiPickerOpen(true)}
         />
         <EmojiPickerModal
           open={emojiPickerOpen || Boolean(reactionEmojiTarget)}

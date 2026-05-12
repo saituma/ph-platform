@@ -16,7 +16,6 @@ type ComposerActionsModalProps = {
   onAttachImage: () => void;
   onAttachVideo: () => void;
   onTakePhoto: () => void;
-  onOpenEmojis: () => void;
 };
 
 type ActionItemProps = {
@@ -85,10 +84,9 @@ export function ComposerActionsModal({
   onAttachImage,
   onAttachVideo,
   onTakePhoto,
-  onOpenEmojis,
 }: ComposerActionsModalProps) {
   const { colors, isDark } = useAppTheme();
-  const snapPoints = React.useMemo(() => ["52%"], []);
+  const snapPoints = React.useMemo(() => ["42%"], []);
 
   const cardBg = isDark ? "hsl(220, 8%, 12%)" : colors.card;
   const cardBorder = isDark
@@ -172,16 +170,6 @@ export function ComposerActionsModal({
                 onClose();
               }}
               color={isDark ? "hsl(155, 25%, 55%)" : "hsl(155, 35%, 42%)"}
-              isDark={isDark}
-            />
-            <ActionItem
-              icon="happy-outline"
-              label="Emoji"
-              onPress={() => {
-                onOpenEmojis();
-                onClose();
-              }}
-              color={isDark ? "hsl(40, 30%, 60%)" : "hsl(40, 40%, 45%)"}
               isDark={isDark}
             />
             <ActionItem

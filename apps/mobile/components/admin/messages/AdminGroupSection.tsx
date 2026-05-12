@@ -959,7 +959,6 @@ export function AdminGroupSection({
           onAttachImage={pickImage}
           onAttachVideo={() => setComposerMenuOpen(false)}
           onTakePhoto={takePhoto}
-          onOpenEmojis={() => setEmojiPickerOpen(true)}
         />
         <EmojiPickerModal
           open={emojiPickerOpen}
