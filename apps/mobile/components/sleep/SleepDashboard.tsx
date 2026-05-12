@@ -82,10 +82,10 @@ function qualityLabel(q: number | null): string {
   return labels[q] ?? "Not rated";
 }
 
-function qualityColor(q: number | null, p: any): string {
+function qualityColor(q: number | null, p: any, isDark: boolean): string {
   if (!q || q <= 2) return p.danger;
   if (q === 3) return p.warning;
-  return p.accent;
+  return isDark ? "#4CAF50" : p.accent;
 }
 
 function getSleepTips(quality: number | null): { icon: React.ReactNode; title: string; subtitle: string }[] {
@@ -456,7 +456,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
   const heroSubtext = isDark ? "rgba(255,255,255,0.6)" : p.textMuted;
   const heroBtnBg = isDark ? "rgba(255,255,255,0.12)" : p.inputBg;
   const heroCtaBg = isDark ? "rgba(255,255,255,0.15)" : p.inputBg;
-  const coreColor = isDark ? "#9EF700" : "#2F9F3D";
+  const coreColor = isDark ? "#2D6A1A" : "#2F9F3D";
   const remColor = isDark ? "#FFB020" : "#E8970A";
   const postColor = isDark ? "#7ABCD4" : "#5B8FA6";
   const trackColor = isDark ? "rgba(255,255,255,0.08)" : p.divider;
@@ -637,7 +637,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
           <ScalePressable activeScale={0.98}>
             <Animated.View
               entering={reduceMotion ? undefined : FadeInDown.delay(150).duration(400).springify().damping(18)}
-              style={[styles.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+              style={[styles.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
             >
               <Text style={[styles.cardTitle, { color: p.textPrimary }]}>Sleep Quality</Text>
               {qualityImprovement !== null && (
@@ -683,7 +683,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               {avgQuality && (
                 <Animated.View entering={FadeIn.delay(800).duration(300)} style={styles.avgRow}>
                   <Text style={[styles.avgLabel, { color: p.textMuted }]}>Average Quality</Text>
-                  <Text style={[styles.avgValue, { color: qualityColor(avgQuality, p) }]}>
+                  <Text style={[styles.avgValue, { color: qualityColor(avgQuality, p, isDark) }]}>
                     {qualityLabel(avgQuality)}
                   </Text>
                 </Animated.View>
@@ -694,7 +694,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
           {/* ── Sleep Insights Card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(400).springify().damping(18)}
-            style={[styles.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+            style={[styles.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
           >
             <Text style={[styles.cardTitle, { color: p.textPrimary }]}>Sleep Insights</Text>
 
@@ -729,7 +729,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
                     <View style={styles.historyBarWrap}>
                       <AnimatedBar
                         percentage={(log.totalMinutes / 600) * 100}
-                        color={qualityColor(log.quality, p)}
+                        color={qualityColor(log.quality, p, isDark)}
                         delay={500 + i * 100}
                         trackColor={isDark ? p.inputBg : "#F1F5F2"}
                       />
@@ -753,7 +753,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
           {/* ── Tips Card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(450).duration(400).springify().damping(18)}
-            style={[styles.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+            style={[styles.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
           >
             <Text style={[styles.cardTitle, { color: p.textPrimary }]}>Sleep Tips</Text>
             {tips.map((tip, i) => (
