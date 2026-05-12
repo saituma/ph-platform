@@ -8,6 +8,7 @@ import {
   getMyProgramFull,
   getMySessionCompletion,
   getMySessionExercises,
+  getMyTeamSessionsAsProgram,
   getProgramAiInsight,
   getProgramByIdForUser,
   getProgramCards,
@@ -71,6 +72,15 @@ export async function getMyProgramFullController(req: Request, res: Response) {
   const program = await getMyProgramFull(req.user!.id, programId);
   if (!program) {
     return res.status(404).json({ error: "Program not found" });
+  }
+  return res.status(200).json({ program });
+}
+
+export async function getMyTeamSessionsController(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const program = await getMyTeamSessionsAsProgram(req.user!.id, teamId);
+  if (!program) {
+    return res.status(404).json({ error: "Team sessions not found." });
   }
   return res.status(200).json({ program });
 }

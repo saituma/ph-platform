@@ -119,36 +119,45 @@ export async function updateProgramTemplate(input: {
 }
 
 export async function deleteProgramTemplate(programId: number) {
-  const modules = await db
-    .select({ id: programModuleTable.id })
-    .from(programModuleTable)
-    .where(eq(programModuleTable.programId, programId));
+  return await db.transaction(async (tx) => {
+    const modules = await tx
+      .select({ id: programModuleTable.id })
+      .from(programModuleTable)
+      .where(eq(programModuleTable.programId, programId));
 
-  const sessions = await db
-    .select({ id: sessionTable.id })
-    .from(sessionTable)
-    .where(eq(sessionTable.programId, programId));
+    const moduleIds = modules.map((m) => m.id);
 
-  if (sessions.length > 0) {
-    const sessionIds = sessions.map((s) => s.id);
-    await db.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
-    await db.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
-  }
+    // Collect sessions by programId OR by moduleId (library sessions attached via module copy may have null programId)
+    const sessionFilter = moduleIds.length > 0
+      ? or(eq(sessionTable.programId, programId), inArray(sessionTable.moduleId, moduleIds))
+      : eq(sessionTable.programId, programId);
 
-  if (modules.length > 0) {
-    await db.delete(programModuleTable).where(eq(programModuleTable.programId, programId));
-  }
+    const sessions = await tx
+      .select({ id: sessionTable.id })
+      .from(sessionTable)
+      .where(sessionFilter);
 
-  try {
-    await db.delete(programAssignmentTable).where(eq(programAssignmentTable.programId, programId));
-  } catch {}
+    if (sessions.length > 0) {
+      const sessionIds = sessions.map((s) => s.id);
+      await tx.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
+      await tx.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
+    }
 
-  try {
-    await db.delete(enrollmentTable).where(eq(enrollmentTable.programTemplateId, programId));
-  } catch {}
+    if (moduleIds.length > 0) {
+      await tx.delete(programModuleTable).where(eq(programModuleTable.programId, programId));
+    }
 
-  const result = await db.delete(programTable).where(eq(programTable.id, programId)).returning();
-  return result[0] ?? null;
+    try {
+      await tx.delete(programAssignmentTable).where(eq(programAssignmentTable.programId, programId));
+    } catch {}
+
+    try {
+      await tx.delete(enrollmentTable).where(eq(enrollmentTable.programTemplateId, programId));
+    } catch {}
+
+    const result = await tx.delete(programTable).where(eq(programTable.id, programId)).returning();
+    return result[0] ?? null;
+  });
 }
 
 export async function createExercise(input: {

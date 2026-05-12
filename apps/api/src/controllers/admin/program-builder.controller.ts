@@ -343,6 +343,7 @@ export async function copySessionToTeam(req: Request, res: Response) {
   const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
   try {
     const session = await ProgramBuilderService.copySessionToTeam(sessionId, teamId);
+    broadcastProgramChanged();
     return res.status(201).json({ session });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";
@@ -355,6 +356,7 @@ export async function deleteTeamSession(req: Request, res: Response) {
   const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
   const session = await ProgramBuilderService.deleteSession(sessionId);
   if (!session) return res.status(404).json({ error: "Session not found." });
+  broadcastProgramChanged();
   return res.status(200).json({ session });
 }
 

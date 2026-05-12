@@ -8,6 +8,8 @@ export type AssignedProgram = {
   description: string | null;
   moduleCount: number;
   status: string;
+  kind?: "program" | "team";
+  teamId?: number;
 };
 
 export type ProgramModule = {
@@ -129,10 +131,10 @@ export function useMyProgramDetail(token: string | null) {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await apiRequest<{ program?: any }>(
-          `/programs/my-assigned/${programId}`,
-          { token, forceRefresh: force },
-        );
+        const path = programId < 0
+          ? `/programs/my-assigned/team/${-programId}`
+          : `/programs/my-assigned/${programId}`;
+        const res = await apiRequest<{ program?: any }>(path, { token, forceRefresh: force });
         setProgram(res.program ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load program.");

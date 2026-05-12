@@ -87,9 +87,10 @@ export async function fetchMyAssignedPrograms(_token?: string): Promise<Assigned
 }
 
 export async function fetchMyProgramFull(_token: string, programId: number) {
-  const response = await fetch(`/api/programs/my-assigned/${programId}`, {
-    credentials: "include",
-  });
+  const path = programId < 0
+    ? `/api/programs/my-assigned/team/${-programId}`
+    : `/api/programs/my-assigned/${programId}`;
+  const response = await fetch(path, { credentials: "include" });
   if (!response.ok) {
     throw new Error(`Failed to fetch program: ${response.status}`);
   }

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -11,6 +11,7 @@ import {
   programTable,
   sessionExerciseTable,
   sessionTable,
+  teamTable,
   videoUploadTable,
 } from "../db/schema";
 import { calculateAge, clampYouthAge, normalizeDate } from "../lib/age";
@@ -127,29 +128,70 @@ export async function getMyAssignedPrograms(userId: number) {
     .from(programAssignmentTable)
     .where(eq(programAssignmentTable.athleteId, athlete.id));
 
-  if (assignments.length === 0) return [];
-
   const programIds = assignments.map((a) => a.programId);
-  const programs = await db
-    .select({
-      id: programTable.id,
-      name: programTable.name,
-      description: programTable.description,
-      moduleCount: count(programModuleTable.id),
-    })
-    .from(programTable)
-    .leftJoin(programModuleTable, eq(programModuleTable.programId, programTable.id))
-    .where(inArray(programTable.id, programIds))
-    .groupBy(programTable.id);
+  const programs = programIds.length > 0
+    ? await db
+        .select({
+          id: programTable.id,
+          name: programTable.name,
+          description: programTable.description,
+          moduleCount: count(programModuleTable.id),
+        })
+        .from(programTable)
+        .leftJoin(programModuleTable, eq(programModuleTable.programId, programTable.id))
+        .where(inArray(programTable.id, programIds))
+        .groupBy(programTable.id)
+    : [];
 
-  return programs.map((p) => {
+  const result: Array<{
+    id: number;
+    name: string;
+    description: string | null;
+    moduleCount: number;
+    status: string;
+    scheduledDate: Date | string | null;
+    kind: "program" | "team";
+    teamId?: number;
+  }> = programs.map((p) => {
     const assignment = assignments.find((a) => a.programId === p.id);
     return {
       ...p,
       status: assignment?.status ?? "active",
       scheduledDate: assignment?.scheduledDate ?? null,
+      kind: "program" as const,
     };
   });
+
+  // Append synthetic "Team Sessions" entry if the athlete is on a team with sessions
+  if (athlete.teamId) {
+    const [teamRow] = await db
+      .select({ id: teamTable.id, name: teamTable.name })
+      .from(teamTable)
+      .where(eq(teamTable.id, athlete.teamId))
+      .limit(1);
+
+    if (teamRow) {
+      const [teamSessionCount] = await db
+        .select({ c: count(sessionTable.id) })
+        .from(sessionTable)
+        .where(eq(sessionTable.teamId, athlete.teamId));
+
+      if ((teamSessionCount?.c ?? 0) > 0) {
+        result.push({
+          id: -athlete.teamId,
+          name: `${teamRow.name} Sessions`,
+          description: "Training sessions from your team coach.",
+          moduleCount: 1,
+          status: "active",
+          scheduledDate: null,
+          kind: "team",
+          teamId: athlete.teamId,
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 export async function getMyProgramFull(userId: number, programId: number) {
@@ -219,6 +261,52 @@ export async function getMyProgramFull(userId: number, programId: number) {
   };
 }
 
+export async function getMyTeamSessionsAsProgram(userId: number, teamId: number) {
+  const athlete = await getAthleteForUser(userId);
+  if (!athlete || athlete.teamId !== teamId) return null;
+
+  const [teamRow] = await db
+    .select({ id: teamTable.id, name: teamTable.name })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+  if (!teamRow) return null;
+
+  const sessions = await db
+    .select({
+      id: sessionTable.id,
+      moduleId: sessionTable.moduleId,
+      weekNumber: sessionTable.weekNumber,
+      sessionNumber: sessionTable.sessionNumber,
+      title: sessionTable.title,
+      description: sessionTable.description,
+      type: sessionTable.type,
+      exerciseCount: count(sessionExerciseTable.id),
+    })
+    .from(sessionTable)
+    .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+    .where(eq(sessionTable.teamId, teamId))
+    .groupBy(sessionTable.id)
+    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+
+  return {
+    id: -teamId,
+    name: `${teamRow.name} Sessions`,
+    description: "Training sessions from your team coach.",
+    kind: "team",
+    modules: [
+      {
+        id: -teamId,
+        title: "Sessions",
+        description: null as string | null,
+        order: 1,
+        sessionCount: sessions.length,
+        sessions,
+      },
+    ],
+  };
+}
+
 export async function getMySessionExercises(userId: number, sessionId: number) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return null;
@@ -226,7 +314,10 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
   const session = await db.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
   if (!session[0]) return null;
 
-  if (session[0].moduleId) {
+  if (session[0].teamId != null) {
+    // Team session — allow if the athlete is on this team
+    if (athlete.teamId !== session[0].teamId) return null;
+  } else if (session[0].moduleId) {
     const [mod] = await db
       .select({ programId: programModuleTable.programId })
       .from(programModuleTable)
@@ -329,7 +420,10 @@ export async function completeMySession(
   const [session] = await db.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
   if (!session) return null;
 
-  if (session.moduleId) {
+  if (session.teamId != null) {
+    // Team session — allow if the athlete is on this team
+    if (athlete.teamId !== session.teamId) return null;
+  } else if (session.moduleId) {
     const [mod] = await db
       .select({ programId: programModuleTable.programId })
       .from(programModuleTable)
