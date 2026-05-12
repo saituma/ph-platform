@@ -485,7 +485,7 @@ export default function ProgressScreen() {
 
   const heroBg = isDark ? "#0A0F00" : "#1A3A1F";
   const heroText = "#FFFFFF";
-  const accentRing = isDark ? "#9EF700" : "#2F9F3D";
+  const accentRing = isDark ? "#2D6A1A" : "#2F9F3D";
   const trackColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.15)";
 
   const openAdd = () => {
@@ -685,13 +685,13 @@ export default function ProgressScreen() {
           <View style={{ flexDirection: "row", gap: BENTO_GAP, marginBottom: BENTO_GAP }}>
             <BentoStat
               icon={<TrendingUp size={16} color="#FFF" />}
-              iconBg={accentRing}
+              iconBg={isDark ? "#1E4A12" : accentRing}
               label="Best Lift"
               value={bestLift ? `${bestLift.weight_kg}` : "—"}
               unit={bestLift ? "kg" : undefined}
-              cardBg={isDark ? "#0F1A00" : "#ECFCCB"}
-              textColor={isDark ? "#D9F99D" : "#166534"}
-              subtextColor={isDark ? "#9EF700" : "#2F9F3D"}
+              cardBg={isDark ? p.inputBg : "#ECFCCB"}
+              textColor={isDark ? p.textPrimary : "#166534"}
+              subtextColor={isDark ? p.textSecondary : "#2F9F3D"}
               delay={100}
             />
             <BentoStat
@@ -737,9 +737,9 @@ export default function ProgressScreen() {
                   label={meta.label}
                   isActive={tab === key}
                   onPress={() => setTab(key)}
-                  activeColor={isDark ? meta.color : "#2C2140"}
+                  activeColor={isDark ? "#1E4A12" : "#2C2140"}
                   inactiveColor={isDark ? p.inputBg : "#F1F5F2"}
-                  activeTextColor={isDark ? "#0C0A09" : "#FFFFFF"}
+                  activeTextColor={isDark ? p.accent : "#FFFFFF"}
                   inactiveTextColor={p.textMuted}
                 />
               );
@@ -749,7 +749,7 @@ export default function ProgressScreen() {
           {/* ── Trend chart card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(350).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: p.textPrimary }}>
@@ -771,7 +771,7 @@ export default function ProgressScreen() {
                         flex: 1,
                         height: h,
                         borderRadius: 6,
-                        backgroundColor: isLast ? TAB_META[tab].color : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
+                        backgroundColor: isLast ? (isDark ? "#2D6A1A" : TAB_META[tab].color) : (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"),
                       }}
                     />
                   );
@@ -789,7 +789,7 @@ export default function ProgressScreen() {
           {/* ── Recent entries card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(450).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
           >
             <Text style={{ fontFamily: fonts.heading3, fontSize: 16, color: p.textPrimary, marginBottom: 14 }}>
               Recent
@@ -898,7 +898,7 @@ export default function ProgressScreen() {
           {/* ── Reminder card ── */}
           <Animated.View
             entering={reduceMotion ? undefined : FadeInDown.delay(550).duration(400).springify().damping(18)}
-            style={[s.card, { backgroundColor: p.cardWhite, shadowColor: p.shadow }]}
+            style={[s.card, { backgroundColor: p.inputBg, shadowColor: p.shadow }]}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1, paddingRight: 12 }}>
@@ -966,7 +966,7 @@ export default function ProgressScreen() {
             bottom: insets.bottom + 16,
             height: 54,
             borderRadius: 100,
-            backgroundColor: accentRing,
+            backgroundColor: isDark ? "#1E4A12" : accentRing,
             alignItems: "center",
             justifyContent: "center",
             flexDirection: "row",
