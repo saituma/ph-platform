@@ -76,7 +76,7 @@ export default function LoginScreen() {
       const login = authBase
         ? await signInWithWorkerAndExchange({
             authBaseUrl: authBase,
-            email: data.email,
+            email: data.email.trim().toLowerCase(),
             password: data.password,
           })
         : await apiRequest<{
@@ -85,7 +85,7 @@ export default function LoginScreen() {
             refreshToken?: string | null;
           }>("/auth/login", {
             method: "POST",
-            body: { email: data.email, password: data.password },
+            body: { email: data.email.trim().toLowerCase(), password: data.password },
           });
 
       const token = login.idToken ?? login.accessToken;

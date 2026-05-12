@@ -247,7 +247,7 @@ export default function ProgramModuleDetailScreen() {
                 borderRadius: 28,
                 paddingHorizontal: 22,
                 paddingVertical: 22,
-                backgroundColor: p.cardMint,
+                backgroundColor: p.inputBg,
               }}
             >
               <View
@@ -409,8 +409,7 @@ export default function ProgramModuleDetailScreen() {
                 ) : (
                   <>
                     {module.sessions.map((session, idx) => {
-                      const SESSION_COLORS = [p.cardSage, p.cardMint, p.cardPeach, p.cardLavender] as const;
-                      const cardBg = session.locked ? p.inputBg : SESSION_COLORS[idx % SESSION_COLORS.length];
+                      const cardBg = p.inputBg;
                       return (
                       <Pressable
                         key={session.id}

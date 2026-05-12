@@ -101,13 +101,13 @@ export function AgeBasedTrainingPanel({
     return "Locked. Complete the previous sessions/modules to unlock this module.";
   };
 
-  const MODULE_COLORS = [p.cardSage, p.cardMint, p.cardPeach, p.cardLavender] as const;
+  const MODULE_COLORS = [p.inputBg, p.inputBg, p.inputBg, p.inputBg] as const;
 
   if (activeTab === "Modules") {
     return (
       <View style={{ gap: 14 }}>
         {modules.map((module, idx) => {
-          const cardBg = module.locked ? p.inputBg : MODULE_COLORS[idx % MODULE_COLORS.length];
+          const cardBg = p.inputBg;
           return (
           <Pressable
             key={module.id}
@@ -198,7 +198,7 @@ export function AgeBasedTrainingPanel({
   return (
     <View style={{ gap: 14 }}>
       {(group?.items ?? []).map((item, idx) => {
-        const cardBg = MODULE_COLORS[idx % MODULE_COLORS.length];
+        const cardBg = p.inputBg;
         return (
         <Pressable
           key={item.id}

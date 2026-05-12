@@ -165,7 +165,7 @@ function ProgramDetailPanelBase({
       <View
         className="rounded-[32px] bg-card px-6 py-8 gap-5 border"
         style={{
-          backgroundColor: p.cardWhite,
+          backgroundColor: p.inputBg,
           borderColor: p.divider,
         }}
       >
@@ -218,7 +218,7 @@ function ProgramDetailPanelBase({
             key={`program-training-skeleton-${index}`}
             className="rounded-[28px] border px-5 py-5"
             style={{
-              backgroundColor: p.cardWhite,
+              backgroundColor: p.inputBg,
               borderColor: p.divider,
             }}
           >
@@ -241,7 +241,7 @@ function ProgramDetailPanelBase({
     >
       <View
         style={{
-          backgroundColor: p.cardWhite,
+          backgroundColor: p.inputBg,
           zIndex: 10,
           paddingTop: insets.top,
         }}
@@ -298,7 +298,7 @@ function ProgramDetailPanelBase({
               <View
                 className="rounded-[24px] border px-5 py-5"
                 style={{
-                  backgroundColor: p.cardWhite,
+                  backgroundColor: p.inputBg,
                   borderColor: p.divider,
                 }}
               >
@@ -330,7 +330,7 @@ function ProgramDetailPanelBase({
         <View className="flex-1 justify-end bg-black/60">
           <View
             className="bg-card rounded-t-[32px] p-5 pb-8"
-            style={{ backgroundColor: p.cardWhite }}
+            style={{ backgroundColor: p.inputBg }}
           >
             <View className="flex-row justify-between mb-4">
               <Text className="text-xl font-clash font-bold text-app">
