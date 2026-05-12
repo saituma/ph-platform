@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { buildOgMeta } from "../lib/seo";
 import { motion } from "framer-motion";
-import { Mail, MapPin, Phone, Instagram, Send } from "lucide-react";
+import { Mail, MapPin, Phone, Instagram, Globe, Send } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -75,6 +75,12 @@ const CONTACT_INFO = [
 		label: "Instagram",
 		value: "@ph.perform",
 		href: "https://instagram.com/ph.perform",
+	},
+	{
+		icon: Globe,
+		label: "Website",
+		value: "phperformance.uk",
+		href: "https://phperformance.uk",
 	},
 ];
 
