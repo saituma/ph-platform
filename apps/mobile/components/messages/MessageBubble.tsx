@@ -494,19 +494,7 @@ function MessageBubbleComponent({
 										))}
 
 									<View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 4, marginTop: 6 }}>
-										{onOpenReactionPicker && (
-											<Pressable
-												onPress={() => onOpenReactionPicker(message)}
-												style={{ marginRight: "auto", height: 20, width: 20, alignItems: "center", justifyContent: "center", borderRadius: 10 }}
-											>
-												<Ionicons
-													name="add-outline"
-													size={14}
-													color={colors.textDim}
-												/>
-											</Pressable>
-										)}
-										{message.pinnedAt && (
+											{message.pinnedAt && (
 											<Ionicons name="pin" size={10} color={metaColor} />
 										)}
 										<Text
