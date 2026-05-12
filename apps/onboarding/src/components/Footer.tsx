@@ -69,7 +69,7 @@ export default function Footer() {
 					{/* Social */}
 					<div className="flex items-center gap-3">
 						<a
-							href="https://instagram.com"
+							href="https://instagram.com/ph.perform"
 							target="_blank"
 							rel="noreferrer"
 							className="text-white/25 hover:text-white/50 transition-colors"

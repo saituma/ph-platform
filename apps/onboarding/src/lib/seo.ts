@@ -1,7 +1,7 @@
 const SITE_URL = "https://phperformance.uk";
 const DEFAULT_IMAGE = `${SITE_URL}/og-preview.png`;
 const SITE_NAME = "PH Performance";
-const TWITTER_HANDLE = "@phperformance";
+const TWITTER_HANDLE = "@ph.perform";
 
 interface OgMetaOptions {
   title: string;

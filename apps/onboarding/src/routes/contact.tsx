@@ -61,8 +61,8 @@ const CONTACT_INFO = [
 	{
 		icon: Phone,
 		label: "Phone",
-		value: "+44 7000 000000",
-		href: "tel:+447000000000",
+		value: "+44 7508 563020",
+		href: "tel:+447508563020",
 	},
 	{
 		icon: MapPin,
@@ -73,8 +73,8 @@ const CONTACT_INFO = [
 	{
 		icon: Instagram,
 		label: "Instagram",
-		value: "@phperformance",
-		href: "https://instagram.com/phperformance",
+		value: "@ph.perform",
+		href: "https://instagram.com/ph.perform",
 	},
 ];
 
