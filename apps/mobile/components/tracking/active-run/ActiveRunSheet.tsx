@@ -36,6 +36,7 @@ export function ActiveRunSheet({
   onToggleAutoPause,
   audioCuesEnabled,
   onToggleAudioCues,
+  hasTeam = false,
 }: {
   index: ActiveRunSheetIndex;
   setIndex: (index: ActiveRunSheetIndex) => void;
@@ -47,6 +48,7 @@ export function ActiveRunSheet({
   onShareLiveLocation: () => void;
   onShareRouteTrail: () => void;
   onFinishRun: () => void;
+  hasTeam?: boolean;
   onIndexChange?: (index: ActiveRunSheetIndex) => void;
   autoPauseEnabled: boolean;
   onToggleAutoPause: () => void;
@@ -183,47 +185,51 @@ export function ActiveRunSheet({
                 gap: 0,
               }}
             >
-              <ToggleRow
-                icon={shareCurrentLocation ? "share-social" : "share-social-outline"}
-                title="Share live location"
-                subtitle="Let teammates see you on the map"
-                value={shareCurrentLocation}
-                onToggle={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onShareLiveLocation();
-                }}
-                isDark={isDark}
-                accent={colors.accent}
-              />
+              {hasTeam ? (
+                <>
+                  <ToggleRow
+                    icon={shareCurrentLocation ? "share-social" : "share-social-outline"}
+                    title="Share live location"
+                    subtitle="Let teammates see you on the map"
+                    value={shareCurrentLocation}
+                    onToggle={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onShareLiveLocation();
+                    }}
+                    isDark={isDark}
+                    accent={colors.accent}
+                  />
 
-              <View
-                style={{
-                  height: 1,
-                  backgroundColor: cardBorder,
-                  marginHorizontal: 12,
-                }}
-              />
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: cardBorder,
+                      marginHorizontal: 12,
+                    }}
+                  />
 
-              <ToggleRow
-                icon={shareRouteTrail ? "trail-sign" : "trail-sign-outline"}
-                title="Share route trail"
-                subtitle="Show your GPS path to teammates"
-                value={shareRouteTrail}
-                onToggle={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onShareRouteTrail();
-                }}
-                isDark={isDark}
-                accent={colors.accent}
-              />
+                  <ToggleRow
+                    icon={shareRouteTrail ? "trail-sign" : "trail-sign-outline"}
+                    title="Share route trail"
+                    subtitle="Show your GPS path to teammates"
+                    value={shareRouteTrail}
+                    onToggle={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onShareRouteTrail();
+                    }}
+                    isDark={isDark}
+                    accent={colors.accent}
+                  />
 
-              <View
-                style={{
-                  height: 1,
-                  backgroundColor: cardBorder,
-                  marginHorizontal: 12,
-                }}
-              />
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: cardBorder,
+                      marginHorizontal: 12,
+                    }}
+                  />
+                </>
+              ) : null}
 
               <ToggleRow
                 icon={trackLaps ? "repeat" : "repeat-outline"}

@@ -48,7 +48,7 @@ export default function TeamLeaderboardScreen() {
 
   const load = useCallback(
     async (force = false) => {
-      if (!token) return;
+      if (!token) { setLoading(false); return; }
       try {
         const res = await fetchLeaderboard(token, {
           windowDays,

@@ -44,6 +44,7 @@ import {
   getAudioCuesDefault,
   setAutoPauseDefault,
   setAudioCuesDefault,
+  getBackgroundLocationAllowed,
 } from "@/lib/runTrackingPreferences";
 import type { TrackingMapStyle } from "@/components/tracking/trackingMapLayers";
 import { ActiveRunSheet, type ActiveRunSheetIndex } from "@/components/tracking/active-run/ActiveRunSheet";
@@ -63,6 +64,7 @@ export default function ActiveRunScreen() {
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
+  const hasTeam = useAppSelector((s) => !!(s.user.authTeamMembership?.teamId));
   const hasStartedRef = React.useRef(false);
   const trackingActiveRef = React.useRef(false);
   const status = useRunStore((s) => s.status);
@@ -74,6 +76,7 @@ export default function ActiveRunScreen() {
   const resetRun = useRunStore((s) => s.resetRun);
   const setDestination = useRunStore((s) => s.setDestination);
 
+  const [bgLocationAllowed, setBgLocationAllowed] = useState(true);
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
     useState(false);
   const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
@@ -175,14 +178,16 @@ export default function ActiveRunScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [bg, osrm, ap, ac] = await Promise.all([
+      const [bg, osrm, ap, ac, allowed] = await Promise.all([
         getRunBackgroundTrackingDefault(),
         getOsrmRoutingDefault(),
         getAutoPauseDefault(),
         getAudioCuesDefault(),
+        getBackgroundLocationAllowed(),
       ]);
       if (!active) return;
-      setBackgroundTrackingEnabled(bg);
+      setBgLocationAllowed(allowed);
+      setBackgroundTrackingEnabled(allowed && bg);
       setOsrmRoutingEnabled(osrm);
       setAutoPauseEnabled(ap);
       setAudioCuesEnabled(ac);
@@ -248,7 +253,7 @@ export default function ActiveRunScreen() {
         avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
         avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
         calories: estimateCalories(finalDistance),
-        coordinates: JSON.stringify(finalCoords),
+        coordinates: JSON.stringify(finalCoords ?? []),
         effort_level: EFFORT_PENDING_FEEDBACK,
         feel_tags: "[]",
         notes: "",
@@ -589,6 +594,7 @@ export default function ActiveRunScreen() {
           }}
           onFinishRun={handleFinishRun}
           onIndexChange={(i) => setSheetIndex(i)}
+          hasTeam={hasTeam}
           autoPauseEnabled={autoPauseEnabled}
           onToggleAutoPause={() => {
             const next = !autoPauseEnabled;

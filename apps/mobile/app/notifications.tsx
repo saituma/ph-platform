@@ -265,6 +265,9 @@ export default function NotificationsScreen() {
                                 markRead(item.id);
                               }
                             });
+                            if (group.link) {
+                              router.navigate(group.link as any);
+                            }
                           }}
                           style={({ pressed }) => ({
                             opacity: pressed ? 0.9 : 1,

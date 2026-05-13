@@ -129,7 +129,7 @@ const createItemSchema = z.object({
   sessionId: z.number().int().min(1),
   blockType: z.enum(trainingSessionBlockType.enumValues),
   title: z.string().min(1).max(255),
-  body: z.string().min(1),
+  body: z.string(),
   videoUrl: z.string().optional().nullable(),
   allowVideoUpload: z.boolean().optional().nullable(),
   metadata: metadataSchema,
@@ -139,7 +139,7 @@ const createItemSchema = z.object({
 const updateItemSchema = z.object({
   blockType: z.enum(trainingSessionBlockType.enumValues),
   title: z.string().min(1).max(255),
-  body: z.string().min(1),
+  body: z.string(),
   videoUrl: z.string().optional().nullable(),
   allowVideoUpload: z.boolean().optional().nullable(),
   metadata: metadataSchema,

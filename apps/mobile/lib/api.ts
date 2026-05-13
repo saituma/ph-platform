@@ -207,7 +207,9 @@ export async function apiRequest<T>(
     Boolean(resolvedToken) &&
     !options.skipAuthRefresh &&
     normalizedPath !== "/auth/refresh";
+  let refreshWasAttempted = false;
   if (shouldTryRefresh) {
+    refreshWasAttempted = true;
     try {
       const refreshedToken = await refreshAccessToken();
       if (refreshedToken) {
@@ -224,11 +226,18 @@ export async function apiRequest<T>(
 
   const payload = parseJsonSafe(text);
   if (!res.ok) {
+    // Only clear credentials if this is a definitive 401 — i.e. we either
+    // didn't attempt a refresh, or the refresh produced a new token and the
+    // retried request still came back 401 (truly revoked session).
+    // If refresh was attempted but returned null (network failure / server
+    // down), keep the session alive so the user isn't logged out offline.
+    const refreshRetryAlsoFailed = refreshWasAttempted && res.status === 401;
     const shouldInvalidateSession =
       res.status === 401 &&
       !options.skipAuthRefresh &&
       normalizedPath !== "/auth/login" &&
-      !options.skipSessionInvalidateOn401;
+      !options.skipSessionInvalidateOn401 &&
+      (!refreshWasAttempted || refreshRetryAlsoFailed);
     if (shouldInvalidateSession) {
       void clearCredentials();
     }

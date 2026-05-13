@@ -277,6 +277,7 @@ function RootLayout() {
                   }
             }
           />
+          <Stack.Screen name="change-password" options={{ headerShown: false }} />
           <Stack.Screen name="qr-scan" options={{ headerShown: false, presentation: "fullScreenModal" }} />
           <Stack.Screen name="active-run" options={{ headerShown: false }} />
           <Stack.Screen name="sleep" options={{ headerShown: false }} />

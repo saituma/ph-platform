@@ -126,7 +126,7 @@ export default function PrivacySecurityScreen() {
         </View>
 
         {/* Change Password card */}
-        <Pressable onPress={() => router.navigate("/(auth)/change-password")} style={{ marginBottom: 24 }}>
+        <Pressable onPress={() => router.navigate("/change-password")} style={{ marginBottom: 24 }}>
           <View
             style={{
               height: 56,

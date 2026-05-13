@@ -41,6 +41,7 @@ import {
 } from "@/hooks/programs/useMyPrograms";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useStreakStore } from "@/lib/streakStore";
+import { apiRequest } from "@/lib/api";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import type { SelectedVideo } from "@/types/video-upload";
@@ -92,6 +93,7 @@ export default function AssignedSessionDetailScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionFinished, setSessionFinished] = useState(false);
+  const [sessionAlreadyCompleted, setSessionAlreadyCompleted] = useState(false);
   const [finishNextLabel, setFinishNextLabel] = useState<string | null>(null);
   const [activeVideoId, setActiveVideoId] = useState<number | null>(null);
   const [recorderVisible, setRecorderVisible] = useState(false);
@@ -219,6 +221,16 @@ export default function AssignedSessionDetailScreen() {
   useEffect(() => {
     if (sessionIdNum) loadExercises(sessionIdNum);
   }, [sessionIdNum]);
+
+  useEffect(() => {
+    if (!sessionIdNum || !token) return;
+    apiRequest<{ completion: { completedAt: string | null } | null }>(
+      `/programs/my-sessions/${sessionIdNum}/completion`,
+      { token },
+    ).then((res) => {
+      if (res?.completion?.completedAt) setSessionAlreadyCompleted(true);
+    }).catch(() => {});
+  }, [sessionIdNum, token]);
 
   const handleRefresh = useCallback(async () => {
     if (!sessionIdNum) return;
@@ -395,10 +407,14 @@ export default function AssignedSessionDetailScreen() {
               pointerEvents="none"
             />
             <Pressable
-              onPress={sessionFinished ? () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/programs" as any)) : handleFinish}
+              onPress={
+                sessionFinished || sessionAlreadyCompleted
+                  ? () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/programs" as any))
+                  : handleFinish
+              }
               disabled={isCompleting}
               style={({ pressed }) => ({
-                backgroundColor: sessionFinished ? "#22c55e" : p.accent,
+                backgroundColor: sessionFinished || sessionAlreadyCompleted ? "#22c55e" : p.accent,
                 borderRadius: 100,
                 paddingVertical: 15,
                 alignItems: "center",
@@ -411,11 +427,11 @@ export default function AssignedSessionDetailScreen() {
             >
               {isCompleting ? (
                 <ActivityIndicator size="small" color={p.buttonPrimaryText} />
-              ) : sessionFinished ? (
+              ) : sessionFinished || sessionAlreadyCompleted ? (
                 <>
                   <CheckCircle size={20} color="#fff" />
                   <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: "#fff", letterSpacing: -0.2 }}>
-                    Session Finished
+                    Session Completed
                   </Text>
                 </>
               ) : (

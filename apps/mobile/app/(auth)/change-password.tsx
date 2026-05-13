@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Lock, Shield, Eye, EyeOff } from "lucide-react-native";
 import { useAdminPastel } from "../../components/admin/AdminUI";
@@ -74,7 +74,8 @@ export default function ChangePasswordScreen() {
         </Pressable>
       </View>
 
-      <KeyboardAwareScrollView
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
@@ -82,7 +83,7 @@ export default function ChangePasswordScreen() {
           paddingBottom: 32,
         }}
         keyboardShouldPersistTaps="handled"
-        enableOnAndroid
+        keyboardDismissMode="interactive"
       >
         <View style={{ marginBottom: 28, gap: 10 }}>
           <Text style={{ fontFamily: "Outfit-Bold", fontSize: 34, lineHeight: 38, letterSpacing: -0.7, color: p.textPrimary }}>
@@ -222,7 +223,8 @@ export default function ChangePasswordScreen() {
             {isSubmitting ? "Updating..." : "Update Password"}
           </Text>
         </Pressable>
-      </KeyboardAwareScrollView>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

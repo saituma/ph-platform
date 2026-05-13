@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,8 @@ import {
   View,
   Linking,
 } from "react-native";
+import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
+import { CheckCircle } from "lucide-react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, X } from "lucide-react-native";
@@ -130,6 +132,12 @@ export default function ProgramSessionDetailScreen() {
   const [rpeText, setRpeText] = useState("");
   const [finishError, setFinishError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [sessionFinished, setSessionFinished] = useState(false);
+  const [sessionAlreadyCompleted, setSessionAlreadyCompleted] = useState(false);
+
+  useEffect(() => {
+    if (session?.completed && !sessionFinished) setSessionAlreadyCompleted(true);
+  }, [session?.completed]);
 
   const [pendingBySectionId, setPendingBySectionId] = useState<
     Record<number, PendingSessionVideo | undefined>
@@ -599,10 +607,10 @@ export default function ProgramSessionDetailScreen() {
           ? " Next workout or module is unlocked."
           : "";
         await scheduleLocalNotification({
-          title: hasWorkoutLog ? "Workout logged" : "Session completed",
+          title: hasWorkoutLog ? "Workout logged" : "Session finished",
           body: hasWorkoutLog
             ? `Your log for ${sessionTitle} was saved.${unlockHint}`
-            : `${sessionTitle} is marked complete.${unlockHint}`,
+            : `${sessionTitle} is finished.${unlockHint}`,
           data: {
             type: hasWorkoutLog ? "workout-log-saved" : "session-complete",
             screen: "programs",
@@ -612,12 +620,15 @@ export default function ProgramSessionDetailScreen() {
         });
         const path = nextPath;
         setWorkoutSheetOpen(false);
-        if (path) {
-          const separator = path.includes("?") ? "&" : "?";
-          router.replace(`${path}${separator}backToModule=1` as any);
-        } else {
-          router.replace(moduleHref as any);
-        }
+        setSessionFinished(true);
+        setTimeout(() => {
+          if (path) {
+            const separator = path.includes("?") ? "&" : "?";
+            router.replace(`${path}${separator}backToModule=1` as any);
+          } else {
+            router.replace(moduleHref as any);
+          }
+        }, 1800);
       } catch (e) {
         const message =
           e instanceof Error ? e.message : "Failed to complete session.";
@@ -772,6 +783,7 @@ export default function ProgramSessionDetailScreen() {
             onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
+            sessionCompleted={sessionAlreadyCompleted}
           />
           <SessionExerciseBlock
             title="Main Session"
@@ -790,6 +802,7 @@ export default function ProgramSessionDetailScreen() {
             onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
+            sessionCompleted={sessionAlreadyCompleted}
           />
           <SessionExerciseBlock
             title="Cooldown"
@@ -808,6 +821,7 @@ export default function ProgramSessionDetailScreen() {
             onPendingSend={handlePendingSend}
             completionAnchorItemId={completionAnchorItemId}
             onCompleteSession={handleCompleteSession}
+            sessionCompleted={sessionAlreadyCompleted}
           />
         </View>
       </ThemedScrollView>
@@ -1059,7 +1073,7 @@ export default function ProgramSessionDetailScreen() {
                         color: p.buttonPrimaryText,
                       }}
                     >
-                      Save & Complete
+                      Save & Finish Session
                     </Text>
                   </Pressable>
 
@@ -1089,7 +1103,7 @@ export default function ProgramSessionDetailScreen() {
                         color: p.textSecondary,
                       }}
                     >
-                      Complete without logging
+                      Finish without logging
                     </Text>
                   </Pressable>
 
@@ -1128,6 +1142,36 @@ export default function ProgramSessionDetailScreen() {
           void handleBuiltinCameraRecorded(asset);
         }}
       />
+
+      {sessionFinished && (
+        <Animated.View
+          entering={FadeIn.duration(250)}
+          style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.85)",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+          }}
+        >
+          <Animated.View entering={ZoomIn.springify().damping(12)} style={{ alignItems: "center" }}>
+            <View style={{
+              width: 96, height: 96, borderRadius: 48,
+              backgroundColor: "rgba(34,197,94,0.15)",
+              alignItems: "center", justifyContent: "center", marginBottom: 20,
+            }}>
+              <CheckCircle size={52} color="#22c55e" strokeWidth={1.8} />
+            </View>
+            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: "#22c55e", letterSpacing: -0.5 }}>
+              Session Finished!
+            </Text>
+            <Text style={{ fontSize: 15, fontFamily: "Satoshi-Regular", color: "rgba(255,255,255,0.6)", marginTop: 8, textAlign: "center" }}>
+              Great work!
+            </Text>
+          </Animated.View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }

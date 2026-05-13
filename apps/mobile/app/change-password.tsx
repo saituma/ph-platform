@@ -1,27 +1,64 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Platform, Pressable, ScrollView, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Shield, Lock, Eye, EyeOff } from "lucide-react-native";
-import { useAdminPastel } from "../../components/admin/AdminUI";
-import { apiRequest } from "../../lib/api";
-import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
-import { Text, TextInput } from "../../components/ScaledText";
+import { ArrowLeft, Lock, Shield, Eye, EyeOff } from "lucide-react-native";
+import { useAdminPastel } from "@/components/admin/AdminUI";
+import { apiRequest } from "@/lib/api";
+import { getFriendlyAuthErrorMessage } from "@/lib/auth-error-message";
+import { useAppSelector } from "@/store/hooks";
+import { Text, TextInput } from "@/components/ScaledText";
+import { useAppToast } from "@/hooks/useAppToast";
 
-export default function ResetPasswordScreen() {
-  const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
+export default function ChangePasswordScreen() {
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
   const p = useAdminPastel();
-  const { email } = useLocalSearchParams<{ email?: string }>();
-  const normalizedCode = code.replace(/\D/g, "").slice(0, 6);
+  const { token } = useAppSelector((state) => state.user);
+  const toast = useAppToast();
+
+  const handleSubmit = async () => {
+    setFormError(null);
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setFormError("All fields are required");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setFormError("New password must be at least 8 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setFormError("Passwords do not match");
+      return;
+    }
+    if (oldPassword === newPassword) {
+      setFormError("New password cannot be the same as the old password");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiRequest("/auth/change-password", {
+        method: "POST",
+        token,
+        body: { oldPassword, newPassword },
+      });
+      toast.success("Success", "Your password has been changed successfully.");
+      setTimeout(() => router.back(), 600);
+    } catch (err: any) {
+      setFormError(getFriendlyAuthErrorMessage(err, "change-password"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -36,7 +73,6 @@ export default function ResetPasswordScreen() {
         </Pressable>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -49,10 +85,10 @@ export default function ResetPasswordScreen() {
       >
         <View style={{ marginBottom: 28, gap: 10 }}>
           <Text style={{ fontFamily: "Outfit-Bold", fontSize: 34, lineHeight: 38, letterSpacing: -0.7, color: p.textPrimary }}>
-            Reset Password
+            Change Password
           </Text>
           <Text style={{ fontFamily: "Outfit-Regular", fontSize: 16, lineHeight: 24, color: p.textMuted, maxWidth: 340 }}>
-            Your identity has been verified. Set your new password.
+            Keep your account secure by updating your password regularly.
           </Text>
         </View>
 
@@ -67,47 +103,23 @@ export default function ResetPasswordScreen() {
               height: 56,
             }}
           >
-            <Shield size={20} color={p.textMuted} strokeWidth={2} />
-            <TextInput
-              accessibilityRole="text"
-              accessibilityLabel="Verification Code"
-              style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
-              placeholder="Verification Code"
-              placeholderTextColor={p.textMuted}
-              keyboardType="number-pad"
-              value={normalizedCode}
-              onChangeText={(value) => setCode(value.replace(/\D/g, "").slice(0, 6))}
-              maxLength={6}
-            />
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: p.inputBg,
-              borderRadius: 22,
-              paddingHorizontal: 16,
-              height: 56,
-            }}
-          >
             <Lock size={20} color={p.textMuted} strokeWidth={2} />
             <TextInput
               accessibilityRole="text"
-              accessibilityLabel="New Password"
+              accessibilityLabel="Current Password"
               style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
-              placeholder="New Password"
+              placeholder="Current Password"
               placeholderTextColor={p.textMuted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
+              value={oldPassword}
+              onChangeText={setOldPassword}
+              secureTextEntry={!showOldPassword}
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-              onPress={() => setShowPassword(!showPassword)}
+              accessibilityLabel={showOldPassword ? "Hide current password" : "Show current password"}
+              onPress={() => setShowOldPassword(!showOldPassword)}
             >
-              {showPassword ? (
+              {showOldPassword ? (
                 <Eye size={20} color={p.textMuted} strokeWidth={2} />
               ) : (
                 <EyeOff size={20} color={p.textMuted} strokeWidth={2} />
@@ -125,7 +137,41 @@ export default function ResetPasswordScreen() {
               height: 56,
             }}
           >
-            <Lock size={20} color={p.textMuted} strokeWidth={2} />
+            <Shield size={20} color={p.textMuted} strokeWidth={2} />
+            <TextInput
+              accessibilityRole="text"
+              accessibilityLabel="New Password"
+              style={{ flex: 1, marginLeft: 12, fontFamily: "Outfit-Regular", fontSize: 16, color: p.textPrimary }}
+              placeholder="New Password"
+              placeholderTextColor={p.textMuted}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry={!showNewPassword}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showNewPassword ? "Hide new password" : "Show new password"}
+              onPress={() => setShowNewPassword(!showNewPassword)}
+            >
+              {showNewPassword ? (
+                <Eye size={20} color={p.textMuted} strokeWidth={2} />
+              ) : (
+                <EyeOff size={20} color={p.textMuted} strokeWidth={2} />
+              )}
+            </Pressable>
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: p.inputBg,
+              borderRadius: 22,
+              paddingHorizontal: 16,
+              height: 56,
+            }}
+          >
+            <Shield size={20} color={p.textMuted} strokeWidth={2} />
             <TextInput
               accessibilityRole="text"
               accessibilityLabel="Confirm New Password"
@@ -151,42 +197,16 @@ export default function ResetPasswordScreen() {
         </View>
 
         {formError ? (
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: "#E53935", marginBottom: 16 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: "#E53935", textAlign: "center", marginBottom: 16 }}>
             {formError}
           </Text>
         ) : null}
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isSubmitting ? "Resetting" : "Reset Password"}
+          accessibilityLabel={isSubmitting ? "Updating" : "Update Password"}
           accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
-          onPress={async () => {
-            setFormError(null);
-            if (!email) {
-              setFormError("Missing email address");
-              return;
-            }
-            if (normalizedCode.length !== 6) {
-              setFormError("Please enter the 6-digit verification code.");
-              return;
-            }
-            if (!password || password !== confirmPassword) {
-              setFormError("Passwords do not match");
-              return;
-            }
-            setIsSubmitting(true);
-            try {
-              await apiRequest("/auth/forgot/confirm", {
-                method: "POST",
-                body: { email, code: normalizedCode, password },
-              });
-              router.replace("/(auth)/login");
-            } catch (err: any) {
-              setFormError(getFriendlyAuthErrorMessage(err, "reset-password"));
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
+          onPress={handleSubmit}
           style={{
             backgroundColor: p.accent,
             height: 56,
@@ -198,11 +218,10 @@ export default function ResetPasswordScreen() {
           disabled={isSubmitting}
         >
           <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: p.buttonPrimaryText }}>
-            {isSubmitting ? "Resetting..." : "Reset Password"}
+            {isSubmitting ? "Updating..." : "Update Password"}
           </Text>
         </Pressable>
       </ScrollView>
-      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

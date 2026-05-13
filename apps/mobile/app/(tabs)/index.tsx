@@ -53,7 +53,6 @@ import { scheduleStreakReminder } from "@/lib/streakReminder";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
-import { useAppToast } from "@/hooks/useAppToast";
 import { apiRequest } from "@/lib/api";
 import {
   Play,
@@ -224,6 +223,65 @@ function StatCard({
   );
 }
 
+function StreakIndicator({
+  streak,
+  freezesAvailable,
+  reduceMotion,
+  onPress,
+}: {
+  streak: number;
+  freezesAvailable: number;
+  reduceMotion: boolean | null;
+  onPress: () => void;
+}) {
+  const active = streak > 0;
+  const flameScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (active && !reduceMotion) {
+      flameScale.value = withRepeat(
+        withSequence(
+          withTiming(1.15, { duration: 900 }),
+          withTiming(1, { duration: 900 }),
+        ),
+        -1,
+        true,
+      );
+    } else {
+      flameScale.value = withTiming(1, { duration: 200 });
+    }
+  }, [active, reduceMotion]);
+
+  const flameStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: flameScale.value }],
+  }));
+
+  const flameColor = active ? "#FF9500" : "rgba(255,255,255,0.28)";
+
+  return (
+    <Pressable onPress={onPress} style={s.streakIndicator} hitSlop={10}>
+      <View>
+        <Animated.View style={flameStyle}>
+          <Flame
+            size={26}
+            color={flameColor}
+            fill={active ? "#FF9500" : "none"}
+            strokeWidth={active ? 1 : 1.8}
+          />
+        </Animated.View>
+        {freezesAvailable > 0 && (
+          <View style={s.streakFreezeDot}>
+            <Text style={s.streakFreezeDotText}>{freezesAvailable}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={[s.streakCount, { color: flameColor }]}>
+        {streak}
+      </Text>
+    </Pressable>
+  );
+}
+
 const HomeScreen = memo(function HomeScreen() {
   const p = useAdminPastel();
   const isDark = useColorScheme() === "dark";
@@ -232,7 +290,7 @@ const HomeScreen = memo(function HomeScreen() {
   const router = useRouter();
   const reduceMotion = useReducedMotion();
   const queryClient = useQueryClient();
-  const toast = useAppToast();
+
 
   const token = useAppSelector((s) => s.user.token);
   const profile = useAppSelector((s) => s.user.profile);
@@ -248,8 +306,6 @@ const HomeScreen = memo(function HomeScreen() {
   const watchHistory = useWatchHistoryStore((s) => s.history);
   const runStatus = useRunStore((s) => s.status);
   const isRunActive = runStatus === "running" || runStatus === "paused";
-  const seenAttendanceToastRef = useRef<string | null>(null);
-
   const isLoading = statsQuery.isLoading || !bootstrapReady;
   const homeContentLoading = !homeContent;
   const stats = statsQuery.data;
@@ -317,36 +373,6 @@ const HomeScreen = memo(function HomeScreen() {
     useCallback(() => {
       queryClient.prefetchQuery({ queryKey: queryKeys.home.weeklyStats(userId ?? 0), queryFn: () => getWeeklySummaries(new Date(), userId) });
     }, [queryClient, userId]),
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      const run = async () => {
-        if (!token) return;
-        try {
-          const data = await apiRequest<{
-            item?: {
-              date: string;
-              requiredToday: boolean;
-              completedToday: boolean;
-              message?: string | null;
-            };
-          }>("/attendance/today", { token, skipCache: true, suppressLog: true });
-          const item = data?.item;
-          if (!active || !item) return;
-          const key = `${item.date}:${item.requiredToday}:${item.completedToday}`;
-          if (item.requiredToday && !item.completedToday && seenAttendanceToastRef.current !== key) {
-            toast.info("Attendance reminder", item.message ?? "Today is your set day. Complete a session to mark attendance.");
-            seenAttendanceToastRef.current = key;
-          }
-        } catch {
-          // Non-blocking
-        }
-      };
-      void run();
-      return () => { active = false; };
-    }, [token, toast]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -470,17 +496,14 @@ const HomeScreen = memo(function HomeScreen() {
                 )}
               </View>
               <View style={s.topBarRight}>
-                {streak > 0 && (
-                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)}>
-                    <Pressable style={s.streakBadge} onPress={() => setStreakVisible(true)} hitSlop={8}>
-                      <Flame size={13} color="#FF9500" fill="#FF9500" />
-                      <Text style={s.streakText}>{streak}</Text>
-                      {freezesAvailable > 0 && (
-                        <Text style={s.freezePip}>❄️{freezesAvailable}</Text>
-                      )}
-                    </Pressable>
-                  </Animated.View>
-                )}
+                <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)}>
+                  <StreakIndicator
+                    streak={streak}
+                    freezesAvailable={freezesAvailable}
+                    reduceMotion={reduceMotion}
+                    onPress={() => setStreakVisible(true)}
+                  />
+                </Animated.View>
                 <Pressable onPress={navigateToNotifications} style={[s.bellBtn, {
                   backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)",
                 }]}>
@@ -651,27 +674,36 @@ const s = StyleSheet.create({
     fontFamily: "Outfit-Bold",
     fontSize: 18,
   },
-  streakBadge: {
-    flexDirection: "row",
+  streakIndicator: {
     alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(255,149,0,0.15)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "rgba(255,149,0,0.25)",
+    justifyContent: "center",
+    gap: 1,
+    minWidth: 40,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
-  streakText: {
+  streakCount: {
     fontFamily: "Outfit-Bold",
-    fontSize: 14,
-    color: "#FF9500",
+    fontSize: 13,
+    letterSpacing: -0.3,
+    lineHeight: 14,
   },
-  freezePip: {
+  streakFreezeDot: {
+    position: "absolute",
+    top: 2,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#1A1A1A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  streakFreezeDotText: {
+    fontSize: 8,
     fontFamily: "Outfit-Bold",
-    fontSize: 11,
     color: "#5AC8FA",
-    marginLeft: 2,
+    lineHeight: 10,
   },
   bellBtn: {
     width: 42,

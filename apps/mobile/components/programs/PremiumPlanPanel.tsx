@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, Pressable, ActivityIndicator, Modal, Platform, StyleSheet, Keyboard, TextInput, TouchableOpacity } from "react-native";
+import { View, Pressable, ActivityIndicator, Modal, Platform, StyleSheet, Keyboard, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
@@ -8,7 +8,6 @@ import { Shadows } from "@/constants/theme";
 import { apiRequest } from "@/lib/api";
 import { PlanSession } from "@/types/programs";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 interface Props {
   token: string | null;

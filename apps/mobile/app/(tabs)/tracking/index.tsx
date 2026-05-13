@@ -33,6 +33,11 @@ import {
   initSQLiteRuns,
   RunRecord,
 } from "@/lib/sqliteRuns";
+import {
+  getBackgroundLocationAllowed,
+  setBackgroundLocationAllowed,
+} from "@/lib/runTrackingPreferences";
+import { Switch } from "react-native";
 import { formatDurationClock, formatHoursMinutes } from "@/lib/tracking/runUtils";
 import { useRunStore } from "@/store/useRunStore";
 import { ActiveRunBanner } from "@/components/tracking/ActiveRunBanner";
@@ -78,6 +83,7 @@ import {
   Bell,
   Route,
   Timer,
+  Info,
 } from "lucide-react-native";
 import { useStreakStore } from "@/lib/streakStore";
 
@@ -466,6 +472,10 @@ export default function TrackingHomeScreen() {
           />
           <ActiveRunBanner />
         </View>
+
+        {capabilities?.runTracking !== false && (
+          <BackgroundLocationInfoCard p={p} />
+        )}
 
         <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 14 }}>
 
@@ -1127,6 +1137,112 @@ function LineChart({
         />
       ))}
     </Svg>
+  );
+}
+
+// ── BackgroundLocationInfoCard ────────────────────────────────────────────────
+
+function BackgroundLocationInfoCard({ p }: { p: ReturnType<typeof useAdminPastel> }) {
+  const { isDark } = useAppTheme();
+  const [allowed, setAllowed] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    getBackgroundLocationAllowed()
+      .then((v) => { setAllowed(v); setLoaded(true); })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const toggle = useCallback((next: boolean) => {
+    setAllowed(next);
+    setBackgroundLocationAllowed(next).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  if (!loaded) return null;
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(200).duration(400).springify().damping(18)}
+      style={{ paddingHorizontal: spacing.xl, paddingTop: 12 }}
+    >
+      <View
+        style={{
+          backgroundColor: p.cardWhite,
+          borderRadius: 20,
+          overflow: "hidden",
+        }}
+      >
+        {/* Header row */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14 }}>
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 10,
+              backgroundColor: p.accentSoft,
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Info size={17} color={p.accent} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>
+              Background location
+            </Text>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, lineHeight: 17 }}>
+              Keeps GPS recording when your screen locks or you switch apps, so your full route is captured accurately.
+            </Text>
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={{ height: 1, backgroundColor: p.divider, marginHorizontal: 14 }} />
+
+        {/* Toggle row */}
+        <Pressable
+          onPress={() => toggle(!allowed)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: allowed }}
+          accessibilityLabel="Allow background location"
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 14,
+            paddingVertical: 12,
+            backgroundColor: pressed
+              ? isDark ? "rgba(255,255,255,0.04)" : "rgba(15,23,42,0.03)"
+              : "transparent",
+          })}
+        >
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: allowed ? p.textPrimary : p.textMuted }}>
+            {allowed ? "Enabled" : "Disabled — locked phone won't track"}
+          </Text>
+          <Switch
+            value={allowed}
+            onValueChange={toggle}
+            trackColor={{
+              false: isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)",
+              true: p.accent,
+            }}
+            thumbColor={allowed
+              ? isDark ? "hsl(220,5%,92%)" : "hsl(220,5%,98%)"
+              : isDark ? "hsl(220,5%,75%)" : "hsl(220,5%,96%)"}
+            ios_backgroundColor={isDark ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.14)"}
+          />
+        </Pressable>
+
+        {/* Privacy note */}
+        <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, lineHeight: 16 }}>
+            Location data is stored only on your device. It is never shared with anyone unless you explicitly turn on location sharing during a run.
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
   );
 }
 

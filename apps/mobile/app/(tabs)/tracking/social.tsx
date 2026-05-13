@@ -1263,7 +1263,7 @@ function LeaderboardTab({
         );
       }
       const commentCount = postFeed.filter(
-        (pItem) => pItem.content.startsWith(`[lb:${item.data.userId}] `),
+        (pItem) => pItem.content?.startsWith(`[lb:${item.data.userId}] `) ?? false,
       ).length;
       return (
         <LeaderboardRow

@@ -79,7 +79,7 @@ export default function AdminSessionDetailScreen() {
 
   const session = useMemo(() => {
     if (!workspace) return null;
-    for (const m of workspace.modules) {
+    for (const m of workspace.modules ?? []) {
       const s = m.sessions.find((s) => s.id === sessionId);
       if (s) return s;
     }

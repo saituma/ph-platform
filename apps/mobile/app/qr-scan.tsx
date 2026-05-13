@@ -69,7 +69,6 @@ export default function QRScanScreen() {
       setScanState("scanning");
 
       try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         const { apiRequest } = await import("@/lib/api");
         const response = await apiRequest<{
           ok: boolean;
@@ -84,6 +83,7 @@ export default function QRScanScreen() {
         });
 
         setScanState("success");
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setResult({
           sessionName: response.sessionName,
           message: response.message ?? "Attendance marked successfully",

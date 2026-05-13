@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const KEY_BG_DEFAULT = "ph:run:bg_tracking_default:v1";
+const KEY_BG_ALLOWED = "ph:run:bg_tracking_allowed:v1";
 const KEY_OSRM_DEFAULT = "ph:run:osrm_routing_default:v1";
 const KEY_OSRM_CONSENT = "ph:run:osrm_consent:v1";
 const KEY_AUTO_PAUSE = "ph:run:auto_pause:v1";
@@ -33,6 +34,16 @@ export async function setRunBackgroundTrackingDefault(
   enabled: boolean,
 ): Promise<void> {
   await setBool(KEY_BG_DEFAULT, enabled);
+}
+
+/** User-level opt-out for background location. Defaults to true (allowed). */
+export async function getBackgroundLocationAllowed(): Promise<boolean> {
+  const v = await getBool(KEY_BG_ALLOWED);
+  return v ?? true;
+}
+
+export async function setBackgroundLocationAllowed(allowed: boolean): Promise<void> {
+  await setBool(KEY_BG_ALLOWED, allowed);
 }
 
 export async function getOsrmRoutingDefault(): Promise<boolean> {

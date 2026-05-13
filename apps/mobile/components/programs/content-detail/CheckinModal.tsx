@@ -10,9 +10,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView, ScrollView } from "react-native-keyboard-controller";
 import { Feather } from "@expo/vector-icons";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 
 interface CheckinModalProps {
@@ -70,12 +69,9 @@ export function CheckinModal({
             className="rounded-t-3xl"
             style={{ backgroundColor: p.cardWhite, maxHeight: "88%" }}
           >
-            <KeyboardAwareScrollView
-              enableOnAndroid
-              extraHeight={Platform.OS === "ios" ? 120 : 160}
-              extraScrollHeight={Platform.OS === "ios" ? 40 : 96}
+            <ScrollView
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+              keyboardDismissMode="interactive"
               contentContainerStyle={{
                 paddingHorizontal: 16,
                 paddingTop: 16,
@@ -180,7 +176,7 @@ export function CheckinModal({
                   </Text>
                 </Pressable>
               </View>
-            </KeyboardAwareScrollView>
+            </ScrollView>
           </View>
         </View>
       </KeyboardAvoidingView>

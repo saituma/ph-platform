@@ -183,12 +183,6 @@
         }
       ],
       [
-        "expo-audio",
-        {
-          "microphonePermission": "PH Performance needs microphone access to record training videos with audio."
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "Allow PH Performance to access your photos and videos so you can send them in messages.",

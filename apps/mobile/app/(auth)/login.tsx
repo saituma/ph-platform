@@ -2,8 +2,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Image, Linking, Pressable, StyleSheet, View } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -193,11 +193,15 @@ export default function LoginScreen() {
           </Pressable>
         </View>
 
-        <KeyboardAwareScrollView
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+        <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
-          enableOnAndroid
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
         >
           {/* Logo + Branding */}
           <Animated.View entering={FadeInDown.duration(500).springify().damping(18)} style={styles.brandArea}>
@@ -227,7 +231,7 @@ export default function LoginScreen() {
 
               {/* Fields */}
               <View style={styles.fieldsContainer}>
-                <AuthFieldRow icon="mail" label="Email" error={errors.email?.message}>
+                <AuthFieldRow icon="mail" label="Email" error={errors.email?.message} onDark>
                   <Controller
                     control={control}
                     name="email"
@@ -253,6 +257,7 @@ export default function LoginScreen() {
                   icon="lock"
                   label="Password"
                   error={errors.password?.message}
+                  onDark
                   isLast
                   trailing={
                     <Pressable
@@ -338,7 +343,8 @@ export default function LoginScreen() {
               </View>
             </View>
           </Animated.View>
-        </KeyboardAwareScrollView>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
@@ -413,16 +419,16 @@ const styles = StyleSheet.create({
   fieldsContainer: {
     borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.92)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.30)",
+    borderColor: "rgba(255,255,255,0.12)",
   },
   input: {
     fontFamily: "Outfit-Regular",
     fontSize: 16,
     lineHeight: 22,
     paddingVertical: 0,
-    color: "#2F9F3D",
+    color: "rgba(255,255,255,0.90)",
   },
   forgotText: {
     fontFamily: "Outfit-SemiBold",
