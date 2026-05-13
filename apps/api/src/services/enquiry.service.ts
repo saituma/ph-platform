@@ -14,6 +14,7 @@ export async function createEnquiry(data: EnquiryInsert): Promise<Enquiry> {
 export interface ListEnquiriesParams {
   status?: string;
   service?: string;
+  goal?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -21,7 +22,7 @@ export interface ListEnquiriesParams {
 }
 
 export async function listEnquiries(params: ListEnquiriesParams) {
-  const { status, service, search, page = 1, limit = 50, sort = "newest" } = params;
+  const { status, service, goal, search, page = 1, limit = 50, sort = "newest" } = params;
   const conditions = [];
 
   if (status && status !== "all") {
@@ -29,6 +30,9 @@ export async function listEnquiries(params: ListEnquiriesParams) {
   }
   if (service && service !== "all") {
     conditions.push(eq(enquiryTable.interestedIn, service as any));
+  }
+  if (goal) {
+    conditions.push(eq(enquiryTable.goal, goal));
   }
   if (search) {
     conditions.push(

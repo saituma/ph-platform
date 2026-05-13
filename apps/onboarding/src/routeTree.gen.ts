@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WaitlistRouteImport } from './routes/waitlist'
 import { Route as VerificationRouteImport } from './routes/verification'
 import { Route as TestimonialsDemoRouteImport } from './routes/testimonials-demo'
 import { Route as TermsPrivacyRouteImport } from './routes/terms-privacy'
@@ -75,6 +76,11 @@ import { Route as PortalProgramsModuleModuleIdRouteImport } from './routes/porta
 import { Route as PortalProgramsAssignedProgramIdRouteImport } from './routes/portal/programs/assigned/$programId'
 import { Route as PortalProgramsAssignedSessionSessionIdRouteImport } from './routes/portal/programs/assigned/session.$sessionId'
 
+const WaitlistRoute = WaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerificationRoute = VerificationRouteImport.update({
   id: '/verification',
   path: '/verification',
@@ -428,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
+  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
@@ -495,6 +502,7 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
+  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
@@ -562,6 +570,7 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
+  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
@@ -632,6 +641,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/waitlist'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -699,6 +709,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/waitlist'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -765,6 +776,7 @@ export interface FileRouteTypes {
     | '/terms-privacy'
     | '/testimonials-demo'
     | '/verification'
+    | '/waitlist'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -833,6 +845,7 @@ export interface RootRouteChildren {
   TermsPrivacyRoute: typeof TermsPrivacyRoute
   TestimonialsDemoRoute: typeof TestimonialsDemoRoute
   VerificationRoute: typeof VerificationRoute
+  WaitlistRoute: typeof WaitlistRoute
   OnboardingDashboardRoute: typeof OnboardingDashboardRoute
   OnboardingStep1Route: typeof OnboardingStep1Route
   OnboardingStep2Route: typeof OnboardingStep2Route
@@ -990,6 +1003,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/waitlist': {
+      id: '/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof WaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal/tracking': {
@@ -1442,6 +1462,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsPrivacyRoute: TermsPrivacyRoute,
   TestimonialsDemoRoute: TestimonialsDemoRoute,
   VerificationRoute: VerificationRoute,
+  WaitlistRoute: WaitlistRoute,
   OnboardingDashboardRoute: OnboardingDashboardRoute,
   OnboardingStep1Route: OnboardingStep1Route,
   OnboardingStep2Route: OnboardingStep2Route,

@@ -5,6 +5,7 @@ import {
   getEnquiryAdmin,
   getEnquiryStatsAdmin,
   listEnquiriesAdmin,
+  listWaitlistAdmin,
   submitEnquiry,
   submitWaitlist,
   updateEnquiryAdmin,
@@ -27,5 +28,7 @@ router.get("/admin/enquiries/stats", ...adminAuth, getEnquiryStatsAdmin);
 router.get("/admin/enquiries/:id", ...adminAuth, getEnquiryAdmin);
 router.patch("/admin/enquiries/:id", ...adminAuth, updateEnquiryAdmin);
 router.delete("/admin/enquiries/:id", ...adminAuth, deleteEnquiryAdmin);
+
+router.get("/admin/waitlist", ...adminAuth, listWaitlistAdmin);
 
 export default router;

@@ -81,6 +81,19 @@ export async function listEnquiriesAdmin(req: Request, res: Response) {
   return res.status(200).json(result);
 }
 
+export async function listWaitlistAdmin(req: Request, res: Response) {
+  const { search, page, limit, sort } = req.query;
+  const result = await listEnquiries({
+    service: "App Only",
+    goal: "App waitlist sign-up",
+    search: search as string | undefined,
+    page: page ? Number(page) : 1,
+    limit: limit ? Math.min(Number(limit), 100) : 100,
+    sort: sort === "oldest" ? "oldest" : "newest",
+  });
+  return res.status(200).json(result);
+}
+
 export async function getEnquiryAdmin(req: Request, res: Response) {
   const id = Number(req.params.id);
   if (!id || Number.isNaN(id)) return res.status(400).json({ error: "Invalid enquiry ID." });
