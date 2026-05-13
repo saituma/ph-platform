@@ -26,7 +26,8 @@ import {
   trainingContentRequest,
   clearTrainingContentCache,
 } from "../../../../../../../components/admin/training-content-v2/api";
-import { useCreateMediaUploadUrlMutation } from "../../../../../../../lib/apiSlice";
+import { useCreateMediaUploadUrlMutation, useGetExercisesQuery } from "../../../../../../../lib/apiSlice";
+import { Search, X } from "lucide-react";
 
 function createEmptyItemForm() {
   return {
@@ -81,6 +82,35 @@ function SessionDetailPageInner() {
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const [createUploadUrl] = useCreateMediaUploadUrlMutation();
   const [itemForm, setItemForm] = useState(createEmptyItemForm);
+  const { data: exerciseLibraryData } = useGetExercisesQuery();
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+
+  const libraryExercises = exerciseLibraryData?.exercises ?? [];
+  const filteredLibrary = librarySearch
+    ? libraryExercises.filter((ex: any) =>
+        ex.name.toLowerCase().includes(librarySearch.toLowerCase()),
+      )
+    : libraryExercises.slice(0, 10);
+
+  const pickFromLibrary = (ex: any) => {
+    setItemForm((current) => ({
+      ...current,
+      title: ex.name ?? current.title,
+      sets: ex.sets != null ? String(ex.sets) : current.sets,
+      reps: ex.reps != null ? String(ex.reps) : current.reps,
+      duration: ex.duration != null ? String(ex.duration) : current.duration,
+      restSeconds: ex.restSeconds != null ? String(ex.restSeconds) : current.restSeconds,
+      cues: ex.cues ?? current.cues,
+      body: ex.cues ?? current.body,
+      progression: ex.progression ?? current.progression,
+      regression: ex.regression ?? current.regression,
+      category: ex.category ?? current.category,
+      videoUrl: ex.videoUrl ?? current.videoUrl,
+    }));
+    setLibrarySearch("");
+    setLibraryOpen(false);
+  };
 
   const loadWorkspace = async () => {
     try {
@@ -230,6 +260,8 @@ function SessionDetailPageInner() {
             className="ml-auto"
             onClick={() => {
               setItemForm(createEmptyItemForm());
+              setLibrarySearch("");
+              setLibraryOpen(false);
               setModalOpen(true);
             }}
           >
@@ -292,7 +324,7 @@ function SessionDetailPageInner() {
           </CardContent>
         </Card>
       </div>
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setLibrarySearch(""); setLibraryOpen(false); } }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{itemForm.id ? "Edit exercise" : "Add exercise"}</DialogTitle>
@@ -301,6 +333,53 @@ function SessionDetailPageInner() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Library search — only shown when adding (not editing) */}
+            {!itemForm.id && (
+              <div className="space-y-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9 pr-9"
+                    placeholder="Search exercise library to auto-fill..."
+                    value={librarySearch}
+                    onFocus={() => setLibraryOpen(true)}
+                    onChange={(e) => { setLibrarySearch(e.target.value); setLibraryOpen(true); }}
+                  />
+                  {librarySearch && (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setLibrarySearch(""); setLibraryOpen(false); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {libraryOpen && filteredLibrary.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+                    {filteredLibrary.map((ex: any) => (
+                      <button
+                        key={ex.id}
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-primary/10"
+                        onClick={() => pickFromLibrary(ex)}
+                      >
+                        <span className="flex-1 font-medium text-foreground">{ex.name}</span>
+                        {ex.category && (
+                          <span className="shrink-0 text-xs text-muted-foreground">{ex.category}</span>
+                        )}
+                        {ex.sets && (
+                          <span className="shrink-0 text-xs text-muted-foreground">{ex.sets}×{ex.reps ?? "—"}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {libraryOpen && librarySearch && filteredLibrary.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">No exercises match "{librarySearch}"</p>
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               <Input placeholder="Exercise name" value={itemForm.title} onChange={(event) => setItemForm((current) => ({ ...current, title: event.target.value }))} />
               <Input placeholder="Order" value={itemForm.order} onChange={(event) => setItemForm((current) => ({ ...current, order: event.target.value }))} />
