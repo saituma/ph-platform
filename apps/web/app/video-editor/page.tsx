@@ -339,7 +339,7 @@ export default function VideoEditorPage() {
         outName,
       ]);
 
-      const data = (await ff.readFile(outName)) as Uint8Array;
+      const data = (await ff.readFile(outName)) as Uint8Array<ArrayBuffer>;
       const blob = new Blob([data], { type: "video/mp4" });
       const url = URL.createObjectURL(blob);
 
@@ -375,6 +375,8 @@ export default function VideoEditorPage() {
   const createExerciseFromClip = async () => {
     if (!createDialog?.exportedBlob || !exerciseForm.name.trim()) return;
     const clip = createDialog;
+    const exportedBlob = clip.exportedBlob;
+    if (!exportedBlob) return;
     setClips((prev) => prev.map((c) => (c.id === clip.id ? { ...c, status: "uploading" } : c)));
     try {
       const fileName = `${Date.now()}-${clip.name.replace(/\s+/g, "-")}.mp4`;
@@ -382,13 +384,13 @@ export default function VideoEditorPage() {
         folder: "exercise-videos",
         fileName,
         contentType: "video/mp4",
-        sizeBytes: clip.exportedBlob.size,
+        sizeBytes: exportedBlob.size,
         client: "web",
       }).unwrap();
 
       await fetch(uploadUrl, {
         method: "PUT",
-        body: clip.exportedBlob,
+        body: exportedBlob,
         headers: { "Content-Type": "video/mp4" },
       });
 
@@ -451,10 +453,8 @@ export default function VideoEditorPage() {
               className="hidden"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
             />
-            <Button asChild>
-              <span>
-                <Upload className="mr-2 h-4 w-4" /> Choose file
-              </span>
+            <Button type="button">
+              <Upload className="mr-2 h-4 w-4" /> Choose file
             </Button>
           </label>
         </div>
