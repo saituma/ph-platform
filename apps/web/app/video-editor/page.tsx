@@ -106,6 +106,7 @@ export default function VideoEditorPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = dragState;
 
@@ -446,17 +447,16 @@ export default function VideoEditorPage() {
           <Video className="mb-4 h-14 w-14 text-muted-foreground/40" />
           <p className="text-lg font-semibold text-foreground">Drop a video file here</p>
           <p className="mt-1 text-sm text-muted-foreground">MP4, MOV, WebM — up to any size</p>
-          <label className="mt-6 cursor-pointer">
-            <input
-              type="file"
-              accept="video/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
-            />
-            <Button type="button">
-              <Upload className="mr-2 h-4 w-4" /> Choose file
-            </Button>
-          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
+          />
+          <Button type="button" className="mt-6" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" /> Choose file
+          </Button>
         </div>
       ) : (
         <div className="space-y-4">
