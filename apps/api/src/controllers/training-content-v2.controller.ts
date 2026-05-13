@@ -150,7 +150,7 @@ const createOtherSchema = z.object({
   audienceLabel: z.string().min(1).max(64),
   type: z.enum(trainingOtherType.enumValues),
   title: z.string().min(1).max(255),
-  body: z.string().min(1),
+  body: z.string(),
   scheduleNote: z.string().max(255).optional().nullable(),
   videoUrl: z.string().optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
@@ -160,7 +160,7 @@ const createOtherSchema = z.object({
 const updateOtherSchema = z.object({
   type: z.enum(trainingOtherType.enumValues),
   title: z.string().min(1).max(255),
-  body: z.string().min(1),
+  body: z.string(),
   scheduleNote: z.string().max(255).optional().nullable(),
   videoUrl: z.string().optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
