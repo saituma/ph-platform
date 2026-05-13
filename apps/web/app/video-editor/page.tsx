@@ -4,12 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   Download,
+  Dumbbell,
   Loader2,
   Pause,
   Play,
   Plus,
   Scissors,
-  Search,
   Trash2,
   Upload,
   Video,
@@ -28,14 +28,22 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import {
-  useGetExercisesQuery,
-  useUpdateExerciseMutation,
+  useCreateExerciseMutation,
   useCreateMediaUploadUrlMutation,
 } from "../../lib/apiSlice";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "../../components/ui/select";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ClipStatus = "idle" | "exporting" | "done" | "uploading" | "assigned";
+type ClipStatus = "idle" | "exporting" | "done" | "uploading" | "created";
 
 type Clip = {
   id: string;
@@ -47,7 +55,7 @@ type Clip = {
   exportProgress: number;
   exportedBlob?: Blob;
   exportedUrl?: string;
-  assignedTo?: string;
+  createdExerciseName?: string;
 };
 
 type DragState = {
@@ -90,8 +98,10 @@ export default function VideoEditorPage() {
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [editingClipId, setEditingClipId] = useState<string | null>(null);
-  const [assignDialog, setAssignDialog] = useState<Clip | null>(null);
-  const [assignSearch, setAssignSearch] = useState("");
+  const [createDialog, setCreateDialog] = useState<Clip | null>(null);
+  const [exerciseForm, setExerciseForm] = useState({
+    name: "", category: "", sets: "", reps: "", time: "", rest: "", cues: "",
+  });
   const [isDragOver, setIsDragOver] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -99,16 +109,8 @@ export default function VideoEditorPage() {
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = dragState;
 
-  const { data: exercisesData } = useGetExercisesQuery();
-  const [updateExercise] = useUpdateExerciseMutation();
+  const [createExercise] = useCreateExerciseMutation();
   const [createUploadUrl] = useCreateMediaUploadUrlMutation();
-
-  const exercises = exercisesData?.exercises ?? [];
-  const filteredExercises = assignSearch
-    ? exercises.filter((ex: any) =>
-        ex.name.toLowerCase().includes(assignSearch.toLowerCase()),
-      )
-    : exercises;
 
   // ── FFmpeg loading ──────────────────────────────────────────────────────────
 
@@ -368,11 +370,11 @@ export default function VideoEditorPage() {
     a.click();
   };
 
-  // ── Assign to exercise ────────────────────────────────────────────────────────
+  // ── Create exercise from clip ──────────────────────────────────────────────────
 
-  const assignToExercise = async (exercise: any) => {
-    if (!assignDialog?.exportedBlob) return;
-    const clip = assignDialog;
+  const createExerciseFromClip = async () => {
+    if (!createDialog?.exportedBlob || !exerciseForm.name.trim()) return;
+    const clip = createDialog;
     setClips((prev) => prev.map((c) => (c.id === clip.id ? { ...c, status: "uploading" } : c)));
     try {
       const fileName = `${Date.now()}-${clip.name.replace(/\s+/g, "-")}.mp4`;
@@ -390,18 +392,26 @@ export default function VideoEditorPage() {
         headers: { "Content-Type": "video/mp4" },
       });
 
-      await updateExercise({
-        exerciseId: Number(exercise.id),
-        patch: { videoUrl: publicUrl },
+      await createExercise({
+        name: exerciseForm.name.trim(),
+        category: exerciseForm.category || undefined,
+        sets: exerciseForm.sets ? Number(exerciseForm.sets) : undefined,
+        reps: exerciseForm.reps ? Number(exerciseForm.reps) : undefined,
+        duration: exerciseForm.time ? Number(exerciseForm.time) : undefined,
+        restSeconds: exerciseForm.rest ? Number(exerciseForm.rest) : undefined,
+        cues: exerciseForm.cues || undefined,
+        videoUrl: publicUrl,
       }).unwrap();
 
       setClips((prev) =>
         prev.map((c) =>
-          c.id === clip.id ? { ...c, status: "assigned", assignedTo: exercise.name } : c,
+          c.id === clip.id
+            ? { ...c, status: "created", createdExerciseName: exerciseForm.name.trim() }
+            : c,
         ),
       );
-      setAssignDialog(null);
-      setAssignSearch("");
+      setCreateDialog(null);
+      setExerciseForm({ name: "", category: "", sets: "", reps: "", time: "", rest: "", cues: "" });
     } catch {
       setClips((prev) => prev.map((c) => (c.id === clip.id ? { ...c, status: "done" } : c)));
     }
@@ -631,9 +641,9 @@ export default function VideoEditorPage() {
                             {clip.name}
                           </button>
                         )}
-                        {clip.status === "assigned" && (
+                        {clip.status === "created" && (
                           <Badge variant="default" className="shrink-0 text-[9px]">
-                            <Check className="mr-0.5 h-2.5 w-2.5" /> Assigned
+                            <Check className="mr-0.5 h-2.5 w-2.5" /> In library
                           </Badge>
                         )}
                       </div>
@@ -660,9 +670,9 @@ export default function VideoEditorPage() {
                           <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
                         </div>
                       )}
-                      {clip.status === "assigned" && clip.assignedTo && (
+                      {clip.status === "created" && clip.createdExerciseName && (
                         <p className="mb-2 text-[10px] text-muted-foreground">
-                          → {clip.assignedTo}
+                          → {clip.createdExerciseName}
                         </p>
                       )}
 
@@ -711,16 +721,19 @@ export default function VideoEditorPage() {
                               className="flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1 text-[10px] text-primary hover:bg-primary/20"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setAssignDialog(clip);
-                                setAssignSearch("");
+                                setExerciseForm({
+                                  name: clip.name,
+                                  category: "", sets: "", reps: "", time: "", rest: "", cues: "",
+                                });
+                                setCreateDialog(clip);
                               }}
                             >
-                              <Plus className="h-2.5 w-2.5" /> Assign
+                              <Dumbbell className="h-2.5 w-2.5" /> Add to library
                             </button>
                           </>
                         )}
 
-                        {clip.status === "assigned" && (
+                        {clip.status === "created" && (
                           <button
                             type="button"
                             className="flex items-center gap-1 rounded-lg border border-border bg-secondary/40 px-2 py-1 text-[10px] hover:bg-primary/10"
@@ -747,50 +760,95 @@ export default function VideoEditorPage() {
         </div>
       )}
 
-      {/* ── Assign dialog ── */}
-      <Dialog open={!!assignDialog} onOpenChange={(open) => { if (!open) setAssignDialog(null); }}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-md">
+      {/* ── Create exercise dialog ── */}
+      <Dialog
+        open={!!createDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreateDialog(null);
+            setExerciseForm({ name: "", category: "", sets: "", reps: "", time: "", rest: "", cues: "" });
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Assign "{assignDialog?.name}"</DialogTitle>
+            <DialogTitle>Add to Exercise Library</DialogTitle>
             <DialogDescription>
-              Search and select an exercise to set this clip as its demo video.
+              This clip will be uploaded as the demo video for the new exercise.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Exercise name *</Label>
               <Input
-                className="pl-9"
-                placeholder="Search exercises…"
-                value={assignSearch}
-                onChange={(e) => setAssignSearch(e.target.value)}
                 autoFocus
+                placeholder="e.g. Box Jump"
+                value={exerciseForm.name}
+                onChange={(e) => setExerciseForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
-            <div className="max-h-80 space-y-1 overflow-y-auto">
-              {filteredExercises.length === 0 && (
-                <p className="py-4 text-center text-sm text-muted-foreground">No exercises found</p>
-              )}
-              {filteredExercises.map((ex: any) => (
-                <button
-                  key={ex.id}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-primary/10"
-                  onClick={() => void assignToExercise(ex)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{ex.name}</p>
-                    {ex.category && (
-                      <p className="text-xs text-muted-foreground">{ex.category}</p>
-                    )}
-                  </div>
-                  {ex.videoUrl ? (
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">Has video</Badge>
-                  ) : (
-                    <Badge variant="outline" className="shrink-0 text-[10px]">No video</Badge>
-                  )}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Category</Label>
+              <Select
+                items={[
+                  { label: "Select category…", value: "" },
+                  ...["Power","Speed","Strength","Conditioning","Agility","Plyometrics",
+                      "Mobility","Flexibility","Warmup","Cooldown","Recovery","Core",
+                      "Balance","Endurance","Sport-Specific"].map((c) => ({ label: c, value: c })),
+                ]}
+                value={exerciseForm.category}
+                onValueChange={(v) => setExerciseForm((f) => ({ ...f, category: v ?? "" }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectPopup>
+                  {[{ label: "Select category…", value: "" },
+                    ...["Power","Speed","Strength","Conditioning","Agility","Plyometrics",
+                        "Mobility","Flexibility","Warmup","Cooldown","Recovery","Core",
+                        "Balance","Endurance","Sport-Specific"].map((c) => ({ label: c, value: c }))
+                  ].map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Sets</Label>
+                <Input placeholder="3" value={exerciseForm.sets} onChange={(e) => setExerciseForm((f) => ({ ...f, sets: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reps</Label>
+                <Input placeholder="10" value={exerciseForm.reps} onChange={(e) => setExerciseForm((f) => ({ ...f, reps: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Time (s)</Label>
+                <Input placeholder="30" value={exerciseForm.time} onChange={(e) => setExerciseForm((f) => ({ ...f, time: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Rest (s)</Label>
+                <Input placeholder="60" value={exerciseForm.rest} onChange={(e) => setExerciseForm((f) => ({ ...f, rest: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Coaching cues</Label>
+              <Textarea
+                placeholder="Core tight, drive through heel…"
+                value={exerciseForm.cues}
+                onChange={(e) => setExerciseForm((f) => ({ ...f, cues: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCreateDialog(null)}>Cancel</Button>
+              <Button
+                disabled={!exerciseForm.name.trim() || createDialog?.status === "uploading"}
+                onClick={() => void createExerciseFromClip()}
+              >
+                {createDialog?.status === "uploading" ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading…</>
+                ) : (
+                  <><Dumbbell className="mr-2 h-4 w-4" /> Create exercise</>
+                )}
+              </Button>
             </div>
           </div>
         </DialogContent>
