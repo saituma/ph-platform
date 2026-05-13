@@ -196,7 +196,7 @@ function SessionDetailPageInner() {
   };
 
   const saveItem = async () => {
-    if (!session || !itemForm.title.trim() || !itemForm.body.trim()) return;
+    if (!session || !itemForm.title.trim()) return;
     setIsSaving(true);
     try {
       const metadataInput = {
@@ -460,7 +460,7 @@ function SessionDetailPageInner() {
               <Button variant="outline" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={saveItem} disabled={!session || isSaving}>
+              <Button onClick={saveItem} disabled={!session || isSaving || !itemForm.title.trim()}>
                 {itemForm.id ? "Update" : "Create"}
               </Button>
             </div>
