@@ -27,6 +27,8 @@ import {
 } from "../../../../../components/admin/training-content-v2/api";
 import { InseasonListPage } from "../inseason-list-page";
 import { getOtherSectionConfig } from "../shared";
+import { useGetExercisesQuery } from "../../../../../lib/apiSlice";
+import { Search, X } from "lucide-react";
 
 export default function OtherContentDetailPage() {
   return (
@@ -56,6 +58,28 @@ function OtherContentDetailPageInner() {
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { data: exerciseLibraryData } = useGetExercisesQuery();
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+
+  const libraryExercises = exerciseLibraryData?.exercises ?? [];
+  const filteredLibrary = librarySearch
+    ? libraryExercises.filter((ex: any) =>
+        ex.name.toLowerCase().includes(librarySearch.toLowerCase()),
+      )
+    : libraryExercises.slice(0, 10);
+
+  const pickFromLibrary = (ex: any) => {
+    setForm((current) => ({
+      ...current,
+      title: ex.name ?? current.title,
+      body: ex.cues ?? current.body,
+      videoUrl: ex.videoUrl ?? current.videoUrl,
+    }));
+    setLibrarySearch("");
+    setLibraryOpen(false);
+  };
+
   const [form, setForm] = useState({
     id: null as number | null,
     title: "",
@@ -108,7 +132,7 @@ function OtherContentDetailPageInner() {
   const items = group?.items ?? [];
 
   const saveItem = async () => {
-    if (!form.title.trim() || !form.body.trim()) return;
+    if (!form.title.trim()) return;
     setIsSaving(true);
     try {
       const payload = {
@@ -174,14 +198,9 @@ function OtherContentDetailPageInner() {
           <Button
             className="ml-auto"
             onClick={() => {
-              setForm({
-                id: null,
-                title: "",
-                body: "",
-                scheduleNote: "",
-                videoUrl: "",
-                order: "",
-              });
+              setForm({ id: null, title: "", body: "", scheduleNote: "", videoUrl: "", order: "" });
+              setLibrarySearch("");
+              setLibraryOpen(false);
               setModalOpen(true);
             }}
           >
@@ -247,7 +266,7 @@ function OtherContentDetailPageInner() {
         </Card>
       </div>
 
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+      <Dialog open={modalOpen} onOpenChange={(open) => { setModalOpen(open); if (!open) { setLibrarySearch(""); setLibraryOpen(false); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{form.id ? "Edit content" : `Add ${section.label} content`}</DialogTitle>
@@ -256,6 +275,49 @@ function OtherContentDetailPageInner() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {!form.id && (
+              <div className="space-y-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9 pr-9"
+                    placeholder="Search exercise library to auto-fill..."
+                    value={librarySearch}
+                    onFocus={() => setLibraryOpen(true)}
+                    onChange={(e) => { setLibrarySearch(e.target.value); setLibraryOpen(true); }}
+                  />
+                  {librarySearch && (
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setLibrarySearch(""); setLibraryOpen(false); }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {libraryOpen && filteredLibrary.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto rounded-xl border border-border bg-card shadow-lg">
+                    {filteredLibrary.map((ex: any) => (
+                      <button
+                        key={ex.id}
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-primary/10"
+                        onClick={() => pickFromLibrary(ex)}
+                      >
+                        <span className="flex-1 font-medium text-foreground">{ex.name}</span>
+                        {ex.category && (
+                          <span className="shrink-0 text-xs text-muted-foreground">{ex.category}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {libraryOpen && librarySearch && filteredLibrary.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">No exercises match "{librarySearch}"</p>
+                )}
+              </div>
+            )}
             <Input
               placeholder="Title"
               value={form.title}
@@ -285,7 +347,7 @@ function OtherContentDetailPageInner() {
               <Button variant="outline" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={saveItem} disabled={isSaving || !form.title.trim() || !form.body.trim()}>
+              <Button onClick={saveItem} disabled={isSaving || !form.title.trim()}>
                 {isSaving ? "Saving..." : form.id ? "Save" : "Create"}
               </Button>
             </div>
