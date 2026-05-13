@@ -120,6 +120,7 @@ export async function deleteEnquiryAdmin(req: Request, res: Response) {
 const waitlistSchema = z.object({
   name: z.string().trim().min(1).max(255),
   email: z.string().trim().email().max(255),
+  phone: z.string().trim().max(50).optional(),
 });
 
 export async function submitWaitlist(req: Request, res: Response) {
@@ -133,7 +134,7 @@ export async function submitWaitlist(req: Request, res: Response) {
     athleteName: parsed.data.name,
     age: null,
     parentName: null,
-    phone: "N/A",
+    phone: parsed.data.phone || "N/A",
     email: parsed.data.email,
     interestedIn: "App Only",
     locationPreference: [],

@@ -7,6 +7,7 @@ import { config } from "../lib/config";
 export function WaitlistModal({ onClose }: { onClose: () => void }) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
 
@@ -17,7 +18,7 @@ export function WaitlistModal({ onClose }: { onClose: () => void }) {
             const res = await fetch(`${config.api.baseUrl}/api/waitlist`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name.trim(), email: email.trim() }),
+                body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim() }),
             });
             if (!res.ok) throw new Error("Failed to join waitlist");
             setDone(true);
@@ -88,6 +89,16 @@ export function WaitlistModal({ onClose }: { onClose: () => void }) {
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
                                     placeholder="you@example.com"
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#8aff00]/50 transition"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-widest text-white/40 mb-1.5">Mobile Number</label>
+                                <input
+                                    type="tel"
+                                    value={phone}
+                                    onChange={e => setPhone(e.target.value)}
+                                    placeholder="+44 7700 000000"
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#8aff00]/50 transition"
                                 />
                             </div>
