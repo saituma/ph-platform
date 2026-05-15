@@ -340,7 +340,7 @@ export function BookingsDialogs({
       setServiceDescription("");
       setIsBookable(true);
       setServiceType("one_to_one");
-      setDurationMinutes(String(DEFAULT_SERVICE_DURATION_MINUTES.one_to_one));
+      setDurationMinutes("");
       setSlotsAvailable("");
       setEligiblePlans([]);
       setEligibleTargets([]);
@@ -678,14 +678,6 @@ export function BookingsDialogs({
                     }
                     if (type === "one_to_one") {
                       setSlotsAvailable("1");
-                    }
-                    if (active === "new-service") {
-                      setDurationMinutes(
-                        String(
-                          DEFAULT_SERVICE_DURATION_MINUTES[type] ??
-                            DEFAULT_SERVICE_DURATION_MINUTES.one_to_one,
-                        ),
-                      );
                     }
                     setError(null);
                   }}
@@ -1118,8 +1110,8 @@ export function BookingsDialogs({
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
                 />
-                {(() => {
-                  const mins = Number(durationMinutes) || (DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ?? 60);
+                {durationMinutes && Number(durationMinutes) > 0 ? (() => {
+                  const mins = Number(durationMinutes);
                   const hrs = Math.floor(mins / 60);
                   const rem = mins % 60;
                   const label = hrs > 0
@@ -1130,7 +1122,9 @@ export function BookingsDialogs({
                       Athletes will see this session lasts <span className="font-medium text-foreground">{label}</span>.
                     </p>
                   );
-                })()}
+                })() : (
+                  <p className="text-xs text-muted-foreground">Enter how long this session lasts so athletes know upfront.</p>
+                )}
               </div>
 
               <div className="space-y-1">
