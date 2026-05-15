@@ -30,7 +30,7 @@ import {
 } from "../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
-type ModuleDialog = null | "create" | "edit" | "library";
+type ModuleDialog = null | "create" | "edit";
 
 type ProgramSummary = {
   id: number;
@@ -172,14 +172,9 @@ export default function ProgramDetailPage() {
         </span>
       }
       actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setDialog("library")} disabled={libraryModules.length === 0}>
-            <Copy className="mr-1 h-4 w-4" /> From Library
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-1 h-4 w-4" /> Add Module
-          </Button>
-        </div>
+        <Button onClick={openCreate}>
+          <Plus className="mr-1 h-4 w-4" /> Add Module
+        </Button>
       }
     >
       {program && (
@@ -268,16 +263,50 @@ export default function ProgramDetailPage() {
       )}
 
       <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={() => setDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{dialog === "edit" ? "Edit Module" : "Add Module"}</DialogTitle>
             <DialogDescription>
               {dialog === "edit"
                 ? "Update this module's title and description."
-                : "Create a new module for this program."}
+                : "Pick from your module library or create a new one."}
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
+
+          {dialog === "create" && libraryModules.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">From Library</p>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {libraryModules.map((mod: any) => (
+                  <button
+                    key={mod.id}
+                    type="button"
+                    disabled={isCopying}
+                    onClick={() => handleCopyFromLibrary(mod.id)}
+                    className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                  >
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-foreground">{mod.title}</div>
+                      {mod.description && (
+                        <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{mod.description}</div>
+                      )}
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {mod.sessionCount ?? 0} session{(mod.sessionCount ?? 0) !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                    <Copy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 py-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or create new</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </div>
+          )}
+
+          <div className={dialog === "create" && libraryModules.length > 0 ? "space-y-4" : "mt-4 space-y-4"}>
             <Input
               placeholder="Module title"
               value={title}
@@ -296,45 +325,6 @@ export default function ProgramDetailPage() {
                 {isSaving ? "Saving..." : dialog === "edit" ? "Save" : "Create"}
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={dialog === "library"} onOpenChange={() => setDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Copy from Module Library</DialogTitle>
-            <DialogDescription>
-              Pick a library module to copy into this program. Sessions and exercises are deep-copied.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 space-y-2">
-            {libraryModules.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No modules in library yet. Create some at Programs → Module Library.
-              </p>
-            ) : (
-              libraryModules.map((mod: any) => (
-                <button
-                  key={mod.id}
-                  type="button"
-                  disabled={isCopying}
-                  onClick={() => handleCopyFromLibrary(mod.id)}
-                  className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
-                >
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold text-foreground">{mod.title}</div>
-                    {mod.description && (
-                      <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{mod.description}</div>
-                    )}
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {mod.sessionCount ?? 0} session{(mod.sessionCount ?? 0) !== 1 ? "s" : ""}
-                    </div>
-                  </div>
-                  <Copy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                </button>
-              ))
-            )}
           </div>
         </DialogContent>
       </Dialog>
