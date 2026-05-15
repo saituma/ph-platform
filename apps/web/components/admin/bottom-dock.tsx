@@ -9,9 +9,12 @@ import {
   CalendarDays,
   CreditCard,
   Dumbbell,
+  Film,
   LayoutDashboard,
   MessageCircle,
   PlaySquare,
+  Layers,
+  Baby,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,15 +29,18 @@ type DockItem = {
 };
 
 const DOCK_ITEMS: DockItem[] = [
-  { label: "Dashboard",      href: "/",              icon: LayoutDashboard },
-  { label: "Users",          href: "/users",         icon: Users },
-  { label: "Programs",         href: "/programs",          icon: BookOpen },
-  { label: "Training Content", href: "/exercise-library",  icon: Dumbbell },
-  { label: "Messaging",        href: "/messaging",         icon: MessageCircle, badgeKey: "messages" },
-  { label: "Video Review",   href: "/video-review",  icon: PlaySquare,     badgeKey: "videos" },
-  { label: "Schedule",       href: "/bookings",      icon: CalendarDays },
-  { label: "Billing",        href: "/billing",       icon: CreditCard },
-  { label: "Stats",          href: "/stats",         icon: Activity },
+  { label: "Dashboard",        href: "/",                    icon: LayoutDashboard },
+  { label: "Users",            href: "/users",               icon: Users },
+  { label: "Programs",         href: "/programs",            icon: BookOpen },
+  { label: "Exercise Library", href: "/programs/exercises",  icon: Dumbbell },
+  { label: "Training Content", href: "/exercise-library",    icon: Layers },
+  { label: "Video Editor",     href: "/video-editor",        icon: Film },
+  { label: "Messaging",        href: "/messaging",           icon: MessageCircle, badgeKey: "messages" },
+  { label: "Video Review",     href: "/video-review",        icon: PlaySquare,    badgeKey: "videos" },
+  { label: "Schedule",         href: "/bookings",            icon: CalendarDays },
+  { label: "Billing",          href: "/billing",             icon: CreditCard },
+  { label: "Stats",            href: "/stats",               icon: Activity },
+  { label: "Parent Portal",    href: "/parent/content",      icon: Baby },
 ];
 
 function pathMatches(pathOnly: string, href: string) {
