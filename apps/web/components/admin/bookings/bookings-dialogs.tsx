@@ -1109,6 +1109,31 @@ export function BookingsDialogs({
               ) : null}
 
               <div className="space-y-1">
+                <Label htmlFor="duration-minutes">Duration (minutes)</Label>
+                <Input
+                  id="duration-minutes"
+                  type="number"
+                  min={1}
+                  placeholder={`Default: ${DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ?? 60} min`}
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(e.target.value)}
+                />
+                {(() => {
+                  const mins = Number(durationMinutes) || (DEFAULT_SERVICE_DURATION_MINUTES[serviceType] ?? 60);
+                  const hrs = Math.floor(mins / 60);
+                  const rem = mins % 60;
+                  const label = hrs > 0
+                    ? `${hrs} hr${hrs > 1 ? "s" : ""}${rem ? ` ${rem} min` : ""}`
+                    : `${mins} min`;
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Athletes will see this session lasts <span className="font-medium text-foreground">{label}</span>.
+                    </p>
+                  );
+                })()}
+              </div>
+
+              <div className="space-y-1">
                 <Label htmlFor="slots-available">Slots available</Label>
                 <Input
                   id="slots-available"
