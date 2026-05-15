@@ -173,6 +173,8 @@ function TeamDetailPageInner() {
     Array<{ id: number; name: string; tier: string; isActive: boolean }>
   >([]);
   const [teams, setTeams] = useState<TeamSummary[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
   const [copySourceTeam, setCopySourceTeam] = useState("");
   const [copySearch, setCopySearch] = useState("");
   const [copyStep, setCopyStep] = useState<"team" | "modules" | "sessions">("team");
@@ -234,6 +236,8 @@ function TeamDetailPageInner() {
   }, [audienceLabel]);
 
   const loadTeams = async () => {
+    setTeamsLoading(true);
+    setTeamsError(null);
     try {
       const response = await fetch("/api/backend/admin/teams", {
         credentials: "include",
@@ -252,7 +256,9 @@ function TeamDetailPageInner() {
         return firstAvailable;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load teams.");
+      setTeamsError(err instanceof Error ? err.message : "Failed to load teams.");
+    } finally {
+      setTeamsLoading(false);
     }
   };
 
@@ -1131,24 +1137,35 @@ function TeamDetailPageInner() {
                 onChange={(event) => setCopySearch(event.target.value)}
               />
               <div className="max-h-72 space-y-2 overflow-y-auto">
-                {filteredCopyTeams.map((item) => (
-                  <button
-                    key={item.team}
-                    type="button"
-                    onClick={() => setCopySourceTeam(item.team)}
-                    className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                      copySourceTeam === item.team
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/40"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-foreground">{item.team}</p>
-                    <p className="text-xs text-muted-foreground">{item.youthCount} youth · {item.adultCount} adult</p>
-                  </button>
-                ))}
-                {!filteredCopyTeams.length ? (
-                  <p className="text-sm text-muted-foreground">No teams match that search.</p>
-                ) : null}
+                {teamsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading teams…</p>
+                ) : teamsError ? (
+                  <p className="text-sm text-destructive">{teamsError}</p>
+                ) : filteredCopyTeams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {copySearch.trim()
+                      ? "No teams match that search."
+                      : teams.length === 0
+                        ? "No teams found. Make sure teams are created first."
+                        : "No other teams to copy from — this is the only team."}
+                  </p>
+                ) : (
+                  filteredCopyTeams.map((item) => (
+                    <button
+                      key={item.team}
+                      type="button"
+                      onClick={() => setCopySourceTeam(item.team)}
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                        copySourceTeam === item.team
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-foreground">{item.team}</p>
+                      <p className="text-xs text-muted-foreground">{item.youthCount} youth · {item.adultCount} adult</p>
+                    </button>
+                  ))
+                )}
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setCopyModalOpen(false)}>Cancel</Button>
