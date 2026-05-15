@@ -51,10 +51,11 @@ import {
 } from "../../components/ui/select";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
+import { toast } from "@/lib/toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ClipStatus = "idle" | "exporting" | "done" | "uploading" | "created";
+type ClipStatus = "idle" | "exporting" | "done" | "uploading" | "created" | "error";
 type ExportMode = "fast" | "precise";
 
 type Clip = {
@@ -96,6 +97,8 @@ const CATEGORIES = [
 const DRAFT_KEY = "ph-video-editor-draft";
 
 let _ffmpeg: any = null;
+let _ffmpegBusy: Promise<void> = Promise.resolve();
+const VIDEO_SIZE_LIMIT_MB = 500;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -259,7 +262,10 @@ export default function VideoEditorPage() {
       });
       _ffmpeg = ff;
       setFfmpegReady(true);
-    } catch (e) { console.error("FFmpeg load failed", e); }
+    } catch (e) {
+      console.error("FFmpeg load failed", e);
+      toast.error("Failed to load video encoder. Check your network or disable ad-blockers.");
+    }
     finally { setFfmpegLoading(false); }
   }, [ffmpegLoading]);
 
@@ -463,12 +469,18 @@ export default function VideoEditorPage() {
 
   // ── Export ────────────────────────────────────────────────────────────────────
 
-  const exportClip = async (clipId: string, mode: ExportMode = exportMode) => {
-    if (!_ffmpeg || !videoFile) return;
-    const clip = clips.find((c) => c.id === clipId);
-    if (!clip) return;
-    setClips((p) => p.map((c) => (c.id === clipId ? { ...c, status: "exporting", exportProgress: 0 } : c)));
-    try {
+  const exportClip = (clipId: string, mode: ExportMode = exportMode): Promise<void> => {
+    const work = _ffmpegBusy.then(async () => {
+      if (!_ffmpeg || !videoFile) return;
+      const clip = clips.find((c) => c.id === clipId);
+      if (!clip) return;
+
+      if (videoFile.size > VIDEO_SIZE_LIMIT_MB * 1024 * 1024) {
+        toast.error(`Source file exceeds ${VIDEO_SIZE_LIMIT_MB} MB. Export is not supported for files this large.`);
+        return;
+      }
+
+      setClips((p) => p.map((c) => (c.id === clipId ? { ...c, status: "exporting", exportProgress: 0 } : c)));
       const { fetchFile } = await import("@ffmpeg/util");
       const ff = _ffmpeg;
       const ext = videoFile.name.split(".").pop() || "mp4";
@@ -477,43 +489,64 @@ export default function VideoEditorPage() {
       const onProg = ({ progress }: { progress: number }) =>
         setClips((p) => p.map((c) => (c.id === clipId ? { ...c, exportProgress: Math.round(progress * 100) } : c)));
       ff.on("progress", onProg);
-      await ff.writeFile(inName, await fetchFile(videoFile));
+      try {
+        await ff.writeFile(inName, await fetchFile(videoFile));
 
-      if (mode === "fast") {
-        // Stream copy — near-instant, cuts at nearest keyframe
-        await ff.exec([
-          "-ss", clip.startTime.toFixed(3),
-          "-to", clip.endTime.toFixed(3),
-          "-i", inName,
-          "-c", "copy",
-          "-avoid_negative_ts", "make_zero",
-          outName,
-        ]);
-      } else {
-        // Re-encode — frame-accurate, slower
-        await ff.exec([
+        const reEncodeArgs = [
           "-i", inName,
           "-ss", clip.startTime.toFixed(3),
           "-to", clip.endTime.toFixed(3),
           "-c:v", "libx264", "-crf", "22", "-preset", "fast",
           "-c:a", "aac", "-movflags", "+faststart",
           outName,
-        ]);
-      }
+        ];
 
-      const data = await ff.readFile(outName);
-      const blob = new Blob([data as BlobPart], { type: "video/mp4" });
-      const url = URL.createObjectURL(blob);
-      ff.off("progress", onProg);
-      await ff.deleteFile(inName).catch(() => {});
-      await ff.deleteFile(outName).catch(() => {});
-      setClips((p) => p.map((c) =>
-        c.id === clipId ? { ...c, status: "done", exportProgress: 100, exportedBlob: blob, exportedUrl: url } : c,
-      ));
-    } catch (err) {
-      console.error(err);
-      setClips((p) => p.map((c) => (c.id === clipId ? { ...c, status: "idle", exportProgress: 0 } : c)));
-    }
+        if (mode === "fast") {
+          try {
+            // Stream copy — near-instant, cuts at nearest keyframe
+            await ff.exec([
+              "-ss", clip.startTime.toFixed(3),
+              "-to", clip.endTime.toFixed(3),
+              "-i", inName,
+              "-c", "copy",
+              "-avoid_negative_ts", "make_zero",
+              outName,
+            ]);
+          } catch {
+            // Fast mode failed (e.g. HEVC/fragmented MP4) — fall back to re-encode
+            toast.info("Fast export failed for this format; retrying with Quality mode…");
+            await ff.deleteFile(outName).catch(() => {});
+            await ff.exec(reEncodeArgs);
+          }
+        } else {
+          // Re-encode — frame-accurate, slower
+          await ff.exec(reEncodeArgs);
+        }
+
+        const data = await ff.readFile(outName);
+        const blob = new Blob([data as BlobPart], { type: "video/mp4" });
+        const url = URL.createObjectURL(blob);
+        await ff.deleteFile(inName).catch(() => {});
+        await ff.deleteFile(outName).catch(() => {});
+        setClips((p) => p.map((c) =>
+          c.id === clipId ? { ...c, status: "done", exportProgress: 100, exportedBlob: blob, exportedUrl: url } : c,
+        ));
+      } catch (err) {
+        console.error(err);
+        setClips((p) => p.map((c) => (c.id === clipId ? { ...c, status: "error", exportProgress: 0 } : c)));
+        toast.error(`Export failed for "${clip.name}". Try again or switch export mode.`);
+        // Discard the wedged instance so the next export starts clean
+        _ffmpeg = null;
+        setFfmpegReady(false);
+        void loadFFmpeg();
+      } finally {
+        try { ff.off("progress", onProg); } catch {}
+        await ff.deleteFile(inName).catch(() => {});
+        await ff.deleteFile(outName).catch(() => {});
+      }
+    });
+    _ffmpegBusy = work.catch(() => {});
+    return work;
   };
 
   const exportAll = async () => {
@@ -848,12 +881,18 @@ export default function VideoEditorPage() {
                       <Copy className="h-2.5 w-2.5" /> Dupe
                     </button>
 
-                    {clip.status === "idle" && (
+                    {(clip.status === "idle" || clip.status === "error") && (
                       <button type="button" disabled={!ffmpegReady}
                         onClick={(e) => { e.stopPropagation(); void exportClip(clip.id); }}
-                        className="flex items-center gap-1 rounded-lg border border-border bg-secondary/60 px-2 py-1 text-[10px] hover:bg-primary/10 disabled:opacity-40">
+                        className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] disabled:opacity-40 ${
+                          clip.status === "error"
+                            ? "border-red-400/60 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                            : "border-border bg-secondary/60 hover:bg-primary/10"
+                        }`}>
                         {ffmpegLoading
                           ? <><Loader2 className="h-2.5 w-2.5 animate-spin" /> Loading…</>
+                          : clip.status === "error"
+                          ? <><RotateCcw className="h-2.5 w-2.5" /> Retry</>
                           : <><Scissors className="h-2.5 w-2.5" /> Export</>}
                       </button>
                     )}

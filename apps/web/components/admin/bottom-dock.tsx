@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -12,6 +12,7 @@ import {
   Film,
   LayoutDashboard,
   MessageCircle,
+  PanelLeftClose,
   PlaySquare,
   Layers,
   Baby,
@@ -33,6 +34,7 @@ const DOCK_ITEMS: DockItem[] = [
   { label: "Users",            href: "/users",               icon: Users },
   { label: "Programs",         href: "/programs",            icon: BookOpen },
   { label: "Exercise Library", href: "/programs/exercises",  icon: Dumbbell },
+  { label: "Split Builder",    href: "/programs/builder",    icon: PanelLeftClose },
   { label: "Training Content", href: "/exercise-library",    icon: Layers },
   { label: "Video Editor",     href: "/video-editor",        icon: Film },
   { label: "Messaging",        href: "/messaging",           icon: MessageCircle, badgeKey: "messages" },
@@ -56,8 +58,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
+const TOGGLE_HREFS = new Set(["/programs/builder"]);
+
 export function BottomDock() {
   const pathname = usePathname();
+  const router = useRouter();
   const pathOnly = pathname.split("?")[0] ?? pathname;
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -136,10 +141,11 @@ export function BottomDock() {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={isActive && TOGGLE_HREFS.has(item.href) ? "/programs" : item.href}
               aria-label={item.label}
               onMouseEnter={() => setHovered(item.href)}
               onMouseLeave={() => setHovered(null)}
+              onClick={() => { if (isActive && TOGGLE_HREFS.has(item.href)) router.back(); }}
               className={cn(
                 "relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ease-out",
                 "hover:scale-125 hover:-translate-y-1.5",
