@@ -491,12 +491,12 @@ export default function ProfileSettingsScreen() {
                         flex: 1,
                         fontSize: 16,
                         fontFamily: "Outfit",
-                        color: "#1a1a1a",
+                        color: p.textPrimary,
                       }}
                       value={name}
                       onChangeText={setName}
                       placeholder="Your full name"
-                      placeholderTextColor="#999"
+                      placeholderTextColor={p.textSecondary}
                     />
                   </View>
                 </Animated.View>
@@ -547,7 +547,7 @@ export default function ProfileSettingsScreen() {
                         flex: 1,
                         fontSize: 16,
                         fontFamily: "Outfit",
-                        color: "#444",
+                        color: p.textSecondary,
                       }}
                       value={email}
                       editable={false}
