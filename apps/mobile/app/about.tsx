@@ -309,18 +309,11 @@ export default function AboutScreen() {
               borderColor: "rgba(255,255,255,0.08)",
             }}
           >
-            <View
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 99,
-                backgroundColor: "#1e6fd9",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ fontSize: 13, fontFamily: "ClashDisplay-Bold", color: "#fff" }}>C</Text>
-            </View>
+            <Image
+              source={require("../assets/images/clientreach-logo.png")}
+              style={{ width: 28, height: 28, borderRadius: 99 }}
+              contentFit="cover"
+            />
             <Text style={{ fontSize: 13, fontFamily: "Outfit", color: "rgba(255,255,255,0.55)" }}>
               Made by{" "}
               <Text style={{ fontFamily: "ClashDisplay-Bold", color: "#4da3ff" }}>Client Reach AI</Text>
