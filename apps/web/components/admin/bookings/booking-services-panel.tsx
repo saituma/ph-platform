@@ -9,6 +9,28 @@ import {
 } from "@/lib/apiSlice";
 import { BOOKING_TYPE_LABELS } from "./bookings-dialogs";
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatServiceSchedule(row: {
+  schedulePattern?: string | null;
+  weeklyEntries?: { weekday: number; time: string }[] | null;
+  oneTimeDate?: string | null;
+  oneTimeTime?: string | null;
+}): string | null {
+  if (row.schedulePattern === "weekly_recurring" && row.weeklyEntries?.length) {
+    return row.weeklyEntries
+      .map((e) => `${WEEKDAY_LABELS[e.weekday] ?? e.weekday} ${e.time}`)
+      .join(", ");
+  }
+  if (row.schedulePattern === "one_time" || row.oneTimeDate) {
+    const parts: string[] = [];
+    if (row.oneTimeDate) parts.push(new Date(row.oneTimeDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }));
+    if (row.oneTimeTime) parts.push(row.oneTimeTime);
+    return parts.length ? parts.join(" · ") : null;
+  }
+  return null;
+}
+
 function deleteServiceErrorMessage(err: unknown): string {
   if (typeof err === "object" && err !== null && "data" in err) {
     const data = (err as { data?: { error?: string } }).data;
@@ -170,6 +192,12 @@ export function BookingServicesPanel({
                         {row.isBookable !== false && (
                           <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Target: {targets}</div>
                         )}
+                        {(() => {
+                          const sched = formatServiceSchedule(row);
+                          return sched ? (
+                            <div className="text-[10px] text-muted-foreground">{sched}</div>
+                          ) : null;
+                        })()}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
