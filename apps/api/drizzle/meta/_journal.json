@@ -1093,6 +1093,13 @@
       "when": 1778837446375,
       "tag": "0155_next_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1778870000000,
+      "tag": "0156_exercise_video_muted",
+      "breakpoints": true
     }
   ]
 }

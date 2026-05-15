@@ -127,7 +127,7 @@
       "compileSdk": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "package": "uk.phperformance.app",
+      "package": "com.phperformance.uk",
       "intentFilters": [
         {
           "action": "VIEW",
