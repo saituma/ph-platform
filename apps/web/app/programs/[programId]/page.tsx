@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../components/ui/dialog";
-import { ChevronRight, Copy, Layers, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, Copy, Layers, Plus, Search, Settings, Trash2 } from "lucide-react";
 import {
   useGetProgramsQuery,
   useGetProgramModulesQuery,
@@ -68,6 +68,7 @@ export default function ProgramDetailPage() {
   const [editModuleId, setEditModuleId] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [librarySearch, setLibrarySearch] = useState("");
 
   const program = useMemo(
     () => ((programsData?.programs ?? []) as ProgramSummary[]).find((item) => item.id === programId) ?? null,
@@ -88,6 +89,7 @@ export default function ProgramDetailPage() {
   const openCreate = () => {
     setTitle("");
     setDescription("");
+    setLibrarySearch("");
     setEditModuleId(null);
     setDialog("create");
   };
@@ -276,8 +278,24 @@ export default function ProgramDetailPage() {
           {dialog === "create" && libraryModules.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">From Library</p>
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {libraryModules.map((mod: any) => (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8 h-8 text-sm"
+                  placeholder="Search modules..."
+                  value={librarySearch}
+                  onChange={(e) => setLibrarySearch(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {libraryModules.filter((m: any) =>
+                  !librarySearch || m.title?.toLowerCase().includes(librarySearch.toLowerCase())
+                ).length === 0 ? (
+                  <p className="py-4 text-center text-xs text-muted-foreground">No modules match your search.</p>
+                ) : null}
+                {libraryModules.filter((m: any) =>
+                  !librarySearch || m.title?.toLowerCase().includes(librarySearch.toLowerCase())
+                ).map((mod: any) => (
                   <button
                     key={mod.id}
                     type="button"
