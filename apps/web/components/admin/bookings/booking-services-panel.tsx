@@ -176,7 +176,9 @@ export function BookingServicesPanel({
                       {row.type ? (BOOKING_TYPE_LABELS[row.type] ?? row.type) : "—"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {row.durationMinutes} min
+                      {row.durationMinutes >= 60
+                        ? `${Math.floor(row.durationMinutes / 60)} hr${Math.floor(row.durationMinutes / 60) > 1 ? "s" : ""}${row.durationMinutes % 60 ? ` ${row.durationMinutes % 60} min` : ""}`
+                        : `${row.durationMinutes} min`}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {row.capacity != null ? row.capacity : "∞"}
