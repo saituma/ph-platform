@@ -445,6 +445,32 @@ export function BookingsDialogs({
         setSelectedUserIds([]);
       }
 
+      // Schedule
+      const pattern = selectedService.schedulePattern ?? "one_time";
+      const isPermanent = pattern === "weekly_recurring";
+      setNewServiceSchedule(isPermanent ? "permanent" : "one_time");
+      if (isPermanent && Array.isArray(selectedService.weeklyEntries) && selectedService.weeklyEntries.length > 0) {
+        const entry = selectedService.weeklyEntries[0];
+        setNewServiceWeekday(String(entry.weekday ?? 1));
+        const [wh = "09", wm = "00"] = (entry.time ?? "09:00").split(":");
+        setNewServiceWeekHour(wh.padStart(2, "0"));
+        setNewServiceWeekMinute(wm.padStart(2, "0"));
+      } else {
+        setNewServiceWeekday("1");
+        setNewServiceWeekHour("09");
+        setNewServiceWeekMinute("00");
+      }
+      if (!isPermanent) {
+        setNewServiceOneTimeDate(selectedService.oneTimeDate ?? "");
+        const [oh = "09", om = "00"] = (selectedService.oneTimeTime ?? "09:00").split(":");
+        setNewServiceOneTimeHour(oh.padStart(2, "0"));
+        setNewServiceOneTimeMinute(om.padStart(2, "0"));
+      } else {
+        setNewServiceOneTimeDate("");
+        setNewServiceOneTimeHour("09");
+        setNewServiceOneTimeMinute("00");
+      }
+
       setError(null);
     }
   }, [active, selectedService, teamsData]);
