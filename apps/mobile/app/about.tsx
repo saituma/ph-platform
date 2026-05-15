@@ -304,9 +304,9 @@ export default function AboutScreen() {
               paddingHorizontal: 16,
               paddingVertical: 10,
               borderRadius: 99,
-              backgroundColor: p.pageBg === "#ffffff" || p.pageBg === "#fff" ? "#1a1a1f" : "rgba(255,255,255,0.07)",
+              backgroundColor: "#1a1a1f",
               borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.08)",
+              borderColor: "rgba(255,255,255,0.1)",
             }}
           >
             <Image
