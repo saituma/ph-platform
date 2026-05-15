@@ -24,7 +24,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "../../../../components/ui/select";
-import { ChevronRight, ClipboardList, Library, Plus, Settings, Trash2 } from "lucide-react";
+import { ChevronRight, ClipboardList, Copy, Plus, Search, Settings, Trash2 } from "lucide-react";
 import {
   useGetModuleLibraryQuery,
   useGetModuleSessionsQuery,
@@ -36,7 +36,7 @@ import {
 } from "../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
-type SessionDialog = null | "create" | "edit" | "from-library";
+type SessionDialog = null | "create" | "edit";
 
 type BuilderSession = {
   id: number;
@@ -85,6 +85,7 @@ export default function LibraryModuleDetailPage() {
   const [weekNumber, setWeekNumber] = useState("1");
   const [sessionNumber, setSessionNumber] = useState("1");
   const [sessionType, setSessionType] = useState("program");
+  const [sessionSearch, setSessionSearch] = useState("");
 
   const currentModule = (libraryData?.modules ?? []).find((m: any) => m.id === moduleId);
   const sessions: BuilderSession[] = sessionsData?.sessions ?? [];
@@ -97,6 +98,7 @@ export default function LibraryModuleDetailPage() {
     setWeekNumber(String(sessions.length > 0 ? Math.max(...sessions.map((s) => s.weekNumber ?? 1)) : 1));
     setSessionNumber(String(sessions.length + 1));
     setSessionType("program");
+    setSessionSearch("");
     setEditSessionId(null);
     setDialog("create");
   };
@@ -183,14 +185,9 @@ export default function LibraryModuleDetailPage() {
         </span>
       }
       actions={
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setDialog("from-library")}>
-            <Library className="mr-1 h-4 w-4" /> From Session Library
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="mr-1 h-4 w-4" /> Add Session
-          </Button>
-        </div>
+        <Button onClick={openCreate}>
+          <Plus className="mr-1 h-4 w-4" /> Add Session
+        </Button>
       }
     >
       <SectionHeader
@@ -272,14 +269,69 @@ export default function LibraryModuleDetailPage() {
 
       {/* Create / Edit dialog */}
       <Dialog open={dialog === "create" || dialog === "edit"} onOpenChange={() => setDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{dialog === "edit" ? "Edit Session" : "Add Session"}</DialogTitle>
             <DialogDescription>
-              {dialog === "edit" ? "Update session details." : "Create a new session in this module."}
+              {dialog === "edit" ? "Update session details." : "Pick from session library or create a new one."}
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 space-y-4">
+
+          {dialog === "create" && librarySessionsList.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">From Session Library</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-8 h-8 text-sm"
+                  placeholder="Search sessions..."
+                  value={sessionSearch}
+                  onChange={(e) => setSessionSearch(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {librarySessionsList.filter((s: any) =>
+                  !sessionSearch || (s.title ?? "").toLowerCase().includes(sessionSearch.toLowerCase())
+                ).length === 0 && (
+                  <p className="py-4 text-center text-xs text-muted-foreground">No sessions match your search.</p>
+                )}
+                {librarySessionsList.filter((s: any) =>
+                  !sessionSearch || (s.title ?? "").toLowerCase().includes(sessionSearch.toLowerCase())
+                ).map((s: any) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    disabled={isCopying}
+                    onClick={() => handleCopyFromLibrary(s.id)}
+                    className="flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
+                  >
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-foreground">
+                        {s.title || `Session ${s.sessionNumber ?? 1}`}
+                      </div>
+                      {s.description && (
+                        <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{s.description}</div>
+                      )}
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge variant="secondary" className="text-[10px]">{s.type ?? "program"}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {s.exerciseCount ?? 0} exercise{(s.exerciseCount ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <Copy className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 py-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">or create new</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+            </div>
+          )}
+
+          <div className={dialog === "create" && librarySessionsList.length > 0 ? "space-y-4" : "mt-4 space-y-4"}>
             <Input
               placeholder="Session title (optional)"
               value={title}
@@ -337,50 +389,6 @@ export default function LibraryModuleDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* From Session Library picker */}
-      <Dialog open={dialog === "from-library"} onOpenChange={() => setDialog(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Copy from Session Library</DialogTitle>
-            <DialogDescription>
-              Select a library session to copy into this module. Its exercises will be included.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
-            {librarySessionsList.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">
-                No sessions in library yet.{" "}
-                <Link href="/programs/sessions" className="text-primary hover:underline">
-                  Create one first.
-                </Link>
-              </div>
-            ) : (
-              librarySessionsList.map((s: any) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={isCopying}
-                  onClick={() => handleCopyFromLibrary(s.id)}
-                  className="w-full rounded-xl border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50"
-                >
-                  <div className="text-sm font-medium text-foreground">
-                    {s.title || `Session ${s.sessionNumber ?? 1}`}
-                  </div>
-                  {s.description && (
-                    <div className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{s.description}</div>
-                  )}
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <Badge variant="secondary" className="text-[10px]">{s.type ?? "program"}</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {s.exerciseCount ?? 0} exercise{(s.exerciseCount ?? 0) !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </AdminShell>
   );
 }
