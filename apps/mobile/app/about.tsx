@@ -268,7 +268,7 @@ export default function AboutScreen() {
           >
             <Globe size={20} color="#fff" />
             <Text style={{ fontSize: 16, fontFamily: "ClashDisplay-Bold", color: "#fff" }}>
-              Visit Website
+              Visit Instagram
             </Text>
           </View>
         </Pressable>
