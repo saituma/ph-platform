@@ -443,6 +443,7 @@ export const exerciseTable = pgTable("exercises", {
   restSeconds: integer(),
   notes: varchar({ length: 500 }),
   videoUrl: varchar({ length: 500 }),
+  videoMuted: boolean("video_muted").default(true),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

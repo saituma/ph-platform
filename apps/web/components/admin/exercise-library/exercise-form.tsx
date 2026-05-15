@@ -22,6 +22,7 @@ function toInputValue(value?: string | number | null) {
 type ExerciseFormProps = {
   form: Exercise;
   onChange: (field: keyof Exercise, value: string) => void;
+  onToggle?: (field: keyof Exercise, value: boolean) => void;
   onSubmit: () => void;
   onCancel?: () => void;
   onDelete?: () => void;
@@ -34,6 +35,7 @@ type ExerciseFormProps = {
 export function ExerciseForm({
   form,
   onChange,
+  onToggle,
   onSubmit,
   onCancel,
   onDelete,
@@ -114,12 +116,23 @@ export function ExerciseForm({
           />
         </div>
         {form.videoUrl ? (
-          <video
-            className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
-            src={form.videoUrl}
-            controls
-            muted
-          />
+          <div className="space-y-2">
+            <video
+              className="aspect-video w-full rounded-2xl border border-border bg-secondary/40 object-cover"
+              src={form.videoUrl}
+              controls
+              muted={form.videoMuted !== false}
+            />
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground select-none">
+              <input
+                type="checkbox"
+                checked={form.videoMuted !== false}
+                onChange={(e) => onToggle?.("videoMuted", e.target.checked)}
+                className="h-3.5 w-3.5 rounded accent-primary"
+              />
+              Mute video for athletes
+            </label>
+          </div>
         ) : (
           <div className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-border bg-secondary/40 text-xs text-muted-foreground">
             Upload a video file for this exercise.

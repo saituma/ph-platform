@@ -7,6 +7,7 @@ export type Exercise = {
   time?: number | string;
   rest?: number | string;
   videoUrl?: string;
+  videoMuted?: boolean;
   videoStatus?: string;
   notes?: string;
   cues?: string;

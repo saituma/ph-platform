@@ -86,6 +86,7 @@ export default function ExercisesPage() {
         restSeconds: payload.rest ? Number(payload.rest) : undefined,
         notes: payload.notes || undefined,
         videoUrl: payload.videoUrl || undefined,
+        videoMuted: payload.videoMuted !== false,
       }).unwrap();
       setDialog(null);
       toast.success("Exercise added to library");
@@ -111,6 +112,7 @@ export default function ExercisesPage() {
           restSeconds: payload.rest ? Number(payload.rest) : null,
           notes: payload.notes || null,
           videoUrl: payload.videoUrl || null,
+          videoMuted: payload.videoMuted !== false,
         },
       }).unwrap();
       setDialog(null);
@@ -272,7 +274,7 @@ export default function ExercisesPage() {
                     <video
                       className="h-full w-full object-cover"
                       src={ex.videoUrl}
-                      muted
+                      muted={ex.videoMuted !== false}
                       preload="metadata"
                     />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">

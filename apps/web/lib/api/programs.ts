@@ -286,6 +286,7 @@ const programsApi = apiSlice.injectEndpoints({
         restSeconds?: number;
         notes?: string;
         videoUrl?: string;
+        videoMuted?: boolean;
       }
     >({
       query: (body) => ({

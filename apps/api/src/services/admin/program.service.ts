@@ -173,6 +173,7 @@ export async function createExercise(input: {
   restSeconds?: number | null;
   notes?: string | null;
   videoUrl?: string | null;
+  videoMuted?: boolean | null;
 }) {
   const result = await db
     .insert(exerciseTable)
@@ -189,6 +190,7 @@ export async function createExercise(input: {
       restSeconds: input.restSeconds ?? null,
       notes: input.notes ?? null,
       videoUrl: input.videoUrl ?? null,
+      videoMuted: input.videoMuted ?? true,
     })
     .returning();
 
@@ -216,6 +218,7 @@ export async function listExercises(options?: { limit?: number }) {
       restSeconds: exerciseTable.restSeconds,
       notes: exerciseTable.notes,
       videoUrl: exerciseTable.videoUrl,
+      videoMuted: exerciseTable.videoMuted,
       createdAt: exerciseTable.createdAt,
       updatedAt: exerciseTable.updatedAt,
       usageCount: sql<number>`(
@@ -243,6 +246,7 @@ export async function updateExercise(
     restSeconds?: number | null;
     notes?: string | null;
     videoUrl?: string | null;
+    videoMuted?: boolean | null;
   },
 ) {
   const updatePayload: Record<string, any> = {
@@ -261,6 +265,7 @@ export async function updateExercise(
   if (input.restSeconds !== undefined) updatePayload.restSeconds = input.restSeconds;
   if (input.notes !== undefined) updatePayload.notes = input.notes;
   if (input.videoUrl !== undefined) updatePayload.videoUrl = input.videoUrl;
+  if (input.videoMuted !== undefined) updatePayload.videoMuted = input.videoMuted;
 
   const updated = await db.update(exerciseTable).set(updatePayload).where(eq(exerciseTable.id, exerciseId)).returning();
 

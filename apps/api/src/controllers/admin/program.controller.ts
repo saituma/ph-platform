@@ -79,6 +79,7 @@ const exerciseSchema = z.object({
   restSeconds: z.number().int().optional(),
   notes: z.string().optional(),
   videoUrl: z.string().url().optional(),
+  videoMuted: z.boolean().optional(),
 });
 
 const exerciseUpdateSchema = z
@@ -95,6 +96,7 @@ const exerciseUpdateSchema = z
     restSeconds: z.number().int().optional().nullable(),
     notes: z.string().optional().nullable(),
     videoUrl: z.string().url().optional().nullable(),
+    videoMuted: z.boolean().optional().nullable(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "No fields to update",
@@ -215,6 +217,7 @@ export async function createExerciseItem(req: Request, res: Response) {
     restSeconds: input.restSeconds,
     notes: input.notes,
     videoUrl: input.videoUrl,
+    videoMuted: input.videoMuted ?? true,
   });
   return res.status(201).json({ exercise });
 }

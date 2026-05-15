@@ -27,6 +27,7 @@ const emptyForm: Exercise = {
   time: "",
   rest: "",
   videoUrl: "",
+  videoMuted: true,
   notes: "",
   cues: "",
   howTo: "",
@@ -73,6 +74,7 @@ export function ExerciseDialogs({
         time: toInputValue(selectedExercise.time),
         rest: toInputValue(selectedExercise.rest),
         videoUrl: selectedExercise.videoUrl ?? "",
+        videoMuted: selectedExercise.videoMuted !== false,
         notes: selectedExercise.notes ?? "",
         cues: selectedExercise.cues ?? "",
         howTo: selectedExercise.howTo ?? "",
@@ -83,6 +85,10 @@ export function ExerciseDialogs({
   }, [active, selectedExercise]);
 
   const handleChange = (field: keyof Exercise, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleToggle = (field: keyof Exercise, value: boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -111,6 +117,7 @@ export function ExerciseDialogs({
           <ExerciseForm
             form={form}
             onChange={handleChange}
+            onToggle={handleToggle}
             onSubmit={handleSubmit}
             onCancel={onClose}
             onDelete={isEdit && onDelete ? handleDelete : undefined}
