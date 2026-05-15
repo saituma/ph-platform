@@ -498,7 +498,7 @@ function LandingPage() {
                                             src="/apple-app-store.svg"
                                             alt="Download on the App Store"
                                             loading="lazy"
-                                            className="h-[38px]"
+                                            className="h-[48px]"
                                         />
                                     </a>
                                     <a
@@ -510,7 +510,7 @@ function LandingPage() {
                                             src="/google-play.svg"
                                             alt="Get it on Google Play"
                                             loading="lazy"
-                                            className="h-[56px]"
+                                            className="h-[70px]"
                                         />
                                     </a>
                                 </div>
