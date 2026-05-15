@@ -34,6 +34,14 @@ const nextConfig: NextConfig = {
         source: "/_next/static/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+      {
+        // FFmpeg.wasm requires SharedArrayBuffer, which needs these isolation headers.
+        source: "/video-editor(.*)",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
     ];
   },
 };
