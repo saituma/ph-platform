@@ -270,7 +270,7 @@ export function BookingsDialogs({
   const [serviceName, setServiceName] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
   const [isBookable, setIsBookable] = useState(true);
-  const [serviceType, setServiceType] = useState("one_to_one");
+  const [serviceType, setServiceType] = useState("semi_private");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [slotsAvailable, setSlotsAvailable] = useState("");
   const [newServiceSchedule, setNewServiceSchedule] = useState<"permanent" | "one_time">("one_time");
@@ -339,7 +339,7 @@ export function BookingsDialogs({
       setServiceName("");
       setServiceDescription("");
       setIsBookable(true);
-      setServiceType("one_to_one");
+      setServiceType("semi_private");
       setDurationMinutes("");
       setSlotsAvailable("");
       setEligiblePlans([]);
@@ -691,7 +691,7 @@ export function BookingsDialogs({
                   items={SERVICE_TYPE_ITEMS}
                   value={serviceType}
                   onValueChange={(nextType) => {
-                    const type = nextType ?? "one_to_one";
+                    const type = nextType ?? "semi_private";
                     setServiceType(type);
                     const nextAllowedAudiences = allowedAudienceModesForServiceType(type);
                     if (!nextAllowedAudiences.includes(audienceMode)) {
@@ -704,6 +704,8 @@ export function BookingsDialogs({
                     }
                     if (type === "one_to_one") {
                       setSlotsAvailable("1");
+                    } else {
+                      setSlotsAvailable("");
                     }
                     setError(null);
                   }}
