@@ -34,11 +34,14 @@ import { Input } from "../../../../components/ui/input";
 import { Textarea } from "../../../../components/ui/textarea";
 import {
   AudienceWorkspace,
+  AudienceSummary,
   normalizeAudienceLabelInput,
   toStorageAudienceLabel,
   toTeamStorageAudienceLabel,
+  isYouthAgeAudienceLabel,
   trainingContentRequest,
   clearTrainingContentCache,
+  PROGRAM_TIERS,
 } from "../../../../components/admin/training-content-v2/api";
 import { isInseasonAgeGroup } from "./others/inseason-shared";
 import { OTHER_SECTION_CONFIGS } from "./others/shared";
@@ -175,6 +178,10 @@ function TeamDetailPageInner() {
   const [teams, setTeams] = useState<TeamSummary[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
+  const [audiences, setAudiences] = useState<AudienceSummary[]>([]);
+  const [audiencesLoading, setAudiencesLoading] = useState(false);
+  const [copySourceTab, setCopySourceTab] = useState<"teams" | "age-groups">("teams");
+  const [copySourceLabel, setCopySourceLabel] = useState<string>("");
   const [copySourceTeam, setCopySourceTeam] = useState("");
   const [copySearch, setCopySearch] = useState("");
   const [copyStep, setCopyStep] = useState<"team" | "modules" | "sessions">("team");
@@ -262,9 +269,24 @@ function TeamDetailPageInner() {
     }
   };
 
+  const loadAudiences = async () => {
+    setAudiencesLoading(true);
+    try {
+      const data = await trainingContentRequest<{ items: AudienceSummary[] }>("/admin/audiences");
+      setAudiences(data.items ?? []);
+    } catch {
+      setAudiences([]);
+    } finally {
+      setAudiencesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!copyModalOpen) return;
+    setCopySourceTab("teams");
+    setCopySourceLabel("");
     void loadTeams();
+    void loadAudiences();
   }, [copyModalOpen, audienceLabel]);
 
   const loadOtherPlans = async () => {
@@ -436,11 +458,11 @@ function TeamDetailPageInner() {
       item.team.toLowerCase().includes(copySearch.trim().toLowerCase()),
   );
 
-  const loadCopySourceWorkspace = async (teamName: string) => {
+  const loadCopySourceWorkspace = async (sourceLabel: string) => {
     setCopyLoadingSource(true);
     try {
       const data = await trainingContentRequest<AudienceWorkspace>(
-        `/admin?audienceLabel=${encodeURIComponent(toTeamStorageAudienceLabel(teamName))}`,
+        `/admin?audienceLabel=${encodeURIComponent(sourceLabel)}`,
       );
       setCopySourceWorkspace(data);
     } catch {
@@ -463,7 +485,7 @@ function TeamDetailPageInner() {
       await trainingContentRequest<AudienceWorkspace>("/admin/copy-selected", {
         method: "POST",
         body: JSON.stringify({
-          sourceAudienceLabel: toTeamStorageAudienceLabel(copySourceTeam),
+          sourceAudienceLabel: copySourceLabel || toTeamStorageAudienceLabel(copySourceTeam),
           targetAudienceLabel: storageAudienceLabel,
           moduleIds,
           sessionIds: copyAllSessions ? null : Array.from(copySelectedSessions),
@@ -1131,49 +1153,90 @@ function TeamDetailPageInner() {
 
           {copyStep === "team" && (
             <div className="space-y-4">
+              {/* Tab switcher */}
+              <div className="flex rounded-lg border border-border overflow-hidden text-sm font-medium">
+                {(["teams", "age-groups"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => { setCopySourceTab(tab); setCopySearch(""); setCopySourceLabel(""); setCopySourceTeam(""); }}
+                    className={`flex-1 py-2 transition ${copySourceTab === tab ? "bg-primary text-primary-foreground" : "bg-secondary/40 text-muted-foreground hover:bg-secondary"}`}
+                  >
+                    {tab === "teams" ? "Teams" : "Age Groups"}
+                  </button>
+                ))}
+              </div>
+
               <Input
-                placeholder="Search team name"
+                placeholder={copySourceTab === "teams" ? "Search team name…" : "Search age group…"}
                 value={copySearch}
                 onChange={(event) => setCopySearch(event.target.value)}
               />
+
               <div className="max-h-72 space-y-2 overflow-y-auto">
-                {teamsLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading teams…</p>
-                ) : teamsError ? (
-                  <p className="text-sm text-destructive">{teamsError}</p>
-                ) : filteredCopyTeams.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {copySearch.trim()
-                      ? "No teams match that search."
-                      : teams.length === 0
-                        ? "No teams found. Make sure teams are created first."
-                        : "No other teams to copy from — this is the only team."}
-                  </p>
+                {copySourceTab === "teams" ? (
+                  teamsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading teams…</p>
+                  ) : teamsError ? (
+                    <p className="text-sm text-destructive">{teamsError}</p>
+                  ) : filteredCopyTeams.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {copySearch.trim() ? "No teams match that search." : teams.length === 0 ? "No teams found." : "No other teams to copy from."}
+                    </p>
+                  ) : filteredCopyTeams.map((item) => {
+                    const label = toTeamStorageAudienceLabel(item.team);
+                    return (
+                      <button
+                        key={item.team}
+                        type="button"
+                        onClick={() => { setCopySourceTeam(item.team); setCopySourceLabel(label); }}
+                        className={`w-full rounded-xl border px-4 py-3 text-left transition ${copySourceLabel === label ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"}`}
+                      >
+                        <p className="text-sm font-semibold text-foreground">{item.team}</p>
+                        <p className="text-xs text-muted-foreground">{item.youthCount} youth · {item.adultCount} adult</p>
+                      </button>
+                    );
+                  })
                 ) : (
-                  filteredCopyTeams.map((item) => (
-                    <button
-                      key={item.team}
-                      type="button"
-                      onClick={() => setCopySourceTeam(item.team)}
-                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                        copySourceTeam === item.team
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-foreground">{item.team}</p>
-                      <p className="text-xs text-muted-foreground">{item.youthCount} youth · {item.adultCount} adult</p>
-                    </button>
-                  ))
+                  (() => {
+                    const ageGroupItems = audiences
+                      .filter((a) => {
+                        const n = normalizeAudienceLabelInput(a.label);
+                        const isTeam = n.startsWith("team::");
+                        if (isTeam) return false;
+                        const display = isYouthAgeAudienceLabel(n, 18) ? `Age ${n}` : (PROGRAM_TIERS.find((t) => n === t.value || n === `adult::${t.value}`)?.label ?? n);
+                        return display.toLowerCase().includes(copySearch.trim().toLowerCase());
+                      });
+                    if (audiencesLoading) return <p className="text-sm text-muted-foreground">Loading age groups…</p>;
+                    if (!ageGroupItems.length) return <p className="text-sm text-muted-foreground">{copySearch.trim() ? "No age groups match that search." : "No age groups found."}</p>;
+                    return ageGroupItems.map((item) => {
+                      const n = normalizeAudienceLabelInput(item.label);
+                      const isYouth = isYouthAgeAudienceLabel(n, 18);
+                      const display = isYouth ? `Age ${n}` : (PROGRAM_TIERS.find((t) => n === t.value || n === `adult::${t.value}`)?.label ?? n);
+                      const storageLabel = isYouth ? n : toStorageAudienceLabel({ audienceLabel: n, adultMode: true });
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => { setCopySourceLabel(storageLabel); setCopySourceTeam(""); }}
+                          className={`w-full rounded-xl border px-4 py-3 text-left transition ${copySourceLabel === storageLabel ? "border-primary bg-primary/10" : "border-border hover:border-primary/40"}`}
+                        >
+                          <p className="text-sm font-semibold text-foreground">{display}</p>
+                          <p className="text-xs text-muted-foreground">{item.moduleCount} module{item.moduleCount !== 1 ? "s" : ""} · {item.otherCount} other{item.otherCount !== 1 ? "s" : ""}</p>
+                        </button>
+                      );
+                    });
+                  })()
                 )}
               </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setCopyModalOpen(false)}>Cancel</Button>
                 <Button
-                  disabled={!copySourceTeam}
+                  disabled={!copySourceLabel}
                   onClick={async () => {
-                    if (!copySourceTeam) return;
-                    await loadCopySourceWorkspace(copySourceTeam);
+                    if (!copySourceLabel) return;
+                    await loadCopySourceWorkspace(copySourceLabel);
                     setCopyStep("modules");
                   }}
                 >
