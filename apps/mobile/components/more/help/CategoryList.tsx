@@ -34,7 +34,7 @@ export function CategoryList({ selectedCategory, onSelectCategory }: CategoryLis
               width: "48%",
               borderRadius: 22,
               padding: 16,
-              backgroundColor: isSelected ? p.accentSoft : p.cardSage,
+              backgroundColor: p.cardWhite,
               opacity: pressed ? 0.85 : 1,
             })}
           >
@@ -46,10 +46,10 @@ export function CategoryList({ selectedCategory, onSelectCategory }: CategoryLis
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 16,
-                backgroundColor: isSelected ? p.cardWhite : p.cardMint,
+                backgroundColor: isSelected ? p.accent : p.inputBg,
               }}
             >
-              <Icon size={22} color={p.accent} />
+              <Icon size={22} color={isSelected ? p.buttonPrimaryText : p.accent} />
             </View>
             <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary, marginBottom: 4 }}>
               {category.label}

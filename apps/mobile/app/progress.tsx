@@ -83,7 +83,8 @@ import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
 import { useAppToast } from "@/hooks/useAppToast";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: _SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const RING_SIZE = Math.min(SCREEN_W - 100, 200);
 const BENTO_GAP = 10;
 const BENTO_HALF = (SCREEN_W - 48 - BENTO_GAP) / 2;

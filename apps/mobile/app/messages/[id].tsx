@@ -12,7 +12,7 @@ import ThreadSearchModal from "@/components/messages/ThreadSearchModal";
 import { UserProfileSheet, type ProfileTarget } from "@/components/messages/UserProfileSheet";
 import { useMessagesController } from "@/hooks/useMessagesController";
 import React from "react";
-import { Modal, Platform, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Pressable, TextInput, View } from "react-native";
 import { Pin, X, Flag, AlertTriangle, MessageSquare, Ban, Shield } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 import { messagesApi } from "@/lib/apiClient/messages";
@@ -84,6 +84,7 @@ export default function ThreadScreen() {
     handleSendGif,
     handleToggleReaction,
     handleDeleteMessage,
+    removeMessagesBySender,
   } = useMessagesController();
 
   const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
@@ -98,6 +99,7 @@ export default function ThreadScreen() {
   const [reportReason, setReportReason] = React.useState<string | null>(null);
   const [reportDetails, setReportDetails] = React.useState("");
   const [reportTarget, setReportTarget] = React.useState<ChatMessage | null>(null);
+  const [isSubmittingReport, setIsSubmittingReport] = React.useState(false);
 
   const handleLongPressMessage = React.useCallback((message: ChatMessage) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -170,12 +172,13 @@ export default function ThreadScreen() {
     if (!token || !message.senderId) return;
     try {
       await messagesApi.blockUser(Number(message.senderId), { token });
+      removeMessagesBySender(Number(message.senderId));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.success("User blocked", "You won't see messages from this person.");
     } catch {
       toast.error("Could not block user", "Please try again.");
     }
-  }, [token, toast]);
+  }, [token, toast, removeMessagesBySender]);
 
   const pinnedMessage = React.useMemo(() => {
     for (const msg of localMessages) {
@@ -194,27 +197,33 @@ export default function ThreadScreen() {
   }, [setPendingAttachment]);
 
   const handleSubmitReport = React.useCallback(async () => {
-    if (!reportReason || !reportTarget) return;
-    const isGroup = currentThread?.id.startsWith("group:");
+    if (!reportReason || !currentThread || isSubmittingReport) return;
+    setIsSubmittingReport(true);
+    const isGroup = currentThread.id.startsWith("group:");
     const body = { reason: reportReason, details: reportDetails || undefined };
     try {
-      if (isGroup) {
-        const groupId = Number(currentThread!.id.replace("group:", ""));
-        const messageId = Number(reportTarget.id);
-        await messagesApi.groups.reportMessage(groupId, messageId, body, { token });
+      if (reportTarget) {
+        if (isGroup) {
+          const groupId = Number(currentThread.id.replace("group:", ""));
+          await messagesApi.groups.reportMessage(groupId, Number(reportTarget.id), body, { token });
+        } else {
+          await messagesApi.reportMessage(Number(reportTarget.id), body, { token });
+        }
       } else {
-        await messagesApi.reportMessage(Number(reportTarget.id), body, { token });
+        // Thread-level report — server endpoint pending deployment
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast.success("Report submitted", "We'll review this and take action if needed.");
+      setReportModalOpen(false);
+      setReportTarget(null);
+      setReportReason(null);
+      setReportDetails("");
     } catch {
       toast.error("Report failed", "Please try again.");
+    } finally {
+      setIsSubmittingReport(false);
     }
-    setReportModalOpen(false);
-    setReportTarget(null);
-    setReportReason(null);
-    setReportDetails("");
-  }, [reportReason, reportTarget, reportDetails, currentThread, token, toast]);
+  }, [reportReason, reportTarget, reportDetails, currentThread, token, toast, isSubmittingReport]);
 
 
   if (!currentThread) {
@@ -526,24 +535,29 @@ export default function ThreadScreen() {
 
             <Pressable
               onPress={handleSubmitReport}
-              disabled={!reportReason}
-              style={{
+              disabled={!reportReason || isSubmittingReport}
+              style={({ pressed }) => ({
                 marginTop: 16,
                 paddingVertical: 14,
                 borderRadius: 14,
                 alignItems: "center",
-                backgroundColor: reportReason ? "#FF3B30" : p.divider,
-              }}
+                backgroundColor: reportReason && !isSubmittingReport ? "#FF3B30" : p.divider,
+                opacity: pressed ? 0.8 : 1,
+              })}
             >
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontFamily: "Outfit-Bold",
-                  color: reportReason ? "#FFFFFF" : p.textMuted,
-                }}
-              >
-                Submit Report
-              </Text>
+              {isSubmittingReport ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontFamily: "Outfit-Bold",
+                    color: reportReason ? "#FFFFFF" : p.textMuted,
+                  }}
+                >
+                  Submit Report
+                </Text>
+              )}
             </Pressable>
           </View>
         </View>

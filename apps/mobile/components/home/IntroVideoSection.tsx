@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { View, useWindowDimensions } from "react-native";
+import { View } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
@@ -21,7 +22,7 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
   loading,
 }: IntroVideoSectionProps) {
   const p = useAdminPastel();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
 
   useEffect(() => {
     if (posterUrl) {

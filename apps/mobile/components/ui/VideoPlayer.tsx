@@ -4,11 +4,11 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  useWindowDimensions,
   AppState,
   AppStateStatus,
   BackHandler,
 } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import YoutubeIframe from "react-native-youtube-iframe";
@@ -96,7 +96,7 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
   videoId,
   durationSec = 0,
 }: VideoPlayerProps, ref) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const { colors, isDark } = useAppTheme();
   const reduceMotion = useReducedMotion();
   const sourceType = detectSourceType(source);

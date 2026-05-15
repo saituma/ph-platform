@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import { CheckCircle } from "lucide-react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, X } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

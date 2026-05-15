@@ -29,7 +29,7 @@ export function QuickActions() {
               alignItems: "center",
               borderRadius: 22,
               padding: 16,
-              backgroundColor: p.cardSage,
+              backgroundColor: p.cardWhite,
               opacity: pressed ? 0.85 : 1,
             })}
           >
@@ -41,7 +41,7 @@ export function QuickActions() {
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 16,
-                backgroundColor: p.accentSoft,
+                backgroundColor: p.inputBg,
               }}
             >
               <Icon size={20} color={p.accent} />

@@ -3,16 +3,12 @@ import { isAdminRole } from "@/lib/isAdminRole";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { AlertCircle } from "lucide-react-native";
-import { Linking, Pressable, View } from "react-native";
-
-const RENEW_URL = process.env.EXPO_PUBLIC_MARKETING_SITE_URL?.trim() || "https://phperformance.uk/";
+import { View } from "react-native";
 
 export function PlanExpiredBanner() {
-  const { programTier, onboardingCompleted, apiUserRole } = useAppSelector((s) => ({
-    programTier: s.user.programTier,
-    onboardingCompleted: s.user.onboardingCompleted,
-    apiUserRole: s.user.apiUserRole,
-  }));
+  const programTier = useAppSelector((s) => s.user.programTier);
+  const onboardingCompleted = useAppSelector((s) => s.user.onboardingCompleted);
+  const apiUserRole = useAppSelector((s) => s.user.apiUserRole);
   const { isDark } = useAppTheme();
 
   const isExpired = onboardingCompleted === true && !programTier && !isAdminRole(apiUserRole);
@@ -43,17 +39,7 @@ export function PlanExpiredBanner() {
       <AlertCircle size={18} color={iconColor} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 13, fontFamily: "Outfit-Medium", color: textColor, lineHeight: 18 }}>
-          Your plan has expired.{" "}
-          <Pressable
-            onPress={() => void Linking.openURL(RENEW_URL)}
-            accessibilityRole="link"
-            accessibilityLabel="Purchase a new plan"
-            hitSlop={8}
-          >
-            <Text style={{ fontSize: 13, fontFamily: "Outfit-Medium", color: linkColor, textDecorationLine: "underline" }}>
-              Purchase a new plan
-            </Text>
-          </Pressable>
+          Your plan has expired. Please contact your coach to renew access.
         </Text>
       </View>
     </View>

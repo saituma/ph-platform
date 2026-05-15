@@ -4,6 +4,7 @@ import {
   StyleSheet,
   View,
   Dimensions,
+  Platform,
   useColorScheme,
   Image,
   ImageBackground,
@@ -67,7 +68,8 @@ import {
   Activity,
 } from "lucide-react-native";
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const { width: _SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
+const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const HERO_HEIGHT = SCREEN_H * 0.52;
 
 const HOME_BG = require("@/assets/images/home-bg.png");

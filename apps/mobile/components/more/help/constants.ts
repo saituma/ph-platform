@@ -16,13 +16,6 @@ export const QUICK_ACTIONS: QuickAction[] = [
     route: "/feedback",
   },
   {
-    id: "permissions",
-    icon: "smartphone",
-    label: "Check permissions",
-    description: "Fix notifications, camera, and media access fast.",
-    route: "/permissions",
-  },
-  {
     id: "privacy",
     icon: "lock",
     label: "Privacy & safety",

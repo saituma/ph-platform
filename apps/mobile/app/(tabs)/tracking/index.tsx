@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View, Image as RNImage, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { Platform, Pressable, RefreshControl, ScrollView, View, Image as RNImage, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -142,7 +142,8 @@ export default function TrackingHomeScreen() {
   const router = useRouter();
   const pathname = useSafePathname("");
   const insets = useAppSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: _screenWidth } = useWindowDimensions();
+  const screenWidth = Platform.isPad ? Math.min(_screenWidth, 560) : _screenWidth;
   const { isDark } = useAppTheme();
   const p = useAdminPastel();
   const appRole = useAppSelector((s) => s.user.appRole);

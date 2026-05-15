@@ -25,7 +25,7 @@ export function FAQSection({ expandedFaq, setExpandedFaq }: FAQSectionProps) {
             style={({ pressed }) => ({
               borderRadius: 22,
               padding: 20,
-              backgroundColor: isOpen ? p.accentSoft : p.cardSage,
+              backgroundColor: p.cardWhite,
               opacity: pressed ? 0.9 : 1,
             })}
           >
@@ -37,7 +37,7 @@ export function FAQSection({ expandedFaq, setExpandedFaq }: FAQSectionProps) {
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: 14,
-                  backgroundColor: isOpen ? p.cardWhite : p.cardMint,
+                  backgroundColor: p.inputBg,
                 }}
               >
                 {isOpen ? (

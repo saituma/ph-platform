@@ -6,6 +6,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import {
   Alert,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -872,7 +873,8 @@ export default memo(function ScheduleScreen() {
   const streak = useStreakStore((ss) => ss.currentStreak);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
   const profilePic = profile?.avatar ?? null;
-  const { width: screenWidth } = Dimensions.get("window");
+  const { width: _screenWidth } = Dimensions.get("window");
+  const screenWidth = Platform.isPad ? Math.min(_screenWidth, 560) : _screenWidth;
   const reduceMotion = useReducedMotion();
   const { effectiveProfileId, actingHeaders } = useActingUser();
   const canBook = capabilities?.coachBooking === true;

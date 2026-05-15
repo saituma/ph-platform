@@ -5,8 +5,8 @@ import {
   NativeSyntheticEvent,
   ScrollView,
   View,
-  useWindowDimensions,
 } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { NavigationContext } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
@@ -98,7 +98,7 @@ function AnnouncementsSectionWithNav(props: AnnouncementsSectionProps) {
 }
 
 function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProps & { isFocused: boolean }) {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const { colors, isDark } = useAppTheme();
   const flatListRef = useRef<FlashListRef<AnnouncementItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);

@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Dimensions,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -35,7 +36,8 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { useWellbeingData, type WellbeingLogInput } from "@/hooks/useWellbeingData";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: _SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const RING_SIZE = Math.min(Math.floor((SCREEN_W - 80) / 3), 100);
 const STROKE_WIDTH = 10;
 const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;

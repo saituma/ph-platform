@@ -7,7 +7,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Dimensions,
   Platform,
   TouchableOpacity,
   useColorScheme,
@@ -47,7 +46,8 @@ interface ToastProps extends ToastData {
   index: number;
 }
 
-const { width: screenWidth } = Dimensions.get('window');
+import { getContentWidth } from '@/lib/contentWidth';
+const screenWidth = getContentWidth();
 const TOAST_HEIGHT = 56;
 const TOAST_MARGIN = 8;
 const TOAST_WIDTH = screenWidth - 32;

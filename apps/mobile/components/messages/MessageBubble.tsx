@@ -5,9 +5,9 @@ import {
 	ActivityIndicator,
 	Platform,
 	Pressable,
-	useWindowDimensions,
 	View,
 } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -98,7 +98,7 @@ function MessageBubbleComponent({
 			: message.from === "user";
 	const [mediaOpen, setMediaOpen] = useState(false);
 	const [reactionsOpen, setReactionsOpen] = useState(false);
-	const { width: viewportWidth } = useWindowDimensions();
+	const viewportWidth = useContentWidth();
 
 	const swipeRef = useRef<React.ComponentRef<typeof ReanimatedSwipeable> | null>(null);
 	const lastTapRef = useRef<number>(0);

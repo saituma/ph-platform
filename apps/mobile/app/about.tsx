@@ -8,7 +8,8 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Constants from "expo-constants";
 import React, { useMemo } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { Info, Globe, Code, Heart, ChevronLeft, Mail } from "lucide-react-native";
+import { Info, Globe, Code, ChevronLeft, Mail } from "lucide-react-native";
+import { Image } from "expo-image";
 
 const SUPPORT_EMAIL = "support@phperformance.uk";
 
@@ -18,12 +19,12 @@ export default function AboutScreen() {
   const insets = useAppSafeAreaInsets();
   const p = useAdminPastel();
 
-  const cardBg = p.cardSage;
-  const versionCardBg = p.cardMint;
-  const labelColor = "rgba(255,255,255,0.75)";
-  const textPrimary = "#FFFFFF";
+  const cardBg = p.cardWhite;
+  const versionCardBg = p.inputBg;
+  const labelColor = p.textSecondary;
+  const textPrimary = p.textPrimary;
   const accent = p.accent;
-  const accentSoft = p.accentSoft;
+  const accentSoft = p.inputBg;
   const mutedFill = p.inputBg;
   const pageBg = p.pageBg;
   const radius = 28;
@@ -62,30 +63,11 @@ export default function AboutScreen() {
       >
         {/* Hero */}
         <View style={{ alignItems: "center", marginBottom: 32 }}>
-          <View
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 24,
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 20,
-              backgroundColor: p.cardLavender,
-            }}
-          >
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 18,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: accent,
-              }}
-            >
-              <Heart size={30} color="hsl(220, 5%, 98%)" />
-            </View>
-          </View>
+          <Image
+            source={require("../assets/images/icon.png")}
+            style={{ width: 88, height: 88, borderRadius: 24, marginBottom: 20 }}
+            contentFit="cover"
+          />
           <Text style={{ fontSize: 28, fontFamily: "TelmaBold", textAlign: "center", color: textPrimary }}>
             PH Performance
           </Text>

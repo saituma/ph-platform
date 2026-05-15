@@ -63,7 +63,6 @@ export default function PermissionsScreen() {
     });
     if (result.support !== "supported") {
       setNotificationsSupported(false);
-      await Linking.openURL("https://docs.expo.dev/develop/development-builds/introduction/");
       return;
     }
     setNotificationsSupported(true);

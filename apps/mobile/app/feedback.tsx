@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView } from "react-native";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAppToast } from "@/hooks/useAppToast";

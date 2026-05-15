@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Platform, Pressable, StyleSheet, View, Dimensions } from "react-native";
+import React, { useMemo, useCallback } from "react";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, {
   useAnimatedStyle,
@@ -7,6 +7,7 @@ import Animated, {
   interpolate,
   Extrapolation,
   useDerivedValue,
+  useSharedValue,
 } from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -35,7 +36,6 @@ interface TabBarProps {
 
 const TAB_HEIGHT = 64;
 const DOCK_MARGIN = 16;
-const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const Springs = {
   snappy: { damping: 15, stiffness: 400, mass: 0.3 },
@@ -283,23 +283,28 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
   );
 
   const numTabs = visibleTabs.length;
-  const dockWidth = SCREEN_WIDTH - DOCK_MARGIN * 2;
-  const tabWidth = dockWidth / numTabs;
+  const dockWidthSV = useSharedValue(300);
+  const tabWidthSV = useDerivedValue(() => dockWidthSV.value / numTabs);
+
+  const onWrapperLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
+    dockWidthSV.value = e.nativeEvent.layout.width - DOCK_MARGIN * 2;
+  }, [dockWidthSV]);
 
   const safeBottom = Math.max(insets.bottom, 12);
 
   // Indicator Animation
   const indicatorStyle = useAnimatedStyle(() => {
     if (!scrollOffset) return { opacity: 0 };
+    const tw = tabWidthSV.value;
+    const dw = dockWidthSV.value;
     const translateX = interpolate(
       scrollOffset.value,
       [0, numTabs - 1],
-      [0, dockWidth - tabWidth],
+      [0, dw - tw],
       Extrapolation.CLAMP,
     );
-
     return {
-      width: tabWidth - 8,
+      width: tw - 8,
       transform: [{ translateX: translateX + 4 }],
     };
   });
@@ -309,7 +314,7 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
     : colors;
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]}>
+    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]} onLayout={onWrapperLayout}>
       <Animated.View
         style={[
           styles.dockContainer,
@@ -360,7 +365,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   dockContainer: {
-    width: SCREEN_WIDTH - DOCK_MARGIN * 2,
+    marginHorizontal: DOCK_MARGIN,
     height: TAB_HEIGHT,
     borderRadius: 32,
     borderWidth: 1,

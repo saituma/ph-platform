@@ -76,6 +76,11 @@ export const messagesApi = {
     return apiRequest(`/users/${userId}/block`, { ...options, method: "POST" });
   },
 
+  /** Report a user for moderation. */
+  reportUser(userId: number, body: { reason: string; details?: string }, options: RequestBase) {
+    return apiRequest(`/users/${userId}/report`, { ...options, method: "POST", body });
+  },
+
   /** Report a DM message for moderation. */
   reportMessage(
     messageId: number,

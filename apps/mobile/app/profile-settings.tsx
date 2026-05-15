@@ -43,7 +43,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle as SvgCircle } from "react-native-svg";
 import { useRouter } from "expo-router";
 
-const SCREEN_W = Dimensions.get("window").width;
+const { width: _SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const BANNER_H = 180;
 const AVATAR_SIZE = 100;
 const AVATAR_RING = AVATAR_SIZE + 10;
@@ -53,11 +54,6 @@ export default function ProfileSettingsScreen() {
   const { isSectionHidden } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const p = useAdminPastel();
-  const PASTEL_MINT = p.accent;
-  const PASTEL_MINT_TEXT = p.buttonPrimaryText;
-  const PASTEL_LIME = p.accent;
-  const PASTEL_LIME_TEXT = p.buttonPrimaryText;
-  const PASTEL_SAGE = p.accent;
   const router = useRouter();
   const dispatch = useAppDispatch();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
@@ -155,7 +151,7 @@ export default function ProfileSettingsScreen() {
                   />
                 ) : (
                   <LinearGradient
-                    colors={["#2E7D32", "#1B5E20", "#0D3B0F"]}
+                    colors={["#1a1a1a", "#111111", "#0a0a0a"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={{ width: SCREEN_W, height: BANNER_H, position: "absolute" }}
@@ -296,14 +292,14 @@ export default function ProfileSettingsScreen() {
                           width: AVATAR_SIZE,
                           height: AVATAR_SIZE,
                           borderRadius: AVATAR_SIZE / 2,
-                          backgroundColor: PASTEL_MINT,
+                          backgroundColor: p.inputBg,
                           alignItems: "center",
                           justifyContent: "center",
                           borderWidth: 3,
                           borderColor: p.pageBg,
                         }}
                       >
-                        <User size={40} color={PASTEL_MINT_TEXT} />
+                        <User size={40} color={p.textSecondary} />
                       </View>
                     )}
                     {/* Camera badge */}
@@ -363,7 +359,7 @@ export default function ProfileSettingsScreen() {
                   <View
                     style={{
                       flex: 1,
-                      backgroundColor: PASTEL_MINT,
+                      backgroundColor: p.cardWhite,
                       borderRadius: 20,
                       padding: 16,
                       borderCurve: "continuous",
@@ -374,20 +370,19 @@ export default function ProfileSettingsScreen() {
                         width: 36,
                         height: 36,
                         borderRadius: 12,
-                        backgroundColor: "rgba(46,125,50,0.12)",
+                        backgroundColor: p.inputBg,
                         alignItems: "center",
                         justifyContent: "center",
                         marginBottom: 10,
                       }}
                     >
-                      <Shield size={18} color={PASTEL_MINT_TEXT} />
+                      <Shield size={18} color={p.accent} />
                     </View>
                     <Text
                       style={{
                         fontSize: 11,
                         fontFamily: "Outfit-Medium",
-                        color: PASTEL_MINT_TEXT,
-                        opacity: 0.7,
+                        color: p.textSecondary,
                         textTransform: "uppercase",
                         letterSpacing: 0.8,
                       }}
@@ -398,7 +393,7 @@ export default function ProfileSettingsScreen() {
                       style={{
                         fontSize: 16,
                         fontFamily: "Outfit-SemiBold",
-                        color: PASTEL_MINT_TEXT,
+                        color: p.textPrimary,
                         marginTop: 2,
                       }}
                     >
@@ -408,7 +403,7 @@ export default function ProfileSettingsScreen() {
                   <View
                     style={{
                       flex: 1,
-                      backgroundColor: PASTEL_LIME,
+                      backgroundColor: p.cardWhite,
                       borderRadius: 20,
                       padding: 16,
                       borderCurve: "continuous",
@@ -419,20 +414,19 @@ export default function ProfileSettingsScreen() {
                         width: 36,
                         height: 36,
                         borderRadius: 12,
-                        backgroundColor: "rgba(51,105,30,0.12)",
+                        backgroundColor: p.inputBg,
                         alignItems: "center",
                         justifyContent: "center",
                         marginBottom: 10,
                       }}
                     >
-                      <Calendar size={18} color={PASTEL_LIME_TEXT} />
+                      <Calendar size={18} color={p.accent} />
                     </View>
                     <Text
                       style={{
                         fontSize: 11,
                         fontFamily: "Outfit-Medium",
-                        color: PASTEL_LIME_TEXT,
-                        opacity: 0.7,
+                        color: p.textSecondary,
                         textTransform: "uppercase",
                         letterSpacing: 0.8,
                       }}
@@ -443,7 +437,7 @@ export default function ProfileSettingsScreen() {
                       style={{
                         fontSize: 16,
                         fontFamily: "Outfit-SemiBold",
-                        color: PASTEL_LIME_TEXT,
+                        color: p.textPrimary,
                         marginTop: 2,
                       }}
                     >
@@ -484,14 +478,14 @@ export default function ProfileSettingsScreen() {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: PASTEL_SAGE,
+                      backgroundColor: p.inputBg,
                       borderRadius: 16,
                       paddingHorizontal: 16,
                       height: 54,
                       borderCurve: "continuous",
                     }}
                   >
-                    <User size={18} color={PASTEL_MINT_TEXT} style={{ marginRight: 12 }} />
+                    <User size={18} color={p.textSecondary} style={{ marginRight: 12 }} />
                     <TextInput
                       style={{
                         flex: 1,
@@ -539,7 +533,7 @@ export default function ProfileSettingsScreen() {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: PASTEL_SAGE,
+                      backgroundColor: p.inputBg,
                       borderRadius: 16,
                       paddingHorizontal: 16,
                       height: 54,
@@ -547,7 +541,7 @@ export default function ProfileSettingsScreen() {
                       opacity: 0.8,
                     }}
                   >
-                    <Mail size={18} color={PASTEL_MINT_TEXT} style={{ marginRight: 12 }} />
+                    <Mail size={18} color={p.textSecondary} style={{ marginRight: 12 }} />
                     <TextInput
                       style={{
                         flex: 1,
@@ -605,7 +599,7 @@ export default function ProfileSettingsScreen() {
                     })}
                   >
                     <LinearGradient
-                      colors={hasChanges ? ["#2E7D32", "#1B5E20"] : ["#9E9E9E", "#757575"]}
+                      colors={hasChanges ? [p.accent, p.accent] : ["#3a3a3a", "#2a2a2a"]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={{
@@ -616,9 +610,9 @@ export default function ProfileSettingsScreen() {
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 8,
-                        shadowColor: "#2E7D32",
+                        shadowColor: hasChanges ? p.accent : "transparent",
                         shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: hasChanges ? 0.3 : 0,
+                        shadowOpacity: hasChanges ? 0.25 : 0,
                         shadowRadius: 12,
                         elevation: hasChanges ? 4 : 0,
                       }}
@@ -705,7 +699,7 @@ export default function ProfileSettingsScreen() {
                   borderCurve: "continuous",
                   overflow: "hidden",
                   borderWidth: 4,
-                  borderColor: PASTEL_MINT,
+                  borderColor: p.inputBg,
                 }}
               >
                 <Image
@@ -729,7 +723,7 @@ export default function ProfileSettingsScreen() {
                   height: 48,
                   borderRadius: 100,
                   borderCurve: "continuous",
-                  backgroundColor: PASTEL_SAGE,
+                  backgroundColor: p.inputBg,
                   alignItems: "center",
                   justifyContent: "center",
                   opacity: pressed ? 0.7 : 1,

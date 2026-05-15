@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, useWindowDimensions, Image as RNImage } from "react-native";
+import { View, Image as RNImage } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -14,7 +15,7 @@ type AdminStorySectionProps = {
 
 export const AdminStorySection = React.memo(function AdminStorySection({ story, photoUrl, loading }: AdminStorySectionProps) {
   const p = useAdminPastel();
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const photo = photoUrl?.trim() || "";
   const storyText = story?.trim() || "";
 

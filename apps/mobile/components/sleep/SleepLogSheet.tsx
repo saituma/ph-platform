@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -24,8 +23,9 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { fonts } from "@/constants/theme";
 import type { SleepLogInput } from "./useSleepData";
+import { getContentWidth } from "@/lib/contentWidth";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = getContentWidth();
 const ITEM_HEIGHT = 52;
 const VISIBLE_ITEMS = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;

@@ -1,5 +1,6 @@
 import React, { memo, useEffect } from "react";
-import { View, useColorScheme, useWindowDimensions, StyleSheet } from "react-native";
+import { View, useColorScheme, StyleSheet } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -60,7 +61,7 @@ export const SkeletonBox = memo(function SkeletonBox({
 // ── SkeletonHomeScreen ───────────────────────────────────────────────
 
 export const SkeletonHomeScreen = memo(function SkeletonHomeScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
   const statW = (cardW - SPACING.md * 2) / 3;
   const videoH = Math.round((cardW * 9) / 16);
@@ -134,7 +135,7 @@ export const SkeletonHomeScreen = memo(function SkeletonHomeScreen() {
 // ── SkeletonMessagingScreen ──────────────────────────────────────────
 
 export const SkeletonMessagingScreen = memo(function SkeletonMessagingScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const rowW = width - SPACING.xl * 2;
 
   return (
@@ -168,7 +169,7 @@ export const SkeletonMessagingScreen = memo(function SkeletonMessagingScreen() {
 // ── SkeletonScheduleScreen ──────────────────────────────────────────
 
 export const SkeletonScheduleScreen = memo(function SkeletonScheduleScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
   const dayW = (cardW - SPACING.xs * 6) / 7;
 
@@ -208,7 +209,7 @@ export const SkeletonScheduleScreen = memo(function SkeletonScheduleScreen() {
 // ── SkeletonProgramsScreen ──────────────────────────────────────────
 
 export const SkeletonProgramsScreen = memo(function SkeletonProgramsScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
   const gridItemW = (cardW - SPACING.md) / 2;
 
@@ -242,7 +243,7 @@ export const SkeletonProgramsScreen = memo(function SkeletonProgramsScreen() {
 // ── SkeletonVideoPlayer ─────────────────────────────────────────────
 
 export const SkeletonVideoPlayer = memo(function SkeletonVideoPlayer() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const containerW = width - SPACING.xl * 2;
   const containerH = Math.round((containerW * 9) / 16);
 
@@ -260,7 +261,7 @@ export const SkeletonVideoPlayer = memo(function SkeletonVideoPlayer() {
 // ── SkeletonThreadScreen ────────────────────────────────────────────
 
 export const SkeletonThreadScreen = memo(function SkeletonThreadScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const rowW = width - SPACING.xl * 2;
 
   return (
@@ -312,7 +313,7 @@ export const SkeletonThreadScreen = memo(function SkeletonThreadScreen() {
 // ── SkeletonAnnouncementsScreen ─────────────────────────────────────
 
 export const SkeletonAnnouncementsScreen = memo(function SkeletonAnnouncementsScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
 
   return (
@@ -353,7 +354,7 @@ export const SkeletonAnnouncementsScreen = memo(function SkeletonAnnouncementsSc
 // ── SkeletonTrackingSocialScreen ────────────────────────────────────
 
 export const SkeletonTrackingSocialScreen = memo(function SkeletonTrackingSocialScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
   const statW = (cardW - SPACING.md * 2) / 3;
 
@@ -464,7 +465,7 @@ export const SkeletonSessionScreen = memo(function SkeletonSessionScreen() {
 // ── SkeletonNutritionLogScreen ──────────────────────────────────────
 
 export const SkeletonNutritionLogScreen = memo(function SkeletonNutritionLogScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
 
   return (
@@ -496,7 +497,7 @@ export const SkeletonNutritionLogScreen = memo(function SkeletonNutritionLogScre
 // ── SkeletonTrainingContentScreen ───────────────────────────────────
 
 export const SkeletonTrainingContentScreen = memo(function SkeletonTrainingContentScreen() {
-  const { width } = useWindowDimensions();
+  const width = useContentWidth();
   const cardW = width - SPACING.xl * 2;
   const videoH = Math.round((cardW * 9) / 16);
 

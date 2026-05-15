@@ -3,8 +3,8 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   View,
-  useWindowDimensions,
 } from "react-native";
+import { useContentWidth } from "@/lib/contentWidth";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
@@ -137,7 +137,7 @@ function TestimonialCard({
 }
 
 export const TestimonialsSection = React.memo(function TestimonialsSection({ items, loading }: TestimonialsSectionProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const screenWidth = useContentWidth();
   const p = useAdminPastel();
   const flatListRef = useRef<FlashListRef<TestimonialItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);

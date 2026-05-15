@@ -65,6 +65,7 @@ export type MessagesControllerResult = {
   handleToggleReaction: (message: ChatMessage, emoji: string) => Promise<void>;
   handleDeleteMessage: (message: ChatMessage) => Promise<void>;
   loadMessages: (options?: { silent?: boolean }) => Promise<void>;
+  removeMessagesBySender: (senderId: number) => void;
 };
 
 export function useMessagesController(options?: {
@@ -901,5 +902,8 @@ export function useMessagesController(options?: {
     handleToggleReaction,
     handleDeleteMessage,
     loadMessages,
+    removeMessagesBySender: (senderId: number) => {
+      setMessages((prev) => prev.filter((m) => Number(m.senderId) !== senderId));
+    },
   };
 }

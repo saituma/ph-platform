@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Dimensions,
   Modal,
   Pressable,
   StyleSheet,
   View,
 } from "react-native";
+import { getContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,7 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Text } from "@/components/ScaledText";
 import type { Story } from "@/hooks/useStories";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = getContentWidth();
 const STORY_DURATION = 6000;
 
 type Props = {

@@ -141,3 +141,53 @@ ${reviewBtn}`;
     throw err;
   }
 }
+
+export async function sendContentReportEmail(input: {
+  to: string;
+  reporterName: string;
+  reporterEmail: string;
+  reportedUserId: number;
+  reportedUserName?: string | null;
+  reason: string;
+  details?: string | null;
+  adminWebUrl: string;
+}) {
+  try {
+    const subject = `[Action Required] Content report — ${escapeHtml(input.reason)}`;
+    const reporter = escapeHtml(displayGreetingName(input.reporterName, input.reporterEmail));
+    const reportedLabel = input.reportedUserName
+      ? escapeHtml(input.reportedUserName)
+      : `User #${input.reportedUserId}`;
+
+    const detailRows = [
+      labelRow("Reporter", `${reporter} &lt;${escapeHtml(input.reporterEmail)}&gt;`),
+      labelRow("Reported user", `${reportedLabel} (ID ${input.reportedUserId})`),
+      labelRow("Reason", escapeHtml(input.reason)),
+      ...(input.details ? [labelRow("Details", escapeHtml(input.details))] : []),
+    ].join("");
+
+    const reviewBtn = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 0;">
+  <tr>
+    <td style="border-radius:10px;background-color:${E.accent};">
+      <a href="${escapeAttr(input.adminWebUrl)}/users/${input.reportedUserId}" style="display:inline-block;padding:14px 24px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;font-family:${E.font};">Review in admin</a>
+    </td>
+  </tr>
+</table>`;
+
+    const bodyHtml = `
+${textP("A user has submitted a content report. Please review and take action within 24 hours.")}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">${detailRows}</table>
+${reviewBtn}`;
+
+    const html = emailLayout({
+      preheader: `Content report: ${input.reason} — reported by ${input.reporterEmail}`,
+      eyebrow: "Moderation",
+      headline: "Content report received",
+      bodyHtml,
+    });
+
+    await createEmailIntent({ to: input.to, subject, html });
+  } catch (err) {
+    logger.error({ err }, "sendContentReportEmail failed");
+  }
+}

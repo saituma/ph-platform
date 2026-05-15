@@ -25,7 +25,7 @@ function ArticleCard({ article }: { article: HelpArticle }) {
       style={{
         borderRadius: 22,
         padding: 20,
-        backgroundColor: p.cardSage,
+        backgroundColor: p.cardWhite,
       }}
     >
       <View style={{ marginBottom: 16, flexDirection: "row", gap: 12 }}>
@@ -36,7 +36,7 @@ function ArticleCard({ article }: { article: HelpArticle }) {
             alignItems: "center",
             justifyContent: "center",
             borderRadius: 16,
-            backgroundColor: p.accentSoft,
+            backgroundColor: p.inputBg,
           }}
         >
           <Icon size={20} color={p.accent} />
@@ -50,7 +50,7 @@ function ArticleCard({ article }: { article: HelpArticle }) {
               paddingHorizontal: 12,
               paddingVertical: 4,
               marginBottom: 8,
-              backgroundColor: p.cardMint,
+              backgroundColor: p.inputBg,
             }}
           >
             <Text
@@ -107,7 +107,7 @@ function ArticleCard({ article }: { article: HelpArticle }) {
             borderRadius: 22,
             paddingHorizontal: 16,
             paddingVertical: 12,
-            backgroundColor: p.cardMint,
+            backgroundColor: p.inputBg,
             opacity: pressed ? 0.85 : 1,
           })}
         >
@@ -152,7 +152,7 @@ export function ArticleList({ articles, selectedCategory, onReset }: { articles:
               borderRadius: 100,
               paddingHorizontal: 12,
               paddingVertical: 8,
-              backgroundColor: p.cardSage,
+              backgroundColor: p.cardWhite,
             }}
           >
             <Text
@@ -178,7 +178,7 @@ export function ArticleList({ articles, selectedCategory, onReset }: { articles:
             style={{
               borderRadius: 22,
               padding: 20,
-              backgroundColor: p.cardSage,
+              backgroundColor: p.cardWhite,
             }}
           >
             <View
@@ -189,7 +189,7 @@ export function ArticleList({ articles, selectedCategory, onReset }: { articles:
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: 16,
-                backgroundColor: p.accentSoft,
+                backgroundColor: p.inputBg,
               }}
             >
               <Search size={20} color={p.accent} />

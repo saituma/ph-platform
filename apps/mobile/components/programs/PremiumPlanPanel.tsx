@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { View, Pressable, ActivityIndicator, Modal, Platform, StyleSheet, Keyboard, TextInput, TouchableOpacity, ScrollView } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { View, Pressable, ActivityIndicator, KeyboardAvoidingView, Modal, Platform, StyleSheet, Keyboard, TextInput, TouchableOpacity, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";

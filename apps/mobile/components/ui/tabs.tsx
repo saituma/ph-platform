@@ -10,7 +10,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Dimensions,
   ScrollView,
   TextStyle,
   TouchableOpacity,
@@ -26,7 +25,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const { width: screenWidth } = Dimensions.get('window');
+import { getContentWidth } from '@/lib/contentWidth';
+const screenWidth = getContentWidth();
 
 // Types
 interface TabsContextType {

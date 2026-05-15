@@ -9,7 +9,7 @@ import {
   Switch,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView } from "react-native";
 import { router } from "expo-router";
 import {
   ChevronLeft,

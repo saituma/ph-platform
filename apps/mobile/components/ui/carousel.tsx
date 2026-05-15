@@ -13,7 +13,6 @@ import React, {
   useState,
 } from 'react';
 import {
-  Dimensions,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
@@ -21,7 +20,8 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-const { width: screenWidth } = Dimensions.get('window');
+import { getContentWidth } from '@/lib/contentWidth';
+const screenWidth = getContentWidth();
 
 interface CarouselProps {
   children: React.ReactNode[];

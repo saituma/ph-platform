@@ -10,7 +10,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { KeyboardAvoidingView, ScrollView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView, ScrollView } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 

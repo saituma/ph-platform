@@ -32,7 +32,7 @@ export function ManagedAthletesSection({
   return (
     <View
       style={{
-        backgroundColor: p.cardSage,
+        backgroundColor: p.cardWhite,
         borderRadius: 22,
         padding: 24,
       }}
@@ -115,7 +115,7 @@ export function ManagedAthletesSection({
                           />
                         </View>
                       ) : (
-                        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: p.cardMint, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: p.accent }}>
+                        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: p.inputBg, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: p.accent }}>
                           <User size={24} color={p.accent} strokeWidth={2} />
                         </View>
                       )}

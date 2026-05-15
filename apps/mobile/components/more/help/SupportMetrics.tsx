@@ -51,7 +51,7 @@ export function SupportMetrics() {
         title="Best first step"
         value="Send a clear message"
         caption="Include athlete name, device, and what changed."
-        bg={p.cardMint}
+        bg={p.cardWhite}
       />
       <SupportMetric
         title="Typical reply"

@@ -153,7 +153,8 @@ function RootLayout() {
     >
       <RootErrorBoundary>
       <SocketQueryBridge />
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <View style={Platform.isPad ? { flex: 1, maxWidth: 560, width: "100%", alignSelf: "center", overflow: "hidden" } : { flex: 1 }}>
         <AuthPersist />
         <StartupSplashController />
         <AndroidBackToTabs />
@@ -278,6 +279,9 @@ function RootLayout() {
             }
           />
           <Stack.Screen name="change-password" options={{ headerShown: false }} />
+          <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
+          <Stack.Screen name="terms" options={{ headerShown: false }} />
+          <Stack.Screen name="community-guidelines" options={{ headerShown: false }} />
           <Stack.Screen name="qr-scan" options={{ headerShown: false, presentation: "fullScreenModal" }} />
           <Stack.Screen name="active-run" options={{ headerShown: false }} />
           <Stack.Screen name="sleep" options={{ headerShown: false }} />
@@ -289,6 +293,7 @@ function RootLayout() {
         ) : (
           <SystemBars hidden={{ statusBar: true }} style="auto" />
         )}
+        </View>
       </View>
       </RootErrorBoundary>
     </Compose>

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
+  Platform,
   ActivityIndicator,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -18,7 +19,8 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { useAppSelector } from "@/store/hooks";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
+const SCREEN_WIDTH = Platform.isPad ? Math.min(_SCREEN_WIDTH, 560) : _SCREEN_WIDTH;
 const VIEWFINDER_SIZE = SCREEN_WIDTH * 0.7;
 const CORNER_SIZE = 24;
 const CORNER_THICKNESS = 4;

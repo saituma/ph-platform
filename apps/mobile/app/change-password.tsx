@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Lock, Shield, Eye, EyeOff } from "lucide-react-native";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -50,6 +50,7 @@ export default function ChangePasswordScreen() {
         method: "POST",
         token,
         body: { oldPassword, newPassword },
+        skipSessionInvalidateOn401: true,
       });
       toast.success("Success", "Your password has been changed successfully.");
       setTimeout(() => router.back(), 600);
@@ -67,18 +68,21 @@ export default function ChangePasswordScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           onPress={() => router.back()}
-          style={{ padding: 10, alignSelf: "flex-start", borderRadius: 100, backgroundColor: p.cardMint }}
+          style={{ padding: 10, alignSelf: "flex-start", borderRadius: 100, backgroundColor: p.inputBg }}
         >
           <ArrowLeft size={22} color={p.textPrimary} strokeWidth={2} />
         </Pressable>
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <ScrollView
         contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: "center",
           paddingHorizontal: 24,
-          paddingBottom: 32,
+          paddingTop: 24,
+          paddingBottom: 48,
         }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
@@ -222,6 +226,7 @@ export default function ChangePasswordScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

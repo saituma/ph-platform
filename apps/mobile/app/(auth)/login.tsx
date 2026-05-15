@@ -2,8 +2,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { KeyboardAvoidingView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -324,6 +325,27 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {/* EULA agreement */}
+              <View style={{ marginTop: 14, paddingHorizontal: 2 }}>
+                <Text style={styles.eulaText}>
+                  By signing in, you agree to our{" "}
+                  <Text
+                    style={styles.eulaLink}
+                    onPress={() => router.push("/terms" as any)}
+                  >
+                    Terms of Use
+                  </Text>
+                  {" "}and{" "}
+                  <Text
+                    style={styles.eulaLink}
+                    onPress={() => router.push("/community-guidelines" as any)}
+                  >
+                    Community Guidelines
+                  </Text>
+                  . Accounts for minor athletes are created and monitored by a parent or guardian. We have zero tolerance for objectionable content or abusive users.
+                </Text>
+              </View>
+
               {/* Register row */}
               <View style={styles.registerRow}>
                 <Text style={styles.registerText}>Don&apos;t have an account?</Text>
@@ -331,10 +353,7 @@ export default function LoginScreen() {
                   accessibilityRole="link"
                   accessibilityLabel="Register"
                   onPress={() => {
-                    const url =
-                      (process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "").trim() ||
-                      "https://ph-platform-onboarding.vercel.app/";
-                    void Linking.openURL(url);
+                    void WebBrowser.openBrowserAsync("https://phperformance.uk/register");
                   }}
                   style={styles.registerBtn}
                 >
@@ -474,5 +493,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "rgba(255,255,255,0.82)",
     letterSpacing: 0.2,
+  },
+  eulaText: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 11,
+    lineHeight: 16,
+    color: "rgba(255,255,255,0.35)",
+    textAlign: "center",
+  },
+  eulaLink: {
+    fontFamily: "Outfit-SemiBold",
+    color: "rgba(255,255,255,0.50)",
+    textDecorationLine: "underline",
   },
 });

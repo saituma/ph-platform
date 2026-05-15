@@ -3,7 +3,6 @@ import { Text } from '@/components/ui/text';
 import { useColor } from '@/hooks/useColor';
 import React, { useRef, useState } from 'react';
 import {
-  Dimensions,
   ScrollView,
   StyleSheet,
   View,
@@ -17,7 +16,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-const { width: screenWidth } = Dimensions.get('window');
+import { getContentWidth } from '@/lib/contentWidth';
+const screenWidth = getContentWidth();
 
 export interface OnboardingStep {
   id: string;

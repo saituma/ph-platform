@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Dimensions,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -51,8 +50,9 @@ import { SleepRing } from "./SleepRing";
 import { SleepLogSheet } from "./SleepLogSheet";
 import { useSleepData, type SleepLogInput } from "./useSleepData";
 import { useStreakStore } from "@/lib/streakStore";
+import { getContentWidth } from "@/lib/contentWidth";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const SCREEN_W = getContentWidth();
 const RING_SIZE = Math.min(SCREEN_W - 100, 240);
 
 type TimeFilter = "today" | "week" | "month" | "year" | "all";

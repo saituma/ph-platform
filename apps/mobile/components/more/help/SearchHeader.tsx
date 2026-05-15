@@ -20,32 +20,9 @@ export function SearchHeader({ searchQuery, setSearchQuery }: SearchHeaderProps)
         overflow: "hidden",
         borderRadius: 22,
         padding: 20,
-        backgroundColor: p.cardSage,
+        backgroundColor: p.cardWhite,
       }}
     >
-      <View
-        style={{
-          position: "absolute",
-          right: -40,
-          top: -32,
-          height: 96,
-          width: 96,
-          borderRadius: 48,
-          backgroundColor: p.accentSoft,
-        }}
-      />
-      <View
-        style={{
-          position: "absolute",
-          bottom: -32,
-          left: 32,
-          height: 80,
-          width: 80,
-          borderRadius: 40,
-          backgroundColor: p.cardMint,
-        }}
-      />
-
       <View style={{ marginBottom: 20 }}>
         <Text style={{ fontSize: 26, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 8 }}>
           How can we help?

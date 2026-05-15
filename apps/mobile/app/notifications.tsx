@@ -2,7 +2,7 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, Switch, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -20,14 +20,14 @@ import {
 } from "@/lib/notificationPresentation";
 import {
   Bell,
-  Mail,
   MessageSquare,
   Calendar,
   TrendingUp,
   AlertTriangle,
   Megaphone,
   Info,
-  Check,
+  CheckCircle,
+  XCircle,
 } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
 
@@ -69,19 +69,11 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   announcement: Megaphone,
 };
 
-const TOGGLE_ICON: Record<string, LucideIcon> = {
-  notifications: Bell,
-  mail: Mail,
-  "chatbubble-ellipses": MessageSquare,
-};
-
 export default function NotificationsScreen() {
   const router = useRouter();
   const p = useAdminPastel();
   const { token } = useAppSelector((state) => state.user);
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [emailEnabled, setEmailEnabled] = useState(false);
-  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [pushGranted, setPushGranted] = useState<boolean | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
 
@@ -104,6 +96,18 @@ export default function NotificationsScreen() {
   useEffect(() => {
     void loadNotifications();
   }, [loadNotifications]);
+
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Notifications = require("expo-notifications");
+      Notifications.getPermissionsAsync()
+        .then(({ status }: { status: string }) => setPushGranted(status === "granted"))
+        .catch(() => setPushGranted(false));
+    } catch {
+      // expo-notifications unavailable in Expo Go — leave null, hide the card
+    }
+  }, []);
 
   const markRead = async (id: number) => {
     if (!token) return;
@@ -350,106 +354,66 @@ export default function NotificationsScreen() {
           )}
         </View>
 
-        <View style={{ marginBottom: 24 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: p.accent }} />
-            <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>Alert Preferences</Text>
-          </View>
-          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22 }}>
-            Choose the channels and cadence that feel right for you.
-          </Text>
-        </View>
+        {pushGranted !== null ? (
+          <>
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                <View style={{ height: 24, width: 6, borderRadius: 99, backgroundColor: p.accent }} />
+                <Text style={{ fontSize: 28, fontFamily: "Outfit-Bold", color: p.textPrimary }}>Push Notifications</Text>
+              </View>
+            </View>
 
-        <View
-          style={{
-            backgroundColor: p.cardWhite,
-            borderRadius: 24,
-            overflow: "hidden",
-            marginBottom: 32,
-          }}
-        >
-          <NotificationToggle
-            label="Push Notifications"
-            description="Receive alerts on your device for new messages and events."
-            value={pushEnabled}
-            onToggle={setPushEnabled}
-            iconKey="notifications"
-          />
-          <NotificationToggle
-            label="Email Updates"
-            description="Get weekly digests and important account alerts via email."
-            value={emailEnabled}
-            onToggle={setEmailEnabled}
-            iconKey="mail"
-          />
-          <NotificationToggle
-            label="SMS Alerts"
-            description="Receive urgent schedule changes via text message."
-            value={smsEnabled}
-            onToggle={setSmsEnabled}
-            iconKey="chatbubble-ellipses"
-            isLast
-          />
-        </View>
+            <View
+              style={{
+                backgroundColor: p.cardWhite,
+                borderRadius: 24,
+                padding: 20,
+                marginBottom: 32,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 16,
+              }}
+            >
+              <View
+                style={{
+                  height: 48,
+                  width: 48,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: pushGranted ? p.successSoft : p.inputBg,
+                }}
+              >
+                {pushGranted
+                  ? <CheckCircle size={24} color={p.success} />
+                  : <XCircle size={24} color={p.textMuted} />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                  {pushGranted ? "Notifications enabled" : "Notifications disabled"}
+                </Text>
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary, marginTop: 2, lineHeight: 18 }}>
+                  {pushGranted
+                    ? "You'll receive alerts for messages, schedule changes, and updates."
+                    : "Enable notifications in Settings to receive alerts."}
+                </Text>
+                <Pressable
+                  onPress={() => void Linking.openURL("app-settings:")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open notification settings"
+                  style={{ marginTop: 10, alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100, backgroundColor: p.accentSoft }}
+                >
+                  <Text style={{ fontSize: 13, fontFamily: "Outfit-SemiBold", color: p.accent }}>
+                    Manage in Settings
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        ) : null}
 
-        <Pressable
-          onPress={() => router.navigate("/(tabs)/more")}
-          style={({ pressed }) => ({
-            height: 56,
-            borderRadius: 100,
-            backgroundColor: p.accent,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            opacity: pressed ? 0.85 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
-        >
-          <Check size={20} color={p.buttonPrimaryText} />
-          <Text style={{ color: p.buttonPrimaryText, fontFamily: "Outfit-Bold", fontSize: 16 }}>
-            Save Preferences
-          </Text>
-        </Pressable>
       </ThemedScrollView>
     </SafeAreaView>
   );
 }
 
-function NotificationToggle({
-  label,
-  description,
-  value,
-  onToggle,
-  iconKey,
-  isLast = false,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onToggle: (v: boolean) => void;
-  iconKey: string;
-  isLast?: boolean;
-}) {
-  const p = useAdminPastel();
-  const IconComp = TOGGLE_ICON[iconKey] || Bell;
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", padding: 20, borderBottomWidth: isLast ? 0 : 1, borderColor: p.divider }}>
-      <View style={{ flex: 1, marginRight: 16 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4, gap: 8 }}>
-          <View style={{ height: 24, width: 24, borderRadius: 8, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-            <IconComp size={14} color={p.accent} />
-          </View>
-          <Text style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary }}>{label}</Text>
-        </View>
-        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 20 }}>{description}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onToggle}
-        trackColor={{ false: p.divider, true: p.accent }}
-        thumbColor={p.cardWhite}
-      />
-    </View>
-  );
-}

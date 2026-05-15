@@ -507,6 +507,13 @@ export default function MoreScreen() {
                 p={p}
                 index={menuIndex++}
               />
+              <MenuItem
+                Icon={BookOpen}
+                label="Community Guidelines"
+                onPress={() => router.navigate("/community-guidelines" as any)}
+                p={p}
+                index={menuIndex++}
+              />
 
               {/* Logout */}
               <Pressable

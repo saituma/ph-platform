@@ -45,6 +45,10 @@ const parseInline = (line: string): InlineToken[] => {
         i = end + 2;
         continue;
       }
+      // unmatched **, treat as literal
+      tokens.push({ text: "**" });
+      i += 2;
+      continue;
     }
     if (line.startsWith("_", i)) {
       const end = line.indexOf("_", i + 1);
@@ -53,6 +57,10 @@ const parseInline = (line: string): InlineToken[] => {
         i = end + 1;
         continue;
       }
+      // unmatched _, treat as literal to avoid infinite loop
+      tokens.push({ text: "_" });
+      i += 1;
+      continue;
     }
     const nextBold = line.indexOf("**", i);
     const nextItalic = line.indexOf("_", i);
