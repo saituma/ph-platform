@@ -442,6 +442,7 @@ function SessionDetailPageInner() {
                     key={itemForm.videoUrl}
                     src={itemForm.videoUrl.trim()}
                     controls
+                    muted
                     preload="metadata"
                     className="w-full rounded-lg border border-border bg-black"
                   />

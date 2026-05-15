@@ -585,6 +585,19 @@ export default function SessionDetailPage() {
                   }))
                 }
               />
+              {itemForm.videoUrl.trim() ? (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Video preview</p>
+                  <video
+                    key={itemForm.videoUrl}
+                    src={itemForm.videoUrl.trim()}
+                    controls
+                    muted
+                    preload="metadata"
+                    className="w-full rounded-lg border border-border bg-black"
+                  />
+                </div>
+              ) : null}
             </div>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input
