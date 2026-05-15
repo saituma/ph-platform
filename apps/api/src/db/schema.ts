@@ -145,6 +145,9 @@ export const userTable = pgTable("users", {
 
   lastSeenAt: timestamp("last_seen_at"),
 
+  termsAcceptedAt: timestamp("terms_accepted_at"),
+  termsVersion: varchar("terms_version", { length: 20 }),
+
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

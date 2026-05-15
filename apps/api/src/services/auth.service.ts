@@ -446,6 +446,15 @@ export async function loginLocal(input: { email: string; password: string }) {
     tokenVersion: nextTokenVersion,
     expiresIn: "30d",
   });
+
+  // Stamp terms acceptance on every login — the login screen displays the EULA
+  // ("By signing in, you agree to our Terms of Use…") so each successful login
+  // constitutes implicit consent. Records the timestamp for GDPR evidence.
+  await db
+    .update(userTable)
+    .set({ termsAcceptedAt: new Date(), termsVersion: "1.0", updatedAt: new Date() })
+    .where(eq(userTable.id, user.id));
+
   return {
     accessToken: token,
     idToken: token,

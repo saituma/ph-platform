@@ -41,7 +41,7 @@ router.get("/auth/session", authLimiter, getSessionCompat);
 router.get("/auth/me", requireAuth, getMe);
 router.get("/auth/socket-token", requireAuth, issueSocketToken);
 router.patch("/auth/me", requireAuth, updateMe);
-router.post("/auth/change-password", requireAuth, updatePassword);
+router.post("/auth/change-password", authLimiter, requireAuth, updatePassword);
 router.post("/auth/delete-account", deleteAccountLimiter, requireAuth, deleteAccount);
 
 export default router;
