@@ -121,23 +121,13 @@ function OnboardingStep4() {
 		e?.preventDefault();
 		setIsSubmitting(true);
 
-		const type = localStorage.getItem("user_type");
-		if (type === "team") {
-			toast.success("Profile Confirmed!", {
-				description: "Next: Choose how you'll pay and accept terms.",
-			});
-			setIsSubmitting(false);
-			navigate({ to: "/onboarding/step-4b" });
-			return;
-		}
-
-		// In a real flow, this might trigger the final onboarding completion or lead to payments
+		// Payment steps hidden — go straight to pending approval
 		setTimeout(() => {
 			toast.success("Profile Confirmed!", {
-				description: "Moving to plan selection and payment.",
+				description: "Your application has been submitted for review.",
 			});
 			setIsSubmitting(false);
-			navigate({ to: "/onboarding/step-5" });
+			navigate({ to: "/onboarding/success" });
 		}, 1500);
 	};
 

@@ -368,7 +368,7 @@ function CoachDashboard({
 				<StaggerItem><StatCard label="Athletes" value={String(memberCount)} sub={`of ${maxAthletes} slots`} icon={<Users className="h-4 w-4" />} /></StaggerItem>
 				<StaggerItem><StatCard label="Open Slots" value={String(Math.max(0, slotsRemaining))} sub="available" icon={<UserPlus className="h-4 w-4" />} /></StaggerItem>
 				<StaggerItem><StatCard label="Pending" value={String(pendingBookings.length)} sub="booking requests" icon={<Clock className="h-4 w-4" />} /></StaggerItem>
-				<StaggerItem><StatCard label="Plan" value={daysRemaining != null ? `${daysRemaining}d` : "Active"} sub={daysRemaining != null ? "remaining" : (coachPlan?.title ?? "Team plan")} icon={<CreditCard className="h-4 w-4" />} /></StaggerItem>
+				{/* Plan stat hidden — admin-managed */}
 			</StaggerList>
 
 			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -446,8 +446,8 @@ function CoachDashboard({
 					variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.1, delayChildren: 0.2 } } }}
 					className="space-y-6"
 				>
-					{/* Plan Card */}
-					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
+					{/* Plan Card hidden — admin-managed */}
+					{false && <motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
 						<div className="flex items-center justify-between">
 							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
 								Team Plan
@@ -483,7 +483,7 @@ function CoachDashboard({
 								</p>
 							</div>
 						)}
-					</motion.div>
+					</motion.div>}
 
 					{/* Roster Snapshot */}
 					<motion.div variants={staggerItem} className="border border-foreground/[0.06] p-6 space-y-4 hover:border-foreground/[0.1] transition-colors duration-300">
@@ -904,8 +904,8 @@ function AthleteDashboard({
 
 			<BetaTesterForm userEmail={user.email} userName={user.athleteName || user.name || undefined} />
 
-			{/* Plan row */}
-			<div className="grid grid-cols-1 gap-6">
+			{/* Plan row hidden — admin-managed */}
+			{false && <div className="grid grid-cols-1 gap-6">
 				<motion.div
 					variants={scaleIn}
 					initial="hidden"
@@ -957,7 +957,7 @@ function AthleteDashboard({
 						</div>
 					)}
 				</motion.div>
-			</div>
+			</div>}
 
 			{/* Quick Actions */}
 			<StaggerList className="grid grid-cols-2 md:grid-cols-4 gap-3">

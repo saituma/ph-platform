@@ -147,11 +147,10 @@ function OnboardingSuccess() {
 
 					<div className="space-y-3">
 						<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground leading-none">
-							Payment Received
+							Application Submitted
 						</h1>
 						<p className="text-lg text-muted-foreground font-medium max-w-md mx-auto leading-relaxed">
-							Thank you for joining the PH Platform. Your elite performance
-							journey begins now.
+							Thank you for joining PH Performance. Your profile is under review and a coach will confirm your access shortly.
 						</p>
 					</div>
 				</div>

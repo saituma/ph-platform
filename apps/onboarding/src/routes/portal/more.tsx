@@ -116,7 +116,8 @@ function MorePage() {
       <div className="space-y-8">
         <MenuGroup title="Account">
           <MenuItem icon={<User />} label="Profile Information" path="/portal/profile" />
-          <MenuItem icon={<CreditCard />} label="Billing & Plan" path="/portal/billing" />
+          {/* Billing & Plan hidden — admin-managed */}
+          {/* <MenuItem icon={<CreditCard />} label="Billing & Plan" path="/portal/billing" /> */}
           <MenuItem icon={<Shield />} label="Permissions" path="/portal/permissions" />
           {showPortalNutritionNav(user?.role) ? (
             <MenuItem icon={<Clipboard />} label="Nutrition Tracking" path="/portal/nutrition" />
