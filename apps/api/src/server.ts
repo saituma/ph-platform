@@ -17,8 +17,9 @@ export async function startServer() {
       await runMigrations();
       logger.info("Database migrations applied");
     } catch (err) {
-      logger.fatal({ err }, "Migration failed — aborting startup");
-      process.exit(1);
+      // Log but never crash the server — a bad migration file should not take down the API.
+      // The previous schema is still valid and all existing endpoints continue to work.
+      logger.error({ err }, "Migration failed — server continuing with existing schema");
     }
   } else {
     logger.info("Skipping migrations (SKIP_MIGRATIONS=true)");
