@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# FFmpeg WASM files (copied from node_modules at build time)
+/public/ffmpeg/
+
 # playwright
 /e2e-results/
 /test-results/

@@ -255,7 +255,7 @@ export default function VideoEditorPage() {
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
       const { toBlobURL } = await import("@ffmpeg/util");
       const ff = new FFmpeg();
-      const base = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd";
+      const base = "/ffmpeg";
       await ff.load({
         coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, "text/javascript"),
         wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, "application/wasm"),

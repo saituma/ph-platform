@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "NEXT_PRIVATE_BUILD_WORKER=0 next build --webpack",
+    "dev": "node scripts/copy-ffmpeg.mjs && next dev --webpack",
+    "build": "node scripts/copy-ffmpeg.mjs && NEXT_PRIVATE_BUILD_WORKER=0 next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
+    "@ffmpeg/core": "0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@fullcalendar/daygrid": "^6.1.20",
