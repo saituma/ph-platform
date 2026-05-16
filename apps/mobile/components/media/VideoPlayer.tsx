@@ -508,12 +508,10 @@ function VideoPlayerLoomMode({
         mediaPlaybackRequiresUserAction={false}
         javaScriptEnabled
         domStorageEnabled
-        thirdPartyCookiesEnabled
-        sharedCookiesEnabled
-        setSupportMultipleWindows={true}
-        mixedContentMode="always"
+        setSupportMultipleWindows={false}
+        mixedContentMode="compatibility"
         scrollEnabled={false}
-        originWhitelist={["*"]}
+        originWhitelist={["https://www.loom.com", "https://loom.com", "https://*.loom.com"]}
         userAgent={LOOM_WEBVIEW_UA}
         {...(Platform.OS === "android"
           ? { nestedScrollEnabled: false }

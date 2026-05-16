@@ -12,7 +12,6 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
 import Footer from "../components/Footer";
 import Header from "../components/Header";
-import { CookieConsent } from "../components/CookieConsent";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { NavigationProgress } from "../components/NavigationProgress";
 import { OfflineIndicator } from "../components/OfflineIndicator";
@@ -176,8 +175,6 @@ function RootLayout() {
 						style: { fontFamily: "var(--font-sans)" },
 					}}
 				/>
-
-				<CookieConsent />
 
 				{import.meta.env.DEV && (
 					<TanStackDevtools

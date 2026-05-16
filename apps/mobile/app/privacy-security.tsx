@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -179,15 +178,8 @@ export default function PrivacySecurityScreen() {
               Delete account
             </Text>
             <Text style={{ fontSize: 14, fontFamily: "Outfit", marginTop: 8, lineHeight: 20, color: textSecondary }}>
-              Permanently close your account. You must enter your current password. Staff accounts cannot use this from the app.
-              {"\n\n"}
-              Alternatively, you can request account deletion on our website at:
+              Permanently close your account. You must enter your current password to confirm. This cannot be undone.
             </Text>
-            <Pressable onPress={() => Linking.openURL("https://phperformance.uk/delete-account")}>
-              <Text style={{ fontSize: 14, fontFamily: fonts.bodyBold, color: accent, marginTop: 4 }}>
-                phperformance.uk/delete-account
-              </Text>
-            </Pressable>
           </View>
           <Pressable onPress={() => setDeleteOpen(true)} style={{ marginHorizontal: 20, marginBottom: 20, marginTop: 8 }}>
             <View

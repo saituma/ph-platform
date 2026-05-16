@@ -2,9 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Image, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import { KeyboardAvoidingView } from "react-native";
+import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -353,7 +351,7 @@ export default function LoginScreen() {
                   accessibilityRole="link"
                   accessibilityLabel="Register"
                   onPress={() => {
-                    void WebBrowser.openBrowserAsync("https://phperformance.uk/register");
+                    void Linking.openURL("https://phperformance.uk/register");
                   }}
                   style={styles.registerBtn}
                 >

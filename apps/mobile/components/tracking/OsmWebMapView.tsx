@@ -13,6 +13,7 @@ import type { Region } from "react-native-maps";
 import type { LatLng, TrackingMapLayer, TrackingMapStyle } from "./trackingMapLayers";
 import { regionToLeafletZoom } from "./trackingMapLayers";
 import type { TrackingMapViewRef } from "./trackingMapLayers";
+import { LEAFLET_JS, LEAFLET_CSS } from "../../assets/web/leafletBundle";
 
 const CARTO_LIGHT =
   "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
@@ -30,8 +31,8 @@ const LEAFLET_HTML = `<!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>${LEAFLET_CSS}</style>
+  <script>${LEAFLET_JS}</script>
   <style>
     /* Match the dark app theme so any re-paint/re-layout doesn't flash white through the WebView. */
     html, body { margin:0; padding:0; height:100%; background-color:#0a0a0b; }

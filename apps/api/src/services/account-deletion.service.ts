@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { userTable, userDeviceTokensTable, userLocationTable } from "../db/schema";
 import { verifyLocalPassword } from "./auth.service";
-import { isTrainingStaff } from "../lib/user-roles";
 
 /**
  * Self-service account removal (GDPR Article 17 — right to erasure).
@@ -16,9 +15,6 @@ export async function deleteOwnAccount(userId: number, password: string) {
   const user = rows[0];
   if (!user || user.isDeleted) {
     throw { status: 404, message: "Account not found." };
-  }
-  if (isTrainingStaff(user.role)) {
-    throw { status: 403, message: "Staff accounts cannot be deleted from the app." };
   }
 
   const ok = verifyLocalPassword(password, user.passwordHash, user.passwordSalt);
