@@ -249,7 +249,8 @@ export default function VideoEditorPage() {
   // ── FFmpeg ──────────────────────────────────────────────────────────────────
 
   const loadFFmpeg = useCallback(async () => {
-    if (_ffmpeg || ffmpegLoading) return;
+    if (_ffmpeg) { setFfmpegReady(true); return; }
+    if (ffmpegLoading) return;
     setFfmpegLoading(true);
     try {
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
