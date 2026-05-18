@@ -50,44 +50,43 @@ export function ActionSheet({
   cancelButtonTitle = 'Cancel',
   style,
 }: ActionSheetProps) {
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !visible) return;
+
+    const optionTitles = options.map((option) => option.title);
+    const destructiveButtonIndex = options.findIndex(
+      (option) => option.destructive
+    );
+    const disabledButtonIndices = options
+      .map((option, index) => (option.disabled ? index : -1))
+      .filter((index) => index !== -1);
+
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title,
+        message,
+        options: [...optionTitles, cancelButtonTitle],
+        cancelButtonIndex: optionTitles.length,
+        destructiveButtonIndex:
+          destructiveButtonIndex !== -1
+            ? destructiveButtonIndex
+            : undefined,
+        disabledButtonIndices:
+          disabledButtonIndices.length > 0
+            ? disabledButtonIndices
+            : undefined,
+      },
+      (buttonIndex) => {
+        if (buttonIndex < optionTitles.length) {
+          options[buttonIndex].onPress();
+        }
+        onClose();
+      }
+    );
+  }, [visible, title, message, options, cancelButtonTitle, onClose]);
+
   // Use iOS native ActionSheet on iOS
   if (Platform.OS === 'ios') {
-    useEffect(() => {
-      if (visible) {
-        const optionTitles = options.map((option) => option.title);
-        const destructiveButtonIndex = options.findIndex(
-          (option) => option.destructive
-        );
-        const disabledButtonIndices = options
-          .map((option, index) => (option.disabled ? index : -1))
-          .filter((index) => index !== -1);
-
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            title,
-            message,
-            options: [...optionTitles, cancelButtonTitle],
-            cancelButtonIndex: optionTitles.length,
-            destructiveButtonIndex:
-              destructiveButtonIndex !== -1
-                ? destructiveButtonIndex
-                : undefined,
-            disabledButtonIndices:
-              disabledButtonIndices.length > 0
-                ? disabledButtonIndices
-                : undefined,
-          },
-          (buttonIndex) => {
-            if (buttonIndex < optionTitles.length) {
-              options[buttonIndex].onPress();
-            }
-            onClose();
-          }
-        );
-      }
-    }, [visible, title, message, options, cancelButtonTitle, onClose]);
-
-    // Return null for iOS as we use the native ActionSheet
     return null;
   }
 

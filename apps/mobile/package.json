@@ -7,6 +7,7 @@
     "reset-project": "node ./scripts/reset-project.js",
     "eas:secrets": "node ./scripts/eas-secrets.mjs",
     "verify:testflight-auth": "node ./scripts/verify-testflight-auth.mjs",
+    "verify:app-store-review": "node ./scripts/verify-app-store-review.mjs",
     "sentry:smoke": "node ./scripts/sentry-smoke.mjs",
     "android": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo run:android",
     "ios": "EXPO_ROUTER_APP_ROOT=app pnpm exec expo run:ios",

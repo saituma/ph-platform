@@ -179,19 +179,6 @@ export default function TrackingSocialScreen() {
 
   const canLoad = token != null;
 
-  // ── Gate check ──
-  useEffect(() => {
-    if (!capabilitiesLoaded) return;
-    if (canAccessTracking && useTeamFeed) return;
-    if (!canAccessTracking) {
-      router.replace("/(tabs)/tracking" as any);
-    }
-  }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
-
-  if (!capabilitiesLoaded || !canAccessTracking || !useTeamFeed) {
-    return null;
-  }
-
   // ── Load functions ──
   const loadLeaderboard = useCallback(async () => {
     if (!token) return;
@@ -518,6 +505,19 @@ export default function TrackingSocialScreen() {
   }, [feed, postFeed]);
 
   const isFeedLoading = loading || (feedLoading && feed.length === 0 && postFeed.length === 0);
+
+  // ── Gate check ──
+  useEffect(() => {
+    if (!capabilitiesLoaded) return;
+    if (canAccessTracking && useTeamFeed) return;
+    if (!canAccessTracking) {
+      router.replace("/(tabs)/tracking" as any);
+    }
+  }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
+
+  if (!capabilitiesLoaded || !canAccessTracking || !useTeamFeed) {
+    return null;
+  }
 
   if (!token) {
     return (

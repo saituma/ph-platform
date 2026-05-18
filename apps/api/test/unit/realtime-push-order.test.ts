@@ -113,6 +113,7 @@ describe("realtime message push ordering", () => {
     const db = createDbMock(
       [
         [], // AI coach lookup
+        [], // user block lookup
         [{ id: 1 }], // admin coach ids, making sender staff
         [{ name: "Coach", profilePicture: null }], // sender metadata
       ],
@@ -159,11 +160,37 @@ describe("realtime message push ordering", () => {
     expect(order).not.toContain("push");
   });
 
+  it("rejects a direct message when either user has blocked the other", async () => {
+    const order: string[] = [];
+    const db = createDbMock(
+      [
+        [], // AI coach lookup
+        [{ id: 99 }], // user block lookup
+      ],
+      [],
+    );
+    const pushEnqueue = jest.fn();
+    const io = createSocketMock(order);
+    const { messageService } = await loadServices({ db, pushEnqueue, io, order });
+
+    await expect(
+      messageService.sendMessage({
+        senderId: 1,
+        receiverId: 2,
+        content: "hello",
+        contentType: "text",
+        trace: createTrace(),
+      }),
+    ).rejects.toThrow("USER_BLOCKED");
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(pushEnqueue).not.toHaveBeenCalled();
+  });
+
   it("logs direct push failure after the message response returns", async () => {
     const order: string[] = [];
     const createdAt = new Date("2026-05-07T00:00:00.000Z");
     const db = createDbMock(
-      [[], [{ id: 1 }], [{ name: "Coach", profilePicture: null }]],
+      [[], [], [{ id: 1 }], [{ name: "Coach", profilePicture: null }]],
       [
         [
           {
@@ -214,6 +241,7 @@ describe("realtime message push ordering", () => {
     const db = createDbMock(
       [
         [{ userId: 1 }, { userId: 2 }], // group members for receipts and broadcast
+        [], // user block lookup
         [{ id: 2, expoPushToken: "ExponentPushToken[test]" }], // push recipients
         [{ name: "Coach", email: "coach@example.com", profilePicture: null }],
         [{ name: "Team Chat" }],
@@ -258,12 +286,63 @@ describe("realtime message push ordering", () => {
     expect(order).not.toContain("push");
   });
 
+  it("suppresses group delivery and push for members who blocked the sender", async () => {
+    const order: string[] = [];
+    const createdAt = new Date("2026-05-07T00:00:00.000Z");
+    const db = createDbMock(
+      [
+        [{ userId: 1 }, { userId: 2 }, { userId: 3 }],
+        [{ blockerId: 2, blockedId: 1 }],
+        [{ id: 3, expoPushToken: "ExponentPushToken[three]" }],
+        [{ name: "Coach", email: "coach@example.com", profilePicture: null }],
+        [{ name: "Team Chat" }],
+      ],
+      [
+        [
+          {
+            id: 22,
+            groupId: 5,
+            senderId: 1,
+            content: "hello group",
+            contentType: "text",
+            mediaUrl: null,
+            clientMessageId: null,
+            createdAt,
+          },
+        ],
+        [],
+      ],
+    );
+    const pushEnqueue = jest.fn(() => {
+      order.push("push");
+      return new Promise<void>(() => {});
+    });
+    const io = createSocketMock(order);
+    const { chatService } = await loadServices({ db, pushEnqueue, io, order });
+
+    const response = await chatService.createGroupMessage({
+      groupId: 5,
+      senderId: 1,
+      content: "hello group",
+      contentType: "text",
+      trace: createTrace(),
+    });
+
+    expect(response.deliveredCount).toBe(2);
+    const receiptValues = db.insert.mock.results[1]?.value.values.mock.calls[0]?.[0] as Array<{ userId: number }>;
+    expect(receiptValues.map((value) => value.userId)).toEqual([1, 3]);
+    expect(db.select.mock.results[2]?.value.from).toHaveBeenCalled();
+    expect(order.filter((entry) => entry === "emit:group:message")).toHaveLength(3);
+    expect(order).not.toContain("push");
+  });
+
   it("logs group push failure after the message response returns", async () => {
     const order: string[] = [];
     const createdAt = new Date("2026-05-07T00:00:00.000Z");
     const db = createDbMock(
       [
         [{ userId: 1 }, { userId: 2 }],
+        [],
         [{ id: 2, expoPushToken: "ExponentPushToken[test]" }],
         [{ name: "Coach", email: "coach@example.com", profilePicture: null }],
         [{ name: "Team Chat" }],

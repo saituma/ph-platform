@@ -172,8 +172,8 @@ export async function startLocationTracking() {
     if (bgStatusBefore.status !== "granted") {
       const userProceeds = await new Promise<boolean>((resolve) => {
         Alert.alert(
-          "Location Disclosure",
-          "PHP Performance collects location data to enable run tracking, distance calculation, and pace monitoring even when the app is closed or not in use.\n\nThis data is only collected during an active run session that you start manually.",
+          "Background run tracking",
+          "PH Performance can keep recording your route, distance, and pace if your screen locks or you switch apps.\n\nThis is optional and only runs during a run you start. If you deny it, you can still use the app and track runs while the app is open.",
           [
             { text: "Deny", style: "cancel", onPress: () => resolve(false) },
             { text: "Accept & Continue", onPress: () => resolve(true) },

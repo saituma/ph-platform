@@ -11,6 +11,7 @@ import {
   Pressable,
   View,
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   useLocalSearchParams,
@@ -132,7 +133,7 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({
 }) {
   return (
     <Pressable
-      onPress={() => Linking.openURL(url).catch(() => undefined)}
+      onPress={() => WebBrowser.openBrowserAsync(url).catch(() => undefined)}
       style={{
         borderRadius: 22, backgroundColor: p.cardWhite, paddingHorizontal: 20, paddingVertical: 16,
         flexDirection: "row", alignItems: "center", gap: 12,

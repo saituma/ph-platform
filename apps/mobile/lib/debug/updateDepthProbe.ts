@@ -99,8 +99,8 @@ export function installUpdateDepthProbe(): void {
  * multiples of `warnEvery` — a climbing number means that component keeps re-rendering.
  */
 export function useRenderSpy(componentName: string, warnEvery = 50): void {
-  if (!__DEV__) return;
   const count = useRef(0);
+  if (!__DEV__) return;
   count.current += 1;
   if (count.current >= warnEvery && count.current % warnEvery === 0) {
     console.warn(

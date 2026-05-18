@@ -1100,6 +1100,13 @@
       "when": 1778870000000,
       "tag": "0156_exercise_video_muted",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1779102763624,
+      "tag": "0157_user_blocks",
+      "breakpoints": true
     }
   ]
 }

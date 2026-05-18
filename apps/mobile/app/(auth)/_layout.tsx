@@ -1,4 +1,9 @@
+import * as WebBrowser from "expo-web-browser";
 import { Stack, Transition } from "../../components/navigation/TransitionStack";
+
+// Required by expo-web-browser on Android to complete auth sessions that redirect
+// back into the app via a custom scheme or universal link.
+WebBrowser.maybeCompleteAuthSession();
 import { ReplaceOnce } from "../../components/navigation/ReplaceOnce";
 import { useAppSelector } from "../../store/hooks";
 import "../fonts.css";

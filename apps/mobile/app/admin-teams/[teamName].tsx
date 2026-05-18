@@ -91,12 +91,9 @@ export default function AdminTeamDetailScreen() {
   const router = useRouter();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const canLoad = Boolean(token && bootstrapReady);
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
-  if (!canAccess) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const canLoad = Boolean(token && bootstrapReady && canAccess);
 
   const params = useLocalSearchParams<{ teamName?: string }>();
   const teamName = asString(params.teamName);
@@ -125,7 +122,7 @@ export default function AdminTeamDetailScreen() {
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
-      if (!token || !bootstrapReady) return;
+      if (!token || !bootstrapReady || !canAccess) return;
       if (!teamName) return;
       setLoading(true);
       setError(null);
@@ -149,7 +146,7 @@ export default function AdminTeamDetailScreen() {
         setLoading(false);
       }
     },
-    [bootstrapReady, teamName, token],
+    [bootstrapReady, canAccess, teamName, token],
   );
 
   useEffect(() => {
@@ -174,7 +171,7 @@ export default function AdminTeamDetailScreen() {
   const ageBandGroups = useMemo(() => groupByAgeBand(members), [members]);
 
   const search = useCallback(async () => {
-    if (!token || !bootstrapReady) return;
+    if (!token || !bootstrapReady || !canAccess) return;
     const q = searchQuery.trim();
     if (q.length < 2) {
       setSearchError("Type at least 2 characters to search");
@@ -201,7 +198,7 @@ export default function AdminTeamDetailScreen() {
     } finally {
       setSearching(false);
     }
-  }, [bootstrapReady, searchQuery, token]);
+  }, [bootstrapReady, canAccess, searchQuery, token]);
 
   const selectedIsMove = useMemo(() => {
     if (!selected) return false;
@@ -234,7 +231,7 @@ export default function AdminTeamDetailScreen() {
   ]);
 
   const assign = useCallback(async () => {
-    if (!token || !bootstrapReady) return;
+    if (!token || !bootstrapReady || !canAccess) return;
     if (!teamName) return;
     if (!selected) return;
 
@@ -267,6 +264,7 @@ export default function AdminTeamDetailScreen() {
     }
   }, [
     bootstrapReady,
+    canAccess,
     includeOtherTeams,
     load,
     moveConfirm,
@@ -275,6 +273,10 @@ export default function AdminTeamDetailScreen() {
     teamName,
     token,
   ]);
+
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <AdminScreen>

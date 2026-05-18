@@ -34,10 +34,13 @@ describe("production environment validation", () => {
     expect(env.upstashRedisRestUrl).toBe("https://redis.example.com");
   });
 
-  it("fails closed when Stripe webhook secret is missing in production", async () => {
+  it("loads when Stripe webhook secret is missing in production", async () => {
     process.env = productionEnv({ STRIPE_WEBHOOK_SECRET: "" });
 
-    await expect(import("../../src/config/env")).rejects.toThrow(/STRIPE_WEBHOOK_SECRET is required in production/);
+    const { env } = await import("../../src/config/env");
+
+    expect(env.nodeEnv).toBe("production");
+    expect(env.stripeWebhookSecret).toBe("");
   });
 
   it("fails closed when distributed rate-limit config is missing in production", async () => {

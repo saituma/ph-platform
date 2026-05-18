@@ -12,6 +12,7 @@ import {
   chatGroupTable,
   messageTable,
   teamTable,
+  userBlockTable,
   userTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
@@ -21,6 +22,7 @@ import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import { createLogger } from "../lib/logger";
 import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
 import { runBestEffortBackgroundTask } from "../lib/background-task";
+import { filterBlockedRecipientsForSender, hasUserBlockBetween } from "./user-block.service";
 
 const log = createLogger({ component: "chat-service" });
 
@@ -61,6 +63,20 @@ function resolveDisplayName(params: { name?: string | null; email?: string | nul
   return "Unknown";
 }
 
+function groupMessageVisibleToViewer(viewerUserId: number) {
+  return sql<boolean>`not exists (
+    select 1
+    from ${userBlockTable}
+    where (
+      ${userBlockTable.blockerId} = ${viewerUserId}
+      and ${userBlockTable.blockedId} = ${chatGroupMessageTable.senderId}
+    ) or (
+      ${userBlockTable.blockedId} = ${viewerUserId}
+      and ${userBlockTable.blockerId} = ${chatGroupMessageTable.senderId}
+    )
+  )`;
+}
+
 export async function createDirectMessage(input: {
   senderId: number;
   receiverId: number;
@@ -68,6 +84,10 @@ export async function createDirectMessage(input: {
   contentType?: "text" | "image" | "video";
   mediaUrl?: string | null;
 }) {
+  if (await hasUserBlockBetween(input.senderId, input.receiverId)) {
+    throw new Error("USER_BLOCKED");
+  }
+
   const safeContent = input.content.trim() || "Attachment";
   const result = await db
     .insert(messageTable)
@@ -526,7 +546,11 @@ export async function listGroupMessages(
     .from(chatGroupMessageTable)
     .innerJoin(userTable, eq(chatGroupMessageTable.senderId, userTable.id))
     .where(
-      and(eq(chatGroupMessageTable.groupId, groupId), cursorId ? lt(chatGroupMessageTable.id, cursorId) : undefined),
+      and(
+        eq(chatGroupMessageTable.groupId, groupId),
+        cursorId ? lt(chatGroupMessageTable.id, cursorId) : undefined,
+        options?.viewerUserId ? groupMessageVisibleToViewer(options.viewerUserId) : undefined,
+      ),
     )
     .orderBy(desc(chatGroupMessageTable.id))
     .limit(pageLimit + 1);
@@ -534,7 +558,7 @@ export async function listGroupMessages(
   const hasMore = rawMessages.length > pageLimit;
   const pageRows = hasMore ? rawMessages.slice(0, pageLimit) : rawMessages;
   const chronologicalRows = [...pageRows].reverse();
-  const withReactions = await attachGroupMessageReactions(chronologicalRows as any[]);
+  const withReactions = await attachGroupMessageReactions(chronologicalRows);
   const messageIds = withReactions.map((message) => Number(message.id)).filter((id) => Number.isFinite(id) && id > 0);
 
   const receiptStatsByMessage = new Map<number, { deliveredCount: number; readCount: number }>();
@@ -730,6 +754,7 @@ export async function createGroupMessage(input: {
     memberIdsForDelivery = Array.from(
       new Set(memberRows.map((row) => Number(row.userId)).filter((id) => Number.isFinite(id) && id > 0)),
     );
+    memberIdsForDelivery = await filterBlockedRecipientsForSender(input.senderId, memberIdsForDelivery);
     if (memberIdsForDelivery.length) {
       await db
         .insert(chatGroupMessageReceiptTable)
@@ -755,14 +780,16 @@ export async function createGroupMessage(input: {
   // Load broadcast metadata before emitting. Push notification work happens after socket delivery.
   if (insertedNewMessage) {
     try {
-      membersForPush = await db
-        .select({
-          id: userTable.id,
-          expoPushToken: userTable.expoPushToken,
-        })
-        .from(chatGroupMemberTable)
-        .innerJoin(userTable, eq(chatGroupMemberTable.userId, userTable.id))
-        .where(and(eq(chatGroupMemberTable.groupId, input.groupId), ne(userTable.id, input.senderId)));
+      const pushRecipientIds = memberIdsForDelivery.filter((memberId) => memberId !== input.senderId);
+      membersForPush = pushRecipientIds.length
+        ? await db
+            .select({
+              id: userTable.id,
+              expoPushToken: userTable.expoPushToken,
+            })
+            .from(userTable)
+            .where(inArray(userTable.id, pushRecipientIds))
+        : [];
 
       const sender = await db
         .select({ name: userTable.name, email: userTable.email, profilePicture: userTable.profilePicture })

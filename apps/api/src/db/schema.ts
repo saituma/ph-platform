@@ -186,6 +186,25 @@ export const userDeviceTokensTable = pgTable(
   ],
 );
 
+export const userBlockTable = pgTable(
+  "user_blocks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    blockerId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    blockedId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    blockerBlockedUnique: uniqueIndex("user_blocks_blocker_blocked_unique").on(table.blockerId, table.blockedId),
+    blockerIdx: index("user_blocks_blocker_idx").on(table.blockerId),
+    blockedIdx: index("user_blocks_blocked_idx").on(table.blockedId),
+  }),
+);
+
 export const userLocationTable = pgTable("user_locations", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer()

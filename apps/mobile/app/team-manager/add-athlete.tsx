@@ -37,6 +37,7 @@ export default function AddAthleteScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
+  const isTeamManager = appRole === "team_manager";
 
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
@@ -56,10 +57,6 @@ export default function AddAthleteScreen() {
   const usernameRef = useRef<TextInput>(null);
   const ageRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
-
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
 
   function validate(): boolean {
     const next: Record<string, string> = {};
@@ -104,7 +101,7 @@ export default function AddAthleteScreen() {
   }
 
   async function handleSubmit() {
-    if (!validate() || !token) return;
+    if (!validate() || !token || !isTeamManager) return;
     setSubmitting(true);
     setServerError(null);
     try {
@@ -145,6 +142,10 @@ export default function AddAthleteScreen() {
     setCopiedField(null);
     setErrors({});
     setServerError(null);
+  }
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
   }
 
   return (

@@ -88,15 +88,12 @@ export default function TeamSessionsScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
+  const isTeamManager = appRole === "team_manager";
   const { profileId } = useActingUser();
   const [refreshing, setRefreshing] = useState(false);
 
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
-
   const { events, eventsLoading, refreshEvents } = useScheduleData(
-    token,
+    isTeamManager ? token : null,
     profileId,
     true,
   );
@@ -140,6 +137,10 @@ export default function TeamSessionsScreen() {
   }, [events]);
 
   const [showPast, setShowPast] = useState(false);
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

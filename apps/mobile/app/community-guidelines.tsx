@@ -101,7 +101,7 @@ const GUIDELINES_CONTENT = [
   "- **Warning:** A formal notice that your behaviour violates our guidelines",
   "- **Content removal:** The specific message, post, or file is deleted",
   "- **Temporary suspension:** Access to the platform is restricted for a period",
-  "- **Permanent ban:** Account permanently closed with no refund of any remaining subscription",
+  "- **Permanent ban:** Account permanently closed with no restoration of any remaining access period",
   "- **Legal referral:** In serious cases involving threats, exploitation, or criminal activity, we will refer the matter to the appropriate authorities",
   "",
   "## Contact Us",

@@ -8,6 +8,7 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import Constants from "expo-constants";
 import React, { useMemo } from "react";
 import { Linking, Pressable, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { Info, Globe, Code, ChevronLeft, Mail } from "lucide-react-native";
 import { Image } from "expo-image";
 
@@ -164,7 +165,7 @@ export default function AboutScreen() {
           Connect
         </Text>
         <Pressable
-          onPress={() => void Linking.openURL(INSTAGRAM_URL)}
+          onPress={() => void WebBrowser.openBrowserAsync(INSTAGRAM_URL)}
           accessibilityRole="link"
           accessibilityLabel="Follow PH Performance on Instagram"
           style={{ marginBottom: 16 }}
@@ -254,7 +255,7 @@ export default function AboutScreen() {
         </Pressable>
 
         {/* Primary CTA */}
-        <Pressable onPress={() => void Linking.openURL(siteUrl)}>
+        <Pressable onPress={() => void WebBrowser.openBrowserAsync(siteUrl)}>
           <View
             style={{
               height: 56,
@@ -291,7 +292,7 @@ export default function AboutScreen() {
 
         {/* Made by Client Reach AI */}
         <Pressable
-          onPress={() => void Linking.openURL("https://clientreach.ai")}
+          onPress={() => void WebBrowser.openBrowserAsync("https://clientreach.ai")}
           accessibilityRole="link"
           accessibilityLabel="Made by Client Reach AI"
           style={{ alignItems: "center", marginTop: 20, marginBottom: 4 }}

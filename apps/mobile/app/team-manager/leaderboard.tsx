@@ -36,19 +36,16 @@ export default function TeamLeaderboardScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
+  const isTeamManager = appRole === "team_manager";
 
   const [items, setItems] = useState<SocialLeaderboardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [windowDays, setWindowDays] = useState(7);
 
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
-
   const load = useCallback(
     async (force = false) => {
-      if (!token) { setLoading(false); return; }
+      if (!token || !isTeamManager) { setLoading(false); return; }
       try {
         const res = await fetchLeaderboard(token, {
           windowDays,
@@ -62,7 +59,7 @@ export default function TeamLeaderboardScreen() {
         setLoading(false);
       }
     },
-    [token, windowDays],
+    [isTeamManager, token, windowDays],
   );
 
   useFocusEffect(
@@ -80,6 +77,10 @@ export default function TeamLeaderboardScreen() {
 
   const totalKm = items.reduce((sum, i) => sum + (i.kmTotal ?? 0), 0);
   const totalMinutes = items.reduce((sum, i) => sum + (i.durationMinutesTotal ?? 0), 0);
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

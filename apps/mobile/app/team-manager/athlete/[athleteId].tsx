@@ -134,10 +134,8 @@ export default function AthleteDetailScreen() {
   const athleteId = Number(athleteIdParam);
 
   const { token, appRole } = useAppSelector((state) => state.user);
+  const isTeamManager = appRole === "team_manager";
 
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
 
   const [athlete, setAthlete] = useState<AthleteDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +156,7 @@ export default function AthleteDetailScreen() {
 
   const loadAthlete = useCallback(
     async (forceRefresh = false) => {
-      if (!token || !athleteId) return;
+      if (!token || !athleteId || !isTeamManager) return;
       setLoading(true);
       setError(null);
       try {
@@ -176,7 +174,7 @@ export default function AthleteDetailScreen() {
         setLoading(false);
       }
     },
-    [token, athleteId],
+    [isTeamManager, token, athleteId],
   );
 
   useEffect(() => {
@@ -190,7 +188,7 @@ export default function AthleteDetailScreen() {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!token || !athleteId) return;
+    if (!token || !athleteId || !isTeamManager) return;
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -209,7 +207,7 @@ export default function AthleteDetailScreen() {
     } finally {
       setSaving(false);
     }
-  }, [token, athleteId, trainingFreq, performanceGoals, equipment, growthNotes]);
+  }, [isTeamManager, token, athleteId, trainingFreq, performanceGoals, equipment, growthNotes]);
 
   const handleResetPassword = useCallback(() => {
     const name = athlete?.name ?? "this athlete";
@@ -222,7 +220,7 @@ export default function AthleteDetailScreen() {
           text: "Reset",
           style: "destructive",
           onPress: async () => {
-            if (!token || !athleteId) return;
+            if (!token || !athleteId || !isTeamManager) return;
             setResettingPassword(true);
             try {
               await resetAthletePassword(token, athleteId);
@@ -239,7 +237,7 @@ export default function AthleteDetailScreen() {
         },
       ],
     );
-  }, [token, athleteId, athlete?.name]);
+  }, [isTeamManager, token, athleteId, athlete?.name]);
 
   const athleteName = athlete?.name ?? (loading ? "" : `Athlete #${athleteId}`);
   const initials = getInitials(athleteName);
@@ -251,6 +249,10 @@ export default function AthleteDetailScreen() {
         : null;
   const ageLabel = typeof athlete?.age === "number" ? `${athlete.age}y` : null;
   const subLabel = [typeLabel, ageLabel].filter(Boolean).join(" • ");
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <KeyboardAvoidingView

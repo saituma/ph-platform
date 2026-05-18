@@ -72,8 +72,8 @@ export default function PrivacySecurityScreen() {
       dispatch(logout());
       toast.success("Account closed", "Your account has been deleted.");
       setTimeout(() => router.replace("/(auth)/login"), 800);
-    } catch (e: any) {
-      const msg = String(e?.message ?? "Could not delete account").replace(/^\d+\s+/, "");
+    } catch (e: unknown) {
+      const msg = String(e instanceof Error ? e.message : "Could not delete account").replace(/^\d+\s+/, "");
       toast.error("Could not delete", msg);
     } finally {
       setDeleteBusy(false);

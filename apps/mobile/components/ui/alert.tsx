@@ -93,12 +93,10 @@ export const createTwoButtonAlert = (options: NativeAlertOptions) => {
   const defaultButtons: AlertButton[] = [
     {
       text: 'Cancel',
-      onPress: () => console.log('Cancel Pressed'),
       style: 'cancel',
     },
     {
       text: 'OK',
-      onPress: () => console.log('OK Pressed'),
     },
   ];
 
@@ -112,16 +110,13 @@ export const createThreeButtonAlert = (options: NativeAlertOptions) => {
   const defaultButtons: AlertButton[] = [
     {
       text: 'Ask me later',
-      onPress: () => console.log('Ask me later pressed'),
     },
     {
       text: 'Cancel',
-      onPress: () => console.log('Cancel Pressed'),
       style: 'cancel',
     },
     {
       text: 'OK',
-      onPress: () => console.log('OK Pressed'),
     },
   ];
 
@@ -137,7 +132,6 @@ export const showNativeAlert = (options: NativeAlertOptions) => {
     RNAlert.alert(title, message, [
       {
         text: 'OK',
-        onPress: () => console.log('OK Pressed'),
       },
     ]);
   } else {
@@ -157,7 +151,7 @@ export const showSuccessAlert = (
     buttons: [
       {
         text: 'OK',
-        onPress: onOk || (() => console.log('Success acknowledged')),
+        onPress: onOk,
       },
     ],
   });
@@ -174,7 +168,7 @@ export const showErrorAlert = (
     buttons: [
       {
         text: 'OK',
-        onPress: onOk || (() => console.log('Error acknowledged')),
+        onPress: onOk,
         style: 'destructive',
       },
     ],
@@ -193,12 +187,12 @@ export const showConfirmAlert = (
     buttons: [
       {
         text: 'Cancel',
-        onPress: onCancel || (() => console.log('Cancelled')),
+        onPress: onCancel,
         style: 'cancel',
       },
       {
         text: 'Confirm',
-        onPress: onConfirm || (() => console.log('Confirmed')),
+        onPress: onConfirm,
       },
     ],
   });

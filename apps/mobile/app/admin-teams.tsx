@@ -42,12 +42,9 @@ export default function AdminTeamsListScreen() {
   const router = useRouter();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const canLoad = Boolean(token && bootstrapReady);
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
-  if (!canAccess) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const canLoad = Boolean(token && bootstrapReady && canAccess);
 
   const [teams, setTeams] = useState<AdminTeam[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,7 +56,7 @@ export default function AdminTeamsListScreen() {
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
-      if (!token || !bootstrapReady) return;
+      if (!token || !bootstrapReady || !canAccess) return;
       setLoading(true);
       setError(null);
       try {
@@ -77,7 +74,7 @@ export default function AdminTeamsListScreen() {
         setLoading(false);
       }
     },
-    [bootstrapReady, token],
+    [bootstrapReady, canAccess, token],
   );
 
   useEffect(() => {
@@ -91,7 +88,7 @@ export default function AdminTeamsListScreen() {
   );
 
   const create = useCallback(async () => {
-    if (!token || !bootstrapReady) return;
+    if (!token || !bootstrapReady || !canAccess) return;
     const trimmed = teamName.trim();
     if (!trimmed) return;
 
@@ -112,7 +109,11 @@ export default function AdminTeamsListScreen() {
     } finally {
       setCreateBusy(false);
     }
-  }, [bootstrapReady, load, teamName, teamType, token]);
+  }, [bootstrapReady, canAccess, load, teamName, teamType, token]);
+
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <AdminScreen>

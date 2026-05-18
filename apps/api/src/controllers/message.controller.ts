@@ -487,6 +487,9 @@ export async function sendMessageToCoach(req: Request, res: Response) {
     if (msg === "AI_COACH_REQUIRES_PREMIUM") {
       return res.status(403).json({ error: "AI coach chat requires PHP Premium." });
     }
+    if (msg === "USER_BLOCKED") {
+      return res.status(403).json({ error: "Messaging is blocked for this conversation." });
+    }
     throw err;
   }
 }
@@ -719,14 +722,23 @@ export async function forwardMessage(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid target thread ID" });
   }
 
-  const newMessage = await sendMessage({
-    senderId: userId,
-    receiverId,
-    content: forwardedContent,
-    contentType: original.contentType,
-    mediaUrl: original.mediaUrl,
-    senderRole: req.user?.role ?? null,
-  });
+  let newMessage: Awaited<ReturnType<typeof sendMessage>>;
+  try {
+    newMessage = await sendMessage({
+      senderId: userId,
+      receiverId,
+      content: forwardedContent,
+      contentType: original.contentType,
+      mediaUrl: original.mediaUrl,
+      senderRole: req.user?.role ?? null,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg === "USER_BLOCKED") {
+      return res.status(403).json({ error: "Messaging is blocked for this conversation." });
+    }
+    throw err;
+  }
 
   return res.status(201).json({ message: newMessage });
 }

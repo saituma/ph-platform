@@ -128,7 +128,6 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
   }, [announcements.length, isFocused]);
 
   const isEmpty = announcements.length === 0;
-  if (isEmpty) return null;
 
   const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!cardWidth) return;
@@ -246,6 +245,8 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
       </View>
     );
   }, [cardWidth, isDark, imageErrors, setImageErrors, isFocused]);
+
+  if (isEmpty) return null;
 
   return (
     <View className="py-2 items-center">

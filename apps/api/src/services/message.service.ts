@@ -9,6 +9,7 @@ import {
   messageReceiptTable,
   messageTable,
   teamTable,
+  userBlockTable,
   userTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
@@ -20,6 +21,7 @@ import { resolveMessageMediaType } from "../lib/media-message-type";
 import { createLogger } from "../lib/logger";
 import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
 import { runBestEffortBackgroundTask } from "../lib/background-task";
+import { hasUserBlockBetween } from "./user-block.service";
 
 const log = createLogger({ component: "message-service" });
 
@@ -27,6 +29,26 @@ const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
 /** Cap DM history per request — keep thread opens snappy. */
 const DIRECT_THREAD_MESSAGE_LIMIT = 120;
+
+function directMessageVisibleToViewer(userId: number) {
+  return sql<boolean>`not exists (
+    select 1
+    from ${userBlockTable}
+    where (
+      ${userBlockTable.blockerId} = ${userId}
+      and ${userBlockTable.blockedId} = case
+        when ${messageTable.senderId} = ${userId} then ${messageTable.receiverId}
+        else ${messageTable.senderId}
+      end
+    ) or (
+      ${userBlockTable.blockedId} = ${userId}
+      and ${userBlockTable.blockerId} = case
+        when ${messageTable.senderId} = ${userId} then ${messageTable.receiverId}
+        else ${messageTable.senderId}
+      end
+    )
+  )`;
+}
 
 export async function getCoachUser() {
   return withTransientDbRetryConfigured(
@@ -212,6 +234,9 @@ export async function listThread(
   if (senderIsStaff && Array.isArray(allowedPeerIds) && allowedPeerIds.length === 0) {
     return { messages: [], hasMore: false, nextCursor: null, teamManager: manager };
   }
+  if (targetPeerId != null && (await hasUserBlockBetween(userId, targetPeerId))) {
+    return { messages: [], hasMore: false, nextCursor: null, teamManager: manager };
+  }
 
   const peerFilter =
     targetPeerId != null
@@ -236,6 +261,7 @@ export async function listThread(
           ? undefined
           : or(ne(messageTable.contentType, "video"), isNull(messageTable.videoUploadId)),
         cursorId ? lt(messageTable.id, cursorId) : undefined,
+        directMessageVisibleToViewer(userId),
       ),
     )
     .orderBy(desc(messageTable.id))
@@ -356,6 +382,10 @@ export async function sendMessage(input: {
     if (aiUser && aiUser.id === input.receiverId) {
       aiCoachId = aiUser.id;
     }
+  }
+
+  if (resolvedReceiverId > 0 && (await hasUserBlockBetween(input.senderId, resolvedReceiverId))) {
+    throw new Error("USER_BLOCKED");
   }
 
   const adminIds = await getAdminCoachIds();

@@ -1,7 +1,7 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
-import { Bell, Camera, MapPin, Shield, ChevronLeft } from "lucide-react-native";
+import { Bell } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -21,7 +21,6 @@ export default function PermissionsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.user.token);
-  const pushRegistration = useAppSelector((state) => state.app.pushRegistration);
   const [notificationStatus, setNotificationStatus] = useState<PermissionStatus>("undetermined");
   const [notificationsSupported, setNotificationsSupported] = useState(true);
 
@@ -29,14 +28,12 @@ export default function PermissionsScreen() {
 
   const pageBg = p.pageBg;
   const cardBg = p.cardSage;
-  const debugCardBg = p.cardPeach;
   const textPrimary = "#FFFFFF";
   const textSecondary = "rgba(255,255,255,0.75)";
   const accent = p.accent;
   const successColor = p.success;
   const warningColor = p.warning;
   const cardRadius = 28;
-  const debugRowBg = p.cardLavender;
 
   const refreshStatuses = useCallback(async () => {
     const notifications = await getNotifications();
@@ -168,68 +165,6 @@ export default function PermissionsScreen() {
                 </Text>
               </Pressable>
             </View>
-          </View>
-
-          {/* Push debug card */}
-          <View
-            style={{
-              borderRadius: cardRadius,
-              overflow: "hidden",
-              padding: 20,
-              gap: 12,
-              backgroundColor: debugCardBg,
-                          }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <Shield size={20} color={accent} />
-              <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: textPrimary }}>
-                Push Debug
-              </Text>
-            </View>
-            <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: textSecondary }}>
-              Current native build push status for this device.
-            </Text>
-            {([
-              ["Support", pushRegistration.support],
-              ["Permission", pushRegistration.permissionStatus],
-              ["Project ID", pushRegistration.projectId || "Missing"],
-              ["Expo token", pushRegistration.expoPushToken || "Not available"],
-              [
-                `Device token (${pushRegistration.devicePushTokenType ?? "?"})`,
-                pushRegistration.devicePushToken ||
-                  pushRegistration.devicePushTokenError ||
-                  "Not available",
-              ],
-              ["Last error", pushRegistration.lastError || "None"],
-            ] as [string, string][]).map(([label, value]) => (
-              <View
-                key={label}
-                style={{
-                  borderRadius: 22,
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  backgroundColor: debugRowBg,
-                                  }}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontFamily: "Outfit-Bold",
-                    textTransform: "uppercase",
-                    letterSpacing: 1.2,
-                    color: textSecondary,
-                  }}
-                >
-                  {label}
-                </Text>
-                <Text
-                  selectable
-                  style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: textPrimary }}
-                >
-                  {value}
-                </Text>
-              </View>
-            ))}
           </View>
 
         </View>

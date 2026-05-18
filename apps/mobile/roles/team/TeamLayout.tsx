@@ -36,14 +36,6 @@ export function TeamLayout() {
   const isYouthTeam = appRole === "youth_athlete_team_guardian";
   const baseTabs = isYouthTeam ? TEAM_YOUTH_TAB_ROUTES : TEAM_TAB_ROUTES;
 
-  if (!capabilitiesLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
-
   const visibleTabs = useMemo(() => {
     return filterTabsByCapabilities(baseTabs, capabilities).filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
       if (tab.key === "messages") {
@@ -65,6 +57,14 @@ export function TeamLayout() {
     visibleTabs,
     tabComponents,
   );
+
+  if (!capabilitiesLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <SwipeableTabLayout

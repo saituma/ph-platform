@@ -67,8 +67,27 @@ export const Route = createFileRoute("/onboarding/success")({
 	component: OnboardingSuccess,
 });
 
+// Deep-link scheme that ASWebAuthenticationSession / Chrome Custom Tab monitors for.
+// Must match REGISTER_REDIRECT_URI in apps/mobile/lib/auth/openRegisterSession.ts.
+const MOBILE_REDIRECT_URI = "phperformance://auth/registered";
+
 function OnboardingSuccess() {
 	const [receipt, setReceipt] = useState<CheckoutReceiptPayload | null>(null);
+
+	// When this page is reached after opening from the mobile app via openAuthSessionAsync,
+	// redirect to the mobile deep-link after a short delay so the success UI is visible.
+	// ASWebAuthenticationSession (iOS) / Chrome Custom Tab (Android) detects the custom-scheme
+	// redirect and automatically closes, returning the user to the native app.
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		const fromMobile = sessionStorage.getItem("ph_from_mobile");
+		if (fromMobile !== "1") return;
+		sessionStorage.removeItem("ph_from_mobile");
+		const t = setTimeout(() => {
+			window.location.href = MOBILE_REDIRECT_URI;
+		}, 2500);
+		return () => clearTimeout(t);
+	}, []);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;

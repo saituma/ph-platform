@@ -7,6 +7,7 @@ import { auditLogsTable, userTable } from "../db/schema";
 import { env } from "../config/env";
 import { sendContentReportEmail } from "../lib/mailer/admin.mailer";
 import { logger } from "../lib/logger";
+import { blockUserPair } from "../services/user-block.service";
 
 const reportUserSchema = z.object({
   reason: z.string().trim().min(1).max(200),
@@ -65,12 +66,15 @@ export async function blockUser(req: Request, res: Response) {
     return res.status(400).json({ error: "Cannot block yourself" });
   }
 
-  await db.insert(auditLogsTable).values({
-    performedBy: actingUserId,
-    action: "user_blocked",
-    targetTable: "users",
-    targetId: targetUserId,
-  });
+  await Promise.all([
+    blockUserPair({ blockerId: actingUserId, blockedId: targetUserId }),
+    db.insert(auditLogsTable).values({
+      performedBy: actingUserId,
+      action: "user_blocked",
+      targetTable: "users",
+      targetId: targetUserId,
+    }),
+  ]);
 
   return res.status(200).json({ ok: true });
 }

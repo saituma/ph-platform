@@ -31,6 +31,7 @@ describe("onboarding controller", () => {
         age: 12,
         team: "Team",
         trainingPerWeek: 3,
+        preferredTrainingDays: ["mon"],
         injuries: "None",
         growthNotes: null,
         performanceGoals: "Goals",

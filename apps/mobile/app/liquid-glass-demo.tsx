@@ -43,7 +43,6 @@ const MESH_COLORS: string[] = [
 ];
 
 export default function LiquidGlassDemo() {
-  if (!__DEV__) return <Redirect href="/(tabs)" />;
   const scheme = useColorScheme();
   const colorScheme = scheme === "dark" ? "dark" : "light";
   const colors = Colors[colorScheme];
@@ -71,6 +70,8 @@ export default function LiquidGlassDemo() {
   const floatingStyleDelayed = useAnimatedStyle(() => ({
     transform: [{ translateY: -floatValue.value * 8 }],
   }));
+
+  if (!__DEV__) return <Redirect href="/(tabs)" />;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

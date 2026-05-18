@@ -94,9 +94,7 @@ export default function AdminNutritionScreen() {
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
-  if (!canAccess) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const canLoad = Boolean(token && bootstrapReady && canAccess);
 
   const [listTab, setListTab] = useState<"adult" | "youth">("adult");
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,7 +103,7 @@ export default function AdminNutritionScreen() {
     loading: usersLoading,
     error: _usersError,
     load: loadUsers,
-  } = useAdminUsers(token, Boolean(bootstrapReady));
+  } = useAdminUsers(token, canLoad);
 
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const selectedUser: AdminUser | null = useMemo(
@@ -169,7 +167,7 @@ export default function AdminNutritionScreen() {
 
   const loadLogsForUser = useCallback(
     async (userId: number, forceRefresh = false) => {
-      if (!token || !bootstrapReady) return;
+      if (!token || !bootstrapReady || !canAccess) return;
       setLogsLoading(true);
       setLogsError(null);
       try {
@@ -189,12 +187,12 @@ export default function AdminNutritionScreen() {
         setLogsLoading(false);
       }
     },
-    [bootstrapReady, token],
+    [bootstrapReady, canAccess, token],
   );
 
   const loadTargetsForUser = useCallback(
     async (userId: number) => {
-      if (!token || !bootstrapReady) return;
+      if (!token || !bootstrapReady || !canAccess) return;
       setTargetsLoading(true);
       try {
         const res = await apiRequest<{ targets: NutritionTargets }>(
@@ -216,7 +214,7 @@ export default function AdminNutritionScreen() {
         setTargetsLoading(false);
       }
     },
-    [bootstrapReady, token],
+    [bootstrapReady, canAccess, token],
   );
 
   useEffect(() => {
@@ -291,7 +289,7 @@ export default function AdminNutritionScreen() {
   );
 
   const submitFeedback = useCallback(async () => {
-    if (!token || !bootstrapReady) return;
+    if (!token || !bootstrapReady || !canAccess) return;
     if (!selectedUserId || !selectedLog) return;
 
     setSavingFeedback(true);
@@ -344,6 +342,7 @@ export default function AdminNutritionScreen() {
     }
   }, [
     bootstrapReady,
+    canAccess,
     feedbackDraft,
     responseVideo,
     selectedLog,
@@ -905,6 +904,10 @@ export default function AdminNutritionScreen() {
       {renderFeedbackModal()}
     </AdminScreen>
   );
+
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return selectedUserId ? renderAthleteDetails() : renderAthleteList();
 }

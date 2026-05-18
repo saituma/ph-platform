@@ -72,6 +72,7 @@ export default function TeamActivityScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
+  const isTeamManager = appRole === "team_manager";
 
   const [items, setItems] = useState<SocialRunFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,13 +81,9 @@ export default function TeamActivityScreen() {
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
-
   const load = useCallback(
     async (reset = true) => {
-      if (!token) return;
+      if (!token || !isTeamManager) return;
       try {
         const res = await fetchRunFeed(token, {
           limit: 20,
@@ -107,7 +104,7 @@ export default function TeamActivityScreen() {
         setLoadingMore(false);
       }
     },
-    [token, sort, nextCursor],
+    [isTeamManager, token, sort, nextCursor],
   );
 
   useFocusEffect(
@@ -131,6 +128,10 @@ export default function TeamActivityScreen() {
 
   const totalRuns = items.length;
   const totalKm = items.reduce((sum, i) => sum + (i.distanceMeters ?? 0), 0) / 1000;
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

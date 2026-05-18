@@ -4,6 +4,7 @@ describe("s3.service - getPublicObjectUrl", () => {
   beforeEach(() => {
     jest.resetModules();
     process.env = { ...ORIGINAL_ENV };
+    process.env.DOTENV_PATH = "/tmp/ph-app-test-missing-env-file";
     process.env.DATABASE_URL = process.env.DATABASE_URL || "postgres://u:p@localhost:5432/db";
     process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret-test-secret-test-secret";
     process.env.ADMIN_WEB_URL = process.env.ADMIN_WEB_URL || "http://localhost:3000";

@@ -93,21 +93,6 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
     },
   }), []);
 
-  if (!videoId) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ color: "white", textAlign: "center", padding: 20 }}>
-          Invalid YouTube link
-        </Text>
-        <Pressable onPress={() => Linking.openURL(url).catch(() => {})}>
-          <Text style={{ color: colors.accent, textAlign: "center" }}>
-            Open in YouTube
-          </Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   const effectiveWidth = typeof width === "number" && width > 0 ? width : layout.width;
   const effectiveHeight = typeof height === "number" && height > 0 ? height : layout.height;
   /** Always 16:9 for YouTube (matches hosted iframe + forced layout in VideoPlayer). */
@@ -138,6 +123,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
   }, [videoId]);
 
   useEffect(() => {
+    if (!videoId) return;
     if (hasEmbedError) return;
     if (!isReady) return;
     if (!shouldPlay) return;
@@ -149,7 +135,22 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
       setHasEmbedError(true);
     }, 8000);
     return () => clearTimeout(timer);
-  }, [hasEmbedError, hasPlaybackStarted, isReady, shouldPlay]);
+  }, [hasEmbedError, hasPlaybackStarted, isReady, shouldPlay, videoId]);
+
+  if (!videoId) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: "white", textAlign: "center", padding: 20 }}>
+          Invalid YouTube link
+        </Text>
+        <Pressable onPress={() => Linking.openURL(url).catch(() => {})}>
+          <Text style={{ color: colors.accent, textAlign: "center" }}>
+            Open in YouTube
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View

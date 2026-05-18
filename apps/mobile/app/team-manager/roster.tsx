@@ -111,11 +111,8 @@ export default function TeamManagerRosterScreen() {
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const canLoad = Boolean(token && bootstrapReady);
-
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const isTeamManager = appRole === "team_manager";
+  const canLoad = Boolean(token && bootstrapReady && isTeamManager);
 
   const [data, setData] = useState<RosterResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -124,7 +121,7 @@ export default function TeamManagerRosterScreen() {
 
   const load = useCallback(
     async (forceRefresh: boolean) => {
-      if (!token || !bootstrapReady) return;
+      if (!token || !bootstrapReady || !isTeamManager) return;
       setLoading(true);
       setError(null);
       try {
@@ -137,7 +134,7 @@ export default function TeamManagerRosterScreen() {
         setLoading(false);
       }
     },
-    [bootstrapReady, token],
+    [bootstrapReady, isTeamManager, token],
   );
 
   useEffect(() => {
@@ -163,6 +160,10 @@ export default function TeamManagerRosterScreen() {
   const goAddAthlete = useCallback(() => {
     router.push("/team-manager/add-athlete" as any);
   }, []);
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>

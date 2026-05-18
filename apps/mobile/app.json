@@ -60,13 +60,13 @@
           },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePreciseLocation",
-            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
           },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeFitness",
-            "NSPrivacyCollectedDataTypeLinked": false,
+            "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
             "NSPrivacyCollectedDataTypePurposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]
           },
@@ -249,7 +249,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "PH Performance uses your location to record your running route and pace during workouts. Background tracking is optional and only active when you start a run session.",
+          "locationWhenInUsePermission": "PH Performance uses your location only when you start a run so it can record your route, distance, and pace.",
+          "locationAlwaysAndWhenInUsePermission": "PH Performance can keep recording your run route, distance, and pace if your screen locks or you switch apps. Background tracking is optional and only runs during a run you start.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

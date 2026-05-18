@@ -153,9 +153,9 @@ describe("lib/api - apiRequest", () => {
     await expect(apiRequest("t")).rejects.toThrow("Invalid response from server");
   });
 
-  test("TC-API015: clearApiCache clears local Map and AsyncStorage", () => {
+  test("TC-API015: clearApiCache clears local Map without touching disk storage", () => {
     clearApiCache();
-    expect(AsyncStorage.removeItem).toHaveBeenCalledWith("ph_api_cache_v2");
+    expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith("ph_api_cache_v2");
   });
 
   test("TC-API016: forceRefresh bypasses and replaces cache", async () => {

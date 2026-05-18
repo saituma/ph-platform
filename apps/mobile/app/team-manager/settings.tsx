@@ -34,17 +34,14 @@ export default function TeamSettingsScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
+  const isTeamManager = appRole === "team_manager";
 
   const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
-  if (appRole !== "team_manager") {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
-
   const load = useCallback(async () => {
-    if (!token) return;
+    if (!token || !isTeamManager) return;
     try {
       const res = await fetchPrivacySettings(token);
       setSettings(res.settings ?? DEFAULT_PRIVACY_SETTINGS);
@@ -53,7 +50,7 @@ export default function TeamSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [isTeamManager, token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,7 +60,7 @@ export default function TeamSettingsScreen() {
 
   const toggleSetting = useCallback(
     async (key: keyof PrivacySettings, value: boolean) => {
-      if (!token) return;
+      if (!token || !isTeamManager) return;
       setSaving(key);
       const prev = { ...settings };
       setSettings((s) => ({ ...s, [key]: value }));
@@ -76,7 +73,7 @@ export default function TeamSettingsScreen() {
         setSaving(null);
       }
     },
-    [token, settings],
+    [isTeamManager, token, settings],
   );
 
   const TOGGLES: {
@@ -122,6 +119,10 @@ export default function TeamSettingsScreen() {
       accent: p.danger,
     },
   ];
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

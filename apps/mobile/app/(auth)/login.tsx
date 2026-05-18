@@ -2,19 +2,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Image, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { Sun, Moon, Eye, EyeOff } from "lucide-react-native";
 import * as z from "zod";
 import { useAppTheme } from "../theme/AppThemeProvider";
-import { useAdminPastel } from "../../components/admin/AdminUI";
 import { apiRequest } from "../../lib/api";
 import { getAuthBaseUrl } from "../../lib/authBaseUrl";
 import { signInWithWorkerAndExchange } from "../../lib/workerAuth";
 import { getFriendlyAuthErrorMessage } from "../../lib/auth-error-message";
 import { useAppDispatch } from "../../store/hooks";
+import { useAppToast } from "../../hooks/useAppToast";
 import { Text, TextInput } from "../../components/ScaledText";
 import {
   AuthFieldRow,
@@ -35,6 +35,7 @@ import {
 import { enrichTeamFieldsIfOnboardingHasThem } from "../../lib/auth/enrichTeamFromOnboarding";
 import { resolveAppRole } from "../../lib/appRole";
 import { markLoginFresh } from "../../store/AuthPersist";
+import { openRegisterSession } from "../../lib/auth/openRegisterSession";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGIN_BG = require("@/assets/images/home-bg.png");
@@ -54,15 +55,15 @@ export default function LoginScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
   const { isDark, toggleColorScheme } = useAppTheme();
-  const p = useAdminPastel();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const {
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema as any),
+    resolver: zodResolver(loginSchema as never),
     defaultValues: { email: "", password: "" },
     mode: "onChange",
   });
@@ -162,7 +163,7 @@ export default function LoginScreen() {
       );
 
       router.replace("/");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFormError(getFriendlyAuthErrorMessage(err, "login"));
     } finally {
       setIsSubmitting(false);
@@ -350,8 +351,16 @@ export default function LoginScreen() {
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel="Register"
-                  onPress={() => {
-                    void Linking.openURL("https://phperformance.uk/register");
+                  onPress={async () => {
+                    const result = await openRegisterSession();
+                    if (result.status === "submitted") {
+                      toast.success(
+                        "Registration submitted",
+                        "Your coach will activate your account. You can sign in once approved.",
+                      );
+                    } else if (result.status === "error") {
+                      toast.error("Could not open registration", result.message);
+                    }
                   }}
                   style={styles.registerBtn}
                 >

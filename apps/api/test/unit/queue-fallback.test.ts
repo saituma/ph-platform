@@ -62,7 +62,7 @@ describe("queue fallback behavior", () => {
     process.env = { ...originalEnv };
   });
 
-  it("does not sync-send push in production when REDIS_URL is missing", async () => {
+  it("sync-sends push in production when REDIS_URL is missing", async () => {
     process.env.NODE_ENV = "production";
     const { pushQueue, sendPushNotification } = await loadPushQueue();
 
@@ -72,11 +72,11 @@ describe("queue fallback behavior", () => {
         title: "Title",
         body: "Body",
       }),
-    ).rejects.toThrow(/push-notifications.*redis_missing/);
-    expect(sendPushNotification).not.toHaveBeenCalled();
+    ).resolves.toBeUndefined();
+    expect(sendPushNotification).toHaveBeenCalledWith(1, "Title", "Body", undefined);
   });
 
-  it("does not sync-send email in production when REDIS_URL is missing", async () => {
+  it("sync-sends email in production when REDIS_URL is missing", async () => {
     process.env.NODE_ENV = "production";
     const { emailQueue, deliverEmail } = await loadEmailQueue();
 
@@ -86,8 +86,12 @@ describe("queue fallback behavior", () => {
         subject: "Subject",
         html: "<p>Body</p>",
       }),
-    ).rejects.toThrow(/emails.*redis_missing/);
-    expect(deliverEmail).not.toHaveBeenCalled();
+    ).resolves.toBeUndefined();
+    expect(deliverEmail).toHaveBeenCalledWith({
+      to: "test@example.com",
+      subject: "Subject",
+      html: "<p>Body</p>",
+    });
   });
 
   it("allows explicit sync fallback only outside strict environments", async () => {
@@ -105,7 +109,7 @@ describe("queue fallback behavior", () => {
     expect(sendPushNotification).toHaveBeenCalledWith(1, "Title", "Body", undefined);
   });
 
-  it("does not allow explicit sync fallback in staging", async () => {
+  it("sync-sends push in staging when REDIS_URL is missing", async () => {
     process.env.NODE_ENV = "test";
     process.env.APP_ENV = "staging";
     process.env.ENABLE_SYNC_QUEUE_FALLBACK = "true";
@@ -117,8 +121,8 @@ describe("queue fallback behavior", () => {
         title: "Title",
         body: "Body",
       }),
-    ).rejects.toThrow(/push-notifications.*redis_missing/);
-    expect(sendPushNotification).not.toHaveBeenCalled();
+    ).resolves.toBeUndefined();
+    expect(sendPushNotification).toHaveBeenCalledWith(1, "Title", "Body", undefined);
   });
 });
 

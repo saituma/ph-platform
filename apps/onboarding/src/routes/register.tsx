@@ -64,6 +64,17 @@ function Register() {
 	const navigate = useNavigate();
 	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
+	// Capture mobile origin flag — present when opened via openAuthSessionAsync from the iOS/Android app.
+	// Stored in sessionStorage so it survives the multi-step /verification → /onboarding/* flow.
+	// The /onboarding/success page reads this and redirects to phperformance://auth/registered,
+	// which closes the ASWebAuthenticationSession and returns the user to the app.
+	useState(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("from_mobile") === "1") {
+			sessionStorage.setItem("ph_from_mobile", "1");
+		}
+	});
+
 	// Capture referral code from URL (?ref=CODE) and persist for verification step
 	useState(() => {
 		const params = new URLSearchParams(window.location.search);

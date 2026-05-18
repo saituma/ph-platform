@@ -558,7 +558,7 @@ export function initSocket(server: HttpServer) {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
-        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM") {
+        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM" || msg === "USER_BLOCKED") {
           socket.emit("error:blocked", {
             event: "message:send",
             clientId: data.clientId,
@@ -566,6 +566,8 @@ export function initSocket(server: HttpServer) {
             message:
               msg === "AI_COACH_REQUIRES_PREMIUM"
                 ? "AI Coach requires a premium plan"
+                : msg === "USER_BLOCKED"
+                  ? "Messaging is blocked for this conversation"
                 : "Messaging is not available for your current plan",
           });
           return;

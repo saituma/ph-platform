@@ -3,14 +3,27 @@ import { db } from "../../src/db";
 import * as billingService from "../../src/services/billing.service";
 import * as userService from "../../src/services/user.service";
 
+type OnboardingDbMock = {
+  transaction: jest.Mock;
+  select: jest.Mock;
+  insert: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+};
+
 // Mock the db
 jest.mock("../../src/db", () => ({
-  db: {
-    select: jest.fn(),
-    insert: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
-  },
+  db: (() => {
+    const mockDb: Partial<OnboardingDbMock> = {};
+    mockDb.transaction = jest.fn(<T>(callback: (tx: OnboardingDbMock) => T) =>
+      callback(mockDb as OnboardingDbMock),
+    );
+    mockDb.select = jest.fn();
+    mockDb.insert = jest.fn();
+    mockDb.update = jest.fn();
+    mockDb.delete = jest.fn();
+    return mockDb as OnboardingDbMock;
+  })(),
 }));
 
 // Mock billing service
@@ -50,6 +63,7 @@ describe("onboarding.service - submitOnboarding", () => {
     birthDate: "2010-01-01",
     team: "Team A",
     trainingPerWeek: 3,
+    preferredTrainingDays: ["Monday", "Wednesday", "Friday"],
     parentEmail: "parent@example.com",
     termsVersion: "1.0",
     privacyVersion: "1.0",

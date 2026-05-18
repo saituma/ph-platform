@@ -47,7 +47,7 @@ export default function TermsScreen() {
         "",
         "## 4. Coaching & Programme Access",
         "",
-        "Access to specific training programmes, sessions, and features is managed by your coaching team and determined by your subscription plan. Programmes are assigned by coaches and administrators — athletes access only the content their coach has assigned to them. Schedule bookings, session feedback, and progress tracking are all subject to your coach's oversight. Contact your coach or visit phperformance.uk for information about available programmes and plan upgrades.",
+        "Access to specific training programmes, sessions, and features is managed by your coaching team. Programmes are assigned by coaches and administrators — athletes access only the content their coach has assigned to them. Schedule bookings, session feedback, and progress tracking are all subject to your coach's oversight. Access changes are handled by your PH Performance coach.",
         "",
         "## 5. User-Generated Content",
         "",

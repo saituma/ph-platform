@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Pressable, ScrollView, TouchableOpacity, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -96,10 +96,6 @@ export default function ParentCourseDetail() {
   );
   const [isLoading, setIsLoading] = useState(!cached);
 
-  if (isSectionHidden("parentPlatform")) {
-    return <AgeGate title="Parent platform locked" message="Parent education content is restricted for this age." />;
-  }
-
   const modules = useMemo(() => {
     return (item?.modules ?? [])
       .map((module, index) => ({
@@ -135,7 +131,7 @@ export default function ParentCourseDetail() {
 
   const openMedia = (url?: string) => {
     if (!url) return;
-    Linking.openURL(url).catch(() => undefined);
+    WebBrowser.openBrowserAsync(url).catch(() => undefined);
   };
 
   const openDocument = async (url?: string) => {
@@ -145,7 +141,7 @@ export default function ParentCourseDetail() {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
       });
     } catch {
-      Linking.openURL(url).catch(() => undefined);
+      WebBrowser.openBrowserAsync(url).catch(() => undefined);
     }
   };
 
@@ -159,6 +155,10 @@ export default function ParentCourseDetail() {
     typeof url === "string" &&
     (/\.(jpg|jpeg|png|gif|webp|heic|avif|bmp)(\?|#|$)/i.test(url) ||
       url.startsWith("data:image/"));
+
+  if (isSectionHidden("parentPlatform")) {
+    return <AgeGate title="Parent platform locked" message="Parent education content is restricted for this age." />;
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>

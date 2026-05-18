@@ -1,6 +1,7 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Activity, ExternalLink, Info, Mail, MapPin, Phone, User } from "lucide-react-native";
@@ -192,7 +193,7 @@ export default function PhysioReferralScreen() {
 
                 <Pressable
                   onPress={() => {
-                    if (referralLink) Linking.openURL(referralLink).catch(() => null);
+                    if (referralLink) WebBrowser.openBrowserAsync(referralLink).catch(() => null);
                   }}
                   disabled={!referralLink}
                   style={({ pressed }) => ({

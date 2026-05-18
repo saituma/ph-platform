@@ -394,6 +394,12 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     [router],
   );
 
+  const reduceMotion = useReducedMotion();
+  const streak = useStreakStore((ss) => ss.currentStreak);
+  const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
+  const profilePic = profile?.avatar ?? null;
+  const totalModules = programs.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
+
   if (isSectionHidden("programs")) {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
   }
@@ -441,12 +447,6 @@ const ProgramsScreen = memo(function ProgramsScreen() {
       </View>
     );
   }
-
-  const reduceMotion = useReducedMotion();
-  const streak = useStreakStore((ss) => ss.currentStreak);
-  const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
-  const profilePic = profile?.avatar ?? null;
-  const totalModules = programs.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

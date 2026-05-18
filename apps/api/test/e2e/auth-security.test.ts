@@ -129,6 +129,7 @@ jest.mock("../../src/controllers/billing", () => ({
   invitePlanUserAdmin: stubHandler,
   getPlanInviteSummaryPublic: stubHandler,
   consumePlanInvitePublic: stubHandler,
+  getPublicInvoice: stubHandler,
   importPlanAdmin: stubHandler,
   updatePlanAdmin: stubHandler,
   listRequestsAdmin: stubHandler,

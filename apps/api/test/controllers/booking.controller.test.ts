@@ -45,6 +45,7 @@ describe("booking controller", () => {
 
   it("returns 400 when onboarding incomplete on booking", async () => {
     (getAthleteForUser as jest.Mock).mockResolvedValue(null);
+    (getGuardianAndAthlete as jest.Mock).mockResolvedValue({ guardian: null, athlete: null });
     const req = {
       user: { id: 1 },
       body: { serviceTypeId: 1, startsAt: new Date().toISOString(), endsAt: new Date().toISOString() },

@@ -94,12 +94,9 @@ export default function AdminOpsReferralsScreen() {
   const reduceMotion = useReducedMotion();
   const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
   const bootstrapReady = useAppSelector((state) => state.app.bootstrapReady);
-  const canLoad = Boolean(token && bootstrapReady);
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
-  if (!canAccess) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const canLoad = Boolean(token && bootstrapReady && canAccess);
 
   const referralsHook = useAdminPhysioReferrals(token, canLoad);
   const teamsHook = useAdminTeams(token, canLoad);
@@ -944,6 +941,10 @@ export default function AdminOpsReferralsScreen() {
       )}
     </Animated.View>
   );
+
+  if (!canAccess) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
 
   return (
     <AdminScreen>

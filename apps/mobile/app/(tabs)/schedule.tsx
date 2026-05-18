@@ -12,7 +12,6 @@ import {
   ScrollView,
   View,
   StyleSheet,
-  Linking,
   Image as RNImage,
   Dimensions,
 } from "react-native";
@@ -72,6 +71,7 @@ import { useAppToast } from "@/hooks/useAppToast";
 import type { ScheduleEvent } from "@/components/tracking/schedule/types";
 import { formatDateKey, parseDateKey } from "@/components/tracking/schedule/utils";
 import type { AdminPastelColors } from "@/constants/theme";
+import * as WebBrowser from "expo-web-browser";
 
 const SCHEDULE_BG = require("@/assets/images/schedule-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -167,7 +167,7 @@ const MeetingLinkTap = memo(function MeetingLinkTap({ meetingLink }: { meetingLi
   const p = useAdminPastel();
   const linkScale = useSharedValue(1);
   const linkAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: linkScale.value }] }));
-  const openLink = useCallback(() => { Linking.openURL(meetingLink); }, [meetingLink]);
+  const openLink = useCallback(() => { void WebBrowser.openBrowserAsync(meetingLink); }, [meetingLink]);
   const linkTap = useMemo(() => Gesture.Tap()
     .onBegin(() => {
       'worklet';
