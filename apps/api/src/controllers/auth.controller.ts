@@ -14,6 +14,7 @@ import {
   startForgotPasswordLocal,
 } from "../services/auth.service";
 import { deleteOwnAccount } from "../services/account-deletion.service";
+import { sendDeletionRequestEmail } from "../lib/mailer/auth.mailer";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { createSocketToken, verifyAccessToken } from "../lib/jwt";
 import { getUserById, updateUserProfile } from "../services/user.service";
@@ -26,6 +27,7 @@ import {
   subscriptionPlanTable,
   teamSubscriptionRequestTable,
   teamTable,
+  userTable,
 } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
@@ -516,6 +518,31 @@ export async function deleteAccount(req: Request, res: Response) {
     const message = typeof err?.message === "string" ? err.message : "Could not delete account.";
     return res.status(status).json({ error: message });
   }
+}
+
+const requestDeletionSchema = z.object({
+  email: z.string().email().max(255),
+});
+
+export async function requestAccountDeletion(req: Request, res: Response) {
+  const parsed = requestDeletionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "A valid email address is required." });
+  }
+  try {
+    const [user] = await db
+      .select({ id: userTable.id, email: userTable.email })
+      .from(userTable)
+      .where(eq(userTable.email, parsed.data.email.toLowerCase()))
+      .limit(1);
+    if (user) {
+      await sendDeletionRequestEmail({ to: user.email });
+    }
+  } catch (err) {
+    logger.error({ err }, "requestAccountDeletion: failed to process");
+  }
+  // Always return 200 — never reveal whether the email exists
+  return res.status(200).json({ ok: true });
 }
 
 export async function issueSocketToken(req: Request, res: Response) {

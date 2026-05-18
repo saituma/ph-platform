@@ -56,6 +56,30 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your
   await createEmailIntent({ to: input.to, subject, html });
 }
 
+export async function sendDeletionRequestEmail(input: { to: string }) {
+  const subject = "Account deletion request received — PH Performance";
+  const portalUrl = "https://phperformance.uk/login";
+  const bodyHtml = `
+${textP("We received a request to delete the PH Performance account associated with this email address.")}
+${textP(`To complete the deletion, sign in to your portal and go to <strong>Settings → Privacy &amp; Security → Delete Account</strong>. Your account and all associated data will be permanently removed.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="padding:8px 0;">
+      <a href="${portalUrl}" style="display:inline-block;background-color:${E.accent};color:#ffffff;font-family:${E.font};font-size:14px;font-weight:700;letter-spacing:0.04em;text-decoration:none;padding:14px 32px;border-radius:8px;">Sign in to delete account</a>
+    </td>
+  </tr>
+</table>
+${textP(`<span style="color:${E.muted};font-size:13px;line-height:1.6;">If you did not request this, you can safely ignore this email — no action will be taken and your account will remain active.</span>`, "0")}`;
+  const html = emailLayout({
+    preheader: "We received a request to delete your PH Performance account.",
+    eyebrow: "Account",
+    headline: "Deletion request",
+    bodyHtml,
+  });
+
+  await createEmailIntent({ to: input.to, subject, html });
+}
+
 /** Password reset email triggered by an admin (temporary password; user changes it in the app). */
 export async function sendAdminPasswordResetEmail(input: {
   to: string;

@@ -15,6 +15,7 @@ import {
   updateMe,
   updatePassword,
   deleteAccount,
+  requestAccountDeletion,
   getSessionCompat,
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth";
@@ -43,5 +44,6 @@ router.get("/auth/socket-token", requireAuth, issueSocketToken);
 router.patch("/auth/me", requireAuth, updateMe);
 router.post("/auth/change-password", authLimiter, requireAuth, updatePassword);
 router.post("/auth/delete-account", deleteAccountLimiter, requireAuth, deleteAccount);
+router.post("/auth/request-deletion", deleteAccountLimiter, requestAccountDeletion);
 
 export default router;
