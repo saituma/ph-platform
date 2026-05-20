@@ -202,9 +202,45 @@ export async function updateSession(
 }
 
 export async function deleteSession(sessionId: number) {
-  await db.delete(sessionExerciseTable).where(eq(sessionExerciseTable.sessionId, sessionId));
-  const result = await db.delete(sessionTable).where(eq(sessionTable.id, sessionId)).returning();
-  return result[0] ?? null;
+  return db.transaction(async (tx) => {
+    // Before deleting a library session, copy its exercises to every module session
+    // that is linked to it — so linked sessions don't silently lose exercises.
+    const linkedSessions = await tx
+      .select({ id: sessionTable.id })
+      .from(sessionTable)
+      .where(eq(sessionTable.sourceLibrarySessionId, sessionId));
+
+    if (linkedSessions.length > 0) {
+      const libraryExercises = await tx
+        .select()
+        .from(sessionExerciseTable)
+        .where(eq(sessionExerciseTable.sessionId, sessionId))
+        .orderBy(asc(sessionExerciseTable.order));
+
+      for (const linked of linkedSessions) {
+        for (const ex of libraryExercises) {
+          await tx.insert(sessionExerciseTable).values({
+            sessionId: linked.id,
+            exerciseId: ex.exerciseId,
+            order: ex.order,
+            coachingNotes: ex.coachingNotes,
+            progressionNotes: ex.progressionNotes,
+            regressionNotes: ex.regressionNotes,
+            runConfig: ex.runConfig,
+          });
+        }
+        // Clear the link so the ON DELETE set null doesn't race
+        await tx
+          .update(sessionTable)
+          .set({ sourceLibrarySessionId: null, updatedAt: new Date() })
+          .where(eq(sessionTable.id, linked.id));
+      }
+    }
+
+    await tx.delete(sessionExerciseTable).where(eq(sessionExerciseTable.sessionId, sessionId));
+    const result = await tx.delete(sessionTable).where(eq(sessionTable.id, sessionId)).returning();
+    return result[0] ?? null;
+  });
 }
 
 export async function listSessionExercises(sessionId: number) {
@@ -393,6 +429,14 @@ export async function addRunToSession(
     notes?: string | null;
   },
 ) {
+  // Resolve to library source if linked
+  const [sessionRow] = await db
+    .select({ sourceLibrarySessionId: sessionTable.sourceLibrarySessionId })
+    .from(sessionTable)
+    .where(eq(sessionTable.id, sessionId))
+    .limit(1);
+  const effectiveSessionId = sessionRow?.sourceLibrarySessionId ?? sessionId;
+
   const name = RUN_EXERCISE_NAMES[input.runType] ?? "Run";
 
   // Find or create the cardio template exercise for this run type
@@ -412,7 +456,7 @@ export async function addRunToSession(
   const [orderRow] = await db
     .select({ maxOrder: sql<number>`COALESCE(MAX(${sessionExerciseTable.order}), 0)` })
     .from(sessionExerciseTable)
-    .where(eq(sessionExerciseTable.sessionId, sessionId));
+    .where(eq(sessionExerciseTable.sessionId, effectiveSessionId));
 
   const nextOrder = (orderRow?.maxOrder ?? 0) + 1;
 
@@ -427,7 +471,7 @@ export async function addRunToSession(
   const [sessionEx] = await db
     .insert(sessionExerciseTable)
     .values({
-      sessionId,
+      sessionId: effectiveSessionId,
       exerciseId: exercise.id,
       order: nextOrder,
       coachingNotes: input.notes ?? null,
@@ -440,12 +484,19 @@ export async function addRunToSession(
 }
 
 export async function reorderSessionExercises(sessionId: number, ids: number[]) {
+  const [sessionRow] = await db
+    .select({ sourceLibrarySessionId: sessionTable.sourceLibrarySessionId })
+    .from(sessionTable)
+    .where(eq(sessionTable.id, sessionId))
+    .limit(1);
+  const effectiveSessionId = sessionRow?.sourceLibrarySessionId ?? sessionId;
+
   await db.transaction(async (tx) => {
     for (let i = 0; i < ids.length; i++) {
       await tx
         .update(sessionExerciseTable)
         .set({ order: i + 1, updatedAt: new Date() })
-        .where(and(eq(sessionExerciseTable.id, ids[i]), eq(sessionExerciseTable.sessionId, sessionId)));
+        .where(and(eq(sessionExerciseTable.id, ids[i]), eq(sessionExerciseTable.sessionId, effectiveSessionId)));
     }
   });
 }

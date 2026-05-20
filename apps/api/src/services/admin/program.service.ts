@@ -306,10 +306,19 @@ export async function addExerciseToSession(input: {
   regressionNotes?: string | null;
   runConfig?: Record<string, any> | null;
 }) {
+  // If this session is linked to a library session, write exercises to the library
+  // source so they are visible everywhere the library session is used.
+  const [sessionRow] = await db
+    .select({ sourceLibrarySessionId: sessionTable.sourceLibrarySessionId })
+    .from(sessionTable)
+    .where(eq(sessionTable.id, input.sessionId))
+    .limit(1);
+  const effectiveSessionId = sessionRow?.sourceLibrarySessionId ?? input.sessionId;
+
   const result = await db
     .insert(sessionExerciseTable)
     .values({
-      sessionId: input.sessionId,
+      sessionId: effectiveSessionId,
       exerciseId: input.exerciseId,
       order: input.order,
       coachingNotes: input.coachingNotes ?? null,
