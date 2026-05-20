@@ -352,6 +352,45 @@ export default function AssignedSessionDetailScreen() {
           <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
             Your coach hasn't added exercises to this session.
           </Text>
+          <Pressable
+            onPress={
+              sessionFinished || sessionAlreadyCompleted
+                ? () => (router.canGoBack() ? router.back() : router.replace("/(tabs)/programs" as any))
+                : handleFinish
+            }
+            disabled={isCompleting}
+            style={({ pressed }) => ({
+              marginTop: 24,
+              backgroundColor: sessionFinished || sessionAlreadyCompleted ? "#22c55e" : p.accent,
+              borderRadius: 100,
+              paddingVertical: 15,
+              paddingHorizontal: 40,
+              alignItems: "center",
+              justifyContent: "center",
+              flexDirection: "row",
+              gap: 8,
+              opacity: isCompleting ? 0.6 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            {isCompleting ? (
+              <ActivityIndicator size="small" color={p.buttonPrimaryText} />
+            ) : sessionFinished || sessionAlreadyCompleted ? (
+              <>
+                <CheckCircle size={20} color="#fff" />
+                <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: "#fff", letterSpacing: -0.2 }}>
+                  Session Completed
+                </Text>
+              </>
+            ) : (
+              <>
+                <CheckCircle size={20} color={p.buttonPrimaryText} />
+                <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText, letterSpacing: -0.2 }}>
+                  Finish Session
+                </Text>
+              </>
+            )}
+          </Pressable>
         </View>
       ) : (
         <>
@@ -645,7 +684,7 @@ function ExerciseCard({
               uri={ex.exercise.videoUrl!}
               height={200}
               autoPlay
-              initialMuted={false}
+              initialMuted={true}
               isLooping
               hideTopChrome
               ignoreTabFocus

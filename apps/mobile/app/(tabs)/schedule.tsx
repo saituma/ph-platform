@@ -868,6 +868,7 @@ export default memo(function ScheduleScreen() {
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
+  const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const profile = useAppSelector((s) => s.user.profile);
   const streak = useStreakStore((ss) => ss.currentStreak);
@@ -884,8 +885,12 @@ export default memo(function ScheduleScreen() {
       managedAthletes.find((a) => a.userId === athleteUserId || a.id === athleteUserId) ??
       managedAthletes[0] ??
       null;
-    return active?.athleteType ?? null;
-  }, [managedAthletes, athleteUserId]);
+    if (active?.athleteType) return active.athleteType;
+    // Fallback for direct athletes where managedAthletes may not be populated
+    if (appRole === "youth_athlete" || appRole === "youth_athlete_team_guardian" || appRole === "youth_athlete_guardian_only") return "youth";
+    if (appRole === "adult_athlete" || appRole === "adult_athlete_team") return "adult";
+    return null;
+  }, [managedAthletes, athleteUserId, appRole]);
   const { isSectionHidden } = useAgeExperience();
   const isFocused = useSafeIsFocused(true);
   const queryClient = useQueryClient();

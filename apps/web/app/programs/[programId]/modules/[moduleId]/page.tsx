@@ -344,7 +344,6 @@ export default function ModuleDetailPage() {
       ) : (
         <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
           {sessions.map((session) => {
-            const isRun = !!(session as any).exerciseCount && (session.title ?? "").toLowerCase().includes("run");
             const isLinked = !!(session as any).sourceLibrarySessionId;
             return (
               <Link
@@ -369,7 +368,7 @@ export default function ModuleDetailPage() {
                     )}
                     <div className="mt-2 flex items-center gap-2">
                       <Badge variant={isLinked ? "outline" : "secondary"} className={`text-[10px] ${isLinked ? "border-primary/40 text-primary" : ""}`}>
-                        {isLinked ? "🔗 Linked" : (session.type ?? "program")}
+                        {isLinked ? "🔗 Linked" : (SESSION_TYPES.find((t) => t.value === session.type)?.label ?? "Program")}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         {session.exerciseCount ?? 0} exercise{(session.exerciseCount ?? 0) !== 1 ? "s" : ""}

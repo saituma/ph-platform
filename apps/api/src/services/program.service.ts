@@ -227,7 +227,7 @@ export async function getMyProgramFull(userId: number, programId: number) {
   const moduleIds = modules.map((m) => m.id);
   let sessions: any[] = [];
   if (moduleIds.length > 0) {
-    sessions = await db
+    const rawSessions = await db
       .select({
         id: sessionTable.id,
         moduleId: sessionTable.moduleId,
@@ -236,6 +236,7 @@ export async function getMyProgramFull(userId: number, programId: number) {
         title: sessionTable.title,
         description: sessionTable.description,
         type: sessionTable.type,
+        sourceLibrarySessionId: sessionTable.sourceLibrarySessionId,
         exerciseCount: count(sessionExerciseTable.id),
       })
       .from(sessionTable)
@@ -243,6 +244,30 @@ export async function getMyProgramFull(userId: number, programId: number) {
       .where(inArray(sessionTable.moduleId, moduleIds))
       .groupBy(sessionTable.id)
       .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+
+    // For linked sessions resolve title and exerciseCount from the library source
+    const linkedIds = rawSessions.map((s) => s.sourceLibrarySessionId).filter(Boolean) as number[];
+    if (linkedIds.length > 0) {
+      const libSessions = await db
+        .select({
+          id: sessionTable.id,
+          title: sessionTable.title,
+          exerciseCount: count(sessionExerciseTable.id),
+        })
+        .from(sessionTable)
+        .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+        .where(inArray(sessionTable.id, linkedIds))
+        .groupBy(sessionTable.id);
+      const libMap = new Map(libSessions.map((s) => [s.id, s]));
+      sessions = rawSessions.map((s) => {
+        if (!s.sourceLibrarySessionId) return s;
+        const src = libMap.get(s.sourceLibrarySessionId);
+        if (!src) return s;
+        return { ...s, title: src.title ?? s.title, exerciseCount: src.exerciseCount };
+      });
+    } else {
+      sessions = rawSessions;
+    }
   }
 
   const sessionsByModule = new Map<number, any[]>();
@@ -272,7 +297,7 @@ export async function getMyTeamSessionsAsProgram(userId: number, teamId: number)
     .limit(1);
   if (!teamRow) return null;
 
-  const sessions = await db
+  const rawTeamSessions = await db
     .select({
       id: sessionTable.id,
       moduleId: sessionTable.moduleId,
@@ -281,6 +306,7 @@ export async function getMyTeamSessionsAsProgram(userId: number, teamId: number)
       title: sessionTable.title,
       description: sessionTable.description,
       type: sessionTable.type,
+      sourceLibrarySessionId: sessionTable.sourceLibrarySessionId,
       exerciseCount: count(sessionExerciseTable.id),
     })
     .from(sessionTable)
@@ -288,6 +314,24 @@ export async function getMyTeamSessionsAsProgram(userId: number, teamId: number)
     .where(eq(sessionTable.teamId, teamId))
     .groupBy(sessionTable.id)
     .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
+
+  const linkedTeamIds = rawTeamSessions.map((s) => s.sourceLibrarySessionId).filter(Boolean) as number[];
+  let sessions: any[] = rawTeamSessions;
+  if (linkedTeamIds.length > 0) {
+    const libSessions = await db
+      .select({ id: sessionTable.id, title: sessionTable.title, exerciseCount: count(sessionExerciseTable.id) })
+      .from(sessionTable)
+      .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+      .where(inArray(sessionTable.id, linkedTeamIds))
+      .groupBy(sessionTable.id);
+    const libMap = new Map(libSessions.map((s) => [s.id, s]));
+    sessions = rawTeamSessions.map((s) => {
+      if (!s.sourceLibrarySessionId) return s;
+      const src = libMap.get(s.sourceLibrarySessionId);
+      if (!src) return s;
+      return { ...s, title: src.title ?? s.title, exerciseCount: src.exerciseCount };
+    });
+  }
 
   return {
     id: -teamId,

@@ -201,12 +201,13 @@ export async function listServiceTypes(options?: {
       const allowed = options?.athlete
         ? serviceAllowsAthlete(service, options.athlete)
         : serviceAllowsTier(service, options?.viewerProgramTier);
-      const isLocked = eligiblePlans.length > 0 && !allowed;
-      return {
-        ...service,
-        isLocked,
-        lockReason: isLocked ? `Requires one of: ${eligiblePlans.join(", ")}` : null,
-      };
+      const isLocked = !allowed;
+      const lockReason = isLocked
+        ? eligiblePlans.length > 0
+          ? `Requires one of: ${eligiblePlans.join(", ")}`
+          : "Not available for your profile"
+        : null;
+      return { ...service, isLocked, lockReason };
     });
     return omitEmpty(mapped);
   }

@@ -2,14 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   TextInput,
   View,
 } from "react-native";
-import { BottomSheet } from "heroui-native";
+import GorhomBottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 import { useQuery } from "@tanstack/react-query";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Feather } from "@/components/ui/theme-icons";
@@ -64,6 +63,23 @@ export function BookingModal({
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notes, setNotes] = useState("");
+
+  const sheetRef = useRef<GorhomBottomSheet>(null);
+
+  useEffect(() => {
+    if (visible) {
+      sheetRef.current?.snapToIndex(0);
+    } else {
+      sheetRef.current?.close();
+    }
+  }, [visible]);
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} onPress={onClose} />
+    ),
+    [onClose],
+  );
 
   const hasUserSelectedService = useRef(false);
 
@@ -133,8 +149,8 @@ export function BookingModal({
 
   useEffect(() => { setSelectedOccurrence(null); }, [selectedServiceId]);
 
-  const handleOpenChange = useCallback((open: boolean) => {
-    if (!open) { Keyboard.dismiss(); onClose(); }
+  const handleSheetChange = useCallback((index: number) => {
+    if (index === -1) { Keyboard.dismiss(); onClose(); }
   }, [onClose]);
 
   const notifyBookingConfirmed = useCallback(async (startsAt?: Date | null) => {
@@ -203,29 +219,26 @@ export function BookingModal({
   const canSubmit = !!selectedService && canCreateBookings && !selectedService?.isLocked && !isSlotFull && (!isRecurring || !!selectedOccurrence);
 
   return (
-    <BottomSheet isOpen={visible} onOpenChange={handleOpenChange}>
-      <BottomSheet.Portal>
-        <BottomSheet.Overlay style={{ backgroundColor: p.overlay }} />
-        <BottomSheet.Content
-          snapPoints={snapPoints}
-          enablePanDownToClose
-          backgroundStyle={{
-            backgroundColor: p.pageBg,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            borderWidth: 1,
-            borderColor: p.divider,
-          }}
-          handleIndicatorStyle={{ backgroundColor: p.textMuted, width: 44 }}
-        >
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
-      <ScrollView
+    <GorhomBottomSheet
+      ref={sheetRef}
+      index={-1}
+      snapPoints={snapPoints}
+      enablePanDownToClose
+      backdropComponent={renderBackdrop}
+      onChange={handleSheetChange}
+      backgroundStyle={{
+        backgroundColor: p.pageBg,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderWidth: 1,
+        borderColor: p.divider,
+      }}
+      handleIndicatorStyle={{ backgroundColor: p.textMuted, width: 44 }}
+    >
+      <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
-        bounces={false}
-        overScrollMode="never"
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: Math.max(insets.bottom, 12) + 24 + 56 }}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 40 }}
       >
         <View style={{ paddingTop: 14, paddingHorizontal: 20, paddingBottom: 26 }}>
           {/* ── Header ── */}
@@ -244,7 +257,7 @@ export function BookingModal({
               <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 18 }}>
                 Pick a service, date, and time below. Booking requests need the right access level.
               </Text>
-              <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs"); }}>
+              <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs" as any); }}>
                 <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: p.accent }}>Open training →</Text>
               </Pressable>
             </View>
@@ -327,7 +340,7 @@ export function BookingModal({
                   <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 18 }}>
                     {selectedService.lockReason || "This session type isn't available for your account."}
                   </Text>
-                  <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs"); }}>
+                  <Pressable onPress={() => { onClose(); router.push("/(tabs)/programs" as any); }}>
                     <Text style={{ fontSize: 12, fontFamily: "Outfit-SemiBold", color: p.accent }}>Open training →</Text>
                   </Pressable>
                 </View>
@@ -394,8 +407,7 @@ export function BookingModal({
                       <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>No available slots in the next 30 days. Check back later.</Text>
                     </View>
                   ) : (
-                    <ScrollView horizontal={false} style={{ maxHeight: 220 }} showsVerticalScrollIndicator nestedScrollEnabled>
-                      <View style={{ gap: 8 }}>
+                    <View style={{ gap: 8 }}>
                         {serviceOccurrences.map((occ) => {
                           const isSelected = selectedOccurrence?.occurrenceKey === occ.occurrenceKey;
                           const spots = occ.remainingCapacity;
@@ -433,8 +445,7 @@ export function BookingModal({
                             </Pressable>
                           );
                         })}
-                      </View>
-                    </ScrollView>
+                    </View>
                   )}
                 </View>
               ) : null}
@@ -523,10 +534,7 @@ export function BookingModal({
             </>
           )}
         </View>
-      </ScrollView>
-      </KeyboardAvoidingView>
-        </BottomSheet.Content>
-      </BottomSheet.Portal>
-    </BottomSheet>
+      </BottomSheetScrollView>
+    </GorhomBottomSheet>
   );
 }

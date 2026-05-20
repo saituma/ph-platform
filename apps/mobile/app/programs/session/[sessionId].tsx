@@ -79,7 +79,7 @@ export default function ProgramSessionDetailScreen() {
       Linking.getInitialURL().then((url) => {
         if (cancelled) return;
         if (url && url.includes("/programs/session/")) return;
-        router.replace("/(tabs)");
+        router.replace("/(tabs)" as any);
       });
     }, 0);
     return () => {
@@ -429,7 +429,7 @@ export default function ProgramSessionDetailScreen() {
       router.back();
       return;
     }
-    router.replace("/(tabs)/programs");
+    router.replace(moduleHref as any);
   }, [computePreviousPath, moduleHref, router, shouldBackToModule, workspace]);
 
   useFocusEffect(
@@ -823,6 +823,59 @@ export default function ProgramSessionDetailScreen() {
             onCompleteSession={handleCompleteSession}
             sessionCompleted={sessionAlreadyCompleted}
           />
+
+          {/* Fallback complete button when the session has no items */}
+          {!completionAnchorItemId && session && (
+            <View style={{ paddingTop: 24 }}>
+              {sessionAlreadyCompleted ? (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    borderRadius: 100,
+                    backgroundColor: "rgba(34,197,94,0.12)",
+                    borderWidth: 1,
+                    borderColor: "rgba(34,197,94,0.3)",
+                  }}
+                >
+                  <CheckCircle size={20} color="#22c55e" />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#22c55e", textTransform: "uppercase" }}>
+                    Session Completed
+                  </Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handleCompleteSession}
+                  disabled={isFinishing}
+                  style={({ pressed }) => ({
+                    backgroundColor: p.accent,
+                    paddingVertical: 16,
+                    borderRadius: 100,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                    gap: 8,
+                    opacity: isFinishing ? 0.6 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
+                  })}
+                >
+                  {isFinishing ? (
+                    <ActivityIndicator size="small" color={p.buttonPrimaryText} />
+                  ) : (
+                    <>
+                      <CheckCircle size={20} color={p.buttonPrimaryText} />
+                      <Text style={{ fontFamily: "Outfit-Bold", textTransform: "uppercase", fontSize: 14, color: p.buttonPrimaryText }}>
+                        Finish Session
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+            </View>
+          )}
         </View>
       </ThemedScrollView>
 
