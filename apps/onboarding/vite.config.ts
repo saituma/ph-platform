@@ -22,6 +22,11 @@ export default defineConfig(({ mode }) => {
 		base: env.VITE_BASE_PATH || "/",
 		resolve: {
 			tsconfigPaths: true,
+			alias: {
+				// packages/auth dist is CommonJS; alias to source so Vite gets the ESM-compatible TS file
+				"@ph/auth": path.resolve(onboardingRoot, "../../packages/auth/src/index.ts"),
+				"@ph/roles": path.resolve(onboardingRoot, "../../packages/roles/src/index.ts"),
+			},
 			dedupe: [
 				"react",
 				"react-dom",

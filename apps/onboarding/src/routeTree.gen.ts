@@ -25,6 +25,7 @@ import { Route as ForgotRouteImport } from './routes/forgot'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as EnquiryRouteImport } from './routes/enquiry'
 import { Route as EducationFaqRouteImport } from './routes/education-faq'
+import { Route as DeleteAccountRouteImport } from './routes/delete-account'
 import { Route as CtaDemoRouteImport } from './routes/cta-demo'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as BlogRouteImport } from './routes/blog'
@@ -154,6 +155,11 @@ const EnquiryRoute = EnquiryRouteImport.update({
 const EducationFaqRoute = EducationFaqRouteImport.update({
   id: '/education-faq',
   path: '/education-faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeleteAccountRoute = DeleteAccountRouteImport.update({
+  id: '/delete-account',
+  path: '/delete-account',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CtaDemoRoute = CtaDemoRouteImport.update({
@@ -420,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
@@ -434,8 +441,8 @@ export interface FileRoutesByFullPath {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
-  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -488,6 +495,7 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
@@ -502,8 +510,8 @@ export interface FileRoutesByTo {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
-  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -556,6 +564,7 @@ export interface FileRoutesById {
   '/blog': typeof BlogRouteWithChildren
   '/contact': typeof ContactRoute
   '/cta-demo': typeof CtaDemoRoute
+  '/delete-account': typeof DeleteAccountRoute
   '/education-faq': typeof EducationFaqRoute
   '/enquiry': typeof EnquiryRouteWithChildren
   '/features': typeof FeaturesRoute
@@ -570,8 +579,8 @@ export interface FileRoutesById {
   '/services': typeof ServicesRoute
   '/terms-privacy': typeof TermsPrivacyRoute
   '/testimonials-demo': typeof TestimonialsDemoRoute
-  '/waitlist': typeof WaitlistRoute
   '/verification': typeof VerificationRoute
+  '/waitlist': typeof WaitlistRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -626,6 +635,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/cta-demo'
+    | '/delete-account'
     | '/education-faq'
     | '/enquiry'
     | '/features'
@@ -694,6 +704,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/cta-demo'
+    | '/delete-account'
     | '/education-faq'
     | '/enquiry'
     | '/features'
@@ -761,6 +772,7 @@ export interface FileRouteTypes {
     | '/blog'
     | '/contact'
     | '/cta-demo'
+    | '/delete-account'
     | '/education-faq'
     | '/enquiry'
     | '/features'
@@ -830,6 +842,7 @@ export interface RootRouteChildren {
   BlogRoute: typeof BlogRouteWithChildren
   ContactRoute: typeof ContactRoute
   CtaDemoRoute: typeof CtaDemoRoute
+  DeleteAccountRoute: typeof DeleteAccountRoute
   EducationFaqRoute: typeof EducationFaqRoute
   EnquiryRoute: typeof EnquiryRouteWithChildren
   FeaturesRoute: typeof FeaturesRoute
@@ -858,6 +871,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/waitlist': {
+      id: '/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof WaitlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verification': {
       id: '/verification'
       path: '/verification'
@@ -963,6 +983,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EducationFaqRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/delete-account': {
+      id: '/delete-account'
+      path: '/delete-account'
+      fullPath: '/delete-account'
+      preLoaderRoute: typeof DeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cta-demo': {
       id: '/cta-demo'
       path: '/cta-demo'
@@ -1003,13 +1030,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/waitlist': {
-      id: '/waitlist'
-      path: '/waitlist'
-      fullPath: '/waitlist'
-      preLoaderRoute: typeof WaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portal/tracking': {
@@ -1447,6 +1467,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogRoute: BlogRouteWithChildren,
   ContactRoute: ContactRoute,
   CtaDemoRoute: CtaDemoRoute,
+  DeleteAccountRoute: DeleteAccountRoute,
   EducationFaqRoute: EducationFaqRoute,
   EnquiryRoute: EnquiryRouteWithChildren,
   FeaturesRoute: FeaturesRoute,

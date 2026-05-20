@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AnnouncementToast } from "@/components/AnnouncementToast";
@@ -36,6 +36,7 @@ function PortalLayout() {
 
 function PortalInner() {
 	const navigate = useNavigate();
+	const { location } = useRouterState();
 	const { user, loading, error, refresh } = usePortal();
 
 	// TODO: Add email verification enforcement before granting portal access (post-launch).
@@ -127,7 +128,9 @@ function PortalInner() {
 	const onboardingIncomplete = isTeam
 		? !user.team?.id
 		: !hasActivePlan && !user.onboardingCompleted;
-	const needsPlan = !hasActivePlan;
+	// Allow billing page access without a plan so users can choose/manage their subscription.
+	const isBillingRoute = location.pathname.startsWith("/portal/billing");
+	const needsPlan = !hasActivePlan && !isBillingRoute;
 
 	if (onboardingIncomplete || needsPlan) {
 		return (
