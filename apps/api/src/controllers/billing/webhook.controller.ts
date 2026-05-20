@@ -4,7 +4,7 @@ import { eq, desc } from "drizzle-orm";
 
 import { env } from "../../config/env";
 import { db } from "../../db";
-import { subscriptionRequestTable, teamSubscriptionRequestTable } from "../../db/schema";
+import { subscriptionRequestTable, teamSubscriptionRequestTable, athleteTable, teamTable, guardianTable } from "../../db/schema";
 import {
   updateRequestFromStripeSession,
 } from "../../services/billing.service";
@@ -103,7 +103,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 }
 
 /**
- * Handle subscription renewal success — clear past_due, keep approved.
+ * Handle subscription renewal success — clear past_due and extend planExpiresAt
+ * on the athlete record so access continues for the new billing period.
+ * Stripe provides `lines.data[0].period.end` as the Unix timestamp for the new period end.
  */
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const subscriptionId = typeof invoice.subscription === "string"
@@ -111,16 +113,83 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     : (invoice.subscription as any)?.id ?? null;
   if (!subscriptionId) return;
 
-  // Only update if currently past_due
-  await db
-    .update(subscriptionRequestTable)
-    .set({ paymentStatus: "paid", updatedAt: new Date() })
-    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId));
+  // Derive the new access end from Stripe's period end (falls back to now + 1 month)
+  const periodEndUnix = invoice.lines?.data?.[0]?.period?.end ?? null;
+  const newPlanExpiresAt = periodEndUnix
+    ? new Date(periodEndUnix * 1000)
+    : (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
 
-  await db
-    .update(teamSubscriptionRequestTable)
-    .set({ paymentStatus: "paid", updatedAt: new Date() })
-    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId));
+  // Individual subscription
+  const [req] = await db
+    .select({
+      id: subscriptionRequestTable.id,
+      athleteId: subscriptionRequestTable.athleteId,
+    })
+    .from(subscriptionRequestTable)
+    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
+    .orderBy(desc(subscriptionRequestTable.createdAt))
+    .limit(1);
+
+  if (req) {
+    await db
+      .update(subscriptionRequestTable)
+      .set({ paymentStatus: "paid", updatedAt: new Date() })
+      .where(eq(subscriptionRequestTable.id, req.id));
+
+    if (req.athleteId) {
+      // Also update guardian if this athlete has one
+      const [athlete] = await db
+        .select({ guardianId: athleteTable.guardianId })
+        .from(athleteTable)
+        .where(eq(athleteTable.id, req.athleteId))
+        .limit(1);
+
+      await db
+        .update(athleteTable)
+        .set({ planExpiresAt: newPlanExpiresAt, updatedAt: new Date() })
+        .where(eq(athleteTable.id, req.athleteId));
+
+      if (athlete?.guardianId) {
+        await db
+          .update(guardianTable)
+          .set({ updatedAt: new Date() })
+          .where(eq(guardianTable.id, athlete.guardianId));
+      }
+
+      logger.info(
+        { requestId: req.id, athleteId: req.athleteId, newPlanExpiresAt },
+        "Extended athlete planExpiresAt on subscription renewal",
+      );
+    }
+    return;
+  }
+
+  // Team subscription
+  const [teamReq] = await db
+    .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
+    .from(teamSubscriptionRequestTable)
+    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
+    .orderBy(desc(teamSubscriptionRequestTable.createdAt))
+    .limit(1);
+
+  if (teamReq) {
+    await db
+      .update(teamSubscriptionRequestTable)
+      .set({ paymentStatus: "paid", updatedAt: new Date() })
+      .where(eq(teamSubscriptionRequestTable.id, teamReq.id));
+
+    if (teamReq.teamId) {
+      await db
+        .update(teamTable)
+        .set({ planExpiresAt: newPlanExpiresAt, updatedAt: new Date() })
+        .where(eq(teamTable.id, teamReq.teamId));
+
+      logger.info(
+        { teamRequestId: teamReq.id, teamId: teamReq.teamId, newPlanExpiresAt },
+        "Extended team planExpiresAt on subscription renewal",
+      );
+    }
+  }
 }
 
 export async function stripeWebhook(req: Request, res: Response) {
