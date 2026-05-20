@@ -10,6 +10,7 @@ import {
   sessionTable,
   ProgramType,
   enrollmentTable,
+  videoUploadTable,
 } from "../../db/schema";
 
 export async function assignEnrollment(input: {
@@ -139,6 +140,19 @@ export async function deleteProgramTemplate(programId: number) {
 
     if (sessions.length > 0) {
       const sessionIds = sessions.map((s) => s.id);
+
+      const seRows = await tx
+        .select({ id: sessionExerciseTable.id })
+        .from(sessionExerciseTable)
+        .where(inArray(sessionExerciseTable.sessionId, sessionIds));
+      const seIds = seRows.map((r) => r.id);
+      if (seIds.length > 0) {
+        await tx
+          .update(videoUploadTable)
+          .set({ sessionExerciseId: null })
+          .where(inArray(videoUploadTable.sessionExerciseId, seIds));
+      }
+
       await tx.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
       await tx.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
     }
@@ -332,10 +346,17 @@ export async function addExerciseToSession(input: {
 }
 
 export async function deleteSessionExercise(sessionExerciseId: number) {
-  const result = await db
-    .delete(sessionExerciseTable)
-    .where(eq(sessionExerciseTable.id, sessionExerciseId))
-    .returning();
+  return db.transaction(async (tx) => {
+    await tx
+      .update(videoUploadTable)
+      .set({ sessionExerciseId: null })
+      .where(eq(videoUploadTable.sessionExerciseId, sessionExerciseId));
 
-  return result[0] ?? null;
+    const result = await tx
+      .delete(sessionExerciseTable)
+      .where(eq(sessionExerciseTable.id, sessionExerciseId))
+      .returning();
+
+    return result[0] ?? null;
+  });
 }

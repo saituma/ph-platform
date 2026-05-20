@@ -80,20 +80,34 @@ export async function updateModule(
 }
 
 export async function deleteModule(moduleId: number) {
-  const sessions = await db
-    .select({ id: sessionTable.id })
-    .from(sessionTable)
-    .where(eq(sessionTable.moduleId, moduleId));
+  return db.transaction(async (tx) => {
+    const sessions = await tx
+      .select({ id: sessionTable.id })
+      .from(sessionTable)
+      .where(eq(sessionTable.moduleId, moduleId));
 
-  if (sessions.length > 0) {
-    const sessionIds = sessions.map((s) => s.id);
-    await db.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
-    await db.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
-  }
+    if (sessions.length > 0) {
+      const sessionIds = sessions.map((s) => s.id);
 
-  const result = await db.delete(programModuleTable).where(eq(programModuleTable.id, moduleId)).returning();
+      const seRows = await tx
+        .select({ id: sessionExerciseTable.id })
+        .from(sessionExerciseTable)
+        .where(inArray(sessionExerciseTable.sessionId, sessionIds));
+      const seIds = seRows.map((r) => r.id);
+      if (seIds.length > 0) {
+        await tx
+          .update(videoUploadTable)
+          .set({ sessionExerciseId: null })
+          .where(inArray(videoUploadTable.sessionExerciseId, seIds));
+      }
 
-  return result[0] ?? null;
+      await tx.delete(sessionExerciseTable).where(inArray(sessionExerciseTable.sessionId, sessionIds));
+      await tx.delete(sessionTable).where(inArray(sessionTable.id, sessionIds));
+    }
+
+    const result = await tx.delete(programModuleTable).where(eq(programModuleTable.id, moduleId)).returning();
+    return result[0] ?? null;
+  });
 }
 
 export async function reorderModules(programId: number, moduleIds: number[]) {
@@ -235,6 +249,18 @@ export async function deleteSession(sessionId: number) {
           .set({ sourceLibrarySessionId: null, updatedAt: new Date() })
           .where(eq(sessionTable.id, linked.id));
       }
+    }
+
+    const seRows = await tx
+      .select({ id: sessionExerciseTable.id })
+      .from(sessionExerciseTable)
+      .where(eq(sessionExerciseTable.sessionId, sessionId));
+    const seIds = seRows.map((r) => r.id);
+    if (seIds.length > 0) {
+      await tx
+        .update(videoUploadTable)
+        .set({ sessionExerciseId: null })
+        .where(inArray(videoUploadTable.sessionExerciseId, seIds));
     }
 
     await tx.delete(sessionExerciseTable).where(eq(sessionExerciseTable.sessionId, sessionId));
