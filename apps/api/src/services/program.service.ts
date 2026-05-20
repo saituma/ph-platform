@@ -335,6 +335,9 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     }
   }
 
+  // Resolve exercises from library source if this session is linked
+  const effectiveSessionId = session[0].sourceLibrarySessionId ?? sessionId;
+
   const rows = await db
     .select({
       id: sessionExerciseTable.id,
@@ -344,6 +347,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
       coachingNotes: sessionExerciseTable.coachingNotes,
       progressionNotes: sessionExerciseTable.progressionNotes,
       regressionNotes: sessionExerciseTable.regressionNotes,
+      runConfig: sessionExerciseTable.runConfig,
       exercise: {
         id: exerciseTable.id,
         name: exerciseTable.name,
@@ -360,7 +364,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     })
     .from(sessionExerciseTable)
     .innerJoin(exerciseTable, eq(exerciseTable.id, sessionExerciseTable.exerciseId))
-    .where(eq(sessionExerciseTable.sessionId, sessionId))
+    .where(eq(sessionExerciseTable.sessionId, effectiveSessionId))
     .orderBy(asc(sessionExerciseTable.order));
 
   if (!rows.length) return rows;

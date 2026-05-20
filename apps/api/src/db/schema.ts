@@ -494,6 +494,8 @@ export const sessionTable = pgTable("sessions", {
   title: varchar({ length: 255 }),
   description: varchar({ length: 500 }),
   type: sessionType().notNull().default("program"),
+  // When set, this session mirrors a library session — exercises resolved from the source
+  sourceLibrarySessionId: integer("source_library_session_id").references((): AnyPgColumn => sessionTable.id, { onDelete: "set null" }),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -886,6 +888,8 @@ export const sessionExerciseTable = pgTable("session_exercises", {
   repsOverride: integer(),
   durationOverride: integer(),
   restSecondsOverride: integer(),
+  // Run-specific config for cardio_run exercises: { runType, distanceMeters, surface, intervals, targetPace }
+  runConfig: jsonb("run_config"),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });

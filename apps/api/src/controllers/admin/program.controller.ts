@@ -116,6 +116,7 @@ const sessionExerciseSchema = z.object({
   coachingNotes: z.string().optional(),
   progressionNotes: z.string().optional(),
   regressionNotes: z.string().optional(),
+  runConfig: z.record(z.any()).optional().nullable(),
 });
 
 export async function assignProgram(req: Request, res: Response) {
@@ -270,6 +271,7 @@ export async function addExercise(req: Request, res: Response) {
     coachingNotes: input.coachingNotes,
     progressionNotes: input.progressionNotes,
     regressionNotes: input.regressionNotes,
+    runConfig: input.runConfig ?? null,
   });
   return res.status(201).json({ item });
 }

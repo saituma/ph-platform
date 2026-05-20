@@ -22,6 +22,9 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "../../../../components/ui/dialog";
 import {
+  Select, SelectTrigger, SelectValue, SelectPopup, SelectItem,
+} from "../../../../components/ui/select";
+import {
   ChevronRight, Dumbbell, ExternalLink, GripVertical, MessageSquare, Pencil, Plus, Search, Trash2, Video,
 } from "lucide-react";
 import {
@@ -34,6 +37,7 @@ import {
   useUpdateSessionExerciseMutation,
   useGetExercisesQuery,
   useReorderSessionExercisesMutation,
+  useAddRunExerciseMutation,
 } from "../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 import { ExerciseForm } from "../../../../components/admin/exercise-library/exercise-form";
@@ -45,10 +49,25 @@ type SessionExercise = {
   id: number; order?: number | null; coachingNotes?: string | null; progressionNotes?: string | null;
   regressionNotes?: string | null; setsOverride?: number | null; repsOverride?: number | null;
   durationOverride?: number | null; restSecondsOverride?: number | null;
+  runConfig?: any | null;
   exercise?: { id?: number | null; name?: string | null; category?: string | null; sets?: number | null;
     reps?: number | null; duration?: number | null; restSeconds?: number | null; videoUrl?: string | null;
     notes?: string | null; cues?: string | null; howTo?: string | null; progression?: string | null; regression?: string | null; } | null;
 };
+
+const RUN_TYPES = [
+  { value: "zone2", label: "Zone 2 (aerobic base)" },
+  { value: "easy", label: "Easy run" },
+  { value: "tempo", label: "Tempo run" },
+  { value: "intervals", label: "Intervals" },
+  { value: "sprint", label: "Sprint / repeat sprint" },
+] as const;
+
+const SURFACE_TYPES = [
+  { value: "outdoor", label: "Outdoor" },
+  { value: "treadmill", label: "Treadmill" },
+  { value: "either", label: "Either" },
+] as const;
 
 function LibraryPicker({ exercises, search, onSearchChange, onPick, isAdding, emptyReason, onCreateInstead }: {
   exercises: Exercise[]; search: string; onSearchChange: (v: string) => void;
@@ -130,31 +149,55 @@ function SortableExerciseRow({ se, index, onNotes, onRemove, isRemoving }: {
   se: SessionExercise; index: number; onNotes: (se: SessionExercise) => void; onRemove: (id: number) => void; isRemoving: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: se.id });
+  const isRun = (se.exercise?.category as string | undefined | null) === "cardio_run";
+  const rc = se.runConfig as any;
+
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1, zIndex: isDragging ? 50 : undefined }}
-      className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
+      className={`flex items-start gap-3 rounded-2xl border p-4 ${isRun ? "border-blue-500/30 bg-blue-500/5" : "border-border bg-card"}`}>
       <button type="button" className="mt-0.5 cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{index + 1}</div>
+      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isRun ? "bg-blue-500/15 text-blue-600" : "bg-primary/10 text-primary"}`}>
+        {isRun ? "🏃" : index + 1}
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-foreground">{se.exercise?.name ?? "Unknown exercise"}</span>
           {(se.coachingNotes || se.progressionNotes || se.regressionNotes) && <MessageSquare className="h-3.5 w-3.5 text-primary/60" />}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-          {se.exercise?.category && <Badge variant="secondary" className="text-[10px]">{se.exercise.category}</Badge>}
-          {(se.setsOverride != null || se.exercise?.sets != null) && (
-            <span className={se.setsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.setsOverride ?? se.exercise?.sets} sets
-            </span>
+          {isRun ? (
+            <>
+              <Badge variant="outline" className="border-blue-500/40 text-blue-600 text-[10px]">
+                {RUN_TYPES.find((r) => r.value === rc?.runType)?.label ?? rc?.runType ?? "Run"}
+              </Badge>
+              {(se.durationOverride != null) && (
+                <span className="text-muted-foreground">{Math.round(se.durationOverride / 60)} min</span>
+              )}
+              {rc?.distanceMeters && (
+                <span className="text-muted-foreground">{(rc.distanceMeters / 1000).toFixed(1)} km</span>
+              )}
+              {rc?.surface && (
+                <span className="text-muted-foreground capitalize">{rc.surface}</span>
+              )}
+            </>
+          ) : (
+            <>
+              {se.exercise?.category && <Badge variant="secondary" className="text-[10px]">{se.exercise.category}</Badge>}
+              {(se.setsOverride != null || se.exercise?.sets != null) && (
+                <span className={se.setsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                  {se.setsOverride ?? se.exercise?.sets} sets
+                </span>
+              )}
+              {(se.repsOverride != null || se.exercise?.reps != null) && (
+                <span className={se.repsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                  {se.repsOverride ?? se.exercise?.reps} reps
+                </span>
+              )}
+              {se.exercise?.videoUrl && <span className="flex items-center gap-1 text-primary"><Video className="h-3 w-3" /> Video</span>}
+            </>
           )}
-          {(se.repsOverride != null || se.exercise?.reps != null) && (
-            <span className={se.repsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.repsOverride ?? se.exercise?.reps} reps
-            </span>
-          )}
-          {se.exercise?.videoUrl && <span className="flex items-center gap-1 text-primary"><Video className="h-3 w-3" /> Video</span>}
         </div>
         {se.coachingNotes && <p className="mt-1.5 text-xs text-muted-foreground"><span className="font-medium text-foreground/70">Coaching: </span>{se.coachingNotes}</p>}
       </div>
@@ -213,6 +256,116 @@ function SessionNotesDialog({ open, se, onClose, onSave, saving }: { open: boole
   );
 }
 
+type RunForm = {
+  runType: "zone2" | "tempo" | "intervals" | "sprint" | "easy";
+  durationMins: string;
+  distanceKm: string;
+  surface: "outdoor" | "treadmill" | "either" | "";
+  notes: string;
+};
+
+const defaultRunForm: RunForm = { runType: "zone2", durationMins: "", distanceKm: "", surface: "", notes: "" };
+
+function AddRunDialog({ open, sessionId, onClose, onDone }: { open: boolean; sessionId: number; onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState<RunForm>(defaultRunForm);
+  const [addRun, { isLoading }] = useAddRunExerciseMutation();
+
+  useEffect(() => { if (open) setForm(defaultRunForm); }, [open]);
+
+  const handleSubmit = async () => {
+    if (!form.runType) return;
+    const durationSeconds = form.durationMins ? Math.round(parseFloat(form.durationMins) * 60) : null;
+    const distanceMeters = form.distanceKm ? Math.round(parseFloat(form.distanceKm) * 1000) : null;
+    try {
+      await addRun({
+        sessionId,
+        runType: form.runType,
+        durationSeconds: durationSeconds ?? undefined,
+        distanceMeters: distanceMeters ?? undefined,
+        surface: (form.surface || null) as any,
+        notes: form.notes || null,
+      }).unwrap();
+      toast.success("Run added to session");
+      onDone();
+    } catch {
+      toast.error("Failed to add run");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add Run to Session</DialogTitle>
+          <DialogDescription>Configure the run and it will appear in the athlete&apos;s weekly programme.</DialogDescription>
+        </DialogHeader>
+        <div className="mt-3 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Run type</Label>
+            <Select
+              items={RUN_TYPES.map((r) => ({ label: r.label, value: r.value }))}
+              value={form.runType}
+              onValueChange={(v) => setForm((p) => ({ ...p, runType: v as RunForm["runType"] }))}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectPopup>
+                {RUN_TYPES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+              </SelectPopup>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Duration (minutes)</Label>
+              <Input type="number" min={1} placeholder="e.g. 25" value={form.durationMins} onChange={(e) => setForm((p) => ({ ...p, durationMins: e.target.value }))} className="h-9 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Distance (km, optional)</Label>
+              <Input type="number" min={0.1} step={0.1} placeholder="e.g. 5" value={form.distanceKm} onChange={(e) => setForm((p) => ({ ...p, distanceKm: e.target.value }))} className="h-9 text-sm" />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Surface (optional)</Label>
+            <Select
+              items={[{ label: "Not specified", value: "" }, ...SURFACE_TYPES.map((s) => ({ label: s.label, value: s.value }))]}
+              value={form.surface}
+              onValueChange={(v) => setForm((p) => ({ ...p, surface: v as RunForm["surface"] }))}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Not specified" />
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="">Not specified</SelectItem>
+                {SURFACE_TYPES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              </SelectPopup>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Coaching notes (optional)</Label>
+            <Textarea
+              rows={2}
+              placeholder="e.g. Stay at conversational pace — nose breathing only"
+              value={form.notes}
+              onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancel</Button>
+            <Button onClick={handleSubmit} disabled={isLoading || !form.runType}>
+              {isLoading ? "Adding..." : "Add Run"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LibrarySessionExercisePage() {
   const params = useParams();
   const sessionId = Number(params?.sessionId);
@@ -251,7 +404,7 @@ export default function LibrarySessionExercisePage() {
     });
   }, [reorderExercises, serverExercises, sessionId]);
 
-  const [addDialog, setAddDialog] = useState<"library" | "create" | null>(null);
+  const [addDialog, setAddDialog] = useState<"library" | "create" | "run" | null>(null);
   const [exerciseForm, setExerciseForm] = useState<Exercise>(emptyForm);
   const [librarySearch, setLibrarySearch] = useState("");
   const [notesTarget, setNotesTarget] = useState<SessionExercise | null>(null);
@@ -307,7 +460,16 @@ export default function LibrarySessionExercisePage() {
           <span>{currentSession?.title || `Session ${currentSession?.sessionNumber ?? ""}`}</span>
         </span>
       }
-      actions={<Button onClick={() => { setLibrarySearch(""); setAddDialog("library"); }}><Plus className="mr-1 h-4 w-4" /> Add Exercise</Button>}
+      actions={
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAddDialog("run")}>
+            🏃 Add Run
+          </Button>
+          <Button onClick={() => { setLibrarySearch(""); setAddDialog("library"); }}>
+            <Plus className="mr-1 h-4 w-4" /> Add Exercise
+          </Button>
+        </div>
+      }
     >
       <SectionHeader title="Exercises" description={localOrder.length > 0 ? `${localOrder.length} exercise${localOrder.length !== 1 ? "s" : ""} — drag to reorder` : "No exercises yet."} />
 
@@ -317,7 +479,7 @@ export default function LibrarySessionExercisePage() {
         <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
           <Dumbbell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
           <p className="font-semibold text-foreground">No exercises yet</p>
-          <p className="mt-1">Add exercises from the library or create new ones.</p>
+          <p className="mt-1">Add exercises from the library or add a run session.</p>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -331,7 +493,7 @@ export default function LibrarySessionExercisePage() {
         </DndContext>
       )}
 
-      <Dialog open={addDialog !== null} onOpenChange={(o) => { if (!o) { setAddDialog(null); setExerciseForm(emptyForm); } }}>
+      <Dialog open={addDialog !== null && addDialog !== "run"} onOpenChange={(o) => { if (!o) { setAddDialog(null); setExerciseForm(emptyForm); } }}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{addDialog === "library" ? "Pick from Exercise Library" : "Create New Exercise"}</DialogTitle>
@@ -350,6 +512,13 @@ export default function LibrarySessionExercisePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AddRunDialog
+        open={addDialog === "run"}
+        sessionId={sessionId}
+        onClose={() => setAddDialog(null)}
+        onDone={() => setAddDialog(null)}
+      />
 
       <SessionNotesDialog open={notesTarget !== null} se={notesTarget} onClose={() => setNotesTarget(null)} onSave={handleSaveNotes} saving={isSavingNotes} />
     </AdminShell>

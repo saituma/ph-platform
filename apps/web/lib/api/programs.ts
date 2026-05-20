@@ -420,6 +420,44 @@ const programsApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["ProgramBuilder"],
     }),
+    linkSessionToModule: builder.mutation<
+      { session: any },
+      { moduleId: number; librarySessionId: number; weekNumber: number; sessionNumber: number }
+    >({
+      query: ({ moduleId, librarySessionId, ...body }) => ({
+        url: `/admin/modules/${moduleId}/sessions/link-from-library/${librarySessionId}`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ProgramBuilder", "SessionLibrary"],
+    }),
+    unlinkLibrarySession: builder.mutation<{ session: any }, { sessionId: number }>({
+      query: ({ sessionId }) => ({
+        url: `/admin/sessions/${sessionId}/unlink-library`,
+        method: "POST",
+      }),
+      invalidatesTags: ["ProgramBuilder"],
+    }),
+    addRunExercise: builder.mutation<
+      { item: any },
+      {
+        sessionId: number;
+        runType: "zone2" | "tempo" | "intervals" | "sprint" | "easy";
+        durationSeconds?: number | null;
+        distanceMeters?: number | null;
+        surface?: "outdoor" | "treadmill" | "either" | null;
+        intervals?: any[] | null;
+        targetPace?: string | null;
+        notes?: string | null;
+      }
+    >({
+      query: ({ sessionId, ...body }) => ({
+        url: `/admin/sessions/${sessionId}/run-exercises`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["ProgramBuilder", "SessionLibrary"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -466,4 +504,7 @@ export const {
   useDeleteLibraryModuleMutation,
   useCreateLibraryModuleSessionMutation,
   useCopyModuleToProgramMutation,
+  useLinkSessionToModuleMutation,
+  useUnlinkLibrarySessionMutation,
+  useAddRunExerciseMutation,
 } = programsApi;

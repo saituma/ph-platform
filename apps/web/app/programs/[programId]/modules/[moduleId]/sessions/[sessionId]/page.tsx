@@ -57,6 +57,7 @@ import {
   useUpdateSessionExerciseMutation,
   useGetExercisesQuery,
   useReorderSessionExercisesMutation,
+  useAddRunExerciseMutation,
 } from "../../../../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 import { ExerciseForm } from "../../../../../../../components/admin/exercise-library/exercise-form";
@@ -85,6 +86,14 @@ type ProgramSession = {
   sessionNumber?: number | null;
 };
 
+type RunConfig = {
+  runType?: string | null;
+  distanceMeters?: number | null;
+  surface?: string | null;
+  targetPace?: string | null;
+  intervals?: unknown[] | null;
+};
+
 type SessionExercise = {
   id: number;
   order?: number | null;
@@ -95,6 +104,7 @@ type SessionExercise = {
   repsOverride?: number | null;
   durationOverride?: number | null;
   restSecondsOverride?: number | null;
+  runConfig?: RunConfig | null;
   exercise?: {
     id?: number | null;
     name?: string | null;
@@ -369,12 +379,13 @@ function SortableExerciseRow({
 
   const hasNotes =
     se.coachingNotes || se.progressionNotes || se.regressionNotes;
+  const isRun = se.exercise?.category === "cardio_run";
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4"
+      className={`flex items-start gap-3 rounded-2xl border p-4 ${isRun ? "border-blue-200 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/20" : "border-border bg-card"}`}
     >
       {/* Drag handle */}
       <button
@@ -388,8 +399,8 @@ function SortableExerciseRow({
       </button>
 
       {/* Order badge */}
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-        {index + 1}
+      <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isRun ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" : "bg-primary/10 text-primary"}`}>
+        {isRun ? "🏃" : index + 1}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -404,52 +415,71 @@ function SortableExerciseRow({
           )}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-          {se.exercise?.category && (
-            <Badge variant="secondary" className="text-[10px]">
-              {se.exercise.category}
-            </Badge>
-          )}
-          {/* Sets — show override if set, else library default */}
-          {(se.setsOverride != null || se.exercise?.sets != null) && (
-            <span className={se.setsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.setsOverride ?? se.exercise?.sets} sets
-              {se.setsOverride != null && se.exercise?.sets != null && se.setsOverride !== se.exercise.sets && (
-                <span className="ml-0.5 text-muted-foreground line-through">
-                  {se.exercise.sets}
-                </span>
-              )}
-            </span>
-          )}
-          {/* Reps */}
-          {(se.repsOverride != null || se.exercise?.reps != null) && (
-            <span className={se.repsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.repsOverride ?? se.exercise?.reps} reps
-              {se.repsOverride != null && se.exercise?.reps != null && se.repsOverride !== se.exercise.reps && (
-                <span className="ml-0.5 text-muted-foreground line-through">
-                  {se.exercise.reps}
-                </span>
-              )}
-            </span>
-          )}
-          {/* Duration */}
-          {(se.durationOverride != null || se.exercise?.duration != null) && (
-            <span className={se.durationOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.durationOverride ?? se.exercise?.duration}s
-            </span>
-          )}
-          {/* Rest */}
-          {(se.restSecondsOverride != null || se.exercise?.restSeconds != null) && (
-            <span className={se.restSecondsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {se.restSecondsOverride ?? se.exercise?.restSeconds}s rest
-            </span>
-          )}
-          {se.exercise?.videoUrl && (
-            <span className="flex items-center gap-1 text-primary">
-              <Video className="h-3 w-3" /> Video
-            </span>
-          )}
-        </div>
+        {isRun && se.runConfig ? (
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+            {se.runConfig.runType && (
+              <Badge variant="secondary" className="bg-blue-100 text-[10px] text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                {se.runConfig.runType}
+              </Badge>
+            )}
+            {se.durationOverride != null && (
+              <span>{Math.round(se.durationOverride / 60)} min</span>
+            )}
+            {se.runConfig.distanceMeters != null && (
+              <span>{(se.runConfig.distanceMeters / 1000).toFixed(1)} km</span>
+            )}
+            {se.runConfig.surface && (
+              <span className="capitalize">{se.runConfig.surface}</span>
+            )}
+          </div>
+        ) : (
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            {se.exercise?.category && (
+              <Badge variant="secondary" className="text-[10px]">
+                {se.exercise.category}
+              </Badge>
+            )}
+            {/* Sets — show override if set, else library default */}
+            {(se.setsOverride != null || se.exercise?.sets != null) && (
+              <span className={se.setsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                {se.setsOverride ?? se.exercise?.sets} sets
+                {se.setsOverride != null && se.exercise?.sets != null && se.setsOverride !== se.exercise.sets && (
+                  <span className="ml-0.5 text-muted-foreground line-through">
+                    {se.exercise.sets}
+                  </span>
+                )}
+              </span>
+            )}
+            {/* Reps */}
+            {(se.repsOverride != null || se.exercise?.reps != null) && (
+              <span className={se.repsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                {se.repsOverride ?? se.exercise?.reps} reps
+                {se.repsOverride != null && se.exercise?.reps != null && se.repsOverride !== se.exercise.reps && (
+                  <span className="ml-0.5 text-muted-foreground line-through">
+                    {se.exercise.reps}
+                  </span>
+                )}
+              </span>
+            )}
+            {/* Duration */}
+            {(se.durationOverride != null || se.exercise?.duration != null) && (
+              <span className={se.durationOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                {se.durationOverride ?? se.exercise?.duration}s
+              </span>
+            )}
+            {/* Rest */}
+            {(se.restSecondsOverride != null || se.exercise?.restSeconds != null) && (
+              <span className={se.restSecondsOverride != null ? "font-semibold text-primary" : "text-muted-foreground"}>
+                {se.restSecondsOverride ?? se.exercise?.restSeconds}s rest
+              </span>
+            )}
+            {se.exercise?.videoUrl && (
+              <span className="flex items-center gap-1 text-primary">
+                <Video className="h-3 w-3" /> Video
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Session coaching notes preview */}
         {se.coachingNotes && (
@@ -734,6 +764,7 @@ export default function SessionDetailPage() {
   const [updateExercise, { isLoading: isUpdatingExercise }] = useUpdateExerciseMutation();
   const [updateSessionExercise, { isLoading: isSavingNotes }] = useUpdateSessionExerciseMutation();
   const [reorderExercises] = useReorderSessionExercisesMutation();
+  const [addRunExercise, { isLoading: isAddingRun }] = useAddRunExerciseMutation();
 
   // Local ordered list for optimistic drag-reorder
   const serverExercises: SessionExercise[] = useMemo(
@@ -784,10 +815,19 @@ export default function SessionDetailPage() {
     [reorderExercises, serverExercises, sessionId],
   );
 
-  // Add dialog: null | "library" | "create"
-  const [addDialog, setAddDialog] = useState<"library" | "create" | null>(null);
+  // Add dialog: null | "library" | "create" | "run"
+  const [addDialog, setAddDialog] = useState<"library" | "create" | "run" | null>(null);
   const [exerciseForm, setExerciseForm] = useState<Exercise>(emptyForm);
   const [librarySearch, setLibrarySearch] = useState("");
+
+  // Run form state
+  const [runForm, setRunForm] = useState({
+    runType: "zone2" as "zone2" | "tempo" | "intervals" | "sprint" | "easy",
+    durationMins: "",
+    distanceKm: "",
+    surface: "" as "" | "outdoor" | "treadmill" | "either",
+    notes: "",
+  });
 
   // Notes dialog
   const [notesTarget, setNotesTarget] = useState<SessionExercise | null>(null);
@@ -836,9 +876,30 @@ export default function SessionDetailPage() {
     setExerciseForm(emptyForm);
     setAddDialog("create");
   };
+  const openRun = () => {
+    setRunForm({ runType: "zone2", durationMins: "", distanceKm: "", surface: "", notes: "" });
+    setAddDialog("run");
+  };
   const closeAddDialog = () => {
     setAddDialog(null);
     setExerciseForm(emptyForm);
+  };
+
+  const handleAddRun = async () => {
+    try {
+      await addRunExercise({
+        sessionId,
+        runType: runForm.runType,
+        durationSeconds: runForm.durationMins ? Math.round(Number(runForm.durationMins) * 60) : undefined,
+        distanceMeters: runForm.distanceKm ? Math.round(Number(runForm.distanceKm) * 1000) : undefined,
+        surface: runForm.surface || undefined,
+        notes: runForm.notes || undefined,
+      }).unwrap();
+      toast.success("Run added to session");
+      closeAddDialog();
+    } catch {
+      toast.error("Failed to add run");
+    }
   };
 
   const handlePickFromLibrary = async (ex: Exercise) => {
@@ -958,9 +1019,14 @@ export default function SessionDetailPage() {
         </span>
       }
       actions={
-        <Button onClick={openLibrary}>
-          <Plus className="mr-1 h-4 w-4" /> Add Exercise
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={openRun}>
+            🏃 Add Run
+          </Button>
+          <Button onClick={openLibrary}>
+            <Plus className="mr-1 h-4 w-4" /> Add Exercise
+          </Button>
+        </div>
       }
     >
       <SectionHeader
@@ -1018,7 +1084,7 @@ export default function SessionDetailPage() {
 
       {/* ── Add exercise dialog ─────────────────────────────── */}
       <Dialog
-        open={addDialog !== null}
+        open={addDialog === "library" || addDialog === "create"}
         onOpenChange={(open) => { if (!open) closeAddDialog(); }}
       >
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
@@ -1073,6 +1139,90 @@ export default function SessionDetailPage() {
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add run dialog ──────────────────────────────────── */}
+      <Dialog
+        open={addDialog === "run"}
+        onOpenChange={(open) => { if (!open) closeAddDialog(); }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>🏃 Add Run to Session</DialogTitle>
+            <DialogDescription>
+              Configure the run and it will appear alongside exercises in this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-3 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Run type</Label>
+              <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={runForm.runType}
+                onChange={(e) => setRunForm((p) => ({ ...p, runType: e.target.value as typeof runForm.runType }))}
+              >
+                <option value="zone2">Zone 2 (easy aerobic)</option>
+                <option value="easy">Easy Run</option>
+                <option value="tempo">Tempo Run</option>
+                <option value="intervals">Interval Run</option>
+                <option value="sprint">Sprint Run</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Duration (minutes)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 30"
+                  value={runForm.durationMins}
+                  onChange={(e) => setRunForm((p) => ({ ...p, durationMins: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Distance (km)</Label>
+                <Input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  placeholder="e.g. 5"
+                  value={runForm.distanceKm}
+                  onChange={(e) => setRunForm((p) => ({ ...p, distanceKm: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Surface</Label>
+              <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                value={runForm.surface}
+                onChange={(e) => setRunForm((p) => ({ ...p, surface: e.target.value as typeof runForm.surface }))}
+              >
+                <option value="">Any surface</option>
+                <option value="outdoor">Outdoor</option>
+                <option value="treadmill">Treadmill</option>
+                <option value="either">Either</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Coaching notes</Label>
+              <Textarea
+                rows={2}
+                placeholder="e.g. Stay at conversational pace…"
+                value={runForm.notes}
+                onChange={(e) => setRunForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" onClick={closeAddDialog} disabled={isAddingRun}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddRun} disabled={isAddingRun}>
+                {isAddingRun ? "Adding…" : "Add Run"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

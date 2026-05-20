@@ -118,6 +118,7 @@ export async function listSessions(moduleId: number) {
       title: sessionTable.title,
       description: sessionTable.description,
       type: sessionTable.type,
+      sourceLibrarySessionId: sessionTable.sourceLibrarySessionId,
       createdAt: sessionTable.createdAt,
       exerciseCount: count(sessionExerciseTable.id),
     })
@@ -127,7 +128,30 @@ export async function listSessions(moduleId: number) {
     .groupBy(sessionTable.id)
     .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
 
-  return sessions;
+  // For linked sessions, resolve title/exerciseCount from the library source
+  const linkedIds = sessions.map((s) => s.sourceLibrarySessionId).filter(Boolean) as number[];
+  if (linkedIds.length === 0) return sessions;
+
+  const libSessions = await db
+    .select({
+      id: sessionTable.id,
+      title: sessionTable.title,
+      description: sessionTable.description,
+      exerciseCount: count(sessionExerciseTable.id),
+    })
+    .from(sessionTable)
+    .leftJoin(sessionExerciseTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+    .where(inArray(sessionTable.id, linkedIds))
+    .groupBy(sessionTable.id);
+
+  const libMap = new Map(libSessions.map((s) => [s.id, s]));
+
+  return sessions.map((s) => {
+    if (!s.sourceLibrarySessionId) return s;
+    const src = libMap.get(s.sourceLibrarySessionId);
+    if (!src) return s;
+    return { ...s, title: src.title ?? s.title, description: src.description ?? s.description, exerciseCount: src.exerciseCount };
+  });
 }
 
 export async function createModuleSession(input: {
@@ -184,6 +208,14 @@ export async function deleteSession(sessionId: number) {
 }
 
 export async function listSessionExercises(sessionId: number) {
+  // If this session is linked to a library session, resolve exercises from the source
+  const [row] = await db
+    .select({ sourceLibrarySessionId: sessionTable.sourceLibrarySessionId })
+    .from(sessionTable)
+    .where(eq(sessionTable.id, sessionId))
+    .limit(1);
+  const effectiveSessionId = row?.sourceLibrarySessionId ?? sessionId;
+
   return db
     .select({
       id: sessionExerciseTable.id,
@@ -193,6 +225,7 @@ export async function listSessionExercises(sessionId: number) {
       coachingNotes: sessionExerciseTable.coachingNotes,
       progressionNotes: sessionExerciseTable.progressionNotes,
       regressionNotes: sessionExerciseTable.regressionNotes,
+      runConfig: sessionExerciseTable.runConfig,
       exercise: {
         id: exerciseTable.id,
         name: exerciseTable.name,
@@ -211,7 +244,7 @@ export async function listSessionExercises(sessionId: number) {
     })
     .from(sessionExerciseTable)
     .innerJoin(exerciseTable, eq(exerciseTable.id, sessionExerciseTable.exerciseId))
-    .where(eq(sessionExerciseTable.sessionId, sessionId))
+    .where(eq(sessionExerciseTable.sessionId, effectiveSessionId))
     .orderBy(asc(sessionExerciseTable.order));
 }
 
@@ -226,6 +259,7 @@ export async function updateSessionExercise(
     repsOverride?: number | null;
     durationOverride?: number | null;
     restSecondsOverride?: number | null;
+    runConfig?: Record<string, any> | null;
   },
 ) {
   const updatePayload: Record<string, any> = { updatedAt: new Date() };
@@ -237,6 +271,7 @@ export async function updateSessionExercise(
   if (input.repsOverride !== undefined) updatePayload.repsOverride = input.repsOverride;
   if (input.durationOverride !== undefined) updatePayload.durationOverride = input.durationOverride;
   if (input.restSecondsOverride !== undefined) updatePayload.restSecondsOverride = input.restSecondsOverride;
+  if (input.runConfig !== undefined) updatePayload.runConfig = input.runConfig;
 
   const result = await db
     .update(sessionExerciseTable)
@@ -245,6 +280,163 @@ export async function updateSessionExercise(
     .returning();
 
   return result[0] ?? null;
+}
+
+// --- Library linking ---
+
+export async function linkLibrarySessionToModule(
+  moduleId: number,
+  librarySessionId: number,
+  input: { weekNumber: number; sessionNumber: number },
+) {
+  const [mod] = await db
+    .select({ id: programModuleTable.id, programId: programModuleTable.programId })
+    .from(programModuleTable)
+    .where(eq(programModuleTable.id, moduleId))
+    .limit(1);
+  if (!mod) throw new Error("Module not found");
+
+  const [lib] = await db
+    .select({ id: sessionTable.id })
+    .from(sessionTable)
+    .where(
+      and(eq(sessionTable.id, librarySessionId), isNull(sessionTable.programId), isNull(sessionTable.moduleId)),
+    )
+    .limit(1);
+  if (!lib) throw new Error("Library session not found");
+
+  const [result] = await db
+    .insert(sessionTable)
+    .values({
+      programId: mod.programId,
+      moduleId,
+      weekNumber: input.weekNumber,
+      sessionNumber: input.sessionNumber,
+      sourceLibrarySessionId: librarySessionId,
+      type: "program",
+    })
+    .returning();
+
+  return result;
+}
+
+export async function unlinkLibrarySession(sessionId: number) {
+  return db.transaction(async (tx) => {
+    const [session] = await tx
+      .select()
+      .from(sessionTable)
+      .where(eq(sessionTable.id, sessionId))
+      .limit(1);
+    if (!session) throw new Error("Session not found");
+    if (!session.sourceLibrarySessionId) return session; // already unlinked
+
+    // Copy exercises from library source into this session
+    const exercises = await tx
+      .select()
+      .from(sessionExerciseTable)
+      .where(eq(sessionExerciseTable.sessionId, session.sourceLibrarySessionId))
+      .orderBy(asc(sessionExerciseTable.order));
+
+    for (const ex of exercises) {
+      await tx.insert(sessionExerciseTable).values({
+        sessionId,
+        exerciseId: ex.exerciseId,
+        order: ex.order,
+        coachingNotes: ex.coachingNotes,
+        progressionNotes: ex.progressionNotes,
+        regressionNotes: ex.regressionNotes,
+        runConfig: ex.runConfig,
+      });
+    }
+
+    // Copy title/description and clear the link
+    const [libSession] = await tx
+      .select({ title: sessionTable.title, description: sessionTable.description })
+      .from(sessionTable)
+      .where(eq(sessionTable.id, session.sourceLibrarySessionId))
+      .limit(1);
+
+    const [updated] = await tx
+      .update(sessionTable)
+      .set({
+        sourceLibrarySessionId: null,
+        title: libSession?.title ?? session.title,
+        description: libSession?.description ?? session.description,
+        updatedAt: new Date(),
+      })
+      .where(eq(sessionTable.id, sessionId))
+      .returning();
+
+    return updated;
+  });
+}
+
+// --- Run exercises ---
+
+const RUN_EXERCISE_NAMES: Record<string, string> = {
+  zone2: "Zone 2 Run",
+  tempo: "Tempo Run",
+  intervals: "Interval Run",
+  sprint: "Sprint Run",
+  easy: "Easy Run",
+};
+
+export async function addRunToSession(
+  sessionId: number,
+  input: {
+    runType: string;
+    durationSeconds?: number | null;
+    distanceMeters?: number | null;
+    surface?: string | null;
+    intervals?: any[] | null;
+    targetPace?: string | null;
+    notes?: string | null;
+  },
+) {
+  const name = RUN_EXERCISE_NAMES[input.runType] ?? "Run";
+
+  // Find or create the cardio template exercise for this run type
+  let [exercise] = await db
+    .select()
+    .from(exerciseTable)
+    .where(and(eq(exerciseTable.name, name), eq(exerciseTable.category as any, "cardio_run")))
+    .limit(1);
+
+  if (!exercise) {
+    [exercise] = await db
+      .insert(exerciseTable)
+      .values({ name, category: "cardio_run" })
+      .returning();
+  }
+
+  const [orderRow] = await db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${sessionExerciseTable.order}), 0)` })
+    .from(sessionExerciseTable)
+    .where(eq(sessionExerciseTable.sessionId, sessionId));
+
+  const nextOrder = (orderRow?.maxOrder ?? 0) + 1;
+
+  const runConfig = {
+    runType: input.runType,
+    ...(input.distanceMeters != null && { distanceMeters: input.distanceMeters }),
+    ...(input.surface && { surface: input.surface }),
+    ...(input.intervals && { intervals: input.intervals }),
+    ...(input.targetPace && { targetPace: input.targetPace }),
+  };
+
+  const [sessionEx] = await db
+    .insert(sessionExerciseTable)
+    .values({
+      sessionId,
+      exerciseId: exercise.id,
+      order: nextOrder,
+      coachingNotes: input.notes ?? null,
+      durationOverride: input.durationSeconds ?? null,
+      runConfig,
+    })
+    .returning();
+
+  return { ...sessionEx, exercise };
 }
 
 export async function reorderSessionExercises(sessionId: number, ids: number[]) {

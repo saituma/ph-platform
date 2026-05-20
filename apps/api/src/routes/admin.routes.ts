@@ -117,6 +117,9 @@ router.patch("/admin/sessions/:sessionId/exercises/reorder", AdminProgramBuilder
 router.get("/admin/sessions/library", AdminProgramBuilderController.listLibrarySessions);
 router.post("/admin/sessions/library", AdminProgramBuilderController.createStandaloneLibrarySession);
 router.post("/admin/modules/:moduleId/sessions/from-library/:sessionId", AdminProgramBuilderController.copySessionToModule);
+router.post("/admin/modules/:moduleId/sessions/link-from-library/:librarySessionId", AdminProgramBuilderController.linkSessionFromLibrary);
+router.post("/admin/sessions/:sessionId/unlink-library", AdminProgramBuilderController.unlinkLibrarySession);
+router.post("/admin/sessions/:sessionId/run-exercises", AdminProgramBuilderController.addRunExercise);
 router.get("/admin/teams/:teamId/sessions", AdminProgramBuilderController.listTeamSessions);
 router.post("/admin/teams/:teamId/sessions/from-library/:sessionId", AdminProgramBuilderController.copySessionToTeam);
 router.delete("/admin/team-sessions/:sessionId", AdminProgramBuilderController.deleteTeamSession);

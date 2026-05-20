@@ -132,12 +132,60 @@ export async function updateSessionExercise(req: Request, res: Response) {
       repsOverride: z.number().int().min(1).optional().nullable(),
       durationOverride: z.number().int().min(1).optional().nullable(),
       restSecondsOverride: z.number().int().min(1).optional().nullable(),
+      runConfig: z.record(z.any()).optional().nullable(),
     })
     .parse(req.body);
   const exercise = await ProgramBuilderService.updateSessionExercise(id, input);
   if (!exercise) return res.status(404).json({ error: "Session exercise not found." });
   broadcastProgramChanged();
   return res.status(200).json({ exercise });
+}
+
+export async function linkSessionFromLibrary(req: Request, res: Response) {
+  const moduleId = z.coerce.number().int().min(1).parse(req.params.moduleId);
+  const librarySessionId = z.coerce.number().int().min(1).parse(req.params.librarySessionId);
+  const { weekNumber, sessionNumber } = z.object({
+    weekNumber: z.number().int().min(1),
+    sessionNumber: z.number().int().min(1),
+  }).parse(req.body);
+  try {
+    const session = await ProgramBuilderService.linkLibrarySessionToModule(moduleId, librarySessionId, { weekNumber, sessionNumber });
+    broadcastProgramChanged();
+    return res.status(201).json({ session });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found")) return res.status(404).json({ error: msg });
+    throw err;
+  }
+}
+
+export async function unlinkLibrarySession(req: Request, res: Response) {
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  try {
+    const session = await ProgramBuilderService.unlinkLibrarySession(sessionId);
+    broadcastProgramChanged();
+    return res.status(200).json({ session });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not found")) return res.status(404).json({ error: msg });
+    throw err;
+  }
+}
+
+export async function addRunExercise(req: Request, res: Response) {
+  const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
+  const input = z.object({
+    runType: z.enum(["zone2", "tempo", "intervals", "sprint", "easy"]),
+    durationSeconds: z.number().int().min(1).optional().nullable(),
+    distanceMeters: z.number().int().min(1).optional().nullable(),
+    surface: z.enum(["outdoor", "treadmill", "either"]).optional().nullable(),
+    intervals: z.array(z.record(z.any())).optional().nullable(),
+    targetPace: z.string().max(50).optional().nullable(),
+    notes: z.string().max(500).optional().nullable(),
+  }).parse(req.body);
+  const item = await ProgramBuilderService.addRunToSession(sessionId, input);
+  broadcastProgramChanged();
+  return res.status(201).json({ item });
 }
 
 export async function reorderSessionExercises(req: Request, res: Response) {

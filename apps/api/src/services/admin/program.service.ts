@@ -304,6 +304,7 @@ export async function addExerciseToSession(input: {
   coachingNotes?: string | null;
   progressionNotes?: string | null;
   regressionNotes?: string | null;
+  runConfig?: Record<string, any> | null;
 }) {
   const result = await db
     .insert(sessionExerciseTable)
@@ -314,6 +315,7 @@ export async function addExerciseToSession(input: {
       coachingNotes: input.coachingNotes ?? null,
       progressionNotes: input.progressionNotes ?? null,
       regressionNotes: input.regressionNotes ?? null,
+      runConfig: input.runConfig ?? null,
     })
     .returning();
 
