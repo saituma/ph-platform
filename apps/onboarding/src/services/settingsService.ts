@@ -165,6 +165,13 @@ export const settingsService = {
 		return apiRequest<{ items: any[]; total: number }>(`/activity/feed?${qs.toString()}`);
 	},
 
+	// Stripe Customer Portal — manage subscription, update payment method, cancel
+	createCustomerPortalSession: (returnUrl?: string) =>
+		apiRequest<{ url: string }>("/billing/customer-portal", {
+			method: "POST",
+			body: returnUrl ? { returnUrl } : {},
+		}),
+
 	// Billing invoices
 	getInvoices: () =>
 		apiRequest<{

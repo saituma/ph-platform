@@ -31,6 +31,7 @@ import {
   confirmPaymentSheetIntent,
   updateRequestFromStripeSession,
 } from "../../services/billing.service";
+import { getLatestSubscriptionRequest } from "../../services/billing/request.service";
 import {
   createTeamSubscriptionRequest,
   upsertTeamPendingApprovalFromSessionMetadata,
@@ -989,5 +990,58 @@ export async function getPaymentReceipt(req: Request, res: Response) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to load receipt";
     return res.status(500).json({ error: message });
+  }
+}
+
+export async function createCustomerPortalSession(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const returnUrl = z.string().url().optional().safeParse(req.body?.returnUrl);
+  const portalReturnUrl = returnUrl.success && returnUrl.data
+    ? returnUrl.data
+    : `${env.stripeSuccessUrl.replace(/\/payment-success.*$/, "")}/portal/billing`;
+
+  try {
+    const stripeClient = getStripeClient();
+    const athlete = await getAthleteForUser(req.user.id);
+    if (!athlete) {
+      return res.status(400).json({ error: "No athlete profile found" });
+    }
+
+    // Find the most recent subscription request that has a Stripe session ID
+    const latestRequest = await getLatestSubscriptionRequest({ userId: req.user.id, athleteId: athlete.id });
+    if (!latestRequest?.stripeSessionId) {
+      return res.status(404).json({ error: "No Stripe payment found for your account. Please complete a checkout first." });
+    }
+
+    // Retrieve the Stripe checkout session to get the customer ID
+    let customerId: string | null = null;
+    try {
+      const session = await stripeClient.checkout.sessions.retrieve(latestRequest.stripeSessionId);
+      customerId = typeof session.customer === "string" ? session.customer : (session.customer as any)?.id ?? null;
+    } catch {
+      // Session may be expired — try to find customer by email instead
+    }
+
+    if (!customerId) {
+      const customers = await stripeClient.customers.list({ email: req.user.email, limit: 1 });
+      customerId = customers.data[0]?.id ?? null;
+    }
+
+    if (!customerId) {
+      return res.status(404).json({ error: "No Stripe customer record found. Please complete a checkout first." });
+    }
+
+    const portalSession = await stripeClient.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: portalReturnUrl,
+    });
+
+    return res.status(200).json({ url: portalSession.url });
+  } catch (error: any) {
+    logger.error({ error: error?.message }, "Failed to create customer portal session");
+    return res.status(500).json({ error: error?.message || "Failed to open billing portal" });
   }
 }

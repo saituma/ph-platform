@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+	AlertTriangle,
 	ArrowDownCircle,
 	CheckCircle2,
 	CreditCard,
@@ -8,7 +9,9 @@ import {
 	FileText,
 	Loader2,
 	RefreshCw,
+	Settings,
 	ShieldCheck,
+	XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -144,6 +147,24 @@ function BillingSkeleton() {
 	);
 }
 
+type SubStatusVariant = "active" | "past_due" | "canceled" | "trialing" | "none";
+
+function resolveSubStatusVariant(paymentStatus: string | null | undefined, reqStatus: string | null | undefined): SubStatusVariant {
+	if (!reqStatus || reqStatus === "rejected") return "none";
+	if (paymentStatus === "past_due") return "past_due";
+	if (paymentStatus === "cancelled" || reqStatus === "rejected") return "canceled";
+	if (reqStatus === "approved" || reqStatus === "pending_approval") return "active";
+	return "none";
+}
+
+const SUB_STATUS_CONFIG: Record<SubStatusVariant, { label: string; className: string; icon: React.ReactNode }> = {
+	active: { label: "Active", className: "bg-green-500/10 text-green-600 border-green-500/20", icon: <CheckCircle2 className="h-3 w-3" /> },
+	past_due: { label: "Payment failed", className: "bg-red-500/10 text-red-600 border-red-500/20", icon: <AlertTriangle className="h-3 w-3" /> },
+	canceled: { label: "Cancelled", className: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20", icon: <XCircle className="h-3 w-3" /> },
+	trialing: { label: "Trial", className: "bg-blue-500/10 text-blue-600 border-blue-500/20", icon: <CheckCircle2 className="h-3 w-3" /> },
+	none: { label: "No plan", className: "bg-muted/50 text-muted-foreground border-border", icon: null },
+};
+
 function BillingPage() {
 	const { user, refreshUser } = usePortal();
 	const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
@@ -151,6 +172,7 @@ function BillingPage() {
 	const [status, setStatus] = useState<BillingStatus | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [busyPlanId, setBusyPlanId] = useState<number | null>(null);
+	const [portalBusy, setPortalBusy] = useState(false);
 	const [invoices, setInvoices] = useState<any[]>([]);
 	const [invoicesLoading, setInvoicesLoading] = useState(true);
 
@@ -229,9 +251,28 @@ function BillingPage() {
 		}
 	};
 
+	const handleOpenPortal = async () => {
+		setPortalBusy(true);
+		try {
+			const { url } = await settingsService.createCustomerPortalSession(window.location.href);
+			window.location.href = url;
+		} catch (error: any) {
+			toast.error(error.message || "Could not open billing portal");
+			setPortalBusy(false);
+		}
+	};
+
 	const latestStatus = status?.latestRequest?.status
 		? String(status.latestRequest.status).replace(/_/g, " ")
 		: null;
+
+	const subStatusVariant = resolveSubStatusVariant(
+		status?.latestRequest?.paymentStatus,
+		status?.latestRequest?.status,
+	);
+	const subStatusConfig = SUB_STATUS_CONFIG[subStatusVariant];
+	const isPastDue = subStatusVariant === "past_due";
+	const hasActivePlan = currentTier && subStatusVariant !== "none" && subStatusVariant !== "canceled";
 
 	if (loading && activePlans.length === 0) {
 		return <BillingSkeleton />;
@@ -239,6 +280,32 @@ function BillingPage() {
 
 	return (
 		<PageTransition className="mx-auto max-w-6xl space-y-6 p-6 pb-24">
+			{/* Payment failed banner */}
+			{isPastDue && (
+				<motion.div
+					initial={{ opacity: 0, y: -8 }}
+					animate={{ opacity: 1, y: 0 }}
+					className="flex items-start gap-3 rounded-2xl border-2 border-red-500/30 bg-red-500/10 p-4"
+				>
+					<AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+					<div className="flex-1">
+						<p className="font-black text-red-600">Payment failed</p>
+						<p className="mt-0.5 text-sm text-red-600/80">
+							Your last payment didn't go through. Update your payment method to keep your plan active.
+						</p>
+					</div>
+					<Button
+						size="sm"
+						variant="destructive"
+						className="shrink-0 font-bold"
+						onClick={() => void handleOpenPortal()}
+						disabled={portalBusy}
+					>
+						{portalBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update card"}
+					</Button>
+				</motion.div>
+			)}
+
 			<motion.div
 				initial={{ opacity: 0, y: -10 }}
 				animate={{ opacity: 1, y: 0 }}
@@ -257,21 +324,40 @@ function BillingPage() {
 						Manage portal access, change plans, review renewal dates, and keep payments on the web where account owners control them.
 					</p>
 				</div>
-				<motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-					<Button
-						variant="outline"
-						className="h-11 rounded-xl border-2 font-bold uppercase tracking-wider"
-						onClick={() => void loadBilling()}
-						disabled={loading}
-					>
-						{loading ? (
-							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-						) : (
-							<RefreshCw className="mr-2 h-4 w-4" />
-						)}
-						Refresh
-					</Button>
-				</motion.div>
+				<div className="flex items-center gap-2">
+					{hasActivePlan && (
+						<motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+							<Button
+								variant="default"
+								className="h-11 rounded-xl border-2 font-bold uppercase tracking-wider"
+								onClick={() => void handleOpenPortal()}
+								disabled={portalBusy}
+							>
+								{portalBusy ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Settings className="mr-2 h-4 w-4" />
+								)}
+								Manage subscription
+							</Button>
+						</motion.div>
+					)}
+					<motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+						<Button
+							variant="outline"
+							className="h-11 rounded-xl border-2 font-bold uppercase tracking-wider"
+							onClick={() => void loadBilling()}
+							disabled={loading}
+						>
+							{loading ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<RefreshCw className="mr-2 h-4 w-4" />
+							)}
+							Refresh
+						</Button>
+					</motion.div>
+				</div>
 			</motion.div>
 
 			<motion.div
@@ -292,25 +378,48 @@ function BillingPage() {
 								: "Your athlete subscription controls portal and mobile feature access."}
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="grid gap-3 sm:grid-cols-3">
-						{[
-							{ label: "Plan", value: tierLabel(currentTier) },
-							{ label: "Renews / expires", value: formatDate(isTeamBilling ? user?.team?.planExpiresAt : user?.planExpiresAt) },
-							{ label: "Status", value: isTeamBilling ? (user?.team?.subscriptionStatus?.replace(/_/g, " ") || "Pending") : (latestStatus || "Active") },
-						].map((stat, i) => (
-							<motion.div
-								key={stat.label}
-								initial={{ opacity: 0, y: 8 }}
-								animate={{ opacity: 1, y: 0 }}
-								transition={{ delay: 0.15 + i * 0.05 }}
-								className="rounded-2xl border bg-muted/30 p-4"
-							>
-								<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-									{stat.label}
-								</p>
-								<p className="mt-1 font-black capitalize">{stat.value}</p>
-							</motion.div>
-						))}
+					<CardContent className="space-y-4">
+						<div className="grid gap-3 sm:grid-cols-3">
+							{[
+								{ label: "Plan", value: tierLabel(currentTier) },
+								{ label: "Renews / expires", value: formatDate(isTeamBilling ? user?.team?.planExpiresAt : user?.planExpiresAt) },
+								{ label: "Billing status", value: isTeamBilling ? (user?.team?.subscriptionStatus?.replace(/_/g, " ") || "Pending") : (latestStatus || "Active") },
+							].map((stat, i) => (
+								<motion.div
+									key={stat.label}
+									initial={{ opacity: 0, y: 8 }}
+									animate={{ opacity: 1, y: 0 }}
+									transition={{ delay: 0.15 + i * 0.05 }}
+									className="rounded-2xl border bg-muted/30 p-4"
+								>
+									<p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+										{stat.label}
+									</p>
+									<p className="mt-1 font-black capitalize">{stat.value}</p>
+								</motion.div>
+							))}
+						</div>
+						{/* Subscription health badge + portal shortcut */}
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<span className={cn(
+								"inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider",
+								subStatusConfig.className,
+							)}>
+								{subStatusConfig.icon}
+								{subStatusConfig.label}
+							</span>
+							{hasActivePlan && (
+								<button
+									type="button"
+									onClick={() => void handleOpenPortal()}
+									disabled={portalBusy}
+									className="inline-flex items-center gap-1.5 text-xs font-bold text-primary underline-offset-2 hover:underline disabled:opacity-50"
+								>
+									{portalBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+									Cancel, update card or view Stripe invoices
+								</button>
+							)}
+						</div>
 					</CardContent>
 				</Card>
 
