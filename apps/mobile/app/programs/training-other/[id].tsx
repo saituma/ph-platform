@@ -72,7 +72,7 @@ function MediaSection({ url, title, p }: { url: string; title?: string; p: Retur
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
       </View>
     );
   }
@@ -82,13 +82,13 @@ function MediaSection({ url, title, p }: { url: string; title?: string; p: Retur
   if (isExternalVideoUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
       </View>
     );
   }
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
     </View>
   );
 }

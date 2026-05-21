@@ -713,7 +713,7 @@ function RunExerciseCard({
           </View>
           <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
             <View style={{ borderRadius: 10, overflow: "hidden" }}>
-              <VideoPlayer uri={ex.videoUpload!.videoUrl} height={180} hideTopChrome ignoreTabFocus />
+              <VideoPlayer uri={ex.videoUpload!.videoUrl} height={180} initialMuted hideTopChrome ignoreTabFocus />
             </View>
           </View>
         </View>
@@ -947,6 +947,7 @@ function ExerciseCard({
                 <VideoPlayer
                   uri={ex.videoUpload!.videoUrl}
                   height={180}
+                  initialMuted
                   hideTopChrome
                   ignoreTabFocus
                 />
@@ -1162,7 +1163,7 @@ function ExerciseCard({
 
               {ex.videoUpload.coachVideoUrl ? (
                 <View style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8 }}>
-                  <VideoPlayer uri={ex.videoUpload.coachVideoUrl} height={180} />
+                  <VideoPlayer uri={ex.videoUpload.coachVideoUrl} height={180} initialMuted />
                 </View>
               ) : null}
 
