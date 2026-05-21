@@ -43,6 +43,13 @@ export type SessionExercise = {
   progressionNotes: string | null;
   regressionNotes: string | null;
   allowVideoUpload?: boolean;
+  runConfig?: {
+    runType?: string;
+    distanceMeters?: number;
+    surface?: string;
+    targetPace?: string;
+    intervals?: Array<{ distanceMeters?: number; durationSeconds?: number; restSeconds?: number; targetPace?: string }>;
+  } | null;
   videoUpload?: {
     id: number;
     videoUrl: string;

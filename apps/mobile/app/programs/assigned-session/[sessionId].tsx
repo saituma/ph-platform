@@ -22,6 +22,9 @@ import {
   TrendingDown,
   MessageCircle,
   Video,
+  Timer,
+  Footprints,
+  Camera,
 } from "lucide-react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn, FadeInDown, ZoomIn, useReducedMotion } from "react-native-reanimated";
@@ -407,19 +410,29 @@ export default function AssignedSessionDetailScreen() {
                 : FadeInDown.delay(Math.min(idx, 10) * 40).springify().damping(16);
               return (
                 <Animated.View key={ex.id} entering={entering}>
-                  <ExerciseCard
-                    exercise={ex}
-                    index={idx}
-                    total={exercises.length}
-                    p={p}
-                    videoExpanded={activeVideoId === ex.id}
-                    onToggleVideo={() => setActiveVideoId((prev) => (prev === ex.id ? null : ex.id))}
-                    uploadState={uploadStateByExId[ex.id]}
-                    isUploading={isUploading}
-                    onUploadPress={(source, sectionContentId) =>
-                      handlePickAndUpload(ex.id, source, sectionContentId)
-                    }
-                  />
+                  {ex.exercise.category === "cardio_run" || ex.allowVideoUpload ? (
+                    <RunExerciseCard
+                      exercise={ex}
+                      p={p}
+                      uploadState={uploadStateByExId[ex.id]}
+                      isUploading={isUploading}
+                      onUploadPress={(source) => handlePickAndUpload(ex.id, source, null)}
+                    />
+                  ) : (
+                    <ExerciseCard
+                      exercise={ex}
+                      index={idx}
+                      total={exercises.length}
+                      p={p}
+                      videoExpanded={activeVideoId === ex.id}
+                      onToggleVideo={() => setActiveVideoId((prev) => (prev === ex.id ? null : ex.id))}
+                      uploadState={uploadStateByExId[ex.id]}
+                      isUploading={isUploading}
+                      onUploadPress={(source, sectionContentId) =>
+                        handlePickAndUpload(ex.id, source, sectionContentId)
+                      }
+                    />
+                  )}
                 </Animated.View>
               );
             })}
@@ -555,6 +568,212 @@ export default function AssignedSessionDetailScreen() {
         }}
       />
     </SafeAreaView>
+  );
+}
+
+/* ═══════════════════════════ Run Card ═══════════════════════════ */
+
+const RUN_TYPE_LABELS: Record<string, string> = {
+  zone2: "Zone 2", tempo: "Tempo", intervals: "Intervals",
+  sprint: "Sprint", easy: "Easy Run",
+};
+
+function RunExerciseCard({
+  exercise: ex,
+  p,
+  uploadState,
+  isUploading,
+  onUploadPress,
+}: {
+  exercise: SessionExercise;
+  p: ReturnType<typeof useAdminPastel>;
+  uploadState?: ExerciseUploadState;
+  isUploading: boolean;
+  onUploadPress: (source: "camera" | "library") => void;
+}) {
+  const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
+  const rc = ex.runConfig;
+  const runTypeLabel = rc?.runType ? (RUN_TYPE_LABELS[rc.runType] ?? rc.runType) : null;
+  const surface = rc?.surface ? (rc.surface.charAt(0).toUpperCase() + rc.surface.slice(1)) : null;
+  const durationSecs = ex.exercise.duration ?? (ex as any).durationOverride ?? null;
+  const durationLabel = durationSecs ? `${Math.round(durationSecs / 60)} min` : null;
+  const distanceLabel = rc?.distanceMeters
+    ? rc.distanceMeters >= 1000
+      ? `${(rc.distanceMeters / 1000).toFixed(1)} km`
+      : `${rc.distanceMeters} m`
+    : null;
+  const hasCoachNotes = !!ex.coachingNotes;
+  const hasUploadedVideo = !!ex.videoUpload?.videoUrl;
+
+  // Orange palette for runs
+  const runBg = "#FFF7ED";
+  const runAccent = "#EA580C";
+  const runAccentSoft = "#FED7AA";
+
+  return (
+    <View style={{ backgroundColor: p.cardWhite, borderRadius: 22, marginBottom: 12, overflow: "hidden", borderWidth: 1, borderColor: "#FED7AA" }}>
+      {/* Orange top stripe */}
+      <View style={{ height: 3, backgroundColor: runAccent }} />
+
+      <View style={{ padding: 16 }}>
+        {/* Header row */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: runAccentSoft, alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+            <Footprints size={18} color={runAccent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }} numberOfLines={2}>
+              {ex.exercise.name}
+            </Text>
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: runAccent, marginTop: 1, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Run
+            </Text>
+          </View>
+        </View>
+
+        {/* Info pills */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          {runTypeLabel ? (
+            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: "#DBEAFE" }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Bold", color: "#1D4ED8" }}>{runTypeLabel}</Text>
+            </View>
+          ) : null}
+          {durationLabel ? (
+            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: p.inputBg }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary }}>{durationLabel}</Text>
+            </View>
+          ) : null}
+          {distanceLabel ? (
+            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: p.inputBg }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textPrimary }}>{distanceLabel}</Text>
+            </View>
+          ) : null}
+          {surface ? (
+            <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: runAccentSoft }}>
+              <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: runAccent }}>{surface}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Interval breakdown */}
+      {rc?.intervals && rc.intervals.length > 0 ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 12, padding: 12, backgroundColor: runBg, borderRadius: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <Timer size={13} color={runAccent} />
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: runAccent, textTransform: "uppercase", letterSpacing: 0.6 }}>Intervals</Text>
+          </View>
+          {rc.intervals.map((interval, i) => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+              <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: runAccentSoft, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: runAccent }}>{i + 1}</Text>
+              </View>
+              <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                {[
+                  interval.durationSeconds ? `${interval.durationSeconds}s` : null,
+                  interval.distanceMeters ? `${interval.distanceMeters}m` : null,
+                  interval.targetPace ? `@ ${interval.targetPace}` : null,
+                  interval.restSeconds ? `· ${interval.restSeconds}s rest` : null,
+                ].filter(Boolean).join(" ")}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* Coaching notes */}
+      {hasCoachNotes ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 12, padding: 12, backgroundColor: p.accentSoft, borderRadius: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <MessageCircle size={13} color={p.accent} />
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 0.6 }}>Coach</Text>
+          </View>
+          <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 20 }}>
+            {ex.coachingNotes}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Uploaded photo */}
+      {hasUploadedVideo ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 12, borderRadius: 14, overflow: "hidden", backgroundColor: p.accentSoft }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 12, paddingBottom: 8 }}>
+            <Camera size={14} color={p.accent} />
+            <Text style={{ fontSize: 11, fontFamily: "Outfit-Bold", color: p.accent, textTransform: "uppercase", letterSpacing: 0.8 }}>Your Photo</Text>
+            {ex.videoUpload?.reviewedAt ? (
+              <View style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, backgroundColor: p.successSoft }}>
+                <CheckCircle size={10} color={p.success} />
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.success }}>Seen</Text>
+              </View>
+            ) : (
+              <View style={{ marginLeft: "auto", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100, backgroundColor: p.warningSoft }}>
+                <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: p.warning }}>Pending</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+            <View style={{ borderRadius: 10, overflow: "hidden" }}>
+              <VideoPlayer uri={ex.videoUpload!.videoUrl} height={180} hideTopChrome ignoreTabFocus />
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Photo upload CTA */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+        {uploadState?.progress != null && uploadState.progress < 1 ? (
+          <View style={{ height: 48, borderRadius: 14, backgroundColor: runAccentSoft, overflow: "hidden", justifyContent: "center" }}>
+            <View style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${Math.round(uploadState.progress * 100)}%` as any, backgroundColor: runAccent, opacity: 0.3 }} />
+            <Text style={{ textAlign: "center", fontSize: 13, fontFamily: "Outfit-Bold", color: runAccent }}>
+              {uploadState.statusText ?? `Uploading ${Math.round(uploadState.progress * 100)}%…`}
+            </Text>
+          </View>
+        ) : uploadState?.progress === 1 ? (
+          <View style={{ height: 48, borderRadius: 14, backgroundColor: p.successSoft, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.success }}>Photo Uploaded ✓</Text>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => setIsSourceMenuOpen(true)}
+            style={({ pressed }) => ({
+              height: 48, borderRadius: 14,
+              borderWidth: 1.5, borderColor: runAccent, borderStyle: "dashed",
+              alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <Camera size={16} color={runAccent} />
+            <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: runAccent }}>
+              {hasUploadedVideo ? "Re-share Photo" : "Share Your Run"}
+            </Text>
+          </Pressable>
+        )}
+        {uploadState?.error ? (
+          <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.danger, marginTop: 4, textAlign: "center" }}>{uploadState.error}</Text>
+        ) : null}
+      </View>
+
+      {/* Source picker bottom sheet */}
+      {isSourceMenuOpen ? (
+        <View style={{ marginHorizontal: 16, marginBottom: 16, borderRadius: 14, overflow: "hidden", backgroundColor: p.inputBg }}>
+          {(["camera", "library"] as const).map((src) => (
+            <Pressable
+              key={src}
+              onPress={() => { setIsSourceMenuOpen(false); onUploadPress(src); }}
+              style={({ pressed }) => ({ padding: 14, opacity: pressed ? 0.6 : 1, flexDirection: "row", alignItems: "center", gap: 10 })}
+            >
+              {src === "camera" ? <Camera size={16} color={p.textPrimary} /> : <CloudUpload size={16} color={p.textPrimary} />}
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
+                {src === "camera" ? "Take Photo" : "Choose from Library"}
+              </Text>
+            </Pressable>
+          ))}
+          <Pressable onPress={() => setIsSourceMenuOpen(false)} style={({ pressed }) => ({ padding: 14, opacity: pressed ? 0.6 : 1, alignItems: "center" })}>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted }}>Cancel</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
