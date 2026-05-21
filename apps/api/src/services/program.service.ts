@@ -103,6 +103,8 @@ export async function getProgramSessions(programId: number) {
       .filter((se) => se.sessionId === session.id)
       .map((se) => {
         const baseExercise = exercises.find((e) => e.id === se.exerciseId) ?? null;
+        const rc = se.runConfig as { runType?: string; surface?: string } | null;
+        const runMeta = rc ? [rc.runType, rc.surface].filter(Boolean).join(" · ") : null;
         return {
           ...se,
           exercise: baseExercise
@@ -112,6 +114,9 @@ export async function getProgramSessions(programId: number) {
                 reps: se.repsOverride ?? baseExercise.reps,
                 duration: se.durationOverride ?? baseExercise.duration,
                 restSeconds: se.restSecondsOverride ?? baseExercise.restSeconds,
+                category: runMeta
+                  ? `${baseExercise.category ?? "cardio_run"} · ${runMeta}`
+                  : baseExercise.category,
               }
             : null,
         };
@@ -458,6 +463,8 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
 
   return rows.map((row) => {
     const upload = uploadByExercise.get(row.id);
+    const rc = row.runConfig as { runType?: string; surface?: string } | null;
+    const runMeta = rc ? [rc.runType, rc.surface].filter(Boolean).join(" · ") : null;
     return {
       ...row,
       exercise: {
@@ -466,6 +473,9 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
         reps: row.repsOverride ?? row.exercise.reps,
         duration: row.durationOverride ?? row.exercise.duration,
         restSeconds: row.restSecondsOverride ?? row.exercise.restSeconds,
+        category: runMeta
+          ? `${row.exercise.category ?? "cardio_run"} · ${runMeta}`
+          : row.exercise.category,
       },
       videoUpload: upload
         ? {
