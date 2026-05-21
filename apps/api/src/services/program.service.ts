@@ -416,6 +416,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
         duration: exerciseTable.duration,
         restSeconds: exerciseTable.restSeconds,
         videoUrl: exerciseTable.videoUrl,
+        videoMuted: exerciseTable.videoMuted,
         cues: exerciseTable.cues,
         howTo: exerciseTable.howTo,
         notes: exerciseTable.notes,

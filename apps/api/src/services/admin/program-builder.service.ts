@@ -301,6 +301,7 @@ export async function listSessionExercises(sessionId: number) {
         duration: exerciseTable.duration,
         restSeconds: exerciseTable.restSeconds,
         videoUrl: exerciseTable.videoUrl,
+        videoMuted: exerciseTable.videoMuted,
         cues: exerciseTable.cues,
         howTo: exerciseTable.howTo,
         progression: exerciseTable.progression,
