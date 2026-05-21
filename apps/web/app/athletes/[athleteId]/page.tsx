@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Calendar, ChevronRight, Dumbbell, Moon, Play, Plus, Trophy, User, Utensils, Video, X } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Clock, Dumbbell, Footprints, Play, Plus, Trophy, User, Utensils, Video, X, XCircle } from "lucide-react";
 
 import { AdminShell } from "../../../components/admin/shell";
 import { SectionHeader } from "../../../components/admin/section-header";
@@ -48,6 +48,7 @@ export default function AthleteDetailPage() {
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const athlete = data?.athlete ?? null;
   const programs = programsData?.programs ?? [];
@@ -434,11 +435,153 @@ export default function AthleteDetailPage() {
           </div>
         )}
 
+        {/* Run Attendance */}
+        {(() => {
+          const runs: any[] = athlete.runAttendance ?? [];
+          if (runs.length === 0) return null;
+          const completed = runs.filter((r) => r.status === "completed").length;
+          const missed = runs.filter((r) => r.status === "missed").length;
+          const due = runs.filter((r) => r.status === "due").length;
+          return (
+            <div className="space-y-3">
+              <SectionHeader
+                title="Run Attendance"
+                description={`${runs.length} scheduled run${runs.length !== 1 ? "s" : ""} · ${completed} completed · ${missed} missed · ${due} due`}
+              />
+
+              {/* Summary pills */}
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {completed} Completed
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
+                  <XCircle className="h-3.5 w-3.5" /> {missed} Missed
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-500/15 px-3 py-1 text-xs font-semibold text-orange-600">
+                  <Clock className="h-3.5 w-3.5" /> {due} Due
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {runs.map((run: any) => {
+                  const rc = run.runConfig as any;
+                  const isCompleted = run.status === "completed";
+                  const isMissed = run.status === "missed";
+                  const isImage = (url: string) => /\.(jpg|jpeg|png|gif|webp|heic|heif)(\?|$)/i.test(url);
+                  return (
+                    <div
+                      key={run.sessionExerciseId}
+                      className={`rounded-2xl border bg-card p-4 transition-all ${
+                        isCompleted ? "border-emerald-500/30" : isMissed ? "border-destructive/30" : "border-orange-500/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Status icon */}
+                        <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                          isCompleted ? "bg-emerald-500/15" : isMissed ? "bg-destructive/10" : "bg-orange-500/15"
+                        }`}>
+                          {isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          ) : isMissed ? (
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-orange-600" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-xs font-bold uppercase tracking-wide ${
+                              isCompleted ? "text-emerald-600" : isMissed ? "text-destructive" : "text-orange-600"
+                            }`}>
+                              {run.status.toUpperCase()}
+                            </span>
+                            <span className="text-sm font-semibold text-foreground truncate">
+                              {run.exerciseName}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {run.sessionTitle ?? `Week ${run.weekNumber} · Session ${run.sessionNumber}`}
+                            {run.completedAt && ` · ${new Date(run.completedAt).toLocaleDateString()}`}
+                          </p>
+
+                          {/* Run config pills */}
+                          {rc && (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {rc.runType && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                  <Footprints className="h-2.5 w-2.5" />
+                                  {rc.runType.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                                </span>
+                              )}
+                              {rc.distanceMeters && (
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                                  {rc.distanceMeters >= 1000 ? `${(rc.distanceMeters / 1000).toFixed(1)} km` : `${rc.distanceMeters} m`}
+                                </span>
+                              )}
+                              {rc.surface && (
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground capitalize">
+                                  {rc.surface}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Upload preview */}
+                        {run.upload?.url && (
+                          <button
+                            onClick={() => setPreviewUrl(run.upload.url)}
+                            className="shrink-0 overflow-hidden rounded-xl border border-border w-16 h-16 bg-secondary/40 hover:border-primary/40 transition relative group"
+                            title="View run photo"
+                          >
+                            {isImage(run.upload.url) ? (
+                              <img
+                                src={run.upload.url}
+                                alt="Run photo"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <video
+                                src={run.upload.url}
+                                className="w-full h-full object-cover"
+                                preload="none"
+                              />
+                            )}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition">
+                              <Play className="h-4 w-4 text-white fill-current" />
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Sleep Tracking */}
         {athlete?.userId && (
           <SleepLogsSection userId={athlete.userId} />
         )}
       </div>
+
+      {/* Inline photo/video preview dialog */}
+      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Run Media</DialogTitle>
+            <DialogDescription>Athlete run photo or video</DialogDescription>
+          </DialogHeader>
+          {previewUrl && /\.(jpg|jpeg|png|gif|webp|heic|heif)(\?|$)/i.test(previewUrl) ? (
+            <img src={previewUrl} alt="Run media" className="w-full max-h-[80vh] object-contain bg-black" />
+          ) : previewUrl ? (
+            <video src={previewUrl} controls autoPlay playsInline className="w-full max-h-[80vh] bg-black" />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
         <DialogContent>

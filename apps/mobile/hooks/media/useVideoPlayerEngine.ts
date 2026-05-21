@@ -75,6 +75,7 @@ export function useVideoPlayerEngine({
   const [error, setError] = useState<string | null>(null);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
@@ -93,7 +94,9 @@ export function useVideoPlayerEngine({
   }, [sourceUri]);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, []);
@@ -175,6 +178,7 @@ export function useVideoPlayerEngine({
         const delay = RETRY_DELAYS_MS[retryCountRef.current] ?? 6000;
         retryCountRef.current += 1;
         retryTimerRef.current = setTimeout(() => {
+          if (!isMountedRef.current) return;
           try {
             if (typeof (player as any).replaceAsync === "function") {
               (player as any).replaceAsync({ uri: sourceUri });
@@ -182,7 +186,9 @@ export function useVideoPlayerEngine({
               player.replace({ uri: sourceUri } as any);
             }
           } catch {
-            try { player.replay(); } catch {}
+            if (isMountedRef.current) {
+              try { player.replay(); } catch {}
+            }
           }
         }, delay);
       } else {

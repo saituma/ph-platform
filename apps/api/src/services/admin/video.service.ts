@@ -2,9 +2,11 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTable,
+  exerciseTable,
   guardianTable,
   programSessionCompletionTable,
   programSectionContentTable,
+  sessionExerciseTable,
   sessionTable,
   trainingModuleSessionTable,
   trainingSessionItemTable,
@@ -47,12 +49,16 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       createdAt: videoUploadTable.createdAt,
       programSectionContentId: videoUploadTable.programSectionContentId,
       trainingSessionItemId: videoUploadTable.trainingSessionItemId,
+      sessionExerciseId: videoUploadTable.sessionExerciseId,
       programSectionTitle: programSectionContentTable.title,
       programSectionType: programSectionContentTable.sectionType,
       trainingSessionTitle: trainingModuleSessionTable.title,
       sectionTitle: sql<
         string | null
       >`COALESCE(${trainingModuleSessionTable.title}, ${programSectionContentTable.title})`,
+      runConfig: sessionExerciseTable.runConfig,
+      exerciseName: exerciseTable.name,
+      exerciseCategory: exerciseTable.category,
     })
     .from(videoUploadTable)
     .leftJoin(athleteTable, eq(videoUploadTable.athleteId, athleteTable.id))
@@ -60,6 +66,8 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     .leftJoin(programSectionContentTable, eq(videoUploadTable.programSectionContentId, programSectionContentTable.id))
     .leftJoin(trainingSessionItemTable, eq(videoUploadTable.trainingSessionItemId, trainingSessionItemTable.id))
     .leftJoin(trainingModuleSessionTable, eq(trainingSessionItemTable.sessionId, trainingModuleSessionTable.id))
+    .leftJoin(sessionExerciseTable, eq(videoUploadTable.sessionExerciseId, sessionExerciseTable.id))
+    .leftJoin(exerciseTable, eq(sessionExerciseTable.exerciseId, exerciseTable.id))
     .where(filters.length ? and(...filters) : undefined)
     .orderBy(desc(videoUploadTable.createdAt))
     .limit(limit);

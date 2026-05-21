@@ -797,12 +797,90 @@ export async function getAthleteDetail(athleteId: number) {
     videoUploads.length > 0 ? 1 : 0,
   );
 
+  // Run attendance: all run exercises (runConfig IS NOT NULL) in programs assigned to this athlete
+  const runRows = await db
+    .select({
+      sessionExerciseId: sessionExerciseTable.id,
+      runConfig: sessionExerciseTable.runConfig,
+      exerciseName: exerciseTable.name,
+      sessionId: sessionTable.id,
+      sessionTitle: sessionTable.title,
+      weekNumber: sessionTable.weekNumber,
+      sessionNumber: sessionTable.sessionNumber,
+      completedAt: programSessionCompletionTable.completedAt,
+      scheduledDate: programAssignmentTable.scheduledDate,
+      uploadId: videoUploadTable.id,
+      uploadUrl: videoUploadTable.videoUrl,
+      uploadNotes: videoUploadTable.notes,
+    })
+    .from(sessionExerciseTable)
+    .innerJoin(sessionTable, eq(sessionExerciseTable.sessionId, sessionTable.id))
+    .innerJoin(exerciseTable, eq(sessionExerciseTable.exerciseId, exerciseTable.id))
+    .innerJoin(programTable, eq(sessionTable.programId, programTable.id))
+    .innerJoin(
+      programAssignmentTable,
+      and(
+        eq(programAssignmentTable.programId, programTable.id),
+        eq(programAssignmentTable.athleteId, athleteId),
+      ),
+    )
+    .leftJoin(
+      programSessionCompletionTable,
+      and(
+        eq(programSessionCompletionTable.sessionId, sessionTable.id),
+        eq(programSessionCompletionTable.athleteId, athleteId),
+      ),
+    )
+    .leftJoin(
+      videoUploadTable,
+      and(
+        eq(videoUploadTable.sessionExerciseId, sessionExerciseTable.id),
+        eq(videoUploadTable.athleteId, athleteId),
+      ),
+    )
+    .where(isNotNull(sessionExerciseTable.runConfig))
+    .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber), asc(sessionExerciseTable.order));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const runAttendance = runRows.map((row) => {
+    let status: "completed" | "missed" | "due";
+    if (row.completedAt) {
+      status = "completed";
+    } else if (row.scheduledDate) {
+      // Estimate expected date: programStart + (week - 1) * 7 days
+      const start = new Date(row.scheduledDate);
+      start.setHours(0, 0, 0, 0);
+      const expectedDate = new Date(start);
+      expectedDate.setDate(expectedDate.getDate() + ((row.weekNumber ?? 1) - 1) * 7);
+      status = expectedDate < today ? "missed" : "due";
+    } else {
+      status = "due";
+    }
+    return {
+      sessionExerciseId: row.sessionExerciseId,
+      exerciseName: row.exerciseName,
+      sessionId: row.sessionId,
+      sessionTitle: row.sessionTitle,
+      weekNumber: row.weekNumber,
+      sessionNumber: row.sessionNumber,
+      runConfig: row.runConfig as Record<string, unknown> | null,
+      status,
+      completedAt: row.completedAt,
+      upload: row.uploadId
+        ? { id: row.uploadId, url: row.uploadUrl, notes: row.uploadNotes }
+        : null,
+    };
+  });
+
   return {
     ...athlete,
     assignments,
     sessionCompletionCount,
     videoUploads: mergedVideoUploads,
     nutritionOnboarding: nutritionOnboarding ?? null,
+    runAttendance,
   };
 }
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Send } from "lucide-react";
+import { Footprints, Send } from "lucide-react";
 
 import { toast } from "../../../../lib/toast";
 import { AdminShell } from "../../../../components/admin/shell";
@@ -19,6 +19,14 @@ import {
   useSetProgramSessionCoachResponseMutation,
 } from "../../../../lib/apiSlice";
 
+type RunConfig = {
+  runType?: string;
+  distanceMeters?: number;
+  surface?: string;
+  targetPace?: string;
+  intervals?: Array<{ distanceMeters?: number; durationSeconds?: number; restSeconds?: number; targetPace?: string }>;
+} | null;
+
 type RawVideoUpload = {
   id: number;
   source?: "video_upload" | "program_completion";
@@ -33,7 +41,11 @@ type RawVideoUpload = {
   trainingSessionTitle?: string | null;
   sectionTitle?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   feedback?: string | null;
+  runConfig?: RunConfig;
+  exerciseName?: string | null;
+  exerciseCategory?: string | null;
 };
 
 type VideoItem = {
@@ -46,8 +58,12 @@ type VideoItem = {
   status: "Reviewed" | "Awaiting";
   createdAt?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   feedback?: string | null;
   sectionKey: string;
+  runConfig?: RunConfig;
+  exerciseName?: string | null;
+  exerciseCategory?: string | null;
 };
 
 function toSessionLabel(item: RawVideoUpload) {
@@ -60,6 +76,20 @@ function toSessionType(item: RawVideoUpload) {
 
 function toSessionKey(item: RawVideoUpload) {
   return `${toSessionType(item)}::${toSessionLabel(item)}`;
+}
+
+function isImageUrl(url: string) {
+  const clean = url.split("?")[0].toLowerCase();
+  return /\.(jpg|jpeg|png|gif|webp|heic|heif)$/.test(clean);
+}
+
+function formatDistance(meters: number) {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  return `${meters} m`;
+}
+
+function formatRunType(type: string) {
+  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 async function uploadVideoToR2(
@@ -117,8 +147,12 @@ export default function VideoReviewSessionDetailPage() {
         status: item.reviewedAt ? ("Reviewed" as const) : ("Awaiting" as const),
         createdAt: item.createdAt ?? null,
         videoUrl: item.videoUrl ?? null,
+        notes: item.notes ?? null,
         feedback: item.feedback ?? "",
         sectionKey: toSessionKey(item),
+        runConfig: item.runConfig ?? null,
+        exerciseName: item.exerciseName ?? null,
+        exerciseCategory: item.exerciseCategory ?? null,
       }))
       .filter((item: VideoItem) => item.sectionKey === decodedSessionKey)
       .sort((a: VideoItem, b: VideoItem) => {
@@ -195,12 +229,26 @@ export default function VideoReviewSessionDetailPage() {
           <p className="text-sm text-muted-foreground">No videos found for this session.</p>
         )}
 
-        {videos.map((item) => (
-          <Card key={`${item.source}-${item.id}`} className="border-border/70">
+        {videos.map((item) => {
+          const isRun = item.exerciseCategory === "cardio_run" || !!item.runConfig;
+          const rc = item.runConfig;
+          return (
+          <Card key={`${item.source}-${item.id}`} className={`border-border/70 ${isRun ? "border-orange-500/40" : ""}`}>
             <CardHeader className="space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-base font-semibold">{item.athlete}</p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isRun && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-semibold text-orange-600">
+                        <Footprints className="h-3 w-3" />
+                        Run
+                      </span>
+                    )}
+                    <p className="text-base font-semibold">{item.athlete}</p>
+                  </div>
+                  {item.exerciseName && (
+                    <p className="text-xs text-muted-foreground">{item.exerciseName}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     {item.createdAt ? new Date(item.createdAt).toLocaleString() : "Unknown time"}
                   </p>
@@ -209,15 +257,75 @@ export default function VideoReviewSessionDetailPage() {
                   {item.status}
                 </Badge>
               </div>
+
+              {isRun && rc && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {rc.runType && (
+                    <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                      {formatRunType(rc.runType)}
+                    </span>
+                  )}
+                  {rc.distanceMeters && (
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      {formatDistance(rc.distanceMeters)}
+                    </span>
+                  )}
+                  {rc.surface && (
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                      {rc.surface}
+                    </span>
+                  )}
+                  {rc.targetPace && (
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      {rc.targetPace} /km
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {isRun && rc?.intervals && rc.intervals.length > 0 && (
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/40 dark:bg-orange-950/20">
+                  <p className="mb-1.5 text-xs font-semibold text-orange-700 dark:text-orange-400">
+                    Intervals ({rc.intervals.length})
+                  </p>
+                  <div className="space-y-1">
+                    {rc.intervals.map((iv, idx) => (
+                      <div key={idx} className="text-xs text-muted-foreground flex gap-3">
+                        <span>#{idx + 1}</span>
+                        {iv.distanceMeters && <span>{formatDistance(iv.distanceMeters)}</span>}
+                        {iv.durationSeconds && <span>{Math.floor(iv.durationSeconds / 60)}:{String(iv.durationSeconds % 60).padStart(2, "0")}</span>}
+                        {iv.restSeconds && <span>Rest {iv.restSeconds}s</span>}
+                        {iv.targetPace && <span>{iv.targetPace}/km</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {item.videoUrl ? (
-                <div className="overflow-hidden rounded-xl border bg-black">
-                  <video src={item.videoUrl} controls playsInline className="aspect-video w-full" />
+              {item.notes && (
+                <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground italic">
+                  "{item.notes}"
                 </div>
+              )}
+
+              {item.videoUrl ? (
+                isImageUrl(item.videoUrl) ? (
+                  <div className="overflow-hidden rounded-xl border">
+                    <img
+                      src={item.videoUrl}
+                      alt={`${item.athlete}'s run photo`}
+                      className="w-full max-h-[480px] object-contain bg-black"
+                    />
+                  </div>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border bg-black">
+                    <video src={item.videoUrl} controls playsInline className="aspect-video w-full" />
+                  </div>
+                )
               ) : (
                 <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No video URL
+                  No media uploaded
                 </div>
               )}
 
@@ -264,7 +372,8 @@ export default function VideoReviewSessionDetailPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </AdminShell>
   );
