@@ -39,6 +39,10 @@ export type SessionExercise = {
   trainingSessionItemId?: number | null;
   sectionContentId?: number | null;
   order: number;
+  setsOverride: number | null;
+  repsOverride: number | null;
+  durationOverride: number | null;
+  restSecondsOverride: number | null;
   coachingNotes: string | null;
   progressionNotes: string | null;
   regressionNotes: string | null;
@@ -187,7 +191,8 @@ export function useMySessionExercises(token: string | null) {
           `/programs/my-sessions/${sessionId}/exercises`,
           { token, forceRefresh: force },
         );
-        setExercises(res.exercises ?? []);
+        const sorted = (res.exercises ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        setExercises(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load exercises.");
       } finally {

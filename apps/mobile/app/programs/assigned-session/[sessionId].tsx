@@ -801,13 +801,17 @@ function ExerciseCard({
   onUploadPress: (source: "camera" | "library", sectionContentId?: number | null) => void;
 }) {
   const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
+  const effectiveSets = ex.setsOverride ?? ex.exercise.sets;
+  const effectiveReps = ex.repsOverride ?? ex.exercise.reps;
+  const effectiveDuration = ex.durationOverride ?? ex.exercise.duration;
+  const effectiveRest = ex.restSecondsOverride ?? ex.exercise.restSeconds;
   const meta = [
-    ex.exercise.sets ? `${ex.exercise.sets} sets` : null,
-    ex.exercise.reps ? `${ex.exercise.reps} reps` : null,
-    ex.exercise.duration ? `${ex.exercise.duration}s` : null,
+    effectiveSets ? `${effectiveSets} sets` : null,
+    effectiveReps ? `${effectiveReps} reps` : null,
+    effectiveDuration ? `${effectiveDuration}s` : null,
   ].filter(Boolean);
 
-  const hasRest = ex.exercise.restSeconds && ex.exercise.restSeconds > 0;
+  const hasRest = effectiveRest && effectiveRest > 0;
   const hasVideo = !!ex.exercise.videoUrl;
   const hasUploadedVideo = !!ex.videoUpload?.videoUrl;
   const hasCoachNotes = !!ex.coachingNotes;
@@ -887,7 +891,7 @@ function ExerciseCard({
                 }}
               >
                 <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.warning }}>
-                  {ex.exercise.restSeconds}s rest
+                  {effectiveRest}s rest
                 </Text>
               </View>
             ) : null}
