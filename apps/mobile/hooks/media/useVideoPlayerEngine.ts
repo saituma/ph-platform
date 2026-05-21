@@ -160,6 +160,7 @@ export function useVideoPlayerEngine({
       setAspectRatio(sourceRatio);
     }
     if (payload.duration > 0) {
+      setDuration(payload.duration);
       setIsLoading(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     }
@@ -167,11 +168,12 @@ export function useVideoPlayerEngine({
 
   useEventListener(player, "statusChange", (e) => {
     if (e.status === "readyToPlay" || e.status === "loading") {
-      // Show video as soon as the player acknowledges the source — don't wait for
-      // full readiness. On slow connections this removes the black-screen wait.
       retryCountRef.current = 0;
       Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
       setIsLoading(false);
+      // Grab duration here too — covers HLS/streaming sources where sourceLoad may not fire
+      const d = player.duration;
+      if (typeof d === "number" && d > 0) setDuration(d);
     }
     if (e.status === "error") {
       if (retryCountRef.current < MAX_RETRIES) {
