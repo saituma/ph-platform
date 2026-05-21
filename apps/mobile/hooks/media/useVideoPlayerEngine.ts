@@ -176,7 +176,11 @@ export function useVideoPlayerEngine({
         retryCountRef.current += 1;
         retryTimerRef.current = setTimeout(() => {
           try {
-            player.replace({ uri: sourceUri } as any);
+            if (typeof (player as any).replaceAsync === "function") {
+              (player as any).replaceAsync({ uri: sourceUri });
+            } else {
+              player.replace({ uri: sourceUri } as any);
+            }
           } catch {
             try { player.replay(); } catch {}
           }
