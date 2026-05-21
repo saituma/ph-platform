@@ -105,8 +105,10 @@ export async function getProgramSessions(programId: number) {
         const baseExercise = exercises.find((e) => e.id === se.exerciseId) ?? null;
         const rc = se.runConfig as { runType?: string; surface?: string } | null;
         const runMeta = rc ? [rc.runType, rc.surface].filter(Boolean).join(" · ") : null;
+        const isRun = baseExercise?.category === "cardio_run" || !!se.runConfig;
         return {
           ...se,
+          allowVideoUpload: isRun,
           exercise: baseExercise
             ? {
                 ...baseExercise,
@@ -465,8 +467,10 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     const upload = uploadByExercise.get(row.id);
     const rc = row.runConfig as { runType?: string; surface?: string } | null;
     const runMeta = rc ? [rc.runType, rc.surface].filter(Boolean).join(" · ") : null;
+    const isRun = row.exercise.category === "cardio_run" || !!row.runConfig;
     return {
       ...row,
+      allowVideoUpload: isRun,
       exercise: {
         ...row.exercise,
         sets: row.setsOverride ?? row.exercise.sets,

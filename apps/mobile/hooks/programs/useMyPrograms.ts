@@ -42,6 +42,7 @@ export type SessionExercise = {
   coachingNotes: string | null;
   progressionNotes: string | null;
   regressionNotes: string | null;
+  allowVideoUpload?: boolean;
   videoUpload?: {
     id: number;
     videoUrl: string;

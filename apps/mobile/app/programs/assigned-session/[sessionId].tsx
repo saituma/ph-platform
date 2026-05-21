@@ -733,8 +733,8 @@ function ExerciseCard({
         </View>
       ) : null}
 
-      {/* Upload Section */}
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+      {/* Upload Section — only for exercises where coach enabled it (e.g. cardio runs) */}
+      {ex.allowVideoUpload !== false ? <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <View
           style={{
             borderRadius: 14,
@@ -876,7 +876,7 @@ function ExerciseCard({
             {uploadState.error}
           </Text>
         ) : null}
-      </View>
+      </View> : null}
 
       {/* Details Section */}
       {hasTextDetails ? (
