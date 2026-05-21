@@ -101,10 +101,21 @@ export async function getProgramSessions(programId: number) {
   return sessions.map((session) => {
     const items = sessionExercises
       .filter((se) => se.sessionId === session.id)
-      .map((se) => ({
-        ...se,
-        exercise: exercises.find((e) => e.id === se.exerciseId) ?? null,
-      }))
+      .map((se) => {
+        const baseExercise = exercises.find((e) => e.id === se.exerciseId) ?? null;
+        return {
+          ...se,
+          exercise: baseExercise
+            ? {
+                ...baseExercise,
+                sets: se.setsOverride ?? baseExercise.sets,
+                reps: se.repsOverride ?? baseExercise.reps,
+                duration: se.durationOverride ?? baseExercise.duration,
+                restSeconds: se.restSecondsOverride ?? baseExercise.restSeconds,
+              }
+            : null,
+        };
+      })
       .sort((a, b) => a.order - b.order);
 
     return { ...session, exercises: items };
@@ -448,6 +459,13 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
     const upload = uploadByExercise.get(row.id);
     return {
       ...row,
+      exercise: {
+        ...row.exercise,
+        sets: row.setsOverride ?? row.exercise.sets,
+        reps: row.repsOverride ?? row.exercise.reps,
+        duration: row.durationOverride ?? row.exercise.duration,
+        restSeconds: row.restSecondsOverride ?? row.exercise.restSeconds,
+      },
       videoUpload: upload
         ? {
             id: upload.id,
