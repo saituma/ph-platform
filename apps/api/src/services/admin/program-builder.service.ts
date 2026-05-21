@@ -288,6 +288,10 @@ export async function listSessionExercises(sessionId: number) {
       progressionNotes: sessionExerciseTable.progressionNotes,
       regressionNotes: sessionExerciseTable.regressionNotes,
       runConfig: sessionExerciseTable.runConfig,
+      setsOverride: sessionExerciseTable.setsOverride,
+      repsOverride: sessionExerciseTable.repsOverride,
+      durationOverride: sessionExerciseTable.durationOverride,
+      restSecondsOverride: sessionExerciseTable.restSecondsOverride,
       exercise: {
         id: exerciseTable.id,
         name: exerciseTable.name,
