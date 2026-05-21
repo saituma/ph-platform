@@ -97,6 +97,7 @@ interface VideoPlayerProps {
   pauseOthers?: () => void;
   onDurationMs?: (durationMs: number) => void;
   onEnded?: () => void;
+  onStartedPlaying?: () => void;
 }
 
 export function VideoPlayer(props: VideoPlayerProps) {
@@ -125,7 +126,7 @@ function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
     [normalizedUri],
   );
 
-  const { cachedUri } = useVideoCache(
+  const { cachedUri, markStarted } = useVideoCache(
     props.disableCache || isY || isL ? null : normalizedUri,
     props.cacheKey,
   );
@@ -141,7 +142,7 @@ function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
       />
     );
   }
-  return <VideoPlayerExpoNativeMode {...props} sourceUri={finalSource} />;
+  return <VideoPlayerExpoNativeMode {...props} sourceUri={finalSource} onStartedPlaying={markStarted} />;
 }
 
 function VideoPlayerYoutubeMode({
@@ -596,6 +597,7 @@ function VideoPlayerExpoNativeMode({
   pauseOthers,
   onDurationMs,
   onEnded,
+  onStartedPlaying,
   navFocused,
 }: VideoPlayerProps & { navFocused: boolean; sourceUri: string }) {
   const { colors, isDark } = useAppTheme();
@@ -640,6 +642,14 @@ function VideoPlayerExpoNativeMode({
     onEnded,
     fadeAnim,
   });
+
+  const hasCalledStartedRef = useRef(false);
+  useEffect(() => {
+    if (isPlaying && !hasCalledStartedRef.current) {
+      hasCalledStartedRef.current = true;
+      onStartedPlaying?.();
+    }
+  }, [isPlaying, onStartedPlaying]);
 
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const { width: screenWidth, height: screenHeight } = Dimensions.get("window");

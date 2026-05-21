@@ -203,16 +203,30 @@ export function useVideoPlayerEngine({
 
   useEventListener(player, "playingChange", (e) => setIsPlaying(e.isPlaying ?? false));
 
+  // timeUpdate fires while playing — read player.duration here, which is
+  // guaranteed non-zero once the player is actively playing frames.
+  useEffect(() => {
+    try { player.timeUpdateEventInterval = 0.5; } catch {}
+  }, [player]);
+
+  useEventListener(player, "timeUpdate", (e) => {
+    setPosition(e.currentTime ?? 0);
+    try {
+      const d = player.duration;
+      if (typeof d === "number" && d > 0) setDuration(d);
+    } catch {}
+  });
+
+  // Fallback poll — keeps position in sync during buffering gaps when timeUpdate pauses.
   useEffect(() => {
     const id = setInterval(() => {
       try {
-        setPosition(player.currentTime ?? 0);
-        setDuration(player.duration ?? 0);
-      } catch {
-        setPosition(0);
-        setDuration(0);
-      }
-    }, 400);
+        const pos = player.currentTime ?? 0;
+        const dur = player.duration ?? 0;
+        setPosition(pos);
+        if (dur > 0) setDuration(dur);
+      } catch {}
+    }, 500);
     return () => clearInterval(id);
   }, [player]);
 
