@@ -163,9 +163,11 @@ export function useVideoPlayerEngine({
   });
 
   useEventListener(player, "statusChange", (e) => {
-    if (e.status === "readyToPlay") {
+    if (e.status === "readyToPlay" || e.status === "loading") {
+      // Show video as soon as the player acknowledges the source — don't wait for
+      // full readiness. On slow connections this removes the black-screen wait.
       retryCountRef.current = 0;
-      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
       setIsLoading(false);
     }
     if (e.status === "error") {

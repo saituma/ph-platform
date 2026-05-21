@@ -17,23 +17,22 @@ export function VideoLoadingOverlay({
 }: VideoLoadingOverlayProps) {
   if (!isLoading && !isBuffering) return null;
 
+  // Show a small corner spinner — don't block the video frame with a full overlay.
+  // The video plays behind this as soon as the first frame arrives.
   return (
     <View
       pointerEvents="none"
-      style={[
-        absoluteFillObject,
-        {
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "rgba(0,0,0,0.5)",
-          zIndex: 20,
-        },
-      ]}
+      style={{
+        position: "absolute",
+        bottom: 10,
+        right: 10,
+        zIndex: 20,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        borderRadius: 20,
+        padding: 6,
+      }}
     >
-      <ActivityIndicator size="large" color={accentColor} />
-      <Text style={{ color: "white", marginTop: 12 }}>
-        {isLoading ? "Loading..." : "Buffering..."}
-      </Text>
+      <ActivityIndicator size="small" color={accentColor} />
     </View>
   );
 }
