@@ -3,11 +3,14 @@ import { AppState, Animated } from "react-native";
 import { useVideoPlayer } from "expo-video";
 import { useEventListener } from "expo";
 
-const PROFESSIONAL_BUFFER_OPTIONS = {
-  preferredForwardBufferDuration: 45,
-  minBufferForPlayback: 5,
-  waitsToMinimizeStalling: true,
+const BUFFER_OPTIONS = {
+  preferredForwardBufferDuration: 15, // was 45 — start playing sooner, buffer less upfront
+  minBufferForPlayback: 1,            // was 5 — start at 1s buffered instead of 5s
+  waitsToMinimizeStalling: false,     // was true — don't wait for optimal buffer on slow connections
 } as const;
+
+const MAX_RETRIES = 3;
+const RETRY_DELAYS_MS = [1500, 3000, 6000];
 
 interface VideoPlayerEngineParams {
   sourceUri: string;
@@ -60,7 +63,7 @@ export function useVideoPlayerEngine({
     instance.muted = initialMuted;
     instance.staysActiveInBackground = false;
     if ("bufferOptions" in instance) {
-      (instance as any).bufferOptions = { ...PROFESSIONAL_BUFFER_OPTIONS };
+      (instance as any).bufferOptions = { ...BUFFER_OPTIONS };
     }
     if (autoPlay && effectiveShouldPlay) instance.play();
   });
@@ -70,6 +73,8 @@ export function useVideoPlayerEngine({
   const [isLoading, setIsLoading] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
   const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
@@ -78,7 +83,20 @@ export function useVideoPlayerEngine({
   useEffect(() => {
     setAspectRatio(null);
     setResolution(null);
+    setError(null);
+    setIsLoading(true);
+    retryCountRef.current = 0;
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
   }, [sourceUri]);
+
+  useEffect(() => {
+    return () => {
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, []);
 
   const safePause = useCallback(() => {
     try { player.pause(); } catch {}
@@ -146,12 +164,25 @@ export function useVideoPlayerEngine({
 
   useEventListener(player, "statusChange", (e) => {
     if (e.status === "readyToPlay") {
+      retryCountRef.current = 0;
       Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
       setIsLoading(false);
     }
     if (e.status === "error") {
-      setError("Unable to play video. Tap to open externally.");
-      setIsLoading(false);
+      if (retryCountRef.current < MAX_RETRIES) {
+        const delay = RETRY_DELAYS_MS[retryCountRef.current] ?? 6000;
+        retryCountRef.current += 1;
+        retryTimerRef.current = setTimeout(() => {
+          try {
+            player.replace({ uri: sourceUri } as any);
+          } catch {
+            try { player.replay(); } catch {}
+          }
+        }, delay);
+      } else {
+        setError("Unable to play video. Tap to open externally.");
+        setIsLoading(false);
+      }
     }
     setIsBuffering(e.status === "loading");
   });
