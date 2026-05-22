@@ -31,6 +31,17 @@ import {
   notifySubscriptionPlanApproved,
 } from "../subscription-notifications.service";
 
+/** Returns a Unix timestamp for the next 5th of the month at midnight UTC.
+ *  All monthly subscriptions anchor to this date so every payment lands on the 5th. */
+function nextBillingAnchor(): number {
+  const now = new Date();
+  const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+  if (anchor <= now) {
+    anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+  }
+  return Math.floor(anchor.getTime() / 1000);
+}
+
 function schedulePendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
   if (newStatus !== "pending_approval" || previousStatus === "pending_approval") return;
   void notifySubscriptionEnteredPendingApproval(requestId).catch((err) => {
@@ -361,6 +372,8 @@ export async function createPaymentSheetIntent(input: {
       items: [{ price: priceId }],
       payment_behavior: "default_incomplete",
       expand: ["latest_invoice.payment_intent"],
+      billing_cycle_anchor: nextBillingAnchor(),
+      proration_behavior: "create_prorations",
       metadata: {
         planId: String(plan.id),
         userId: String(input.userId),
