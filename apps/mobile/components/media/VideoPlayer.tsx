@@ -98,7 +98,11 @@ interface VideoPlayerProps {
   onDurationMs?: (durationMs: number) => void;
   onEnded?: () => void;
   onStartedPlaying?: () => void;
-  /** Lock audio permanently muted — hides mute/unmute button entirely. */
+  /**
+   * Lock audio permanently muted — hides the mute/unmute button, disables native
+   * controls + PiP so the OS player can't unmute either. Defaults to `true`
+   * (all videos silent). Pass `false` only where audio is required.
+   */
   forceMuted?: boolean;
 }
 
@@ -162,6 +166,7 @@ function VideoPlayerYoutubeMode({
   cinematic = false,
   controllerKey,
   pauseOthers,
+  forceMuted = true,
   navFocused,
 }: VideoPlayerProps & { navFocused: boolean }) {
   const { isDark } = useAppTheme();
@@ -169,7 +174,7 @@ function VideoPlayerYoutubeMode({
   const isTabActive = activeTabIndex === currentTabIndex;
   const playbackController = useVideoPlaybackController();
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
-  const [youtubeMuted, setYoutubeMuted] = useState(initialMuted);
+  const [youtubeMuted, setYoutubeMuted] = useState(forceMuted ? true : initialMuted);
   const inlineYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
   const modalYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
   const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(false);
@@ -357,20 +362,22 @@ function VideoPlayerYoutubeMode({
           >
             <Feather name="x" size={22} color="#fff" />
           </Pressable>
-          <Pressable
-            onPress={() => setYoutubeMuted((prev) => !prev)}
-            style={{
-              position: "absolute",
-              top: 18,
-              right: 66,
-              zIndex: 10,
-              backgroundColor: "rgba(0,0,0,0.55)",
-              borderRadius: 999,
-              padding: 10,
-            }}
-          >
-            <Feather name={youtubeMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
-          </Pressable>
+          {!forceMuted && (
+            <Pressable
+              onPress={() => setYoutubeMuted((prev) => !prev)}
+              style={{
+                position: "absolute",
+                top: 18,
+                right: 66,
+                zIndex: 10,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                borderRadius: 999,
+                padding: 10,
+              }}
+            >
+              <Feather name={youtubeMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
+            </Pressable>
+          )}
 
           <View
             style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
@@ -600,7 +607,9 @@ function VideoPlayerExpoNativeMode({
   onDurationMs,
   onEnded,
   onStartedPlaying,
-  forceMuted = false,
+  // Default ON: all videos are silent and locked unless a caller explicitly
+  // opts into audio with forceMuted={false} (e.g. coach video messages).
+  forceMuted = true,
   navFocused,
 }: VideoPlayerProps & { navFocused: boolean; sourceUri: string }) {
   const { colors, isDark } = useAppTheme();
@@ -850,7 +859,7 @@ function VideoPlayerExpoNativeMode({
           contentFit={fitMode}
           nativeControls={!forceMuted && ignoreTabFocus}
           fullscreenOptions={{ enable: false, orientation: "default" }}
-          allowsPictureInPicture
+          allowsPictureInPicture={!forceMuted}
           {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
         />
       </Animated.View>
@@ -979,7 +988,7 @@ function VideoPlayerExpoNativeMode({
               style={{ width: "100%", height: "100%" }}
               contentFit="contain"
               nativeControls={!forceMuted}
-              allowsPictureInPicture
+              allowsPictureInPicture={!forceMuted}
               {...(Platform.OS === "android"
                 ? { surfaceType: "textureView" as const }
                 : {})}

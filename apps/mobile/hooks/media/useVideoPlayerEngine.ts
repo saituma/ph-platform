@@ -62,7 +62,8 @@ export function useVideoPlayerEngine({
 }: VideoPlayerEngineParams) {
   const player = useVideoPlayer(sourceUri, (instance) => {
     instance.loop = isLooping;
-    instance.muted = initialMuted;
+    instance.muted = forceMuted ? true : initialMuted;
+    if (forceMuted) instance.volume = 0;
     instance.staysActiveInBackground = false;
     if ("bufferOptions" in instance) {
       (instance as any).bufferOptions = { ...BUFFER_OPTIONS };
@@ -255,13 +256,23 @@ export function useVideoPlayerEngine({
     onEnded({ position, duration });
   }, [duration, onEnded, position, sourceUri]);
 
-  // When forceMuted, re-enforce muted=true after every playing/status event
-  // because native controls (nativeControls=true) can bypass React state.
-  useEffect(() => {
+  // Hard-lock audio when forceMuted. The guard below is critical: setting volume/muted
+  // itself fires volumeChange/mutedChange, so re-setting them unconditionally inside the
+  // handler is an infinite loop that freezes the JS thread. We only mutate when the
+  // values are actually wrong — so the event settles after at most one correction.
+  const enforceMute = useCallback(() => {
     if (!forceMuted) return;
+    if (player.muted === true && player.volume === 0) return;
     player.muted = true;
-    setIsMuted(true);
-  });
+    player.volume = 0;
+  }, [forceMuted, player]);
+
+  useEffect(() => {
+    enforceMute();
+  }, [enforceMute]);
+
+  useEventListener(player, "volumeChange", enforceMute);
+  useEventListener(player, "mutedChange", enforceMute);
 
   const toggleMute = useCallback(() => {
     if (forceMuted) return;
