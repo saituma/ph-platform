@@ -35,7 +35,6 @@ export const Route = createFileRoute("/onboarding/step-4")({
 function OnboardingStep4() {
 	const [athlete, setAthlete] = useState<any>(null);
 	const [isLoading, setIsLoading] = useState(true);
-	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [teamSummary, setTeamSummary] = useState<{
 		teamName: string;
 		athleteType: "youth" | "adult";
@@ -119,16 +118,7 @@ function OnboardingStep4() {
 
 	const handleConfirm = async (e?: React.MouseEvent) => {
 		e?.preventDefault();
-		setIsSubmitting(true);
-
-		// Payment steps hidden — go straight to pending approval
-		setTimeout(() => {
-			toast.success("Profile Confirmed!", {
-				description: "Your application has been submitted for review.",
-			});
-			setIsSubmitting(false);
-			navigate({ to: "/onboarding/success" });
-		}, 1500);
+		navigate({ to: "/onboarding/step-5" });
 	};
 
 	if (isLoading) {
@@ -149,7 +139,7 @@ function OnboardingStep4() {
 			<section className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
 				<div className="space-y-4 text-center">
 					<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-						Step {isTeam ? "3" : "4"} of {isTeam ? "4" : "4"}
+						Step {isTeam ? "3" : "4"} of {isTeam ? "4" : "5"}
 					</p>
 					<h1 className="text-2xl md:text-3xl font-medium tracking-tight text-foreground">
 						Review & Confirm
@@ -312,17 +302,10 @@ function OnboardingStep4() {
 					<Button
 						type="button"
 						onClick={handleConfirm}
-						disabled={isSubmitting}
 						className="flex-[2] h-10 bg-primary text-primary-foreground font-mono text-xs uppercase tracking-wider hover:opacity-90 transition-all active:scale-[0.98]"
 					>
-						{isSubmitting ? (
-							<CircleNotch className="w-6 h-6 animate-spin text-background" />
-						) : (
-							<>
-								{isTeam ? "Confirm" : "Confirm & Pay"}
-								<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
-							</>
-						)}
+						{isTeam ? "Confirm" : "Confirm & Pay"}
+						<ArrowRight weight="bold" className="ml-2 w-5 h-5" />
 					</Button>
 				</div>
 			</section>
