@@ -11,7 +11,7 @@ import type { PendingAttachment } from "@/types/admin-messages";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { NavigationRecoveryBoundary } from "@/components/NavigationRecoveryBoundary";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -142,6 +142,27 @@ export default function AdminVideosScreen() {
   useEffect(() => {
     void load(false);
   }, [load]);
+
+  // Prefetch the first 10 video URLs into local disk cache after list loads.
+  const prefetchedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (items.length === 0) return;
+    const top = items
+      .filter((it) => it.videoUrl && !prefetchedRef.current.has(it.videoUrl))
+      .slice(0, 10);
+    for (const item of top) {
+      const url = item.videoUrl!;
+      prefetchedRef.current.add(url);
+      const dest = `${FileSystem.cacheDirectory}video_prefetch_${Math.abs(
+        url.split("").reduce((h, c) => ((h * 33) ^ c.charCodeAt(0)) | 0, 5381),
+      )}.mp4`;
+      FileSystem.getInfoAsync(dest).then((info) => {
+        if (!info.exists) {
+          FileSystem.createDownloadResumable(url, dest).downloadAsync().catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }, [items]);
 
   const athleteRows = useMemo(() => {
     const m = new Map<number, { name: string; count: number }>();
@@ -762,7 +783,7 @@ export default function AdminVideosScreen() {
 
                 {selectedVideo?.videoUrl ? (
                   <View style={{ marginBottom: 16, borderRadius: 20, overflow: "hidden" }}>
-                    <VideoPlayer uri={selectedVideo.videoUrl} height={240} />
+                    <VideoPlayer uri={selectedVideo.videoUrl} height={240} forceMuted />
                   </View>
                 ) : (
                   <View style={{
@@ -843,6 +864,7 @@ export default function AdminVideosScreen() {
                         uri={responseVideoAttachment.uri}
                         height={200}
                         autoPlay={false}
+                        forceMuted
                       />
                     </View>
                     <Pressable

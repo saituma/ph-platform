@@ -14,6 +14,7 @@ interface VideoControlsProps {
   accentColor: string;
   hideCenterControls?: boolean;
   hideControls?: boolean;
+  hideMuteButton?: boolean;
   togglePlay: () => void;
   toggleMute: () => void;
   openFullscreen: () => void;
@@ -28,6 +29,7 @@ export function VideoControls({
   accentColor,
   hideCenterControls,
   hideControls,
+  hideMuteButton = false,
   togglePlay,
   toggleMute,
   openFullscreen,
@@ -113,13 +115,15 @@ export function VideoControls({
               marginTop: 12,
             }}
           >
-            <Pressable onPress={toggleMute}>
-              <Feather
-                name={isMuted ? "volume-x" : "volume-2"}
-                size={24}
-                color="white"
-              />
-            </Pressable>
+            {!hideMuteButton && (
+              <Pressable onPress={toggleMute}>
+                <Feather
+                  name={isMuted ? "volume-x" : "volume-2"}
+                  size={24}
+                  color="white"
+                />
+              </Pressable>
+            )}
             <Pressable onPress={togglePlay}>
               <Feather
                 name={isPlaying ? "pause" : "play"}

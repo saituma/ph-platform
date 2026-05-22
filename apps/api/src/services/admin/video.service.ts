@@ -1,5 +1,6 @@
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../../db";
+import { normalizeStoredMediaUrl } from "../s3.service";
 import {
   athleteTable,
   exerciseTable,
@@ -134,5 +135,9 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bt - at;
     })
-    .slice(0, limit);
+    .slice(0, limit)
+    .map((item) => ({
+      ...item,
+      videoUrl: item.videoUrl ? normalizeStoredMediaUrl(item.videoUrl) : null,
+    }));
 }

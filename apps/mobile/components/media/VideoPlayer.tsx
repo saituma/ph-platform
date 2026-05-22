@@ -98,6 +98,8 @@ interface VideoPlayerProps {
   onDurationMs?: (durationMs: number) => void;
   onEnded?: () => void;
   onStartedPlaying?: () => void;
+  /** Lock audio permanently muted — hides mute/unmute button entirely. */
+  forceMuted?: boolean;
 }
 
 export function VideoPlayer(props: VideoPlayerProps) {
@@ -598,6 +600,7 @@ function VideoPlayerExpoNativeMode({
   onDurationMs,
   onEnded,
   onStartedPlaying,
+  forceMuted = false,
   navFocused,
 }: VideoPlayerProps & { navFocused: boolean; sourceUri: string }) {
   const { colors, isDark } = useAppTheme();
@@ -634,7 +637,7 @@ function VideoPlayerExpoNativeMode({
   } = useVideoPlayerEngine({
     sourceUri: sourceUri || "",
     autoPlay,
-    initialMuted,
+    initialMuted: forceMuted ? true : initialMuted,
     isLooping,
     effectiveShouldPlay,
     isVisible,
@@ -878,6 +881,7 @@ function VideoPlayerExpoNativeMode({
           accentColor={colors.accent}
           hideCenterControls={hideCenterControls}
           hideControls={hideControls}
+          hideMuteButton={forceMuted}
           togglePlay={togglePlay}
           toggleMute={toggleMute}
           openFullscreen={openFullscreen}
@@ -952,20 +956,22 @@ function VideoPlayerExpoNativeMode({
           >
             <Feather name="x" size={22} color="#fff" />
           </Pressable>
-          <Pressable
-            onPress={toggleMute}
-            style={{
-              position: "absolute",
-              top: 18,
-              right: 66,
-              zIndex: 20,
-              backgroundColor: "rgba(0,0,0,0.55)",
-              borderRadius: 999,
-              padding: 10,
-            }}
-          >
-            <Feather name={isMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
-          </Pressable>
+          {!forceMuted && (
+            <Pressable
+              onPress={toggleMute}
+              style={{
+                position: "absolute",
+                top: 18,
+                right: 66,
+                zIndex: 20,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                borderRadius: 999,
+                padding: 10,
+              }}
+            >
+              <Feather name={isMuted ? "volume-x" : "volume-2"} size={22} color="#fff" />
+            </Pressable>
+          )}
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
             <VideoView
               player={player}
