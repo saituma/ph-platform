@@ -160,7 +160,7 @@ export async function startYouthOnboarding(input: {
   } else {
     await db.insert(athleteTable).values({
       guardianId: guardianId,
-      userId: 3, // Placeholder Admin
+      userId: input.userId,
       name: input.athleteName,
       birthDate: input.birthDate,
       age: age,
