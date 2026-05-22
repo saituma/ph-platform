@@ -170,8 +170,7 @@ export async function createTeamCheckoutSession(input: {
     ...(input.mode === "subscription"
       ? {
           subscription_data: {
-            billing_cycle_anchor: nextBillingAnchor(),
-            proration_behavior: "create_prorations",
+            trial_end: nextBillingAnchor(),
           },
         }
       : {}),
