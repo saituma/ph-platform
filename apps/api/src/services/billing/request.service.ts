@@ -144,6 +144,8 @@ export async function createCheckoutSession(input: {
   /** @deprecated use billingCycle */
   interval?: "monthly" | "yearly";
   billingCycle?: AthleteBillingCycle | "one_time";
+  /** When provided, Stripe redirects here instead of the default onboarding success page. */
+  successUrl?: string;
 }) {
   const plans = await db
     .select()
@@ -272,7 +274,7 @@ export async function createCheckoutSession(input: {
   const session = await stripeClient.checkout.sessions.create({
     mode,
     line_items: lineItems,
-    success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${input.successUrl ?? getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,
     metadata: {

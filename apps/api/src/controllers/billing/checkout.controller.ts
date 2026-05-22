@@ -60,6 +60,8 @@ const checkoutSchema = z.object({
   planId: z.coerce.number().int().min(1),
   billingCycle: z.enum(["weekly", "monthly", "six_months", "yearly", "one_time"]).optional(),
   interval: z.literal("monthly").optional(),
+  /** Optional override for the Stripe success redirect URL (e.g. portal billing page). */
+  successUrl: z.string().url().optional(),
 });
 
 const confirmSchema = z.object({
@@ -199,6 +201,7 @@ export async function createCheckout(req: Request, res: Response) {
       athleteId: athlete.id,
       planId: parsed.data.planId,
       billingCycle: parsed.data.billingCycle,
+      successUrl: parsed.data.successUrl,
     });
     return res.status(200).json({
       checkoutUrl: session.url,

@@ -84,7 +84,7 @@ export const settingsService = {
 			`/billing/plans?${new URLSearchParams({ billingCycle }).toString()}`,
 		),
 
-	createCheckout: (data: { planId: number; billingCycle: BillingCycle }) =>
+	createCheckout: (data: { planId: number; billingCycle: BillingCycle; successUrl?: string }) =>
 		apiRequest<{ checkoutUrl: string; sessionId: string }>("/billing/checkout", {
 			method: "POST",
 			body: data,

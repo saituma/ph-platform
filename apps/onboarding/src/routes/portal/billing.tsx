@@ -185,6 +185,19 @@ function BillingPage() {
 	const [invoices, setInvoices] = useState<any[]>([]);
 	const [invoicesLoading, setInvoicesLoading] = useState(true);
 
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get("upgraded") === "1") {
+			toast.success("Plan upgrade request submitted", {
+				description: "Your payment was received. A coach will review and approve your new plan shortly.",
+				duration: 8000,
+			});
+			// Clean the URL without triggering a navigation
+			const clean = window.location.pathname;
+			window.history.replaceState({}, "", clean);
+		}
+	}, []);
+
 	const isTeamBilling = Boolean(user?.team?.id && String(user?.role ?? "").toLowerCase().includes("coach"));
 	const currentTier = isTeamBilling
 		? plans.find((plan) => plan.id === user?.team?.planId)?.tier
@@ -239,6 +252,7 @@ function BillingPage() {
 				return;
 			}
 
+			const portalSuccessUrl = `${window.location.origin}/portal/billing?upgraded=1`;
 			const checkout = isTeamBilling
 				? await settingsService.createTeamCheckout({
 						teamId: Number(user?.team?.id),
@@ -248,6 +262,7 @@ function BillingPage() {
 				: await settingsService.createCheckout({
 						planId: plan.id,
 						billingCycle,
+						successUrl: portalSuccessUrl,
 					});
 
 			if (!checkout.checkoutUrl) {
