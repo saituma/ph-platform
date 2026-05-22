@@ -101,6 +101,97 @@ export type OptimizedVideoResult = {
   height: number | null;
 };
 
+export type PosterAndMetadataResult = {
+  posterUrl: string | null;
+  durationSec: number | null;
+  width: number | null;
+  height: number | null;
+};
+
+/** Lightweight pass: download, single-frame decode for the poster JPG, parse
+ *  duration + dimensions from ffmpeg's stderr — and that's it. Skips the
+ *  full H.264 transcode entirely, so even 4K sources peak at ~50–80 MB RSS
+ *  instead of the 1 GB+ that `optimizeUploadedVideoUrl` needs. Use this from
+ *  the backfill script where the video URL is already final and we just
+ *  need to enrich the row. Returns null on hard failure; partial success
+ *  (e.g. poster ok but metadata empty) is still returned. */
+export async function extractPosterAndMetadata(
+  publicUrl: string,
+): Promise<PosterAndMetadataResult | null> {
+  const originalKey = getMediaObjectKeyFromPublicUrl(publicUrl);
+  if (!originalKey) return null;
+  if (!isFfmpegAvailable()) return null;
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "video-poster-"));
+  const inputPath = path.join(tempDir, "input");
+  const posterPath = path.join(tempDir, "poster.jpg");
+  try {
+    await downloadObjectToFile({ key: originalKey, destPath: inputPath });
+
+    // First call: dump metadata only. `-f null - -t 0` makes ffmpeg parse the
+    // header and exit immediately without decoding any frames. Stderr still
+    // contains the Duration + Stream lines we want.
+    let durationSec: number | null = null;
+    let width: number | null = null;
+    let height: number | null = null;
+    try {
+      const probeStderr = await runFfmpegCapture(["-i", inputPath, "-f", "null", "-t", "0", "-"]);
+      const parsed = parseFfmpegMetadata(probeStderr);
+      durationSec = parsed.durationSec;
+      width = parsed.width;
+      height = parsed.height;
+    } catch (err) {
+      // ffmpeg exits non-zero from `-f null - -t 0` on some inputs — fall back
+      // to parsing whatever the encode call below prints.
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), originalKey },
+        "[VideoOptimization] metadata probe failed; will retry from poster pass stderr",
+      );
+    }
+
+    // Second call: extract one frame. -ss before -i is the seek-via-keyframe
+    // fast path; for clips shorter than 2 s we just grab frame 0.
+    let posterUrl: string | null = null;
+    try {
+      const seekSec = durationSec != null && durationSec < 2 ? "0" : "1";
+      const posterStderr = await runFfmpegCapture([
+        "-y",
+        "-ss",
+        seekSec,
+        "-i",
+        inputPath,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "4",
+        "-vf",
+        "scale='min(960,iw)':-2",
+        posterPath,
+      ]);
+      // Fill in metadata if the probe didn't manage to.
+      if (durationSec == null || width == null || height == null) {
+        const parsed = parseFfmpegMetadata(posterStderr);
+        durationSec = durationSec ?? parsed.durationSec;
+        width = width ?? parsed.width;
+        height = height ?? parsed.height;
+      }
+      const posterBuffer = await fs.readFile(posterPath);
+      const posterKey = posterKeyFor(originalKey);
+      await putObject({ key: posterKey, body: posterBuffer, contentType: "image/jpeg" });
+      posterUrl = getPublicObjectUrl(posterKey);
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err), originalKey },
+        "[VideoOptimization] poster extraction failed",
+      );
+    }
+
+    return { posterUrl, durationSec, width, height };
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<OptimizedVideoResult | null> {
   const originalKey = getMediaObjectKeyFromPublicUrl(publicUrl);
   if (!originalKey) return null;

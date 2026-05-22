@@ -36,7 +36,7 @@ import "dotenv/config";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../db";
 import { exerciseTable, programSectionContentTable, videoUploadTable } from "../db/schema";
-import { optimizeUploadedVideoUrl } from "../services/video-optimization.service";
+import { extractPosterAndMetadata } from "../services/video-optimization.service";
 
 const LIMIT = Number(process.env.BACKFILL_LIMIT) || Number.POSITIVE_INFINITY;
 const ONLY_TABLE = (process.env.BACKFILL_TABLE ?? "").toLowerCase().trim();
@@ -58,9 +58,11 @@ async function backfillRow(
   }) => Promise<void>,
 ) {
   try {
-    const result = await optimizeUploadedVideoUrl(videoUrl);
+    // extractPosterAndMetadata is the lightweight path (no H.264 encode pass) —
+    // safe for 4K sources on a 512 MB dyno.
+    const result = await extractPosterAndMetadata(videoUrl);
     if (!result) {
-      console.warn(`[${label}] id=${rowId} — optimization returned null (no key parsed, .opt.mp4, or ffmpeg missing)`);
+      console.warn(`[${label}] id=${rowId} — extraction returned null (no key parsed or ffmpeg missing)`);
       return false;
     }
     if (!result.posterUrl && result.durationSec == null) {
