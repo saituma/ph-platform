@@ -405,6 +405,7 @@ function AssignedSessionDetailPage() {
 	} = usePortal();
 
 	const sessionIdNumber = Number(sessionId);
+	const cacheToken = token ? "cookie" : null;
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [completed, setCompleted] = useState(false);
 	const [localCompletion, setLocalCompletion] = useState<{
@@ -423,7 +424,7 @@ function AssignedSessionDetailPage() {
 		isLoading,
 		error: exercisesError,
 	} = useQuery({
-		queryKey: [...programKeys.all, "session-exercises", token, sessionIdNumber],
+		queryKey: [...programKeys.all, "session-exercises", cacheToken, sessionIdNumber],
 		queryFn: () => fetchMySessionExercises(token!, sessionIdNumber),
 		enabled: !!token && !portalLoading && !Number.isNaN(sessionIdNumber),
 		staleTime: 1000 * 60 * 15,
@@ -433,7 +434,7 @@ function AssignedSessionDetailPage() {
 		queryKey: [
 			...programKeys.all,
 			"session-completion",
-			token,
+			cacheToken,
 			sessionIdNumber,
 		],
 		queryFn: () => fetchSessionCompletion(token!, sessionIdNumber),
@@ -464,7 +465,7 @@ function AssignedSessionDetailPage() {
 				rpe: variables.rpe ?? null,
 			});
 			queryClient.setQueryData(
-				[...programKeys.all, "session-completion", token, sessionIdNumber],
+				[...programKeys.all, "session-completion", cacheToken, sessionIdNumber],
 				(prev: any) => ({
 					...(prev ?? {}),
 					videoUrl: variables.videoUrl ?? prev?.videoUrl ?? null,

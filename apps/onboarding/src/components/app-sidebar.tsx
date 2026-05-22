@@ -130,8 +130,10 @@ export function AppSidebar() {
 	const { state, toggleSidebar } = useSidebar();
 	const isManager = isPortalTeamRosterManagerRole(user?.role);
 
+	const cacheToken = token ? "cookie" : null;
+
 	const { data: inboxData } = useQuery({
-		queryKey: messageKeys.inbox(token, isManager),
+		queryKey: messageKeys.inbox(cacheToken, isManager),
 		queryFn: () => {
 			if (!token) throw new Error("Missing auth token");
 			return fetchInbox(token, isManager);

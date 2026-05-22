@@ -20,7 +20,7 @@ export const Route = createFileRoute("/portal/programs/session/$sessionId")({
 		const status = await getTokenStatus();
 		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: programKeys.workspace("cookie", null),
+				queryKey: programKeys.workspace("cookie"),
 				queryFn: () => fetchTeamWorkspace("cookie", null),
 			});
 		}
@@ -213,12 +213,14 @@ function SessionDetailPage() {
 
 	const sessionIdNumber = Number(sessionId);
 
+	const cacheToken = token ? "cookie" : null;
+
 	const {
 		data: workspace,
 		isLoading: programsLoading,
 		error: programsError,
 	} = useQuery({
-		queryKey: programKeys.workspace(token, age),
+		queryKey: programKeys.workspace(cacheToken),
 		queryFn: () => fetchTeamWorkspace(token!, age),
 		enabled: !!token && !portalLoading,
 		staleTime: 1000 * 60 * 15,
@@ -255,7 +257,7 @@ function SessionDetailPage() {
 				description: "Your progress has been saved.",
 			});
 			queryClient.invalidateQueries({
-				queryKey: programKeys.workspace(token, age),
+				queryKey: programKeys.workspace(cacheToken),
 			});
 
 			if (parentModule) {

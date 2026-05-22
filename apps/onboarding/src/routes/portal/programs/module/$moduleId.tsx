@@ -38,7 +38,7 @@ export const Route = createFileRoute("/portal/programs/module/$moduleId")({
 		const status = await getTokenStatus();
 		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: programKeys.workspace("cookie", null),
+				queryKey: programKeys.workspace("cookie"),
 				queryFn: () => fetchTeamWorkspace("cookie", null),
 			});
 		}
@@ -57,13 +57,14 @@ function ModuleDetailPage() {
 	} = usePortal();
 
 	const moduleIdNumber = Number(moduleId);
+	const cacheToken = token ? "cookie" : null;
 
 	const {
 		data: workspace,
 		isLoading: programsLoading,
 		error: programsError,
 	} = useQuery({
-		queryKey: programKeys.workspace(token, age),
+		queryKey: programKeys.workspace(cacheToken),
 		queryFn: () => fetchTeamWorkspace(token!, age),
 		enabled: !!token && !portalLoading,
 		staleTime: 1000 * 60 * 15,

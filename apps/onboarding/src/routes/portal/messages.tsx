@@ -131,8 +131,10 @@ function MessagesPage() {
 		activeThreadIdRef.current = activeThreadId;
 	}, [activeThreadId]);
 
+	const cacheToken = token ? "cookie" : null;
+
 	const { data: inboxData, isLoading: threadsLoading } = useQuery({
-		queryKey: messageKeys.inbox(token, isManager),
+		queryKey: messageKeys.inbox(cacheToken, isManager),
 		queryFn: () => {
 			if (!token) throw new Error("Missing auth token");
 			return fetchInbox(token, isManager);
@@ -164,12 +166,12 @@ function MessagesPage() {
 	useEffect(() => {
 		if (!token || !activeThreadId) return;
 		markThreadRead(token, activeThreadId).then(() => {
-			queryClient.invalidateQueries({ queryKey: messageKeys.inbox(token, isManager) });
+			queryClient.invalidateQueries({ queryKey: messageKeys.inbox(cacheToken, isManager) });
 		});
 	}, [activeThreadId, token, isManager, queryClient]);
 
 	const { data: messages = [], isLoading: messagesLoading } = useQuery({
-		queryKey: messageKeys.thread(token, activeThreadId),
+		queryKey: messageKeys.thread(cacheToken, activeThreadId),
 		queryFn: async () => {
 			if (!token || !activeThreadId) return [];
 			const msgs = await fetchThreadMessages(token, activeThreadId);
@@ -199,7 +201,7 @@ function MessagesPage() {
 			mediaUrl?: string;
 		}) => {
 			if (!token || !activeThreadId) return null;
-			const threadKey = messageKeys.thread(token, activeThreadId);
+			const threadKey = messageKeys.thread(cacheToken, activeThreadId);
 			await queryClient.cancelQueries({ queryKey: threadKey });
 			const previousMessages =
 				queryClient.getQueryData<ApiChatMessage[]>(threadKey) ?? [];
@@ -255,7 +257,7 @@ function MessagesPage() {
 				}, 900);
 			}
 			queryClient.invalidateQueries({
-				queryKey: messageKeys.inbox(token, isManager),
+				queryKey: messageKeys.inbox(cacheToken, isManager),
 			});
 		},
 	});
@@ -272,7 +274,7 @@ function MessagesPage() {
 		},
 		onMutate: async (payload: { messageId: number; emoji: string }) => {
 			if (!token || !activeThreadId) return null;
-			const threadKey = messageKeys.thread(token, activeThreadId);
+			const threadKey = messageKeys.thread(cacheToken, activeThreadId);
 			await queryClient.cancelQueries({ queryKey: threadKey });
 			const previousMessages =
 				queryClient.getQueryData<ApiChatMessage[]>(threadKey) ?? [];
@@ -455,9 +457,11 @@ function MessagesPage() {
 			subscriptions.push({ event, listener });
 		};
 
+		const stableCacheToken = token ? "cookie" : null;
+
 		const refetchInbox = () => {
 			queryClient.invalidateQueries({
-				queryKey: messageKeys.inbox(token, isManager),
+				queryKey: messageKeys.inbox(stableCacheToken, isManager),
 			});
 		};
 
@@ -465,12 +469,12 @@ function MessagesPage() {
 			const currentThreadId = activeThreadIdRef.current;
 			if (!currentThreadId) return;
 			queryClient.invalidateQueries({
-				queryKey: messageKeys.thread(token, currentThreadId),
+				queryKey: messageKeys.thread(stableCacheToken, currentThreadId),
 			});
 		};
 
 		const appendMessageToThread = (threadId: string, msg: ApiChatMessage) => {
-			const threadKey = messageKeys.thread(token, threadId);
+			const threadKey = messageKeys.thread(stableCacheToken, threadId);
 			queryClient.setQueryData<ApiChatMessage[]>(threadKey, (old) => {
 				if (!old) return [msg];
 				if (old.some((m) => m.id === msg.id || (m.messageKey && m.messageKey === msg.messageKey))) return old;

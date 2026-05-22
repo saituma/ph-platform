@@ -51,13 +51,14 @@ function AssignedProgramDetailPage() {
 	const { token, loading: portalLoading, error: portalError } = usePortal();
 
 	const programIdNumber = Number(programId);
+	const cacheToken = token ? "cookie" : null;
 
 	const {
 		data: program,
 		isLoading,
 		error: programError,
 	} = useQuery({
-		queryKey: [...programKeys.all, "assigned-full", token, programIdNumber],
+		queryKey: [...programKeys.all, "assigned-full", cacheToken, programIdNumber],
 		queryFn: () => fetchMyProgramFull(token!, programIdNumber),
 		enabled: !!token && !portalLoading && !Number.isNaN(programIdNumber),
 		staleTime: 1000 * 60 * 15,

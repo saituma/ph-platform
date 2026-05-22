@@ -98,16 +98,17 @@ export function usePortalNotifications(options: UsePortalNotificationsOptions) {
 		const handlePossibleNotification = () => {
 			void refreshNotifications(true);
 		};
-
-		socket.on("connect", () => {
+		const handleConnect = () => {
 			void refreshNotifications(false);
-		});
+		};
 
+		socket.on("connect", handleConnect);
 		for (const event of REALTIME_NOTIFICATION_EVENTS) {
 			socket.on(event, handlePossibleNotification);
 		}
 
 		return () => {
+			socket.off("connect", handleConnect);
 			for (const event of REALTIME_NOTIFICATION_EVENTS) {
 				socket.off(event, handlePossibleNotification);
 			}

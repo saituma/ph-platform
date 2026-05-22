@@ -39,6 +39,7 @@ import { fetchMyAssignedPrograms } from "@/services/programsService";
 import { fetchBookings, fetchScheduledPrograms, type ScheduleEvent } from "@/services/scheduleService";
 import { settingsService } from "@/services/settingsService";
 import { fetchTeamRoster } from "@/services/teamRosterService";
+import { messageKeys } from "@/lib/portal-messages-keys";
 import { StoriesRow } from "@/components/StoriesRow";
 import { BetaTesterForm } from "@/components/BetaTesterForm";
 
@@ -283,16 +284,17 @@ function CoachDashboard({
 }) {
 	const coachPlan = getCoachTeamPortalPlanSummary(user);
 	const teamName = user.team?.name?.trim() || "Your Team";
+	const cacheToken = token ? "cookie" : null;
 
 	const { data: roster } = useQuery({
-		queryKey: ["teamRoster", token],
+		queryKey: ["teamRoster", cacheToken],
 		queryFn: () => fetchTeamRoster(token!),
 		enabled: !!token,
 		staleTime: 1000 * 60 * 5,
 	});
 
 	const { data: bookings = [] } = useQuery({
-		queryKey: ["schedule", "bookings", token],
+		queryKey: ["schedule", "bookings", cacheToken],
 		queryFn: () => fetchBookings(token!),
 		enabled: !!token,
 		staleTime: 1000 * 60 * 5,
@@ -673,8 +675,10 @@ function AthleteDashboard({
 	feedData: any;
 	feedLoading: boolean;
 }) {
+	const cacheToken = token ? "cookie" : null;
+
 	const { data: bookings = [] } = useQuery({
-		queryKey: ["schedule", "bookings", token],
+		queryKey: ["schedule", "bookings", cacheToken],
 		queryFn: () => fetchBookings(token!),
 		enabled: !!token,
 		staleTime: 1000 * 60 * 5,
@@ -688,14 +692,14 @@ function AthleteDashboard({
 	});
 
 	const { data: inboxData } = useQuery({
-		queryKey: ["inbox", token],
+		queryKey: messageKeys.inbox(cacheToken),
 		queryFn: () => fetchInbox(token!),
 		enabled: !!token,
 		staleTime: 1000 * 60 * 2,
 	});
 
 	const { data: assignedPrograms } = useQuery({
-		queryKey: ["assignedPrograms", token],
+		queryKey: ["programs", "assigned", cacheToken],
 		queryFn: () => fetchMyAssignedPrograms(token!),
 		enabled: !!token,
 		staleTime: 1000 * 60 * 5,

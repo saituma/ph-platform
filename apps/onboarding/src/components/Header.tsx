@@ -258,6 +258,7 @@ export default function Header() {
 	const { data: announcementsData } = useQuery({
 		queryKey: ["header-announcements"],
 		queryFn: () => settingsService.getNotifications(),
+		enabled: isLoggedIn,
 		staleTime: 5 * 60_000,
 	});
 	const latestAnnouncement = (announcementsData?.items ?? [])

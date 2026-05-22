@@ -19,8 +19,9 @@ import {
 
 export const programKeys = {
 	all: ["programs"] as const,
-	workspace: (token: string | null, age: number | null) =>
-		[...programKeys.all, "workspace", token, age] as const,
+	// age excluded from key — server determines the correct workspace from the user's profile
+	workspace: (token: string | null) =>
+		[...programKeys.all, "workspace", token] as const,
 	assigned: (token: string | null) =>
 		[...programKeys.all, "assigned", token] as const,
 };
@@ -55,7 +56,7 @@ export const Route = createFileRoute("/portal/programs/")({
 		const status = await getTokenStatus();
 		if (status.authenticated) {
 			await queryClient.ensureQueryData({
-				queryKey: programKeys.workspace("cookie", null),
+				queryKey: programKeys.workspace("cookie"),
 				queryFn: () => fetchTeamWorkspace("cookie", null),
 			});
 		}
@@ -97,11 +98,13 @@ function ProgramsPage() {
 
 	const isAdult = age != null && age >= 18;
 
+	const cacheToken = token ? "cookie" : null;
+
 	const {
 		data: assignedPrograms,
 		isLoading: assignedLoading,
 	} = useQuery({
-		queryKey: programKeys.assigned(token),
+		queryKey: programKeys.assigned(cacheToken),
 		queryFn: () => fetchMyAssignedPrograms(token!),
 		enabled: !!token && !portalLoading && isAdult,
 		staleTime: 1000 * 60 * 15,
@@ -112,7 +115,7 @@ function ProgramsPage() {
 		isLoading: programsLoading,
 		error: programsError,
 	} = useQuery({
-		queryKey: programKeys.workspace(token, age),
+		queryKey: programKeys.workspace(cacheToken),
 		queryFn: () => fetchTeamWorkspace(token!, age),
 		enabled: !!token && !portalLoading && !isAdult,
 		staleTime: 1000 * 60 * 15,
@@ -127,7 +130,7 @@ function ProgramsPage() {
 			if (Number.isFinite(targetUserId) && Number.isFinite(myUserId) && targetUserId > 0 && myUserId > 0 && targetUserId !== myUserId) {
 				return;
 			}
-			void queryClient.invalidateQueries({ queryKey: programKeys.assigned(token) });
+			void queryClient.invalidateQueries({ queryKey: programKeys.assigned(cacheToken) });
 		},
 		socketReady && isAdult,
 	);
