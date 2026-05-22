@@ -50,6 +50,13 @@ const BILLING_CYCLES: { id: BillingCycle; label: string; hint: string }[] = [
 	{ id: "yearly", label: "Yearly", hint: "Upfront" },
 ];
 
+const CYCLE_LABELS: Record<string, string> = {
+	weekly: "per week",
+	monthly: "per month",
+	six_months: "per 6 months",
+	yearly: "per year",
+};
+
 const TIER_ORDER: Record<string, number> = {
 	PHP: 1,
 	PHP_Premium: 2,
@@ -81,11 +88,13 @@ function formatDate(value?: string | null) {
 }
 
 function planPrice(plan: BillingPlan) {
+	// billingQuote.amount is cycle-specific (returned by the API per selected billingCycle)
+	// Fall back to displayPrice only — never fall back to pricing.monthly which would show
+	// the wrong price when a non-monthly cycle is selected.
 	return (
 		plan.billingQuote?.amount ??
-		plan.pricing?.monthly?.discounted ??
-		plan.pricing?.badge ??
 		plan.displayPrice ??
+		plan.pricing?.badge ??
 		"Contact team"
 	);
 }
@@ -504,7 +513,7 @@ function BillingPage() {
 											</motion.p>
 											<p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
 												{plan.billingQuote?.mode === "subscription"
-													? "per month · subscription"
+													? `${CYCLE_LABELS[plan.billingQuote.billingCycle ?? billingCycle] ?? "per month"} · subscription`
 													: billingCycle === "six_months"
 														? `${oneTimeDurationLabel(plan)} · one-time payment`
 														: billingCycle === "yearly"
