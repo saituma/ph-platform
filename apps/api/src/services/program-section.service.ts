@@ -2,6 +2,37 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "../db";
 import { programSectionContentTable, ProgramType, sessionType } from "../db/schema";
+import { extractPosterAndMetadata } from "./video-optimization.service";
+import { logger } from "../lib/logger";
+
+/** Fire-and-forget poster extraction for an admin content video. Uses the
+ *  lightweight no-transcode path so it doesn't block the admin's request
+ *  and won't OOM on 4K source files. */
+function schedulePosterExtractionForContent(contentId: number, videoUrl: string | null | undefined) {
+  if (!videoUrl) return;
+  void (async () => {
+    try {
+      const result = await extractPosterAndMetadata(videoUrl);
+      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      await db
+        .update(programSectionContentTable)
+        .set({
+          posterUrl: result.posterUrl,
+          durationSec: result.durationSec,
+          width: result.width,
+          height: result.height,
+          updatedAt: new Date(),
+        })
+        .where(eq(programSectionContentTable.id, contentId));
+      logger.info(
+        { contentId, posterGenerated: !!result.posterUrl, durationSec: result.durationSec },
+        "[ContentUpload] poster extracted",
+      );
+    } catch (err) {
+      logger.warn({ err, contentId }, "[ContentUpload] poster extraction failed");
+    }
+  })();
+}
 
 function normalizeAgeList(value: unknown): number[] {
   if (!Array.isArray(value)) return [];
@@ -88,6 +119,7 @@ export async function createProgramSectionContent(input: {
     })
     .returning();
 
+  if (result[0]) schedulePosterExtractionForContent(result[0].id, result[0].videoUrl);
   return result[0];
 }
 
@@ -121,6 +153,9 @@ export async function updateProgramSectionContent(input: {
     .where(eq(programSectionContentTable.id, input.id))
     .returning();
 
+  if (result[0] && input.videoUrl !== undefined) {
+    schedulePosterExtractionForContent(result[0].id, result[0].videoUrl);
+  }
   return result[0] ?? null;
 }
 

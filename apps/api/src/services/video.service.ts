@@ -254,6 +254,25 @@ export async function reviewVideoUpload(input: {
   const upload = result[0];
   if (!upload) return null;
 
+  // Fire-and-forget poster extraction for the coach's response video.
+  // Lightweight path — won't OOM on 4K, won't block the response.
+  if (input.coachVideoUrl) {
+    void (async () => {
+      try {
+        const { extractPosterAndMetadata } = await import("./video-optimization.service");
+        const result = await extractPosterAndMetadata(input.coachVideoUrl!);
+        if (!result?.posterUrl) return;
+        await db
+          .update(videoUploadTable)
+          .set({ coachVideoPosterUrl: result.posterUrl, updatedAt: new Date() })
+          .where(eq(videoUploadTable.id, input.uploadId));
+        logger.info({ uploadId: input.uploadId }, "[CoachResponse] poster extracted");
+      } catch (err) {
+        logger.warn({ err, uploadId: input.uploadId }, "[CoachResponse] poster extraction failed");
+      }
+    })();
+  }
+
   // Send push notification to user
   try {
     const [athlete] = await db

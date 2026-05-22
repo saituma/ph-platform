@@ -15,6 +15,43 @@ import {
   trainingSessionItemTable,
 } from "../../db/schema";
 import { normalizeAudienceLabel, ensureTrainingAudienceExists, listTrainingAudiences } from "./audience.service";
+import { extractPosterAndMetadata } from "../video-optimization.service";
+import { logger } from "../../lib/logger";
+
+/** Fire-and-forget poster extraction for training-content tables. Same
+ *  pattern used in admin/program.service + program-section.service — the
+ *  lightweight no-transcode path so it's safe for 4K sources on a 512 MB
+ *  Basic dyno and doesn't block the admin's request. */
+function schedulePosterExtraction(
+  table: typeof trainingSessionItemTable | typeof trainingOtherContentTable,
+  rowId: number,
+  videoUrl: string | null | undefined,
+  label: string,
+) {
+  if (!videoUrl) return;
+  void (async () => {
+    try {
+      const result = await extractPosterAndMetadata(videoUrl);
+      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      await db
+        .update(table)
+        .set({
+          posterUrl: result.posterUrl,
+          durationSec: result.durationSec,
+          width: result.width,
+          height: result.height,
+          updatedAt: new Date(),
+        })
+        .where(eq(table.id, rowId));
+      logger.info(
+        { table: label, rowId, posterGenerated: !!result.posterUrl, durationSec: result.durationSec },
+        "[TrainingContent] poster extracted",
+      );
+    } catch (err) {
+      logger.warn({ err, table: label, rowId }, "[TrainingContent] poster extraction failed");
+    }
+  })();
+}
 
 export type ExerciseMetadata = {
   sets?: number | null;
@@ -363,6 +400,7 @@ export async function createTrainingSessionItem(input: {
       order,
     })
     .returning();
+  if (row) schedulePosterExtraction(trainingSessionItemTable, row.id, row.videoUrl, "training_session_items");
   return row;
 }
 
@@ -390,6 +428,9 @@ export async function updateTrainingSessionItem(input: {
     })
     .where(eq(trainingSessionItemTable.id, input.id))
     .returning();
+  if (row && input.videoUrl !== undefined) {
+    schedulePosterExtraction(trainingSessionItemTable, row.id, row.videoUrl, "training_session_items");
+  }
   return row ?? null;
 }
 
@@ -433,6 +474,7 @@ export async function createTrainingOtherContent(input: {
       order,
     })
     .returning();
+  if (row) schedulePosterExtraction(trainingOtherContentTable, row.id, row.videoUrl, "training_other_contents");
   return row;
 }
 
@@ -460,6 +502,9 @@ export async function updateTrainingOtherContent(input: {
     })
     .where(eq(trainingOtherContentTable.id, input.id))
     .returning();
+  if (row && input.videoUrl !== undefined) {
+    schedulePosterExtraction(trainingOtherContentTable, row.id, row.videoUrl, "training_other_contents");
+  }
   return row ?? null;
 }
 

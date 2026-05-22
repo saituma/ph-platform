@@ -233,8 +233,8 @@ export function SessionExerciseBlock({
                       <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000", marginBottom: 16 }}>
                         <LazyVideo
                           uri={url}
-                          posterUri={(item as { posterUrl?: string | null }).posterUrl}
-                          durationSec={(item as { durationSec?: number | null }).durationSec ?? null}
+                          posterUri={item.posterUrl ?? null}
+                          durationSec={item.durationSec ?? null}
                           thumbLabel={item.title || "Exercise video"}
                           initialMuted
                           isLooping={false}

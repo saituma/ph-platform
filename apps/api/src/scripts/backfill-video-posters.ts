@@ -35,7 +35,13 @@
 import "dotenv/config";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../db";
-import { exerciseTable, programSectionContentTable, videoUploadTable } from "../db/schema";
+import {
+  exerciseTable,
+  programSectionContentTable,
+  trainingOtherContentTable,
+  trainingSessionItemTable,
+  videoUploadTable,
+} from "../db/schema";
 import { extractPosterAndMetadata } from "../services/video-optimization.service";
 
 const LIMIT = Number(process.env.BACKFILL_LIMIT) || Number.POSITIVE_INFINITY;
@@ -175,10 +181,56 @@ async function backfillVideoUploads() {
   }
 }
 
+async function backfillTrainingSessionItems() {
+  if (ONLY_TABLE && ONLY_TABLE !== "training_items") return;
+  const rows = await db
+    .select({ id: trainingSessionItemTable.id, videoUrl: trainingSessionItemTable.videoUrl })
+    .from(trainingSessionItemTable)
+    .where(and(isNotNull(trainingSessionItemTable.videoUrl), isNull(trainingSessionItemTable.posterUrl)));
+  console.log(`[training_session_items] ${rows.length} row(s) need posters`);
+  let processed = 0;
+  for (const row of rows as Row[]) {
+    if (processed >= LIMIT) break;
+    if (!row.videoUrl) continue;
+    await backfillRow("training_session_items", row.id, row.videoUrl, async (fields) => {
+      await db
+        .update(trainingSessionItemTable)
+        .set({ ...fields, updatedAt: new Date() })
+        .where(eq(trainingSessionItemTable.id, row.id));
+    });
+    processed += 1;
+    await sleep(SLEEP_MS);
+  }
+}
+
+async function backfillTrainingOtherContents() {
+  if (ONLY_TABLE && ONLY_TABLE !== "training_other") return;
+  const rows = await db
+    .select({ id: trainingOtherContentTable.id, videoUrl: trainingOtherContentTable.videoUrl })
+    .from(trainingOtherContentTable)
+    .where(and(isNotNull(trainingOtherContentTable.videoUrl), isNull(trainingOtherContentTable.posterUrl)));
+  console.log(`[training_other_contents] ${rows.length} row(s) need posters`);
+  let processed = 0;
+  for (const row of rows as Row[]) {
+    if (processed >= LIMIT) break;
+    if (!row.videoUrl) continue;
+    await backfillRow("training_other_contents", row.id, row.videoUrl, async (fields) => {
+      await db
+        .update(trainingOtherContentTable)
+        .set({ ...fields, updatedAt: new Date() })
+        .where(eq(trainingOtherContentTable.id, row.id));
+    });
+    processed += 1;
+    await sleep(SLEEP_MS);
+  }
+}
+
 async function main() {
   console.log(`[backfill-video-posters] starting  limit=${LIMIT === Infinity ? "∞" : LIMIT}  table=${ONLY_TABLE || "all"}`);
   await backfillExercises();
   await backfillSectionContents();
+  await backfillTrainingSessionItems();
+  await backfillTrainingOtherContents();
   await backfillVideoUploads();
   console.log("[backfill-video-posters] done");
 }

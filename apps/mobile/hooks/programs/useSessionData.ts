@@ -7,6 +7,8 @@ export type SessionItem = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   allowVideoUpload?: boolean | null;
   order: number;
   metadata?: {

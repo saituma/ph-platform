@@ -12,6 +12,38 @@ import {
   enrollmentTable,
   videoUploadTable,
 } from "../../db/schema";
+import { extractPosterAndMetadata } from "../video-optimization.service";
+import { logger } from "../../lib/logger";
+
+/** Fire-and-forget poster extraction for an admin exercise upload. Uses the
+ *  lightweight no-transcode path (safe for 4K, ~80 MB RSS peak) so it doesn't
+ *  block the admin's request and won't OOM. Re-enrich is skipped when the
+ *  URL hasn't changed since the last poster was extracted. */
+function schedulePosterExtractionForExercise(exerciseId: number, videoUrl: string | null | undefined) {
+  if (!videoUrl) return;
+  void (async () => {
+    try {
+      const result = await extractPosterAndMetadata(videoUrl);
+      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      await db
+        .update(exerciseTable)
+        .set({
+          posterUrl: result.posterUrl,
+          durationSec: result.durationSec,
+          width: result.width,
+          height: result.height,
+          updatedAt: new Date(),
+        })
+        .where(eq(exerciseTable.id, exerciseId));
+      logger.info(
+        { exerciseId, posterGenerated: !!result.posterUrl, durationSec: result.durationSec },
+        "[ExerciseUpload] poster extracted",
+      );
+    } catch (err) {
+      logger.warn({ err, exerciseId }, "[ExerciseUpload] poster extraction failed");
+    }
+  })();
+}
 
 export async function assignEnrollment(input: {
   athleteId: number;
@@ -206,6 +238,7 @@ export async function createExercise(input: {
     })
     .returning();
 
+  if (result[0]) schedulePosterExtractionForExercise(result[0].id, result[0].videoUrl);
   return result[0];
 }
 
@@ -283,6 +316,10 @@ export async function updateExercise(
 
   const updated = await db.update(exerciseTable).set(updatePayload).where(eq(exerciseTable.id, exerciseId)).returning();
 
+  // Re-extract poster only when the video URL actually changed.
+  if (input.videoUrl !== undefined && updated[0]) {
+    schedulePosterExtractionForExercise(exerciseId, updated[0].videoUrl);
+  }
   return updated[0] ?? null;
 }
 

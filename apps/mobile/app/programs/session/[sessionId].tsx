@@ -35,6 +35,7 @@ import { ProgramId } from "@/constants/program-details";
 import { useSessionData } from "@/hooks/programs/useSessionData";
 import { useSessionUploads } from "@/hooks/programs/useSessionUploads";
 import { SessionExerciseBlock } from "@/components/programs/SessionExerciseBlock";
+import { useSessionVideoPrefetch } from "@/hooks/useSessionVideoPrefetch";
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useVideoHistory } from "@/hooks/programs/useVideoHistory";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
@@ -292,6 +293,18 @@ export default function ProgramSessionDetailScreen() {
     () => session?.items?.filter((i) => i.blockType === "cooldown") ?? [],
     [session],
   );
+
+  // Predictive prefetch: warm the disk cache with every video on this youth
+  // session in display order (warmup → main → cooldown), so tapping a thumb
+  // plays instantly. Matches the adult assigned-session prefetch behaviour.
+  const prefetchTargets = useMemo(
+    () =>
+      [...warmupItems, ...mainItems, ...cooldownItems]
+        .map((item) => ({ url: item.videoUrl }))
+        .filter((entry) => !!entry.url),
+    [warmupItems, mainItems, cooldownItems],
+  );
+  useSessionVideoPrefetch(prefetchTargets);
 
   const completionAnchorItemId = useMemo(() => {
     const lastCooldown = cooldownItems[cooldownItems.length - 1];
