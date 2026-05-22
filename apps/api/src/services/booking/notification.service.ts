@@ -1,7 +1,14 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
-import { athleteTable, bookingTable, guardianTable, notificationTable, serviceTypeTable, userTable } from "../../db/schema";
+import {
+  athleteTable,
+  bookingTable,
+  guardianTable,
+  notificationTable,
+  serviceTypeTable,
+  userTable,
+} from "../../db/schema";
 import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
@@ -76,11 +83,16 @@ export async function notifyBookingRequested(input: {
     link: "/schedule",
   });
 
-  void createPushIntent({ userId: guardian.userId, title: "Booking requested", body: `${input.serviceName} request submitted`, data: {
-    type: "booking",
-    screen: "schedule",
-    url: "/schedule",
-  } });
+  void createPushIntent({
+    userId: guardian.userId,
+    title: "Booking requested",
+    body: `${input.serviceName} request submitted`,
+    data: {
+      type: "booking",
+      screen: "schedule",
+      url: "/schedule",
+    },
+  });
 
   if (user?.email) {
     try {

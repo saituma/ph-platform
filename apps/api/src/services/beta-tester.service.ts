@@ -21,15 +21,10 @@ export async function createBetaTester(input: {
 }
 
 export async function listBetaTesters() {
-  return db
-    .select()
-    .from(betaTesterTable)
-    .orderBy(desc(betaTesterTable.createdAt));
+  return db.select().from(betaTesterTable).orderBy(desc(betaTesterTable.createdAt));
 }
 
 export async function getBetaTesterCount() {
-  const [row] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(betaTesterTable);
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(betaTesterTable);
   return Number(row?.count ?? 0);
 }

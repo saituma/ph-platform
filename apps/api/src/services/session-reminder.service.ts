@@ -19,6 +19,13 @@ function formatTime(date: Date): string {
  * The 1–2 hour window means each session only falls into the window once
  * (the sweep runs every 30 minutes), which prevents duplicate reminders
  * without needing an extra column or de-dupe table.
+ *
+ * IMPORTANT: This deduplication relies on the sweep interval (30 min) being
+ * shorter than the reminder window width (1 hr). If the sweep interval is ever
+ * changed to ≥ 60 minutes, or if the job runs twice concurrently (e.g. after a
+ * crash-restart), a session could be reminded twice. To make this fully safe,
+ * add a `reminderSentAt` column to `scheduledSessionTable`, filter on
+ * `isNull(reminderSentAt)`, and set it atomically after sending.
  */
 export async function sendSessionReminders(): Promise<{ sent: number; sessions: number }> {
   const now = new Date();

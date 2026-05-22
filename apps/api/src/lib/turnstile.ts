@@ -49,7 +49,6 @@ function clientIp(req: Request): string | undefined {
   return req.ip;
 }
 
-
 export function requireTurnstile(req: Request, res: Response, next: NextFunction) {
   if (env.turnstileBypass || process.env.NODE_ENV !== "production") {
     return next();
@@ -62,17 +61,13 @@ export function requireTurnstile(req: Request, res: Response, next: NextFunction
   if (req.header("x-client-type") === "mobile") {
     return next();
   }
-  const token = (req.body && (req.body.turnstileToken || req.body["cf-turnstile-response"])) as
-    | string
-    | undefined;
+  const token = (req.body && (req.body.turnstileToken || req.body["cf-turnstile-response"])) as string | undefined;
   if (!token || typeof token !== "string") {
     return res.status(400).json({ error: "Verification challenge required." });
   }
   void verifyWithAnySecret(token, clientIp(req)).then((result) => {
     if (!result.success) {
-      return res
-        .status(403)
-        .json({ error: "Verification failed. Please try again.", codes: result.errorCodes });
+      return res.status(403).json({ error: "Verification failed. Please try again.", codes: result.errorCodes });
     }
     next();
   });

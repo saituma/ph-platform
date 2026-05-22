@@ -265,8 +265,7 @@ export async function startTeamOnboarding(input: {
       return { ok: true, teamId: teams[0].id };
     }
 
-    const inserted = await db
-      .execute(sql`
+    const inserted = await db.execute(sql`
         insert into "teams" ("name", "athleteType", "adminId", "minAge", "maxAge", "maxAthletes")
         values (
           ${input.name},
@@ -326,7 +325,10 @@ export async function startTeamOnboarding(input: {
     return { ok: true, teamId: newId ?? null };
   } catch (err) {
     if (!isKnownTeamsColumnMissing(err)) throw err;
-    logger.warn({ err }, "[onboarding] teams schema mismatch (email_slug/payment_mode); using legacy onboarding write path");
+    logger.warn(
+      { err },
+      "[onboarding] teams schema mismatch (email_slug/payment_mode); using legacy onboarding write path",
+    );
     return legacyStartTeamOnboarding();
   }
 }
@@ -401,15 +403,15 @@ export async function saveOnboardingGoals(input: {
         updatedAt: new Date(),
       })
       .where(eq(guardianTable.id, guardian[0].id));
-	} else if (isAthleteUserRole(user[0].role)) {
+  } else if (isAthleteUserRole(user[0].role)) {
     // For adult athletes, we can store phone in extraResponses or similar if no column exists
     // Actually, let's check if we can add it to user table if needed, but for now we'll use extraResponses on athleteTable
   }
 
   let athleteId: number | null = null;
 
-	if (isAthleteUserRole(user[0].role)) {
-		const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
+  if (isAthleteUserRole(user[0].role)) {
+    const athlete = await db.select().from(athleteTable).where(eq(athleteTable.userId, input.userId)).limit(1);
     athleteId = athlete[0]?.id ?? null;
   } else {
     // For guardians/coaches, update their active/primary athlete
@@ -430,10 +432,9 @@ export async function saveOnboardingGoals(input: {
       injuries: input.injuries ?? null,
       equipmentAccess: input.equipmentAccess ?? null,
       growthNotes: input.growthNotes ?? null,
-      extraResponses:
-        isAthleteUserRole(user[0].role)
-          ? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
-          : undefined,
+      extraResponses: isAthleteUserRole(user[0].role)
+        ? sql`COALESCE(${athleteTable.extraResponses}, '{}'::jsonb) || ${JSON.stringify({ phone: input.phone })}::jsonb`
+        : undefined,
       updatedAt: new Date(),
     })
     .where(eq(athleteTable.id, athleteId));
@@ -445,8 +446,8 @@ export async function getOnboardingByUser(userId: number) {
   const user = await getUserById(userId);
   if (!user) return null;
 
-	if (isAthleteUserRole(user.role)) {
-		const athletes = await db
+  if (isAthleteUserRole(user.role)) {
+    const athletes = await db
       .select()
       .from(athleteTable)
       .where(eq(athleteTable.userId, userId))
@@ -478,7 +479,10 @@ export async function getOnboardingByUser(userId: number) {
     try {
       await maybeSendBirthdayNotifications(decorated);
     } catch (error) {
-      logger.warn({ err: error }, "[Onboarding] Failed birthday notification side effect for athlete onboarding status");
+      logger.warn(
+        { err: error },
+        "[Onboarding] Failed birthday notification side effect for athlete onboarding status",
+      );
     }
     return decorated;
   }
@@ -841,7 +845,10 @@ export async function listGuardianAthletesWithUsers(userId: number) {
       try {
         return await ensureAthleteUserRecord(athlete);
       } catch (error) {
-        logger.warn({ err: error }, "[Onboarding] Failed to ensure athlete user record while listing guardian athletes");
+        logger.warn(
+          { err: error },
+          "[Onboarding] Failed to ensure athlete user record while listing guardian athletes",
+        );
         return athlete;
       }
     }),
@@ -852,7 +859,10 @@ export async function listGuardianAthletesWithUsers(userId: number) {
       try {
         await maybeSendBirthdayNotifications(athlete);
       } catch (error) {
-        logger.warn({ err: error }, "[Onboarding] Failed birthday notification side effect while listing guardian athletes");
+        logger.warn(
+          { err: error },
+          "[Onboarding] Failed birthday notification side effect while listing guardian athletes",
+        );
       }
     }),
   );
@@ -1144,11 +1154,16 @@ async function maybeSendBirthdayNotifications(
         read: false,
       });
 
-      await createPushIntent({ userId, title, body: content, data: {
-        type: "birthday",
-        url: birthdayLink,
-        athleteId: athlete.id,
-      } });
+      await createPushIntent({
+        userId,
+        title,
+        body: content,
+        data: {
+          type: "birthday",
+          url: birthdayLink,
+          athleteId: athlete.id,
+        },
+      });
     }),
   );
 }

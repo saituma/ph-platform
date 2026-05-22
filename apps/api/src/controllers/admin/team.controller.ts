@@ -97,7 +97,10 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       hasSponsoredPlayers: z.coerce.boolean().optional().default(false),
       sponsoredPlayerCount: z.coerce.number().int().min(0).optional().default(0),
       sponsoredTier: z.enum(ProgramType.enumValues).optional().nullable(),
-      paymentMode: z.enum(["coach_pays_all", "per_player_all", "per_player_selected"]).optional().default("coach_pays_all"),
+      paymentMode: z
+        .enum(["coach_pays_all", "per_player_all", "per_player_selected"])
+        .optional()
+        .default("coach_pays_all"),
       coachPaysSeats: z.coerce.number().int().min(0).optional(),
       playerEmails: z.array(z.string().email()).optional(),
       playerPayers: z
@@ -238,6 +241,15 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   const billingCycle = z.enum(["monthly", "6months", "yearly"]).optional().parse(req.body?.billingCycle) ?? "monthly";
   try {
+    const [teamRow] = await db
+      .select({ adminId: teamTable.adminId })
+      .from(teamTable)
+      .where(eq(teamTable.id, teamId))
+      .limit(1);
+    if (!teamRow) return res.status(404).json({ error: "Team not found." });
+    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const result = await approveTeamAdmin(teamId, billingCycle);
     return res.status(200).json(result);
   } catch (error: any) {
@@ -252,11 +264,21 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   const billingCycle = z.enum(["monthly", "6months", "yearly"]).optional().parse(req.body?.billingCycle) ?? "monthly";
   try {
+    const [teamRow] = await db
+      .select({ adminId: teamTable.adminId })
+      .from(teamTable)
+      .where(eq(teamTable.id, teamId))
+      .limit(1);
+    if (!teamRow) return res.status(404).json({ error: "Team not found." });
+    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const result = await approveTeamSponsorRestAdmin(teamId, billingCycle);
     return res.status(200).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
-    const message = typeof error?.message === "string" ? error.message : "Failed to approve and sponsor remaining players.";
+    const message =
+      typeof error?.message === "string" ? error.message : "Failed to approve and sponsor remaining players.";
     if (status >= 500) logger.error({ err: error }, "[admin] approveTeamSponsorRestAdminDetails");
     return res.status(status).json({ error: message });
   }
@@ -265,6 +287,15 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
 export async function deleteTeamAdminDetails(req: Request, res: Response) {
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   try {
+    const [teamRow] = await db
+      .select({ adminId: teamTable.adminId })
+      .from(teamTable)
+      .where(eq(teamTable.id, teamId))
+      .limit(1);
+    if (!teamRow) return res.status(404).json({ error: "Team not found." });
+    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const result = await deleteTeamAdmin(teamId);
     return res.status(200).json(result);
   } catch (error: any) {
@@ -282,10 +313,12 @@ export async function attachAthleteToTeamAdminDetails(req: Request, res: Respons
   }
   const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
   try {
-    const parsed = z.object({
-      allowMoveFromOtherTeam: z.coerce.boolean().optional(),
-      isSponsored: z.coerce.boolean().optional(),
-    }).safeParse(req.body ?? {});
+    const parsed = z
+      .object({
+        allowMoveFromOtherTeam: z.coerce.boolean().optional(),
+        isSponsored: z.coerce.boolean().optional(),
+      })
+      .safeParse(req.body ?? {});
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid request" });
     }

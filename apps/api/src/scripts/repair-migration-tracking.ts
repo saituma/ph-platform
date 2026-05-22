@@ -18,9 +18,7 @@ const migrationsTable = "__drizzle_migrations";
 async function main() {
   const migrations = readMigrationFiles({ migrationsFolder });
 
-  const appliedRows = await db.execute(
-    sql.raw(`SELECT hash FROM "${migrationsTable}"`),
-  );
+  const appliedRows = await db.execute(sql.raw(`SELECT hash FROM "${migrationsTable}"`));
   const appliedHashes = new Set(appliedRows.rows.map((r: any) => String(r.hash)));
 
   console.log(`Tracking table has ${appliedHashes.size} recorded migration(s).`);

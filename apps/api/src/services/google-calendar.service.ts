@@ -187,7 +187,10 @@ export async function getGoogleOAuthStartUrlForAdmin(userId: number) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function completeGoogleOAuthConnection(input: { code: string; state: string }): Promise<{ userId: number }> {
+export async function completeGoogleOAuthConnection(input: {
+  code: string;
+  state: string;
+}): Promise<{ userId: number }> {
   const userId = await verifyOAuthState(input.state);
   const tokenData = await exchangeOAuthCode(input.code);
   const refreshToken = (tokenData.refresh_token || "").trim();
@@ -260,11 +263,7 @@ export async function selectGoogleCalendarForAdmin(userId: number, calendarId: s
 }
 
 export async function getGoogleCalendarConnectionForAdmin(userId: number) {
-  const [row] = await db
-    .select()
-    .from(adminSettingsTable)
-    .where(eq(adminSettingsTable.userId, userId))
-    .limit(1);
+  const [row] = await db.select().from(adminSettingsTable).where(eq(adminSettingsTable.userId, userId)).limit(1);
   const calendarId = row?.googleCalendarId?.trim();
   const email = row?.googleServiceAccountEmail?.trim();
   const storedSecret = row?.googleServiceAccountPrivateKey?.trim();
@@ -323,10 +322,7 @@ export async function saveGoogleCalendarConnectionForAdmin(
 }
 
 export async function disconnectGoogleCalendarConnectionForAdmin(userId: number) {
-  await db
-    .insert(adminSettingsTable)
-    .values({ userId })
-    .onConflictDoNothing({ target: adminSettingsTable.userId });
+  await db.insert(adminSettingsTable).values({ userId }).onConflictDoNothing({ target: adminSettingsTable.userId });
   await db
     .update(adminSettingsTable)
     .set({
@@ -460,10 +456,7 @@ export async function upsertGoogleCalendarEvent(
   return json.id ?? null;
 }
 
-export async function deleteGoogleCalendarEvent(
-  eventId: string,
-  config: GoogleCalendarConfig,
-): Promise<void> {
+export async function deleteGoogleCalendarEvent(eventId: string, config: GoogleCalendarConfig): Promise<void> {
   const accessToken = await getCalendarAccessToken(config);
   const path = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(config.calendarId)}/events/${encodeURIComponent(eventId)}`;
   const res = await fetch(path, {

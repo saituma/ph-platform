@@ -109,6 +109,7 @@ export async function apiRequest<T>(
           "Cache-Control": "no-cache, no-store, must-revalidate",
           Pragma: "no-cache",
           Expires: "0",
+          "X-Client-Type": "mobile",
           ...(authToken ? { Authorization: `Bearer ${authToken.trim()}` } : {}),
           ...(options.headers ?? {}),
         },

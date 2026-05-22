@@ -103,7 +103,13 @@ async function applyPushTickets(userId: number, tickets: ExpoPushTicket[]) {
 async function sendToAdditionalDevices(
   userId: number,
   alreadySentToken: string,
-  payload: { title: string; body: string; data: Record<string, string>; channelId: string; categoryId: string | undefined },
+  payload: {
+    title: string;
+    body: string;
+    data: Record<string, string>;
+    channelId: string;
+    categoryId: string | undefined;
+  },
 ) {
   try {
     const deviceRows = await db
@@ -209,9 +215,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
       try {
         // Include categoryIdentifier in data so expo-notifications on Android
         // can attach Reply / Mark Read action buttons to the notification.
-        const fcmData = categoryId
-          ? { ...dataForDevice, categoryIdentifier: categoryId }
-          : dataForDevice;
+        const fcmData = categoryId ? { ...dataForDevice, categoryIdentifier: categoryId } : dataForDevice;
         await sendFcmPush({
           token: devicePushToken,
           title,

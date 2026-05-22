@@ -417,11 +417,17 @@ export default function AddTeamPage() {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="minAge">Min Age</Label>
-                  <Input id="minAge" type="number" value={minAge} onChange={(e) => setMinAge(e.target.value)} placeholder="e.g. 12" />
+                  <Input id="minAge" type="number" min={1} max={99} value={minAge} onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10);
+                    setMinAge(Number.isFinite(raw) ? String(Math.max(1, Math.min(99, raw))) : "");
+                  }} placeholder="e.g. 12" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="maxAge">Max Age</Label>
-                  <Input id="maxAge" type="number" value={maxAge} onChange={(e) => setMaxAge(e.target.value)} placeholder="e.g. 14" />
+                  <Input id="maxAge" type="number" min={1} max={99} value={maxAge} onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10);
+                    setMaxAge(Number.isFinite(raw) ? String(Math.max(1, Math.min(99, raw))) : "");
+                  }} placeholder="e.g. 14" />
                 </div>
               </>
             )}

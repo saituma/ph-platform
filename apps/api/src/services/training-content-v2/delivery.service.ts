@@ -265,9 +265,7 @@ function collectWorkoutTags(
 
   for (const item of items ?? []) {
     const metadata =
-      item.metadata && typeof item.metadata === "object"
-        ? (item.metadata as Record<string, unknown>)
-        : null;
+      item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>) : null;
     const category = typeof metadata?.category === "string" ? metadata.category.trim() : "";
     const equipment = typeof metadata?.equipment === "string" ? metadata.equipment.trim() : "";
     if (category) tags.add(category);

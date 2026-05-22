@@ -111,12 +111,7 @@ export async function reviveSoftDeletedUserForCognito(input: {
   return updated ?? null;
 }
 
-export async function createUserFromCognito(input: {
-  sub: string;
-  email: string;
-  name: string;
-  role?: UserRole;
-}) {
+export async function createUserFromCognito(input: { sub: string; email: string; name: string; role?: UserRole }) {
   const revived = await reviveSoftDeletedUserForCognito(input);
   if (revived) return revived;
 
@@ -146,7 +141,10 @@ export async function updateUserRole(userId: number, role: UserRole) {
   return result[0] ?? null;
 }
 
-export async function updateUserProfile(userId: number, input: { name?: string; profilePicture?: string | null; coverImage?: string | null }) {
+export async function updateUserProfile(
+  userId: number,
+  input: { name?: string; profilePicture?: string | null; coverImage?: string | null },
+) {
   const result = await db
     .update(userTable)
     .set({
@@ -335,7 +333,11 @@ export async function resolveDefaultBookingPartyForTrainingStaff(staffUserId: nu
   const user = await getUserById(staffUserId);
   if (!user || !isTrainingStaff(user.role)) return null;
 
-  const teams = await db.select({ id: teamTable.id }).from(teamTable).where(eq(teamTable.adminId, staffUserId)).limit(1);
+  const teams = await db
+    .select({ id: teamTable.id })
+    .from(teamTable)
+    .where(eq(teamTable.adminId, staffUserId))
+    .limit(1);
   const team = teams[0];
   if (!team) return null;
 
@@ -349,7 +351,7 @@ export async function resolveDefaultBookingPartyForTrainingStaff(staffUserId: nu
   const rosterAthlete = rosterRows[0];
   if (!rosterAthlete) return null;
 
-  let guardian: (typeof guardianTable.$inferSelect) | null = null;
+  let guardian: typeof guardianTable.$inferSelect | null = null;
   if (rosterAthlete.guardianId != null) {
     const [g] = await db.select().from(guardianTable).where(eq(guardianTable.id, rosterAthlete.guardianId)).limit(1);
     guardian = g ?? null;

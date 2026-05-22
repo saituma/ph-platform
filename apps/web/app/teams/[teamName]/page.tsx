@@ -364,14 +364,14 @@ export default function TeamDetailPage() {
   };
 
   const generatedEmail = useMemo(() => {
-    const slug = newAthleteName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const team = cleanTeamName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const slug = newAthleteName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+    const team = cleanTeamName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
     return slug && team ? `${slug}-${team}@phplatform.com` : "";
   }, [newAthleteName, cleanTeamName]);
 
   const fpGeneratedEmail = useMemo(() => {
-    const slug = fpName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const team = cleanTeamName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const slug = fpName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+    const team = cleanTeamName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
     return slug && team ? `${slug}-${team}@phplatform.com` : "";
   }, [fpName, cleanTeamName]);
 

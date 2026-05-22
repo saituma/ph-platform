@@ -147,10 +147,7 @@ export async function createTeamCheckoutSession(input: {
     }
     if (sponsoredPriceId) {
       const existing = lineItemQtyByPrice.get(sponsoredPriceId) ?? 0;
-      lineItemQtyByPrice.set(
-        sponsoredPriceId,
-        existing + Math.max(1, input.sponsoredLineItem.quantity),
-      );
+      lineItemQtyByPrice.set(sponsoredPriceId, existing + Math.max(1, input.sponsoredLineItem.quantity));
     }
   }
 
@@ -158,31 +155,33 @@ export async function createTeamCheckoutSession(input: {
     ([price, quantity]) => ({ price, quantity }),
   );
 
-  const session = await stripeBreaker.fire(() => stripeClient.checkout.sessions.create({
-    mode: input.mode,
-    customer_email: input.customerEmail,
-    ...(input.mode === "payment" ? { customer_creation: "always" } : {}),
-    payment_method_types: ["card"],
-    line_items: lineItems,
-    ...(input.mode === "payment" && input.customerEmail
-      ? { payment_intent_data: { receipt_email: input.customerEmail } }
-      : {}),
-    ...(input.mode === "subscription"
-      ? {
-          subscription_data: {
-            trial_end: nextBillingAnchor(),
-          },
-        }
-      : {}),
-    metadata: {
-      teamId: input.teamId,
-      adminId: input.adminId,
-      type: "team_subscription",
-      ...input.metadata,
-    },
-    success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&team_created=${input.teamId}`,
-    cancel_url: getCancelUrl(),
-  }));
+  const session = await stripeBreaker.fire(() =>
+    stripeClient.checkout.sessions.create({
+      mode: input.mode,
+      customer_email: input.customerEmail,
+      ...(input.mode === "payment" ? { customer_creation: "always" } : {}),
+      payment_method_types: ["card"],
+      line_items: lineItems,
+      ...(input.mode === "payment" && input.customerEmail
+        ? { payment_intent_data: { receipt_email: input.customerEmail } }
+        : {}),
+      ...(input.mode === "subscription"
+        ? {
+            subscription_data: {
+              trial_end: nextBillingAnchor(),
+            },
+          }
+        : {}),
+      metadata: {
+        teamId: input.teamId,
+        adminId: input.adminId,
+        type: "team_subscription",
+        ...input.metadata,
+      },
+      success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&team_created=${input.teamId}`,
+      cancel_url: getCancelUrl(),
+    }),
+  );
 
   return session;
 }
@@ -281,9 +280,7 @@ async function resolvePriceIdByLookupKey(lookupKey: string): Promise<string | nu
   const key = String(lookupKey ?? "").trim();
   if (!key) return null;
   try {
-    const prices = await stripeBreaker.fire(() =>
-      stripe!.prices.list({ lookup_keys: [key], active: true, limit: 1 }),
-    );
+    const prices = await stripeBreaker.fire(() => stripe!.prices.list({ lookup_keys: [key], active: true, limit: 1 }));
     return prices.data[0]?.id ?? null;
   } catch (err) {
     logger.warn({ err, lookupKey: key }, "[Stripe] Lookup failed");

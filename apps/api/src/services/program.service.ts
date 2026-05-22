@@ -116,9 +116,7 @@ export async function getProgramSessions(programId: number) {
                 reps: se.repsOverride ?? baseExercise.reps,
                 duration: se.durationOverride ?? baseExercise.duration,
                 restSeconds: se.restSecondsOverride ?? baseExercise.restSeconds,
-                category: runMeta
-                  ? `${baseExercise.category ?? "cardio_run"} · ${runMeta}`
-                  : baseExercise.category,
+                category: runMeta ? `${baseExercise.category ?? "cardio_run"} · ${runMeta}` : baseExercise.category,
               }
             : null,
         };
@@ -147,19 +145,20 @@ export async function getMyAssignedPrograms(userId: number) {
     .where(eq(programAssignmentTable.athleteId, athlete.id));
 
   const programIds = assignments.map((a) => a.programId);
-  const programs = programIds.length > 0
-    ? await db
-        .select({
-          id: programTable.id,
-          name: programTable.name,
-          description: programTable.description,
-          moduleCount: count(programModuleTable.id),
-        })
-        .from(programTable)
-        .leftJoin(programModuleTable, eq(programModuleTable.programId, programTable.id))
-        .where(inArray(programTable.id, programIds))
-        .groupBy(programTable.id)
-    : [];
+  const programs =
+    programIds.length > 0
+      ? await db
+          .select({
+            id: programTable.id,
+            name: programTable.name,
+            description: programTable.description,
+            moduleCount: count(programModuleTable.id),
+          })
+          .from(programTable)
+          .leftJoin(programModuleTable, eq(programModuleTable.programId, programTable.id))
+          .where(inArray(programTable.id, programIds))
+          .groupBy(programTable.id)
+      : [];
 
   const result: Array<{
     id: number;
@@ -219,9 +218,7 @@ export async function getMyProgramFull(userId: number, programId: number) {
   const [assignment] = await db
     .select({ id: programAssignmentTable.id })
     .from(programAssignmentTable)
-    .where(
-      and(eq(programAssignmentTable.athleteId, athlete.id), eq(programAssignmentTable.programId, programId)),
-    )
+    .where(and(eq(programAssignmentTable.athleteId, athlete.id), eq(programAssignmentTable.programId, programId)))
     .limit(1);
   if (!assignment) return null;
 
@@ -448,12 +445,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
       createdAt: videoUploadTable.createdAt,
     })
     .from(videoUploadTable)
-    .where(
-      and(
-        eq(videoUploadTable.athleteId, athlete.id),
-        inArray(videoUploadTable.sessionExerciseId, exerciseIds),
-      ),
-    )
+    .where(and(eq(videoUploadTable.athleteId, athlete.id), inArray(videoUploadTable.sessionExerciseId, exerciseIds)))
     .orderBy(desc(videoUploadTable.createdAt));
 
   const uploadByExercise = new Map<number, (typeof uploads)[number]>();
@@ -477,9 +469,7 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
         reps: row.repsOverride ?? row.exercise.reps,
         duration: row.durationOverride ?? row.exercise.duration,
         restSeconds: row.restSecondsOverride ?? row.exercise.restSeconds,
-        category: runMeta
-          ? `${row.exercise.category ?? "cardio_run"} · ${runMeta}`
-          : row.exercise.category,
+        category: runMeta ? `${row.exercise.category ?? "cardio_run"} · ${runMeta}` : row.exercise.category,
       },
       videoUpload: upload
         ? {
@@ -497,7 +487,12 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
 export async function completeMySession(
   userId: number,
   sessionId: number,
-  feedback?: { videoUrl?: string | null; weightsUsed?: string | null; repsCompleted?: string | null; rpe?: number | null },
+  feedback?: {
+    videoUrl?: string | null;
+    weightsUsed?: string | null;
+    repsCompleted?: string | null;
+    rpe?: number | null;
+  },
 ) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return null;
@@ -543,12 +538,7 @@ export async function completeMySession(
     const nextSession = await db
       .select({ id: sessionTable.id, title: sessionTable.title, sessionNumber: sessionTable.sessionNumber })
       .from(sessionTable)
-      .where(
-        and(
-          eq(sessionTable.moduleId, session.moduleId),
-          eq(sessionTable.programId, session.programId),
-        ),
-      )
+      .where(and(eq(sessionTable.moduleId, session.moduleId), eq(sessionTable.programId, session.programId)))
       .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber));
 
     const currentIdx = nextSession.findIndex((s) => s.id === sessionId);
@@ -585,10 +575,7 @@ export async function getMySessionCompletion(userId: number, sessionId: number) 
   return completion ?? null;
 }
 
-export async function setProgramSessionCoachResponse(input: {
-  completionId: number;
-  coachResponse: string;
-}) {
+export async function setProgramSessionCoachResponse(input: { completionId: number; coachResponse: string }) {
   const [updated] = await db
     .update(programSessionCompletionTable)
     .set({

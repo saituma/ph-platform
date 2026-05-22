@@ -114,17 +114,19 @@ export async function createDirectMessage(input: {
       senderId: input.senderId,
     });
     const title = `New message from ${senderName}`;
-    const body =
-      (input.contentType ?? "text") === "text"
-        ? safeContent
-        : `Sent a ${input.contentType ?? "message"}`;
+    const body = (input.contentType ?? "text") === "text" ? safeContent : `Sent a ${input.contentType ?? "message"}`;
 
-    await createPushIntent({ userId: input.receiverId, title, body, data: {
-      type: "message",
-      threadId: String(input.senderId),
-      url: `/messages/${String(input.senderId)}`,
-      mediaUrl: input.mediaUrl ?? null,
-    } });
+    await createPushIntent({
+      userId: input.receiverId,
+      title,
+      body,
+      data: {
+        type: "message",
+        threadId: String(input.senderId),
+        url: `/messages/${String(input.senderId)}`,
+        mediaUrl: input.mediaUrl ?? null,
+      },
+    });
   } catch (error) {
     log.error({ err: error }, "Failed to send direct chat push notification");
   }
@@ -183,33 +185,20 @@ async function ensureManagedTeamInboxMemberships(userId: number) {
     .limit(1);
 
   const role = String(user?.role ?? "");
-  const isTeamManagerRole =
-    role === "team_coach" || role === "coach" || role === "program_coach";
+  const isTeamManagerRole = role === "team_coach" || role === "coach" || role === "program_coach";
   if (!isTeamManagerRole) return;
 
-  const managedTeams = await db
-    .select({ name: teamTable.name })
-    .from(teamTable)
-    .where(eq(teamTable.adminId, userId));
+  const managedTeams = await db.select({ name: teamTable.name }).from(teamTable).where(eq(teamTable.adminId, userId));
 
   const managedTeamNames = Array.from(
-    new Set(
-      managedTeams
-        .map((team) => String(team.name ?? "").trim())
-        .filter(Boolean),
-    ),
+    new Set(managedTeams.map((team) => String(team.name ?? "").trim()).filter(Boolean)),
   );
   if (!managedTeamNames.length) return;
 
   const managedTeamGroups = await db
     .select({ id: chatGroupTable.id })
     .from(chatGroupTable)
-    .where(
-      and(
-        eq(chatGroupTable.category, "team"),
-        inArray(chatGroupTable.name, managedTeamNames),
-      ),
-    );
+    .where(and(eq(chatGroupTable.category, "team"), inArray(chatGroupTable.name, managedTeamNames)));
 
   const values = managedTeamGroups
     .map((group) => Number(group.id))
@@ -281,7 +270,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     id: number;
     name: string | null;
     category: string | null;
-    createdBy: number;
+    createdBy: number | null;
     createdAt: Date;
     memberCreatedAt: Date;
     memberLastReadAt: Date | null;
@@ -811,7 +800,10 @@ export async function createGroupMessage(input: {
       senderProfilePicture = sender[0]?.profilePicture ?? null;
       groupName = group[0]?.name ?? "Group";
     } catch (error) {
-      log.error({ err: error, traceId: trace?.traceId, messageId: message.id, groupId: input.groupId }, "Failed to load group message broadcast metadata");
+      log.error(
+        { err: error, traceId: trace?.traceId, messageId: message.id, groupId: input.groupId },
+        "Failed to load group message broadcast metadata",
+      );
     }
   }
 
@@ -819,7 +811,12 @@ export async function createGroupMessage(input: {
   if (io && insertedNewMessage) {
     const enriched = {
       ...(input.clientId ? { ...message, clientId: input.clientId } : message),
-      ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
+      ...(trace
+        ? {
+            clientTraceId: trace.traceId,
+            serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt),
+          }
+        : {}),
       contentType: resolveMessageMediaType({
         contentType: message.contentType,
         mediaUrl: message.mediaUrl,

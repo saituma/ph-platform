@@ -78,14 +78,48 @@ function OnboardingStep4b() {
 		setTeamId(resolvedTeamId);
 
 		const scopeKey = paymentConfigScopeKey(athletesCount);
-		// Load existing config if available for the same onboarding scope.
+		// BUG 2 FIX: Validate the teamId from localStorage against the authenticated user's actual team
+		// before trusting it for any server API calls.
 		(async () => {
+			let validatedTeamId = resolvedTeamId;
+			try {
+				const status = await getTokenStatus();
+				if (status.authenticated) {
+					const meRes = await fetch(`${config.api.baseUrl}/api/auth/me`, {
+						credentials: "include",
+						headers: getAuthHeaders(),
+					});
+					if (meRes.ok) {
+						const meData = await meRes.json().catch(() => ({}));
+						const serverTeamId = (meData as any)?.user?.teamId
+							?? (meData as any)?.user?.team?.id
+							?? null;
+						if (serverTeamId !== null && Number(serverTeamId) !== resolvedTeamId) {
+							// localStorage teamId was tampered — correct to server value
+							validatedTeamId = Number(serverTeamId);
+							setTeamId(validatedTeamId);
+							const stored = localStorage.getItem("team_onboarding_basic");
+							if (stored) {
+								try {
+									const parsed = JSON.parse(stored);
+									parsed.teamId = validatedTeamId;
+									localStorage.setItem("team_onboarding_basic", JSON.stringify(parsed));
+								} catch {}
+							}
+						}
+					}
+				}
+			} catch {
+				// Best effort — proceed with the value we have
+			}
+
+			// Load existing config if available for the same onboarding scope.
 			let loaded = false;
-			if (resolvedTeamId) {
+			if (validatedTeamId) {
 				try {
 					const status = await getTokenStatus();
 					if (status.authenticated) {
-						const res = await fetch(`${config.api.baseUrl}/api/billing/team/payment-config-draft/${resolvedTeamId}`, {
+						const res = await fetch(`${config.api.baseUrl}/api/billing/team/payment-config-draft/${validatedTeamId}`, {
 							credentials: "include",
 							headers: getAuthHeaders(),
 						});
@@ -211,6 +245,8 @@ function OnboardingStep4b() {
 
 		const coachEmail = (localStorage.getItem("pending_email") || "").trim().toLowerCase();
 
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 		if (paymentMode === "per_player_all") {
 			const missing = playerPayers.some((p) => !p.name.trim() || !p.email.trim());
 			if (missing) {
@@ -218,6 +254,15 @@ function OnboardingStep4b() {
 					description: "Please enter player name and payment email for every player.",
 				});
 				return;
+			}
+			// BUG 3 FIX: Validate email format for all players
+			for (const p of playerPayers) {
+				if (!emailRegex.test(p.email.trim())) {
+					toast.error("Invalid email: " + p.email.trim(), {
+						description: "Please enter a valid email address for every player.",
+					});
+					return;
+				}
 			}
 			const hasCoachEmail = playerPayers.some((p) => p.email.trim().toLowerCase() === coachEmail);
 			if (hasCoachEmail) {
@@ -242,6 +287,15 @@ function OnboardingStep4b() {
 					description: "Please enter player name and payment email for every selected player.",
 				});
 				return;
+			}
+			// BUG 3 FIX: Validate email format for selected players
+			for (const p of activePlayers) {
+				if (!emailRegex.test(p.email.trim())) {
+					toast.error("Invalid email: " + p.email.trim(), {
+						description: "Please enter a valid email address for every selected player.",
+					});
+					return;
+				}
 			}
 			const hasCoachEmail = activePlayers.some((p) => p.email.trim().toLowerCase() === coachEmail);
 			if (hasCoachEmail) {

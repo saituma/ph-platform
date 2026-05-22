@@ -228,16 +228,7 @@ export async function confirmLocal(input: { email: string; code: string; referra
     throw { status: 404, message: "User not found." };
   }
   if (user.emailVerified) {
-    const token = await createLocalToken({
-      sub: user.cognitoSub,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      userId: user.id,
-      tokenVersion: user.tokenVersion ?? 0,
-      expiresIn: "30d",
-    });
-    return { ok: true, accessToken: token, tokenType: "Bearer" };
+    throw { status: 400, message: "Already verified." };
   }
   if ((user.verificationAttempts ?? 0) >= 5) {
     throw { status: 429, message: "Too many verification attempts. Please request a new code." };
@@ -258,6 +249,7 @@ export async function confirmLocal(input: { email: string; code: string; referra
       .where(eq(userTable.id, user.id));
     throw { status: 400, message: "Invalid verification code." };
   }
+  const nextTokenVersion = (user.tokenVersion ?? 0) + 1;
   await db
     .update(userTable)
     .set({
@@ -265,6 +257,7 @@ export async function confirmLocal(input: { email: string; code: string; referra
       verificationCode: null,
       verificationExpiresAt: null,
       verificationAttempts: 0,
+      tokenVersion: nextTokenVersion,
       updatedAt: new Date(),
     })
     .where(eq(userTable.id, user.id));
@@ -275,7 +268,7 @@ export async function confirmLocal(input: { email: string; code: string; referra
     name: user.name,
     role: user.role,
     userId: user.id,
-    tokenVersion: user.tokenVersion ?? 0,
+    tokenVersion: nextTokenVersion,
     expiresIn: "30d",
   });
 

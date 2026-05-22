@@ -66,7 +66,10 @@ async function loadServices(params: {
   jest.resetModules();
   jest.doMock("../../src/db", () => ({ db: params.db }));
   jest.doMock("../../src/socket-hub", () => ({ getSocketServer: () => params.io }));
-  jest.doMock("../../src/services/outbox.service", () => ({ createPushIntent: params.pushEnqueue, createEmailIntent: jest.fn() }));
+  jest.doMock("../../src/services/outbox.service", () => ({
+    createPushIntent: params.pushEnqueue,
+    createEmailIntent: jest.fn(),
+  }));
   jest.doMock("../../src/lib/db-connectivity", () => ({
     withTransientDbRetryConfigured: (_label: string, fn: () => unknown) => fn(),
   }));

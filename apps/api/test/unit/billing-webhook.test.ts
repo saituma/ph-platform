@@ -21,13 +21,11 @@ jest.mock("../../src/services/billing/team-request.service", () => ({
   updateTeamPlayerInvitePaymentFromStripeSession: jest.fn(),
 }));
 
-jest.mock("../../src/lib/logger", () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+jest.mock("../../src/lib/logger", () => {
+  const child = jest.fn().mockReturnThis();
+  const log = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), child };
+  return { logger: log, createLogger: jest.fn(() => log) };
+});
 
 // Mock Stripe — we control constructEvent per test via the mockConstructEvent ref
 const mockConstructEvent = jest.fn();
@@ -81,9 +79,7 @@ function makeInvoice(subscriptionId: string | null, periodEnd: number | null = n
   return {
     customer: "cus_test_1",
     subscription: subscriptionId,
-    lines: periodEnd
-      ? { data: [{ period: { end: periodEnd } }] }
-      : { data: [] },
+    lines: periodEnd ? { data: [{ period: { end: periodEnd } }] } : { data: [] },
   };
 }
 
@@ -145,7 +141,9 @@ describe("stripeWebhook controller", () => {
       await stripeWebhook(req, res);
 
       expect(status).toHaveBeenCalledWith(400);
-      expect(json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Missing Stripe signature") }));
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining("Missing Stripe signature") }),
+      );
     });
 
     test("returns 400 when constructEvent throws (invalid signature)", async () => {
@@ -174,7 +172,9 @@ describe("stripeWebhook controller", () => {
       await stripeWebhook(req, res);
 
       expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Stripe is not configured") }));
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining("Stripe is not configured") }),
+      );
     });
   });
 
@@ -304,7 +304,9 @@ describe("stripeWebhook controller", () => {
       await stripeWebhook(makeReq(), res);
 
       expect(status).toHaveBeenCalledWith(500);
-      expect(json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.stringContaining("Failed to process webhook") }));
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.stringContaining("Failed to process webhook") }),
+      );
     });
   });
 
@@ -400,13 +402,15 @@ describe("stripeWebhook controller", () => {
       const mockSelect = db.select as jest.Mock;
       const mockUpdate = db.update as jest.Mock;
 
-      mockSelect.mockReturnValueOnce(mockSelectChain([{ id: 77 }]));
+      // Returns request with athleteId so athlete access is also revoked
+      mockSelect.mockReturnValueOnce(mockSelectChain([{ id: 77, athleteId: 42 }]));
       mockUpdate.mockReturnValue(mockUpdateChain());
 
       const { res, status, json } = makeRes();
       await stripeWebhook(makeReq(), res);
 
-      expect(db.update).toHaveBeenCalledTimes(1);
+      // 2 updates: subscriptionRequestTable + athleteTable (access revocation)
+      expect(db.update).toHaveBeenCalledTimes(2);
       expect(status).toHaveBeenCalledWith(200);
       expect(json).toHaveBeenCalledWith({ received: true });
     });

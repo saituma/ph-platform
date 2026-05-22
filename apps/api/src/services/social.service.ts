@@ -11,11 +11,7 @@ import {
   userTable,
 } from "../db/schema";
 import { normalizeStoredMediaUrl } from "./s3.service";
-import {
-  assertSocialEnabled,
-  getPrivacySettings,
-  getRunLikeSummary,
-} from "./social-privacy.service";
+import { assertSocialEnabled, getPrivacySettings, getRunLikeSummary } from "./social-privacy.service";
 import { getAthleteForUser } from "./user.service";
 
 export class SocialAccessError extends Error {
@@ -226,9 +222,7 @@ export async function getLeaderboard(input: {
           : desc(totalMetersSql);
 
   const scopeFilter =
-    input.teamId != null
-      ? eq(athleteTable.teamId, input.teamId)
-      : eq(athleteTable.athleteType, "adult");
+    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
   const rows = await db
     .select({
@@ -396,9 +390,7 @@ export async function listPublicRuns(input: {
 
   const runIds = page.map((r) => r.runLogId);
   const likeSummaries =
-    input.viewerUserId != null && runIds.length > 0
-      ? await getRunLikeSummary(input.viewerUserId, runIds)
-      : null;
+    input.viewerUserId != null && runIds.length > 0 ? await getRunLikeSummary(input.viewerUserId, runIds) : null;
 
   return {
     items: page.map((r) => {
@@ -425,11 +417,7 @@ export async function listPublicRuns(input: {
   };
 }
 
-export async function getPublicRunDetail(input: {
-  viewerUserId: number;
-  runLogId: number;
-  teamId?: number | null;
-}) {
+export async function getPublicRunDetail(input: { viewerUserId: number; runLogId: number; teamId?: number | null }) {
   if (input.teamId != null) {
     await ensureTeamPublicRun(input.runLogId, input.teamId);
   } else {
@@ -454,13 +442,7 @@ export async function getPublicRunDetail(input: {
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
     .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
-    .where(
-      and(
-        eq(runLogTable.id, input.runLogId),
-        scopeFilter,
-        eq(runLogTable.visibility, "public"),
-      ),
-    )
+    .where(and(eq(runLogTable.id, input.runLogId), scopeFilter, eq(runLogTable.visibility, "public")))
     .limit(1);
 
   if (!row.length) {

@@ -1,10 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import {
-  createBetaTester,
-  getBetaTesterCount,
-  listBetaTesters,
-} from "../services/beta-tester.service";
+import { createBetaTester, getBetaTesterCount, listBetaTesters } from "../services/beta-tester.service";
 
 const submitSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -16,9 +12,7 @@ const submitSchema = z.object({
 export async function submitBetaTester(req: Request, res: Response) {
   const parsed = submitSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
   }
 
   const tester = await createBetaTester(parsed.data);

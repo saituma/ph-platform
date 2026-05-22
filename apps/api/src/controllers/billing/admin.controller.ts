@@ -395,7 +395,10 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
         status: teamPlayerPaymentInviteTable.status,
       })
       .from(teamPlayerPaymentInviteTable)
-      .innerJoin(teamSubscriptionRequestTable, eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id))
+      .innerJoin(
+        teamSubscriptionRequestTable,
+        eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id),
+      )
       .innerJoin(teamTable, eq(teamSubscriptionRequestTable.teamId, teamTable.id))
       .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
       .where(eq(teamPlayerPaymentInviteTable.id, inviteId))
@@ -409,7 +412,11 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
     }
 
     const interval =
-      row.billingCycle === "yearly" ? "yearly" : row.billingCycle === "six_months" || row.billingCycle === "6months" ? "six_months" : "monthly";
+      row.billingCycle === "yearly"
+        ? "yearly"
+        : row.billingCycle === "six_months" || row.billingCycle === "6months"
+          ? "six_months"
+          : "monthly";
     let priceId = "";
     if (interval === "six_months") {
       const lookupKey = row.planTier ? `${String(row.planTier).toLowerCase()}_six_months` : "";
@@ -435,7 +442,7 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
     const amountCents =
       row.amountCents ??
       (interval === "yearly"
-        ? parsePriceToCents(row.planYearlyPrice) ?? parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice)
+        ? (parsePriceToCents(row.planYearlyPrice) ?? parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice))
         : interval === "six_months"
           ? (() => {
               const monthly = parsePriceToCents(row.planMonthlyPrice ?? row.planDisplayPrice);
@@ -462,20 +469,20 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
       priceId && !priceId.startsWith("seed_") ? { price: priceId, quantity: 1 } : fallbackLineItem();
     const createCheckoutSession = (lineItem: Stripe.Checkout.SessionCreateParams.LineItem) =>
       getStripeClient().checkout.sessions.create({
-      mode: interval === "monthly" ? "subscription" : "payment",
-      customer_email: row.playerEmail,
-      ...(interval !== "monthly" ? { customer_creation: "always" as const } : {}),
-      payment_method_types: ["card"],
-      line_items: [lineItem],
-      ...(interval !== "monthly" ? { payment_intent_data: { receipt_email: row.playerEmail } } : {}),
-      metadata: {
-        type: "team_player_invite",
-        inviteId: String(row.inviteId),
-        requestId: String(row.requestId),
-        teamId: String(row.teamId),
-      },
-      success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
-      cancel_url: getCancelUrl(),
+        mode: interval === "monthly" ? "subscription" : "payment",
+        customer_email: row.playerEmail,
+        ...(interval !== "monthly" ? { customer_creation: "always" as const } : {}),
+        payment_method_types: ["card"],
+        line_items: [lineItem],
+        ...(interval !== "monthly" ? { payment_intent_data: { receipt_email: row.playerEmail } } : {}),
+        metadata: {
+          type: "team_player_invite",
+          inviteId: String(row.inviteId),
+          requestId: String(row.requestId),
+          teamId: String(row.teamId),
+        },
+        success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
+        cancel_url: getCancelUrl(),
       });
     let session: Stripe.Checkout.Session;
     try {
@@ -516,7 +523,12 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
         .where(eq(teamPlayerPaymentInviteTable.id, inviteId));
       await db
         .update(teamSubscriptionRequestTable)
-        .set({ inviteEmailsReady: false, inviteEmailsLastAttemptAt: new Date(), inviteEmailsError: emailResult.error, updatedAt: new Date() })
+        .set({
+          inviteEmailsReady: false,
+          inviteEmailsLastAttemptAt: new Date(),
+          inviteEmailsError: emailResult.error,
+          updatedAt: new Date(),
+        })
         .where(eq(teamSubscriptionRequestTable.id, requestId));
       return res.status(502).json({ error: emailResult.error });
     }

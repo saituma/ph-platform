@@ -22,11 +22,7 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
 
   if (existing[0]) return existing[0].code;
 
-  const userRow = await db
-    .select({ name: userTable.name })
-    .from(userTable)
-    .where(eq(userTable.id, userId))
-    .limit(1);
+  const userRow = await db.select({ name: userTable.name }).from(userTable).where(eq(userTable.id, userId)).limit(1);
 
   const baseName = userRow[0]?.name ?? "USER";
 
@@ -40,10 +36,7 @@ export async function getOrCreateReferralCode(userId: number): Promise<string> {
       // Only retry on unique constraint violations (code collision or race on userId).
       // Re-throw anything else (connection errors, missing table, etc.).
       const isConstraintViolation =
-        typeof err === "object" &&
-        err !== null &&
-        "code" in err &&
-        (err as { code: string }).code === "23505";
+        typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "23505";
       if (!isConstraintViolation) throw err;
     }
   }
@@ -156,15 +149,24 @@ export async function getAdminReferralOverview() {
   const joineeMap = new Map(joineeRows.map((j) => [j.id, j]));
 
   // Group by referrer
-  const byReferrer = new Map<number, {
-    referrerId: number;
-    referrerName: string | null;
-    referrerEmail: string | null;
-    referrerRole: string | null;
-    code: string;
-    codeCreatedAt: Date;
-    claims: Array<{ id: number; claimedAt: Date; joineeName: string | null; joineeEmail: string | null; joineeId: number }>;
-  }>();
+  const byReferrer = new Map<
+    number,
+    {
+      referrerId: number;
+      referrerName: string | null;
+      referrerEmail: string | null;
+      referrerRole: string | null;
+      code: string;
+      codeCreatedAt: Date;
+      claims: Array<{
+        id: number;
+        claimedAt: Date;
+        joineeName: string | null;
+        joineeEmail: string | null;
+        joineeId: number;
+      }>;
+    }
+  >();
 
   for (const row of rows) {
     if (!byReferrer.has(row.referrerId)) {

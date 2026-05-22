@@ -19,11 +19,7 @@ const feedbackSchema = z.object({
   feedback: z.string().max(2000),
 });
 
-async function canWriteForUser(input: {
-  actorUserId: number;
-  actorRole: string;
-  targetUserId: number;
-}) {
+async function canWriteForUser(input: { actorUserId: number; actorRole: string; targetUserId: number }) {
   if (input.targetUserId === input.actorUserId) return true;
   if (isTrainingStaff(input.actorRole)) return true;
   if (input.actorRole !== "guardian") return false;
@@ -32,12 +28,7 @@ async function canWriteForUser(input: {
     .select({ id: athleteTable.id })
     .from(athleteTable)
     .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-    .where(
-      and(
-        eq(guardianTable.userId, input.actorUserId),
-        eq(athleteTable.userId, input.targetUserId),
-      ),
-    )
+    .where(and(eq(guardianTable.userId, input.actorUserId), eq(athleteTable.userId, input.targetUserId)))
     .limit(1);
 
   return Boolean(ownedAthlete);
@@ -48,11 +39,7 @@ export async function listWellbeingLogs(req: Request, res: Response) {
 
   try {
     const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
-    let targetUserId = userIdRaw === "me"
-      ? req.user.id
-      : userIdRaw
-        ? Number(userIdRaw)
-        : req.user.id;
+    let targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
 
     if (!Number.isFinite(targetUserId)) {
       return res.status(400).json({ error: "Invalid user ID" });
@@ -76,12 +63,7 @@ export async function listWellbeingLogs(req: Request, res: Response) {
           .select({ id: athleteTable.id })
           .from(athleteTable)
           .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-          .where(
-            and(
-              eq(guardianTable.userId, req.user.id),
-              eq(athleteTable.userId, targetUserId),
-            ),
-          )
+          .where(and(eq(guardianTable.userId, req.user.id), eq(athleteTable.userId, targetUserId)))
           .limit(1);
         if (!ownedAthlete) {
           return res.status(403).json({ error: "Forbidden" });
@@ -142,9 +124,7 @@ export async function upsertWellbeingLog(req: Request, res: Response) {
 
     const parsed = wellbeingLogSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
     }
     const input = parsed.data;
 
@@ -161,12 +141,7 @@ export async function upsertWellbeingLog(req: Request, res: Response) {
       const [existing] = await tx
         .select()
         .from(wellbeingLogsTable)
-        .where(
-          and(
-            eq(wellbeingLogsTable.userId, targetUserId),
-            eq(wellbeingLogsTable.dateKey, input.dateKey),
-          ),
-        )
+        .where(and(eq(wellbeingLogsTable.userId, targetUserId), eq(wellbeingLogsTable.dateKey, input.dateKey)))
         .limit(1);
 
       if (existing) {
@@ -208,11 +183,7 @@ export async function deleteWellbeingLog(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid log ID" });
   }
 
-  const [log] = await db
-    .select()
-    .from(wellbeingLogsTable)
-    .where(eq(wellbeingLogsTable.id, logId))
-    .limit(1);
+  const [log] = await db.select().from(wellbeingLogsTable).where(eq(wellbeingLogsTable.id, logId)).limit(1);
 
   if (!log) return res.status(404).json({ error: "Not found" });
 
@@ -247,16 +218,10 @@ export async function addWellbeingFeedback(req: Request, res: Response) {
 
   const parsed = feedbackSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+    return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
   }
 
-  const [log] = await db
-    .select()
-    .from(wellbeingLogsTable)
-    .where(eq(wellbeingLogsTable.id, logId))
-    .limit(1);
+  const [log] = await db.select().from(wellbeingLogsTable).where(eq(wellbeingLogsTable.id, logId)).limit(1);
 
   if (!log) return res.status(404).json({ error: "Not found" });
 

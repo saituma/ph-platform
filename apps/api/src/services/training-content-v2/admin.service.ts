@@ -259,7 +259,13 @@ export async function updateTrainingModule(input: { id: number; title: string; o
   return row ?? null;
 }
 
-export async function deleteTrainingModule(id: number) {
+export async function deleteTrainingModule(id: number, userId: number) {
+  const [module] = await db
+    .select({ id: trainingModuleTable.id })
+    .from(trainingModuleTable)
+    .where(and(eq(trainingModuleTable.id, id), eq(trainingModuleTable.createdBy, userId)))
+    .limit(1);
+  if (!module) return null;
   await db.delete(trainingModuleTierLockTable).where(eq(trainingModuleTierLockTable.startModuleId, id));
   await db.delete(trainingSessionTierLockTable).where(eq(trainingSessionTierLockTable.moduleId, id));
   const sessions = await db
@@ -315,7 +321,15 @@ export async function updateTrainingModuleSession(input: {
   return row ?? null;
 }
 
-export async function deleteTrainingModuleSession(id: number) {
+export async function deleteTrainingModuleSession(id: number, userId: number) {
+  // trainingModuleSessionTable has no createdBy; verify ownership via parent module
+  const [session] = await db
+    .select({ id: trainingModuleSessionTable.id })
+    .from(trainingModuleSessionTable)
+    .innerJoin(trainingModuleTable, eq(trainingModuleSessionTable.moduleId, trainingModuleTable.id))
+    .where(and(eq(trainingModuleSessionTable.id, id), eq(trainingModuleTable.createdBy, userId)))
+    .limit(1);
+  if (!session) return null;
   await db.delete(trainingSessionTierLockTable).where(eq(trainingSessionTierLockTable.startSessionId, id));
   await db.delete(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.sessionId, id));
   await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.sessionId, id));
@@ -379,7 +393,13 @@ export async function updateTrainingSessionItem(input: {
   return row ?? null;
 }
 
-export async function deleteTrainingSessionItem(id: number) {
+export async function deleteTrainingSessionItem(id: number, userId: number) {
+  const [item] = await db
+    .select({ id: trainingSessionItemTable.id })
+    .from(trainingSessionItemTable)
+    .where(and(eq(trainingSessionItemTable.id, id), eq(trainingSessionItemTable.createdBy, userId)))
+    .limit(1);
+  if (!item) return null;
   const [row] = await db.delete(trainingSessionItemTable).where(eq(trainingSessionItemTable.id, id)).returning();
   return row ?? null;
 }
@@ -443,7 +463,13 @@ export async function updateTrainingOtherContent(input: {
   return row ?? null;
 }
 
-export async function deleteTrainingOtherContent(id: number) {
+export async function deleteTrainingOtherContent(id: number, userId: number) {
+  const [content] = await db
+    .select({ id: trainingOtherContentTable.id })
+    .from(trainingOtherContentTable)
+    .where(and(eq(trainingOtherContentTable.id, id), eq(trainingOtherContentTable.createdBy, userId)))
+    .limit(1);
+  if (!content) return null;
   const [row] = await db.delete(trainingOtherContentTable).where(eq(trainingOtherContentTable.id, id)).returning();
   return row ?? null;
 }

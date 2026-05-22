@@ -36,10 +36,7 @@ function buildEmail(usernameSlug: string, teamSlug: string) {
 async function ensureTeamEmailSlugRow(team: typeof teamTable.$inferSelect) {
   if (team.emailSlug?.trim()) return team.emailSlug.trim().toLowerCase();
   const slug = `${slugifySegment(team.name)}-${team.id}`;
-  await db
-    .update(teamTable)
-    .set({ emailSlug: slug, updatedAt: new Date() })
-    .where(eq(teamTable.id, team.id));
+  await db.update(teamTable).set({ emailSlug: slug, updatedAt: new Date() }).where(eq(teamTable.id, team.id));
   return slug;
 }
 
@@ -133,9 +130,7 @@ export async function getTeamRosterAthleteDetail(user: AuthUser, athleteId: numb
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(
-      and(eq(athleteTable.id, athleteId), eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)),
-    )
+    .where(and(eq(athleteTable.id, athleteId), eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)))
     .limit(1);
 
   const row = rows[0];
@@ -167,9 +162,7 @@ export async function resetTeamAthletePassword(
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(
-      and(eq(athleteTable.id, athleteId), eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)),
-    )
+    .where(and(eq(athleteTable.id, athleteId), eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)))
     .limit(1);
 
   const row = rows[0];
@@ -177,8 +170,7 @@ export async function resetTeamAthletePassword(
     throw { status: 404, message: "Athlete not on this team." };
   }
 
-  const tempPassword =
-    customPasswordPlain !== undefined ? customPasswordPlain : generateProvisionPassword();
+  const tempPassword = customPasswordPlain !== undefined ? customPasswordPlain : generateProvisionPassword();
   const { hash, salt } = hashProvisionPassword(tempPassword);
 
   await db
@@ -216,10 +208,7 @@ export async function updateTeamEmailSlug(user: AuthUser, input: { teamId?: numb
     throw { status: 409, message: "That team email segment is already in use." };
   }
 
-  await db
-    .update(teamTable)
-    .set({ emailSlug: next, updatedAt: new Date() })
-    .where(eq(teamTable.id, team.id));
+  await db.update(teamTable).set({ emailSlug: next, updatedAt: new Date() }).where(eq(teamTable.id, team.id));
 
   return { emailSlug: next };
 }
@@ -242,34 +231,9 @@ export async function createTeamRosterAthlete(
     throw { status: 403, message: "Team not found or access denied." };
   }
 
-  const countRows = await db
-    .select({ memberCount: count() })
-    .from(athleteTable)
-    .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(and(eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)));
-  const memberCount = Number(countRows[0]?.memberCount ?? 0);
-
-  if (memberCount >= team.maxAthletes) {
-    throw {
-      status: 403,
-      message: `Team is full (${memberCount}/${team.maxAthletes}). Upgrade the plan or increase seats to add athletes.`,
-    };
-  }
-
   const usernameSlug = slugifySegment(input.username, 32);
   if (usernameSlug.length < 2) {
     throw { status: 400, message: "Username must be at least 2 letters or numbers." };
-  }
-
-  const teamSlug = await ensureTeamEmailSlugRow(team);
-  let email = buildEmail(usernameSlug, teamSlug);
-  let suffix = 1;
-  while ((await getUserByEmail(email)) !== null) {
-    email = buildEmail(`${usernameSlug}${suffix}`, teamSlug);
-    suffix += 1;
-    if (suffix > 50) {
-      throw { status: 409, message: "Could not allocate a unique email; try a different username." };
-    }
   }
 
   const displayName = input.name.trim();
@@ -291,93 +255,125 @@ export async function createTeamRosterAthlete(
     birthDateStr = bd.toISOString().slice(0, 10);
   }
 
+  const teamSlug = await ensureTeamEmailSlugRow(team);
+  let email = buildEmail(usernameSlug, teamSlug);
+  let suffix = 1;
+  while ((await getUserByEmail(email)) !== null) {
+    email = buildEmail(`${usernameSlug}${suffix}`, teamSlug);
+    suffix += 1;
+    if (suffix > 50) {
+      throw { status: 409, message: "Could not allocate a unique email; try a different username." };
+    }
+  }
+
   const athleteType = age >= 18 ? ("adult" as const) : ("youth" as const);
-  const tempPassword =
-    input.customPassword !== undefined ? input.customPassword : generateProvisionPassword();
+  const tempPassword = input.customPassword !== undefined ? input.customPassword : generateProvisionPassword();
   const { hash, salt } = hashProvisionPassword(tempPassword);
 
-  let userId: number | null = null;
+  // Resolve sponsored plan info before entering the transaction
+  let sponsoredTier: (typeof athleteTable.$inferInsert)["currentProgramTier"] = undefined;
+  let sponsoredPlanIdValue: number | undefined;
+  if (input.isSponsored && team.sponsoredPlanId) {
+    const [sponsoredPlan] = await db
+      .select({ id: subscriptionPlanTable.id, tier: subscriptionPlanTable.tier })
+      .from(subscriptionPlanTable)
+      .where(eq(subscriptionPlanTable.id, team.sponsoredPlanId))
+      .limit(1);
+    if (sponsoredPlan?.tier) {
+      sponsoredTier = sponsoredPlan.tier;
+      sponsoredPlanIdValue = sponsoredPlan.id;
+    }
+  }
+
+  // BUG 4 FIX: Wrap capacity check + insert in a transaction so concurrent
+  // requests cannot both pass the capacity gate and both insert an athlete.
+  let athleteId: number;
+  let userId: number;
   try {
-    const insertedUser = await db
-      .insert(userTable)
-      .values({
-        cognitoSub: `local:team-athlete:${crypto.randomUUID()}`,
-        name: displayName,
-        email,
-        role: "team_athlete",
-        passwordHash: hash,
-        passwordSalt: salt,
-        emailVerified: true,
-        profilePicture: input.profilePicture?.trim() || null,
-      })
-      .returning({ id: userTable.id });
-    userId = insertedUser[0]?.id ?? null;
-    if (!userId) throw new Error("User insert failed");
+    const result = await db.transaction(async (tx) => {
+      // Re-check capacity inside the transaction (serialised read)
+      const countRows = await tx
+        .select({ memberCount: count() })
+        .from(athleteTable)
+        .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
+        .where(and(eq(athleteTable.teamId, team.id), eq(userTable.isDeleted, false)));
+      const memberCount = Number(countRows[0]?.memberCount ?? 0);
 
-    let sponsoredTier: typeof athleteTable.$inferInsert["currentProgramTier"] = undefined;
-    let sponsoredPlanIdValue: number | undefined;
-    if (input.isSponsored && team.sponsoredPlanId) {
-      const [sponsoredPlan] = await db
-        .select({ id: subscriptionPlanTable.id, tier: subscriptionPlanTable.tier })
-        .from(subscriptionPlanTable)
-        .where(eq(subscriptionPlanTable.id, team.sponsoredPlanId))
-        .limit(1);
-      if (sponsoredPlan?.tier) {
-        sponsoredTier = sponsoredPlan.tier;
-        sponsoredPlanIdValue = sponsoredPlan.id;
+      if (memberCount >= team.maxAthletes) {
+        throw {
+          status: 403,
+          message: `Team is full (${memberCount}/${team.maxAthletes}). Upgrade the plan or increase seats to add athletes.`,
+        };
       }
-    }
 
-    const insertedAthlete = await db
-      .insert(athleteTable)
-      .values({
-        userId,
-        guardianId: null,
-        athleteType,
-        name: displayName,
-        age,
-        birthDate: birthDateStr,
-        teamId: team.id,
-        team: team.name,
-        trainingPerWeek: 3,
-        profilePicture: input.profilePicture?.trim() || null,
-        isSponsored: input.isSponsored ?? false,
-        currentProgramTier: sponsoredTier ?? undefined,
-        currentPlanId: sponsoredPlanIdValue ?? undefined,
-        onboardingCompleted: true,
-        onboardingCompletedAt: new Date(),
-      })
-      .returning({ id: athleteTable.id });
+      const insertedUser = await tx
+        .insert(userTable)
+        .values({
+          cognitoSub: `local:team-athlete:${crypto.randomUUID()}`,
+          name: displayName,
+          email,
+          role: "team_athlete",
+          passwordHash: hash,
+          passwordSalt: salt,
+          emailVerified: true,
+          profilePicture: input.profilePicture?.trim() || null,
+        })
+        .returning({ id: userTable.id });
+      const newUserId = insertedUser[0]?.id ?? null;
+      if (!newUserId) throw new Error("User insert failed");
 
-    const athleteId = insertedAthlete[0]?.id;
-    if (!athleteId) throw new Error("Athlete insert failed");
+      const insertedAthlete = await tx
+        .insert(athleteTable)
+        .values({
+          userId: newUserId,
+          guardianId: null,
+          athleteType,
+          name: displayName,
+          age,
+          birthDate: birthDateStr,
+          teamId: team.id,
+          team: team.name,
+          trainingPerWeek: 3,
+          profilePicture: input.profilePicture?.trim() || null,
+          isSponsored: input.isSponsored ?? false,
+          currentProgramTier: sponsoredTier ?? undefined,
+          currentPlanId: sponsoredPlanIdValue ?? undefined,
+          onboardingCompleted: true,
+          onboardingCompletedAt: new Date(),
+        })
+        .returning({ id: athleteTable.id });
 
-    await db.insert(legalAcceptanceTable).values({
-      athleteId,
-      termsAcceptedAt: new Date(),
-      termsVersion: "1.0",
-      privacyAcceptedAt: new Date(),
-      privacyVersion: "1.0",
-      appVersion: "1.0.0",
+      const newAthleteId = insertedAthlete[0]?.id;
+      if (!newAthleteId) throw new Error("Athlete insert failed");
+
+      await tx.insert(legalAcceptanceTable).values({
+        athleteId: newAthleteId,
+        termsAcceptedAt: new Date(),
+        termsVersion: "1.0",
+        privacyAcceptedAt: new Date(),
+        privacyVersion: "1.0",
+        appVersion: "1.0.0",
+      });
+
+      return { athleteId: newAthleteId, userId: newUserId };
     });
-
-    await addTeamAthleteToTeamChat(team.name, userId, user.id).catch((err) => {
-      logger.warn({ err }, "[team-roster] addTeamAthleteToTeamChat failed");
-    });
-
-    return {
-      athleteId,
-      userId,
-      email,
-      temporaryPassword: tempPassword,
-      teamSlug,
-    };
-  } catch (e) {
-    if (userId) {
-      await db.update(userTable).set({ isDeleted: true, updatedAt: new Date() }).where(eq(userTable.id, userId));
-    }
+    athleteId = result.athleteId;
+    userId = result.userId;
+  } catch (e: any) {
     throw e;
   }
+
+  await addTeamAthleteToTeamChat(team.name, userId, user.id).catch((err) => {
+    logger.warn({ err }, "[team-roster] addTeamAthleteToTeamChat failed");
+  });
+
+  return {
+    athleteId,
+    userId,
+    email,
+    temporaryPassword: tempPassword,
+    teamSlug,
+  };
 }
 
 export async function updateTeamRosterAthlete(

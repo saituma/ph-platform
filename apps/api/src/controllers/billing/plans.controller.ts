@@ -3,12 +3,7 @@ import { z } from "zod";
 import { desc, eq } from "drizzle-orm";
 
 import { ProgramType } from "../../db/schema";
-import {
-  athleteTable,
-  guardianTable,
-  subscriptionPlanTable,
-  subscriptionRequestTable,
-} from "../../db/schema";
+import { athleteTable, guardianTable, subscriptionPlanTable, subscriptionRequestTable } from "../../db/schema";
 import { getMessagingAccessTiers } from "../../services/messaging-policy.service";
 import { db } from "../../db";
 import { getAthleteForUser } from "../../services/user.service";
@@ -50,13 +45,13 @@ export async function listPlans(req: Request, res: Response) {
 
 export async function getBillingStatus(req: Request, res: Response) {
   const userId = req.user!.id;
-  const isDebugUser = String(req.user?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com";
+  const isDebugUser =
+    String(req.user?.email ?? "")
+      .trim()
+      .toLowerCase() === "dawitanother@gmail.com";
 
   const fetchStatus = async () => {
-    const [messagingAccessTiers, athlete] = await Promise.all([
-      getMessagingAccessTiers(),
-      getAthleteForUser(userId),
-    ]);
+    const [messagingAccessTiers, athlete] = await Promise.all([getMessagingAccessTiers(), getAthleteForUser(userId)]);
     if (!athlete) {
       return { athlete: null, currentProgramTier: null, latestRequest: null, messagingAccessTiers };
     }
@@ -133,7 +128,10 @@ export async function downgradePlan(req: Request, res: Response) {
 
   const updated = await updateAthleteProgramTier(athlete.id, targetTier);
   if (athlete.guardianId) {
-    await db.update(guardianTable).set({ currentProgramTier: targetTier, updatedAt: new Date() }).where(eq(guardianTable.id, athlete.guardianId));
+    await db
+      .update(guardianTable)
+      .set({ currentProgramTier: targetTier, updatedAt: new Date() })
+      .where(eq(guardianTable.id, athlete.guardianId));
   }
   const latestRequest = await getLatestSubscriptionRequest({
     userId: req.user!.id,

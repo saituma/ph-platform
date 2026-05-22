@@ -222,7 +222,7 @@ export function RunShareCard({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setCapturing(true);
     try {
-      const cam = cameraRef.current;
+      const cam = cameraRef.current as CameraView & { takePicture?: (opts: object) => Promise<{ uri: string }> };
       const photo =
         typeof cam.takePictureAsync === "function"
           ? await cam.takePictureAsync({ quality: 0.92 })

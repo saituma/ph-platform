@@ -58,10 +58,7 @@ export async function getSocialPostDetail(postId: number, viewerUserId?: number)
   if (!post) throw new SocialAccessError("NOT_FOUND", "Post not found");
 
   const [likes, comments] = await Promise.all([
-    db
-      .select({ count: sql<string>`count(*)` })
-      .from(socialPostLikeTable)
-      .where(eq(socialPostLikeTable.postId, postId)),
+    db.select({ count: sql<string>`count(*)` }).from(socialPostLikeTable).where(eq(socialPostLikeTable.postId, postId)),
     db
       .select({ count: sql<string>`count(*)` })
       .from(socialPostCommentTable)
@@ -73,12 +70,7 @@ export async function getSocialPostDetail(postId: number, viewerUserId?: number)
     const like = await db
       .select({ id: socialPostLikeTable.id })
       .from(socialPostLikeTable)
-      .where(
-        and(
-          eq(socialPostLikeTable.postId, postId),
-          eq(socialPostLikeTable.userId, viewerUserId)
-        )
-      )
+      .where(and(eq(socialPostLikeTable.postId, postId), eq(socialPostLikeTable.userId, viewerUserId)))
       .limit(1);
     userLiked = like.length > 0;
   }
@@ -108,9 +100,7 @@ export async function listSocialPosts(input: {
   const cursor = input.cursor;
 
   const scopeFilter =
-    input.teamId != null
-      ? eq(athleteTable.teamId, input.teamId)
-      : eq(athleteTable.athleteType, "adult");
+    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
 
   const rows = await db
     .select({
@@ -126,17 +116,14 @@ export async function listSocialPosts(input: {
     .from(socialPostTable)
     .innerJoin(userTable, eq(userTable.id, socialPostTable.userId))
     .innerJoin(athleteTable, eq(athleteTable.userId, socialPostTable.userId))
-    .innerJoin(
-      socialPrivacySettingsTable,
-      eq(socialPrivacySettingsTable.userId, socialPostTable.userId)
-    )
+    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, socialPostTable.userId))
     .where(
       and(
         scopeFilter,
         eq(socialPostTable.visibility, "public"),
         eq(socialPrivacySettingsTable.socialEnabled, true),
-        cursor ? lt(socialPostTable.id, cursor) : sql`true`
-      )
+        cursor ? lt(socialPostTable.id, cursor) : sql`true`,
+      ),
     )
     .orderBy(desc(socialPostTable.id))
     .limit(limit + 1);
@@ -162,12 +149,7 @@ export async function listSocialPosts(input: {
         const like = await db
           .select({ id: socialPostLikeTable.id })
           .from(socialPostLikeTable)
-          .where(
-            and(
-              eq(socialPostLikeTable.postId, p.id),
-              eq(socialPostLikeTable.userId, input.viewerUserId)
-            )
-          )
+          .where(and(eq(socialPostLikeTable.postId, p.id), eq(socialPostLikeTable.userId, input.viewerUserId)))
           .limit(1);
         userLiked = like.length > 0;
       }
@@ -185,29 +167,21 @@ export async function listSocialPosts(input: {
         commentCount: Number(comments[0]?.count ?? 0),
         userLiked,
       };
-    })
+    }),
   );
 
   return { items, nextCursor };
 }
 
 export async function likeSocialPost(userId: number, postId: number) {
-  await db
-    .insert(socialPostLikeTable)
-    .values({ userId, postId })
-    .onConflictDoNothing();
+  await db.insert(socialPostLikeTable).values({ userId, postId }).onConflictDoNothing();
   return { ok: true };
 }
 
 export async function unlikeSocialPost(userId: number, postId: number) {
   await db
     .delete(socialPostLikeTable)
-    .where(
-      and(
-        eq(socialPostLikeTable.userId, userId),
-        eq(socialPostLikeTable.postId, postId)
-      )
-    );
+    .where(and(eq(socialPostLikeTable.userId, userId), eq(socialPostLikeTable.postId, postId)));
   return { ok: true };
 }
 
@@ -307,11 +281,6 @@ async function getPostCommentDetail(commentId: number, viewerUserId?: number) {
 export async function deletePostComment(userId: number, commentId: number) {
   await db
     .delete(socialPostCommentTable)
-    .where(
-      and(
-        eq(socialPostCommentTable.id, commentId),
-        eq(socialPostCommentTable.userId, userId)
-      )
-    );
+    .where(and(eq(socialPostCommentTable.id, commentId), eq(socialPostCommentTable.userId, userId)));
   return { ok: true };
 }

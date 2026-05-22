@@ -182,7 +182,12 @@ export async function createVideoUpload(input: {
       });
 
       logger.info(
-        { uploadId: upload.id, bytesBefore: optimized.bytesBefore, bytesAfter: optimized.bytesAfter, bytesSaved: optimized.bytesBefore - optimized.bytesAfter },
+        {
+          uploadId: upload.id,
+          bytesBefore: optimized.bytesBefore,
+          bytesAfter: optimized.bytesAfter,
+          bytesSaved: optimized.bytesBefore - optimized.bytesAfter,
+        },
         `[VideoOptimization] upload=${upload.id} optimized`,
       );
     } catch (err) {
@@ -218,19 +223,19 @@ export async function listVideoUploadsByAthlete(
     .limit(effectiveLimit);
 }
 
-export async function reviewVideoUpload(input: { 
-  uploadId: number; 
-  coachId: number; 
+export async function reviewVideoUpload(input: {
+  uploadId: number;
+  coachId: number;
   feedback: string;
   coachVideoUrl?: string | null;
 }) {
   const result = await db
     .update(videoUploadTable)
-    .set({ 
-      reviewedByCoach: input.coachId, 
-      reviewedAt: new Date(), 
+    .set({
+      reviewedByCoach: input.coachId,
+      reviewedAt: new Date(),
       feedback: input.feedback,
-      coachVideoUrl: input.coachVideoUrl ?? null
+      coachVideoUrl: input.coachVideoUrl ?? null,
     })
     .where(eq(videoUploadTable.id, input.uploadId))
     .returning();

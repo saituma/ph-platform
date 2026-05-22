@@ -157,20 +157,30 @@ export async function runNutritionLogReminderSweep() {
       })
       .where(eq(userTable.id, athlete.id));
 
-    void createPushIntent({ userId: athlete.id, title, body, data: {
-      type: "nutrition_reminder",
-      url: "/nutrition",
-      dateKey,
-    } });
-
-    const guardianUserIds = await getGuardianUserIdsForAthleteUserId(athlete.id);
-    for (const guardianUserId of guardianUserIds) {
-      void createPushIntent({ userId: guardianUserId, title, body, data: {
+    void createPushIntent({
+      userId: athlete.id,
+      title,
+      body,
+      data: {
         type: "nutrition_reminder",
         url: "/nutrition",
         dateKey,
-        athleteUserId: athlete.id,
-      } });
+      },
+    });
+
+    const guardianUserIds = await getGuardianUserIdsForAthleteUserId(athlete.id);
+    for (const guardianUserId of guardianUserIds) {
+      void createPushIntent({
+        userId: guardianUserId,
+        title,
+        body,
+        data: {
+          type: "nutrition_reminder",
+          url: "/nutrition",
+          dateKey,
+          athleteUserId: athlete.id,
+        },
+      });
     }
 
     sent++;

@@ -10,7 +10,10 @@ function todayKey(): string {
 }
 
 const STREAK_MESSAGES = [
-  { title: "🔥 Don't break your streak!", body: "You haven't logged activity today. Keep your streak alive before midnight!" },
+  {
+    title: "🔥 Don't break your streak!",
+    body: "You haven't logged activity today. Keep your streak alive before midnight!",
+  },
   { title: "⚡ Streak at risk!", body: "Log a session or sleep to protect your streak today." },
   { title: "🏃 Your streak is waiting!", body: "You're on a roll — don't let today slip by without logging." },
 ];
@@ -68,10 +71,7 @@ export async function runStreakReminderSweep() {
     }
   }
 
-  logger.info(
-    { sent, skipped, totalAtRisk: atRisk.length, today },
-    "[streak-reminder] sweep complete",
-  );
+  logger.info({ sent, skipped, totalAtRisk: atRisk.length, today }, "[streak-reminder] sweep complete");
 
   return { sent, skipped, totalAtRisk: atRisk.length };
 }

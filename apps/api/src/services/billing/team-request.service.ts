@@ -3,7 +3,13 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
-import { subscriptionPlanTable, teamSubscriptionRequestTable, teamPlayerPaymentInviteTable, teamTable, userTable } from "../../db/schema";
+import {
+  subscriptionPlanTable,
+  teamSubscriptionRequestTable,
+  teamPlayerPaymentInviteTable,
+  teamTable,
+  userTable,
+} from "../../db/schema";
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { getStripeClient } from "./stripe.service";
@@ -76,7 +82,7 @@ async function reconcileTeamRequestPayments(requestId: number) {
   const coachPaymentComplete = !coachNeedsPayment || isPaidRequestPaymentStatus(request.paymentStatus);
 
   const allPaymentsComplete = coachPaymentComplete && invitePaymentsComplete;
-  const nextPaymentStatus = allPaymentsComplete ? "paid" : request.paymentStatus ?? "unpaid";
+  const nextPaymentStatus = allPaymentsComplete ? "paid" : (request.paymentStatus ?? "unpaid");
   const nextStatus =
     request.status === "approved" || request.status === "rejected"
       ? request.status
@@ -283,7 +289,8 @@ function planSeatAmountCents(
   const cycle = String(billingCycle ?? "monthly").toLowerCase();
   const monthly = parsePriceToCents(plan.monthlyPrice ?? plan.displayPrice);
   if (cycle === "yearly") return parsePriceToCents(plan.yearlyPrice) ?? monthly;
-  if (cycle === "6months" || cycle === "six_months") return monthly != null ? monthly * 6 : parsePriceToCents(plan.displayPrice);
+  if (cycle === "6months" || cycle === "six_months")
+    return monthly != null ? monthly * 6 : parsePriceToCents(plan.displayPrice);
   return monthly;
 }
 
@@ -356,7 +363,9 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
       subscriptionStatus: "active",
       planPaymentType: paymentTypeForCycle(cycle),
       planCommitmentMonths:
-        String(cycle ?? "").trim().toLowerCase() === "six_months" && Number(planDurationWeeks ?? 0) > 0
+        String(cycle ?? "")
+          .trim()
+          .toLowerCase() === "six_months" && Number(planDurationWeeks ?? 0) > 0
           ? null
           : commitmentMonthsForCycle(cycle),
       planExpiresAt: expiresAt,
@@ -419,7 +428,9 @@ export async function sponsorTeamPlayerPaymentInvite(requestId: number, inviteId
     .where(eq(teamPlayerPaymentInviteTable.requestId, requestId));
   const inviteEmailsReady =
     invites.length === 0 ||
-    invites.every((row) => row.status === "paid" || row.emailSentAt != null || row.emailLastError === "sponsored_by_manager");
+    invites.every(
+      (row) => row.status === "paid" || row.emailSentAt != null || row.emailLastError === "sponsored_by_manager",
+    );
 
   await db
     .update(teamSubscriptionRequestTable)
@@ -525,7 +536,10 @@ export async function listPlayerPaymentInvites(requestId: number) {
       planYearlyPrice: subscriptionPlanTable.yearlyPrice,
     })
     .from(teamPlayerPaymentInviteTable)
-    .innerJoin(teamSubscriptionRequestTable, eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id))
+    .innerJoin(
+      teamSubscriptionRequestTable,
+      eq(teamPlayerPaymentInviteTable.requestId, teamSubscriptionRequestTable.id),
+    )
     .leftJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
     .where(eq(teamPlayerPaymentInviteTable.requestId, requestId))
     .orderBy(desc(teamPlayerPaymentInviteTable.createdAt));
@@ -536,7 +550,13 @@ export async function listPlayerPaymentInvites(requestId: number) {
       monthlyPrice: row.planMonthlyPrice,
       yearlyPrice: row.planYearlyPrice,
     });
-    const { planBillingCycle: _planBillingCycle, planDisplayPrice: _planDisplayPrice, planMonthlyPrice: _planMonthlyPrice, planYearlyPrice: _planYearlyPrice, ...invite } = row;
+    const {
+      planBillingCycle: _planBillingCycle,
+      planDisplayPrice: _planDisplayPrice,
+      planMonthlyPrice: _planMonthlyPrice,
+      planYearlyPrice: _planYearlyPrice,
+      ...invite
+    } = row;
     return {
       ...invite,
       amountCents: invite.amountCents ?? fallbackAmountCents,
@@ -568,12 +588,18 @@ export async function updateTeamPlayerInvitePaymentFromStripeSession(
   const invite = inviteRows[0] ?? null;
   if (!invite) return null;
 
+  // BUG 5 FIX: Do not mark an already-expired invite as paid.
+  if (invite.status === "expired") {
+    logger.warn({ inviteId: invite.id, sessionId }, "[Billing] Ignoring payment for expired player invite");
+    return null;
+  }
+
   const nextInviteStatus = deriveInviteStatusFromStripe(paymentStatus, eventType);
   // Keep paid invites sticky; do not regress to non-paid due out-of-order webhook events.
   const finalInviteStatus = invite.status === "paid" && nextInviteStatus !== "paid" ? "paid" : nextInviteStatus;
   const paidAt =
     finalInviteStatus === "paid"
-      ? invite.paidAt ?? new Date((session.created ? session.created : Math.floor(Date.now() / 1000)) * 1000)
+      ? (invite.paidAt ?? new Date((session.created ? session.created : Math.floor(Date.now() / 1000)) * 1000))
       : null;
 
   const [updatedInvite] = await db

@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import {
@@ -184,9 +184,7 @@ export async function createCheckoutSession(input: {
     )
     .orderBy(desc(subscriptionRequestTable.createdAt));
 
-  const alreadyActive = existingForPlan.find(
-    (r) => r.status === "approved" || r.status === "pending_approval",
-  );
+  const alreadyActive = existingForPlan.find((r) => r.status === "approved" || r.status === "pending_approval");
   if (alreadyActive) {
     const reason =
       alreadyActive.status === "approved"
@@ -198,9 +196,7 @@ export async function createCheckoutSession(input: {
     throw err;
   }
 
-  const reusable = existingForPlan.find(
-    (r) => r.status === "pending_payment" && r.stripeSessionId,
-  );
+  const reusable = existingForPlan.find((r) => r.status === "pending_payment" && r.stripeSessionId);
   if (reusable && reusable.stripeSessionId) {
     try {
       const stripeClient = getStripeClient();
@@ -356,7 +352,10 @@ export async function createPaymentSheetIntent(input: {
   if (plan.billingInterval === "one_time") {
     const price = await stripeClient.prices.retrieve(priceId);
     const amount = price.unit_amount ?? 0;
-    if (!amount || !price.currency) {
+    if (!amount || amount <= 0) {
+      throw new Error("Invalid plan price");
+    }
+    if (!price.currency) {
       throw new Error("Invalid Stripe price");
     }
     const paymentIntent = await stripeClient.paymentIntents.create({
@@ -532,6 +531,12 @@ export async function updateRequestFromStripeSession(session: Stripe.Checkout.Se
   const request = requests[0] ?? null;
   if (!request) {
     return null;
+  }
+
+  // Idempotency guard: if already approved, skip re-processing to prevent webhook replays
+  // from overwriting the approved status back to pending_approval.
+  if (request.status === "approved") {
+    return request;
   }
 
   const nextStatus =
@@ -807,7 +812,11 @@ export async function approveSubscriptionRequest(requestId: number) {
     }
 
     if (request.guardianId) {
-      const guardianPayload: { currentProgramTier?: typeof request.planTier; currentPlanId?: number | null; updatedAt: Date } = {
+      const guardianPayload: {
+        currentProgramTier?: typeof request.planTier;
+        currentPlanId?: number | null;
+        updatedAt: Date;
+      } = {
         updatedAt: new Date(),
       };
       if (request.planTier) guardianPayload.currentProgramTier = request.planTier;
@@ -815,7 +824,9 @@ export async function approveSubscriptionRequest(requestId: number) {
       if (Object.keys(guardianPayload).length > 1) {
         await tx.update(guardianTable).set(guardianPayload).where(eq(guardianTable.id, request.guardianId));
       }
-      await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.guardianId, request.guardianId));
+      // IMPORTANT: update only the specific athlete in this request, not ALL athletes under the guardian.
+      // A guardian may have multiple athletes on different plans.
+      await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.id, request.athleteId));
     } else {
       await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.id, request.athleteId));
     }

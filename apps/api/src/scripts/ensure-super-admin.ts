@@ -36,22 +36,22 @@ async function upsertSuperAdmin() {
     return;
   }
 
-  await db
-    .insert(userTable)
-    .values({
-      email,
-      name,
-      role: "superAdmin",
-      cognitoSub: sub,
-      passwordHash: hash,
-      passwordSalt: salt,
-      emailVerified: true,
-    });
+  await db.insert(userTable).values({
+    email,
+    name,
+    role: "superAdmin",
+    cognitoSub: sub,
+    passwordHash: hash,
+    passwordSalt: salt,
+    emailVerified: true,
+  });
 
   console.log(`User ${email} created as superAdmin.`);
 }
 
-upsertSuperAdmin().catch((error) => {
-  console.error(error);
-  process.exit(1);
-}).then(() => process.exit(0));
+upsertSuperAdmin()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .then(() => process.exit(0));

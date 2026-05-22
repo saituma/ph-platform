@@ -334,9 +334,7 @@ export async function buildGeneratedOccurrencesInRange(
   const configured = services.flatMap((service) =>
     buildConfiguredOccurrences(service, from, to, occurrenceCounts, slotCounts),
   );
-  const configuredKeys = new Set(
-    configured.map((item) => `${item.serviceTypeId}:${item.occurrenceKey}`),
-  );
+  const configuredKeys = new Set(configured.map((item) => `${item.serviceTypeId}:${item.occurrenceKey}`));
   const legacyCandidates = services.filter((service) => {
     const hasConfig =
       Boolean(service.oneTimeDate && service.oneTimeTime) ||

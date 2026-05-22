@@ -1,11 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
-import {
-  listSleepLogs,
-  upsertSleepLog,
-  deleteSleepLog,
-  addSleepFeedback,
-} from "../controllers/sleep.controller";
+import { listSleepLogs, upsertSleepLog, deleteSleepLog, addSleepFeedback } from "../controllers/sleep.controller";
 
 const router = Router();
 

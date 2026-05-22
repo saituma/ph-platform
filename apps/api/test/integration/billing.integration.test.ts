@@ -259,10 +259,7 @@ describe("billing integration", () => {
     });
 
     test("returns 400 when planId is missing", async () => {
-      const res = await request(app)
-        .post("/api/billing/checkout")
-        .set("Authorization", "Bearer test-token")
-        .send({});
+      const res = await request(app).post("/api/billing/checkout").set("Authorization", "Bearer test-token").send({});
 
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty("error");
@@ -543,9 +540,7 @@ describe("billing integration", () => {
         const fromFn = jest.fn().mockReturnValue({ where: whereFn });
         return { from: fromFn };
       };
-      (db.select as jest.Mock)
-        .mockReturnValueOnce(makeEmptyChain())
-        .mockReturnValueOnce(makeEmptyChain());
+      (db.select as jest.Mock).mockReturnValueOnce(makeEmptyChain()).mockReturnValueOnce(makeEmptyChain());
 
       const res = await request(app)
         .post("/api/billing/webhook")
@@ -573,9 +568,7 @@ describe("billing integration", () => {
         const fromFn = jest.fn().mockReturnValue({ where: whereFn });
         return { from: fromFn };
       };
-      (db.select as jest.Mock)
-        .mockReturnValueOnce(makeEmptyChain())
-        .mockReturnValueOnce(makeEmptyChain());
+      (db.select as jest.Mock).mockReturnValueOnce(makeEmptyChain()).mockReturnValueOnce(makeEmptyChain());
 
       const res = await request(app)
         .post("/api/billing/webhook")

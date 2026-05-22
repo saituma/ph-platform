@@ -194,8 +194,28 @@ describe("getGuardianChildren", () => {
     const guardian = { id: 5, userId: 1, activeAthleteId: null };
     const athleteIds = [{ id: 20 }, { id: 21 }];
     const athletes = [
-      { id: 20, name: "Kid A", age: 10, athleteType: "youth", teamId: null, teamName: null, currentProgramTier: null, currentPlanId: null, performanceGoals: null },
-      { id: 21, name: "Kid B", age: 12, athleteType: "youth", teamId: null, teamName: null, currentProgramTier: null, currentPlanId: null, performanceGoals: null },
+      {
+        id: 20,
+        name: "Kid A",
+        age: 10,
+        athleteType: "youth",
+        teamId: null,
+        teamName: null,
+        currentProgramTier: null,
+        currentPlanId: null,
+        performanceGoals: null,
+      },
+      {
+        id: 21,
+        name: "Kid B",
+        age: 12,
+        athleteType: "youth",
+        teamId: null,
+        teamName: null,
+        currentProgramTier: null,
+        currentPlanId: null,
+        performanceGoals: null,
+      },
     ];
     queueSelects([guardian], athleteIds, athletes);
 
@@ -231,7 +251,16 @@ describe("getGuardianChild", () => {
 
   it("returns 'forbidden' when athlete doesn't belong to guardian", async () => {
     const guardian = { id: 5, userId: 1, activeAthleteId: null };
-    const athlete = { id: 20, name: "Other Kid", age: 9, athleteType: "youth", teamName: null, currentProgramTier: null, performanceGoals: null, injuries: null };
+    const athlete = {
+      id: 20,
+      name: "Other Kid",
+      age: 9,
+      athleteType: "youth",
+      teamName: null,
+      currentProgramTier: null,
+      performanceGoals: null,
+      injuries: null,
+    };
     // guardian row, athlete row, ownership check (empty = not owned)
     queueSelects([guardian], [athlete], []);
 
@@ -243,7 +272,16 @@ describe("getGuardianChild", () => {
 
   it("returns athlete data when athlete is owned via activeAthleteId", async () => {
     const guardian = { id: 5, userId: 1, activeAthleteId: 20 };
-    const athlete = { id: 20, name: "My Kid", age: 10, athleteType: "youth", teamName: null, currentProgramTier: null, performanceGoals: null, injuries: null };
+    const athlete = {
+      id: 20,
+      name: "My Kid",
+      age: 10,
+      athleteType: "youth",
+      teamName: null,
+      currentProgramTier: null,
+      performanceGoals: null,
+      injuries: null,
+    };
     // After ownership confirmed via activeAthleteId, subsequent queries:
     // assignments, sessionCounts (none), completedCounts (none), logs
     queueSelects([guardian], [athlete], [], [], [], []);
@@ -295,8 +333,30 @@ describe("getGuardianChildAttendance", () => {
     const guardian = { id: 5, userId: 1, activeAthleteId: null };
     const athlete = { id: 20, userId: 50, guardianId: 5 };
     const rows = [
-      { id: 1, status: "attended", checkInAt: null, markedAt: null, sessionId: 1, sessionName: "Session A", sessionType: "training", startsAt: new Date(), endsAt: new Date(), location: null },
-      { id: 2, status: "missed", checkInAt: null, markedAt: null, sessionId: 2, sessionName: "Session B", sessionType: "training", startsAt: new Date(), endsAt: new Date(), location: null },
+      {
+        id: 1,
+        status: "attended",
+        checkInAt: null,
+        markedAt: null,
+        sessionId: 1,
+        sessionName: "Session A",
+        sessionType: "training",
+        startsAt: new Date(),
+        endsAt: new Date(),
+        location: null,
+      },
+      {
+        id: 2,
+        status: "missed",
+        checkInAt: null,
+        markedAt: null,
+        sessionId: 2,
+        sessionName: "Session B",
+        sessionType: "training",
+        startsAt: new Date(),
+        endsAt: new Date(),
+        location: null,
+      },
     ];
     queueSelects([guardian], [athlete], rows);
 

@@ -314,11 +314,9 @@ export async function listInbox(req: Request, res: Response) {
       // Prefer strict team manager for team athletes, but never leave inbox empty
       // if the team-manager link is missing/misconfigured.
       defaultCoach =
-        (await getTeamManagerForUser(userId).catch(() => null)) ??
-        (await getCoachUser().catch(() => null));
+        (await getTeamManagerForUser(userId).catch(() => null)) ?? (await getCoachUser().catch(() => null));
     } else {
-      defaultCoach = await getLastAdminContact(userId).catch(() => null)
-        ?? await getCoachUser().catch(() => null);
+      defaultCoach = (await getLastAdminContact(userId).catch(() => null)) ?? (await getCoachUser().catch(() => null));
     }
     if (defaultCoach) {
       allThreads = [
@@ -326,7 +324,11 @@ export async function listInbox(req: Request, res: Response) {
           id: `direct:${defaultCoach.id}`,
           type: "direct" as const,
           peerUserId: defaultCoach.id,
-          name: publicDisplayName({ id: defaultCoach.id, name: defaultCoach.name ?? null, email: defaultCoach.email ?? null }),
+          name: publicDisplayName({
+            id: defaultCoach.id,
+            name: defaultCoach.name ?? null,
+            email: defaultCoach.email ?? null,
+          }),
           role: defaultCoach.role ?? "Coach",
           avatarUrl: defaultCoach.profilePicture ?? null,
           preview: "Start a conversation",
@@ -362,9 +364,8 @@ export async function listMessages(req: Request, res: Response) {
   const manager = threadPage.teamManager;
   // Team athletes prefer their team manager, but still need a safe fallback
   // to avoid a blank messaging surface when manager linkage is missing.
-  const coach = role === "team_athlete"
-    ? (manager ?? (await getCoachUser()))
-    : (lastCoach ?? manager ?? (await getCoachUser()));
+  const coach =
+    role === "team_athlete" ? (manager ?? (await getCoachUser())) : (lastCoach ?? manager ?? (await getCoachUser()));
 
   const coachesMap = new Map<number, any>();
   if (coach) coachesMap.set(coach.id, coach);
@@ -375,9 +376,7 @@ export async function listMessages(req: Request, res: Response) {
   const peerIds = Array.from(
     new Set(
       (threadPage.messages ?? [])
-        .map((message) =>
-          message.senderId === userId ? Number(message.receiverId) : Number(message.senderId),
-        )
+        .map((message) => (message.senderId === userId ? Number(message.receiverId) : Number(message.senderId)))
         .filter((id) => Number.isFinite(id) && id > 0 && id !== userId),
     ),
   );
@@ -392,13 +391,7 @@ export async function listMessages(req: Request, res: Response) {
         profilePicture: userTable.profilePicture,
       })
       .from(userTable)
-      .where(
-        and(
-          inArray(userTable.id, peerIds),
-          eq(userTable.isDeleted, false),
-          eq(userTable.isBlocked, false),
-        ),
-      );
+      .where(and(inArray(userTable.id, peerIds), eq(userTable.isDeleted, false), eq(userTable.isBlocked, false)));
 
     for (const peer of peerUsers) {
       if (peer.email === AI_COACH_EMAIL) continue;
@@ -445,7 +438,10 @@ export async function listMessages(req: Request, res: Response) {
 export async function sendMessageToCoach(req: Request, res: Response) {
   const input = sendSchema.parse(req.body);
   const userId = req.user!.id;
-  const trace = createRealtimeTrace({ traceId: input.clientTraceId ?? input.clientId, clientSentAt: input.clientSentAt });
+  const trace = createRealtimeTrace({
+    traceId: input.clientTraceId ?? input.clientId,
+    clientSentAt: input.clientSentAt,
+  });
   logRealtimeLatency(trace, "http.direct.receive", {
     senderId: userId,
     receiverId: input.receiverId ?? null,
@@ -548,12 +544,9 @@ const searchMessagesQuerySchema = z.object({
 export async function searchMessages(req: Request, res: Response) {
   const userId = req.user!.id;
   const { q, threadId } = searchMessagesQuerySchema.parse(req.query ?? {});
-  const escaped = q.replace(/[%_\\]/g, '\\$&');
+  const escaped = q.replace(/[%_\\]/g, "\\$&");
 
-  const participantFilter = or(
-    eq(messageTable.senderId, userId),
-    eq(messageTable.receiverId, userId),
-  );
+  const participantFilter = or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId));
 
   const threadFilter = threadId
     ? or(
@@ -572,13 +565,7 @@ export async function searchMessages(req: Request, res: Response) {
       contentType: messageTable.contentType,
     })
     .from(messageTable)
-    .where(
-      and(
-        ilike(messageTable.content, `%${escaped}%`),
-        participantFilter,
-        threadFilter,
-      ),
-    )
+    .where(and(ilike(messageTable.content, `%${escaped}%`), participantFilter, threadFilter))
     .orderBy(desc(messageTable.createdAt))
     .limit(50);
 
@@ -638,10 +625,7 @@ export async function reportMessage(req: Request, res: Response) {
     .select({ id: messageTable.id, senderId: messageTable.senderId, receiverId: messageTable.receiverId })
     .from(messageTable)
     .where(
-      and(
-        eq(messageTable.id, messageId),
-        or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId)),
-      ),
+      and(eq(messageTable.id, messageId), or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId))),
     )
     .limit(1);
 
@@ -682,10 +666,7 @@ export async function forwardMessage(req: Request, res: Response) {
     })
     .from(messageTable)
     .where(
-      and(
-        eq(messageTable.id, messageId),
-        or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId)),
-      ),
+      and(eq(messageTable.id, messageId), or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId))),
     )
     .limit(1);
 

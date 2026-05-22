@@ -15,9 +15,7 @@ type OnboardingDbMock = {
 jest.mock("../../src/db", () => ({
   db: (() => {
     const mockDb: Partial<OnboardingDbMock> = {};
-    mockDb.transaction = jest.fn(<T>(callback: (tx: OnboardingDbMock) => T) =>
-      callback(mockDb as OnboardingDbMock),
-    );
+    mockDb.transaction = jest.fn(<T>(callback: (tx: OnboardingDbMock) => T) => callback(mockDb as OnboardingDbMock));
     mockDb.select = jest.fn();
     mockDb.insert = jest.fn();
     mockDb.update = jest.fn();

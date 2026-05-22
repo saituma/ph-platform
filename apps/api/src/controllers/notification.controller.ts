@@ -75,7 +75,12 @@ export async function savePushToken(req: Request, res: Response) {
   }
 
   logger.info(
-    { userId: req.user.id, deviceId: deviceId ?? "none", expoToken: expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none", deviceToken: devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none" },
+    {
+      userId: req.user.id,
+      deviceId: deviceId ?? "none",
+      expoToken: expoPushToken ? expoPushToken.slice(0, 10) + "…" : "none",
+      deviceToken: devicePushToken ? devicePushToken.slice(0, 10) + "…" : "none",
+    },
     "[PushToken] Saving push token(s)",
   );
 

@@ -54,17 +54,10 @@ function hashPassword(password: string) {
 }
 
 async function ensureGuardian(userId: number, email: string) {
-  let [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  let [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) {
-    const [created] = await db
-      .insert(guardianTable)
-      .values({ userId, email })
-      .returning();
+    const [created] = await db.insert(guardianTable).values({ userId, email }).returning();
     guardian = created;
   }
 
@@ -84,20 +77,12 @@ export async function getGuardianMe(
 
   if (!user) return null;
 
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   return { ...user, guardian: guardian ?? null };
 }
 
-export async function patchGuardianMe(
-  userId: number,
-  email: string,
-  data: PatchMeInput,
-): Promise<{ ok: true }> {
+export async function patchGuardianMe(userId: number, email: string, data: PatchMeInput): Promise<{ ok: true }> {
   const { name, phone, password, onboardingComplete, preferences } = data;
 
   if (name) {
@@ -122,11 +107,7 @@ export async function patchGuardianMe(
   }
 
   if (preferences || onboardingComplete !== undefined) {
-    const [athlete] = await db
-      .select()
-      .from(athleteTable)
-      .where(eq(athleteTable.guardianId, guardian.id))
-      .limit(1);
+    const [athlete] = await db.select().from(athleteTable).where(eq(athleteTable.guardianId, guardian.id)).limit(1);
 
     if (athlete) {
       const existing = (athlete.extraResponses ?? {}) as Record<string, unknown>;
@@ -154,14 +135,8 @@ export async function patchGuardianMe(
   return { ok: true };
 }
 
-export async function getGuardianChildren(
-  userId: number,
-): Promise<{ id: number | null; children: unknown[] }> {
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+export async function getGuardianChildren(userId: number): Promise<{ id: number | null; children: unknown[] }> {
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) return { id: null, children: [] };
 
@@ -234,15 +209,8 @@ export async function addGuardianChild(
   return { id: athlete.id, name: athlete.name, guardianId: guardian.id };
 }
 
-export async function getGuardianChild(
-  userId: number,
-  athleteId: number,
-): Promise<unknown | null | "forbidden"> {
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+export async function getGuardianChild(userId: number, athleteId: number): Promise<unknown | null | "forbidden"> {
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) return null;
 
@@ -308,12 +276,7 @@ export async function getGuardianChild(
         })
         .from(programSessionCompletionTable)
         .innerJoin(sessionTable, eq(programSessionCompletionTable.sessionId, sessionTable.id))
-        .where(
-          and(
-            eq(programSessionCompletionTable.athleteId, athleteId),
-            inArray(sessionTable.programId, programIds),
-          ),
-        )
+        .where(and(eq(programSessionCompletionTable.athleteId, athleteId), inArray(sessionTable.programId, programIds)))
         .groupBy(sessionTable.programId)
     : [];
 
@@ -364,11 +327,7 @@ export async function getGuardianChildAttendance(
   userId: number,
   athleteId: number,
 ): Promise<unknown | null | "forbidden"> {
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) return "forbidden";
 
@@ -423,11 +382,7 @@ export async function patchGuardianChildMedical(
   athleteId: number,
   injuries: string,
 ): Promise<{ ok: true } | null | "forbidden"> {
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) return "forbidden";
 
@@ -461,11 +416,7 @@ export async function listGuardianFeedback(userId: number): Promise<{ threads: u
   return { threads };
 }
 
-export async function createFeedbackThread(
-  userId: number,
-  subject: string,
-  message: string,
-): Promise<unknown> {
+export async function createFeedbackThread(userId: number, subject: string, message: string): Promise<unknown> {
   const [thread] = await db
     .insert(guardianFeedbackTable)
     .values({
@@ -493,10 +444,7 @@ export async function createFeedbackThread(
   return { id: thread.id, subject: thread.subject, status: thread.status, replies: [reply] };
 }
 
-export async function getFeedbackThread(
-  userId: number,
-  feedbackId: number,
-): Promise<unknown | null> {
+export async function getFeedbackThread(userId: number, feedbackId: number): Promise<unknown | null> {
   const [thread] = await db
     .select()
     .from(guardianFeedbackTable)
@@ -522,11 +470,7 @@ export async function getFeedbackThread(
   return { ...thread, replies };
 }
 
-export async function replyToFeedback(
-  userId: number,
-  feedbackId: number,
-  message: string,
-): Promise<unknown | null> {
+export async function replyToFeedback(userId: number, feedbackId: number, message: string): Promise<unknown | null> {
   const [thread] = await db
     .select({ id: guardianFeedbackTable.id })
     .from(guardianFeedbackTable)
@@ -544,10 +488,7 @@ export async function replyToFeedback(
     })
     .returning();
 
-  await db
-    .update(guardianFeedbackTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(guardianFeedbackTable.id, feedbackId));
+  await db.update(guardianFeedbackTable).set({ updatedAt: new Date() }).where(eq(guardianFeedbackTable.id, feedbackId));
 
   getSocketServer()?.to("admin:all").emit("guardian:feedback:reply", { feedbackId, reply });
 
@@ -631,10 +572,7 @@ export async function adminReplyToFeedback(
     })
     .returning();
 
-  await db
-    .update(guardianFeedbackTable)
-    .set({ updatedAt: new Date() })
-    .where(eq(guardianFeedbackTable.id, feedbackId));
+  await db.update(guardianFeedbackTable).set({ updatedAt: new Date() }).where(eq(guardianFeedbackTable.id, feedbackId));
 
   const io = getSocketServer();
   io?.to(`user:${thread.guardianUserId}`).emit("guardian:feedback:reply", { feedbackId, reply });
@@ -642,10 +580,7 @@ export async function adminReplyToFeedback(
   return reply;
 }
 
-export async function updateFeedbackStatus(
-  feedbackId: number,
-  status: "open" | "resolved",
-): Promise<{ ok: true }> {
+export async function updateFeedbackStatus(feedbackId: number, status: "open" | "resolved"): Promise<{ ok: true }> {
   await db
     .update(guardianFeedbackTable)
     .set({ status, updatedAt: new Date() })
@@ -655,11 +590,7 @@ export async function updateFeedbackStatus(
 }
 
 export async function getGuardianBillingStatus(userId: number): Promise<{ children: unknown[] }> {
-  const [guardian] = await db
-    .select()
-    .from(guardianTable)
-    .where(eq(guardianTable.userId, userId))
-    .limit(1);
+  const [guardian] = await db.select().from(guardianTable).where(eq(guardianTable.userId, userId)).limit(1);
 
   if (!guardian) return { children: [] };
 
@@ -689,9 +620,7 @@ export async function getGuardianBillingStatus(userId: number): Promise<{ childr
         })
         .from(subscriptionPlanTable)
         .where(
-          planIds.length === 1
-            ? eq(subscriptionPlanTable.id, planIds[0]!)
-            : eq(subscriptionPlanTable.id, planIds[0]!),
+          planIds.length === 1 ? eq(subscriptionPlanTable.id, planIds[0]!) : eq(subscriptionPlanTable.id, planIds[0]!),
         )
     : [];
 
@@ -788,10 +717,7 @@ export async function resolveInjuryLog(
 
   if (!log) return null;
 
-  await db
-    .update(athleteInjuryLogsTable)
-    .set({ resolvedAt })
-    .where(eq(athleteInjuryLogsTable.id, logId));
+  await db.update(athleteInjuryLogsTable).set({ resolvedAt }).where(eq(athleteInjuryLogsTable.id, logId));
 
   return { ok: true };
 }

@@ -64,15 +64,19 @@ export async function startServer() {
       try {
         await redis.quit();
         logger.info("Redis connection closed");
-      } catch { /* best effort */ }
+      } catch {
+        /* best effort */
+      }
     }
 
-    stopOutboxWorker();
+    await stopOutboxWorker();
 
     try {
       await pool.end();
       logger.info("Database pool drained");
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
 
     stopEventLoopDelayLogging();
     logger.info("Clean exit");

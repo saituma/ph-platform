@@ -14,7 +14,9 @@ export function resolveMessageMediaType(input: {
   contentType?: string | null;
   mediaUrl?: string | null;
 }): MessageMediaType {
-  const rawType = String(input.contentType ?? "").toLowerCase().trim();
+  const rawType = String(input.contentType ?? "")
+    .toLowerCase()
+    .trim();
   if (rawType === "image" || rawType.startsWith("image/")) return "image";
   if (rawType === "video" || rawType.startsWith("video/")) return "video";
   const url = String(input.mediaUrl ?? "").trim();

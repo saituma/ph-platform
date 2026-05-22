@@ -129,14 +129,12 @@ export async function deleteProgramTemplate(programId: number) {
     const moduleIds = modules.map((m) => m.id);
 
     // Collect sessions by programId OR by moduleId (library sessions attached via module copy may have null programId)
-    const sessionFilter = moduleIds.length > 0
-      ? or(eq(sessionTable.programId, programId), inArray(sessionTable.moduleId, moduleIds))
-      : eq(sessionTable.programId, programId);
+    const sessionFilter =
+      moduleIds.length > 0
+        ? or(eq(sessionTable.programId, programId), inArray(sessionTable.moduleId, moduleIds))
+        : eq(sessionTable.programId, programId);
 
-    const sessions = await tx
-      .select({ id: sessionTable.id })
-      .from(sessionTable)
-      .where(sessionFilter);
+    const sessions = await tx.select({ id: sessionTable.id }).from(sessionTable).where(sessionFilter);
 
     if (sessions.length > 0) {
       const sessionIds = sessions.map((s) => s.id);

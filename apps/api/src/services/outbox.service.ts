@@ -49,12 +49,7 @@ export async function claimPendingBatch(limit = 25) {
   const rows = await db
     .update(notificationOutboxTable)
     .set({ status: "processing", updatedAt: now })
-    .where(
-      and(
-        eq(notificationOutboxTable.status, "pending"),
-        lte(notificationOutboxTable.nextRunAt, now),
-      ),
-    )
+    .where(and(eq(notificationOutboxTable.status, "pending"), lte(notificationOutboxTable.nextRunAt, now)))
     .returning();
 
   const claimed = rows.slice(0, limit);

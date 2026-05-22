@@ -129,7 +129,10 @@ export async function uploadMediaByToken(req: Request, res: Response) {
 
     const contentTypeHeaderRaw = String(req.headers["content-type"] ?? "").trim();
     const contentTypeHeaderBase = contentTypeHeaderRaw.split(";")[0]?.trim().toLowerCase();
-    const tokenContentTypeBase = String(claims.contentType ?? "").split(";")[0]?.trim().toLowerCase();
+    const tokenContentTypeBase = String(claims.contentType ?? "")
+      .split(";")[0]
+      ?.trim()
+      .toLowerCase();
     if (!contentTypeHeaderBase) {
       return res.status(400).json({ error: "Content-Type header is required" });
     }

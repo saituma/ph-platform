@@ -652,7 +652,9 @@ export async function listGalleryItems(_req: Request, res: Response) {
     const rows = await getGalleryItems();
     const items = rows.map((row) => {
       let body: Record<string, unknown> = {};
-      try { body = JSON.parse(row.body ?? "{}"); } catch {}
+      try {
+        body = JSON.parse(row.body ?? "{}");
+      } catch {}
       return {
         id: row.id,
         url: (body.url as string) ?? "",

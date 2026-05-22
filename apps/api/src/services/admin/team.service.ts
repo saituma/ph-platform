@@ -246,7 +246,7 @@ export async function createTeamAdmin(input: {
   const monthlyPlanAmountCents = parsePriceToCents(plan?.monthlyPrice ?? plan?.displayPrice);
   const planAmountCents =
     billingCycle === "yearly"
-      ? parsePriceToCents(plan?.yearlyPrice) ?? monthlyPlanAmountCents
+      ? (parsePriceToCents(plan?.yearlyPrice) ?? monthlyPlanAmountCents)
       : billingCycle === "6months"
         ? monthlyPlanAmountCents != null
           ? monthlyPlanAmountCents * 6
@@ -348,9 +348,7 @@ export async function createTeamAdmin(input: {
       checkoutUrl = session.url;
 
       if (paymentMethod === "email_link" && checkoutUrl && adminEmail) {
-        const managerName = adminUserRows[0]
-          ? (input.managerName || adminEmail.split("@")[0])
-          : adminEmail.split("@")[0];
+        const managerName = adminUserRows[0] ? input.managerName || adminEmail.split("@")[0] : adminEmail.split("@")[0];
         await sendPlanInviteEmail({
           to: adminEmail,
           name: managerName,
@@ -358,9 +356,10 @@ export async function createTeamAdmin(input: {
           planTier: input.tier,
           checkoutUrl,
           invitedByName: null,
-          loginCredentials: input.managerEmail && input.managerPassword
-            ? { email: input.managerEmail, temporaryPassword: input.managerPassword }
-            : null,
+          loginCredentials:
+            input.managerEmail && input.managerPassword
+              ? { email: input.managerEmail, temporaryPassword: input.managerPassword }
+              : null,
         });
       }
     } catch (err: any) {
@@ -484,7 +483,10 @@ export async function approveTeamAdmin(teamId: number, billingCycle: "monthly" |
   return { ok: true, teamId, status: "active" };
 }
 
-export async function approveTeamSponsorRestAdmin(teamId: number, billingCycle: "monthly" | "6months" | "yearly" = "monthly") {
+export async function approveTeamSponsorRestAdmin(
+  teamId: number,
+  billingCycle: "monthly" | "6months" | "yearly" = "monthly",
+) {
   const [latestRequest] = await db
     .select({ id: teamSubscriptionRequestTable.id })
     .from(teamSubscriptionRequestTable)
@@ -594,12 +596,17 @@ export async function listTeamsAdmin(options?: { adminId?: number | null; limit?
         if (!request) return { ...team, paymentQueue: null };
 
         const invites = await db
-          .select({ status: teamPlayerPaymentInviteTable.status, emailLastError: teamPlayerPaymentInviteTable.emailLastError })
+          .select({
+            status: teamPlayerPaymentInviteTable.status,
+            emailLastError: teamPlayerPaymentInviteTable.emailLastError,
+          })
           .from(teamPlayerPaymentInviteTable)
           .where(eq(teamPlayerPaymentInviteTable.requestId, request.id));
 
         const paidCount = invites.filter((i) => i.status === "paid").length;
-        const sponsoredCount = invites.filter((i) => i.status === "paid" && i.emailLastError === "sponsored_by_manager").length;
+        const sponsoredCount = invites.filter(
+          (i) => i.status === "paid" && i.emailLastError === "sponsored_by_manager",
+        ).length;
 
         return {
           ...team,
@@ -853,7 +860,8 @@ export async function getTeamDetailsAdmin(teamName: string) {
 
       const defaultPlanAmountCents =
         request.planBillingCycle === "yearly"
-          ? parsePriceToCents(team.planYearlyPrice) ?? parsePriceToCents(team.planMonthlyPrice ?? team.planDisplayPrice)
+          ? (parsePriceToCents(team.planYearlyPrice) ??
+            parsePriceToCents(team.planMonthlyPrice ?? team.planDisplayPrice))
           : request.planBillingCycle === "6months"
             ? (() => {
                 const monthly = parsePriceToCents(team.planMonthlyPrice ?? team.planDisplayPrice);
@@ -1188,10 +1196,7 @@ export async function attachAthleteToTeamAdmin(input: {
       }
     }
   }
-  await db
-    .update(athleteTable)
-    .set(athletePatch)
-    .where(eq(athleteTable.id, athlete.id));
+  await db.update(athleteTable).set(athletePatch).where(eq(athleteTable.id, athlete.id));
 
   await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, team.id));
 

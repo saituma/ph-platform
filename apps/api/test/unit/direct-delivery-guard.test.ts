@@ -38,11 +38,7 @@ describe("direct notification delivery guard", () => {
       const source = fs.readFileSync(file, "utf8");
       const rel = path.relative(srcRoot, file);
 
-      if (
-        source.includes("sendPushNotification") &&
-        source.includes("push.service") &&
-        !allowedPushImports.has(file)
-      ) {
+      if (source.includes("sendPushNotification") && source.includes("push.service") && !allowedPushImports.has(file)) {
         violations.push(`${rel}: import pushQueue instead of sendPushNotification`);
       }
 
@@ -57,11 +53,10 @@ describe("direct notification delivery guard", () => {
         violations.push(`${rel}: enqueue push instead of calling PUSH_WEBHOOK_URL directly`);
       }
 
-      if (
-        /import\s*\{[^}]*\b(pushQueue|emailQueue)\b/.test(source) &&
-        !allowedQueueImports.has(file)
-      ) {
-        violations.push(`${rel}: use outbox.service (createPushIntent/createEmailIntent) instead of direct queue access`);
+      if (/import\s*\{[^}]*\b(pushQueue|emailQueue)\b/.test(source) && !allowedQueueImports.has(file)) {
+        violations.push(
+          `${rel}: use outbox.service (createPushIntent/createEmailIntent) instead of direct queue access`,
+        );
       }
     }
 

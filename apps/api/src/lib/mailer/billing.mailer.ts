@@ -212,7 +212,9 @@ ${textP(`Click below to complete a quick onboarding form and pay — it takes ab
   </tr>
 </table>
 ${textP(`<span style="color:${E.muted};font-size:13px;">Or paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}
-${input.loginCredentials ? `
+${
+  input.loginCredentials
+    ? `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;margin:16px 0 0;">
   <tr>
     <td style="padding:18px 22px;font-size:14px;color:#166534;line-height:1.6;font-family:${E.font};">
@@ -222,7 +224,9 @@ ${input.loginCredentials ? `
       <div style="margin-top:10px;font-size:12px;color:#166534;">Sign in to the PH Performance app after completing payment. Please change this password from your profile settings.</div>
     </td>
   </tr>
-</table>` : ""}
+</table>`
+    : ""
+}
 ${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email? You can safely ignore it.</span>`, "16px")}`;
 
     const html = emailLayout({
@@ -234,6 +238,42 @@ ${textP(`<span style="color:${E.muted};font-size:13px;">Didn't expect this email
     await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.warn({ err }, "sendPlanInviteEmail skipped");
+  }
+}
+
+export async function sendPaymentFailedEmail(input: {
+  to: string;
+  name: string;
+  athleteName: string;
+  planName?: string | null;
+}) {
+  try {
+    const subject = "Action required: payment failed";
+    const name = escapeHtml(input.name);
+    const athlete = escapeHtml(input.athleteName);
+    const plan = input.planName ? escapeHtml(input.planName) : null;
+    const bodyHtml = `
+${textP(`Hi ${name},`)}
+${textP(`We were unable to process your payment${plan ? ` for the <strong>${plan}</strong> plan` : ""} for <strong>${athlete}</strong>.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fef2f2;border-radius:12px;border:1px solid #fecaca;margin:0 0 24px;">
+  <tr>
+    <td style="padding:18px 22px;font-size:14px;color:#991b1b;line-height:1.6;font-family:${E.font};">
+      <strong style="display:block;margin-bottom:6px;">Access suspended</strong>
+      ${athlete}'s access to training content and features has been paused. Update your payment method to restore access immediately.
+    </td>
+  </tr>
+</table>
+${textP(`Open the <strong>PH Performance</strong> app → <strong>Plans</strong> → <strong>Manage Billing</strong> to update your payment method.`)}
+${textP(`<span style="color:${E.muted};font-size:13px;">If you believe this is an error, reply to this email and we'll sort it out right away.</span>`, "0")}`;
+    const html = emailLayout({
+      preheader: `Payment failed for ${input.athleteName}. Update your payment method to restore access.`,
+      eyebrow: "Billing",
+      headline: "Payment unsuccessful",
+      bodyHtml,
+    });
+    await createEmailIntent({ to: input.to, subject, html });
+  } catch (err) {
+    logger.warn({ err }, "sendPaymentFailedEmail skipped");
   }
 }
 

@@ -58,7 +58,11 @@ function triggerLimitExceeded(): void {
   _connection = null;
   logger.error("Upstash Redis request limit exceeded — disabling queues until restart");
   for (const cb of _onLimitCallbacks) {
-    try { cb(); } catch { /* noop */ }
+    try {
+      cb();
+    } catch {
+      /* noop */
+    }
   }
 }
 

@@ -124,14 +124,8 @@ export async function getAuditLogs(req: Request, res: Response, next: NextFuncti
 export async function trackSuperAdminEvent(req: Request, res: Response, next: NextFunction) {
   try {
     const { event, page, targetId } = req.body ?? {};
-    const safeEvent =
-      typeof event === "string" && event.trim().length
-        ? event.trim().slice(0, 120)
-        : "unknown_event";
-    const safePage =
-      typeof page === "string" && page.trim().length
-        ? page.trim().slice(0, 120)
-        : "unknown_page";
+    const safeEvent = typeof event === "string" && event.trim().length ? event.trim().slice(0, 120) : "unknown_event";
+    const safePage = typeof page === "string" && page.trim().length ? page.trim().slice(0, 120) : "unknown_page";
     const safeTargetId = Number.isFinite(Number(targetId)) ? Number(targetId) : null;
 
     await db.insert(auditLogsTable).values({

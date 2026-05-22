@@ -57,7 +57,7 @@ async function shutdown(signal: string) {
   logger.info({ signal }, "Worker shutdown signal received");
 
   try {
-    stopOutboxWorker();
+    await stopOutboxWorker();
     await stopScheduledWorker();
     await stopEmailWorker();
     await stopPushWorker();

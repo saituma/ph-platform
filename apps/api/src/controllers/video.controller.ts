@@ -11,12 +11,7 @@ import { getTrainingSessionItemById } from "../services/training-content-v2.serv
 import { MediaKey, MediaFolder } from "../lib/media-key";
 import { athleteHasFeature } from "../services/billing/feature-access.service";
 import { db } from "../db";
-import {
-  ProgramType,
-  subscriptionPlanTable,
-  teamSubscriptionRequestTable,
-  teamTable,
-} from "../db/schema";
+import { ProgramType, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable } from "../db/schema";
 
 const presignSchema = z.object({
   folder: z.enum(["profile-photos", "training-videos", "chat-media"] as [MediaFolder, ...MediaFolder[]]),
@@ -43,9 +38,7 @@ async function resolveTeamPlanTierForAthlete(athlete: {
   team?: string | null;
 }): Promise<(typeof ProgramType.enumValues)[number] | null> {
   const teamId =
-    typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0
-      ? athlete.teamId
-      : null;
+    typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0 ? athlete.teamId : null;
   const [team] = teamId
     ? await db
         .select({
@@ -71,20 +64,9 @@ async function resolveTeamPlanTierForAthlete(athlete: {
   const [fallback] = await db
     .select({ tier: subscriptionPlanTable.tier })
     .from(teamSubscriptionRequestTable)
-    .innerJoin(
-      subscriptionPlanTable,
-      eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id),
-    )
-    .where(
-      and(
-        eq(teamSubscriptionRequestTable.teamId, team.id),
-        eq(teamSubscriptionRequestTable.status, "approved"),
-      ),
-    )
-    .orderBy(
-      desc(teamSubscriptionRequestTable.updatedAt),
-      desc(teamSubscriptionRequestTable.id),
-    )
+    .innerJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+    .where(and(eq(teamSubscriptionRequestTable.teamId, team.id), eq(teamSubscriptionRequestTable.status, "approved")))
+    .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
     .limit(1);
   return fallback?.tier ?? null;
 }
@@ -177,11 +159,11 @@ export async function listVideos(req: Request, res: Response) {
 
 export async function reviewVideo(req: Request, res: Response) {
   const input = reviewSchema.parse(req.body);
-  const item = await reviewVideoUpload({ 
-    uploadId: input.uploadId, 
-    coachId: req.user!.id, 
+  const item = await reviewVideoUpload({
+    uploadId: input.uploadId,
+    coachId: req.user!.id,
     feedback: input.feedback,
-    coachVideoUrl: input.coachVideoUrl 
+    coachVideoUrl: input.coachVideoUrl,
   });
   if (!item) {
     return res.status(404).json({ error: "Not found" });

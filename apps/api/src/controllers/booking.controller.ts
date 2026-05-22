@@ -140,11 +140,21 @@ export async function listServices(req: Request, res: Response) {
 
   const isAdmin = isTrainingStaff(req.user?.role);
   const items = isAdmin
-    ? await listServiceTypes({ includeInactive, includeLocked, omitWithoutBookableSlots, viewerProgramTier: athlete?.currentProgramTier as any, athlete })
-    : await cache.getOrSet(
-        cacheKeys.userServices(req.user?.id ?? 0),
-        300,
-        () => listServiceTypes({ includeInactive, includeLocked, omitWithoutBookableSlots, viewerProgramTier: athlete?.currentProgramTier as any, athlete }),
+    ? await listServiceTypes({
+        includeInactive,
+        includeLocked,
+        omitWithoutBookableSlots,
+        viewerProgramTier: athlete?.currentProgramTier as any,
+        athlete,
+      })
+    : await cache.getOrSet(cacheKeys.userServices(req.user?.id ?? 0), 300, () =>
+        listServiceTypes({
+          includeInactive,
+          includeLocked,
+          omitWithoutBookableSlots,
+          viewerProgramTier: athlete?.currentProgramTier as any,
+          athlete,
+        }),
       );
 
   return res.status(200).json({ items });

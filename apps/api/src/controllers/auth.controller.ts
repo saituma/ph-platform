@@ -22,13 +22,7 @@ import { getOnboardingByUser } from "../services/onboarding.service";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 import { db } from "../db";
-import {
-  ProgramType,
-  subscriptionPlanTable,
-  teamSubscriptionRequestTable,
-  teamTable,
-  userTable,
-} from "../db/schema";
+import { ProgramType, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
 import { env } from "../config/env";
@@ -76,9 +70,7 @@ async function resolveAthleteTeamForMe(
   if (!athlete) return null;
   const tid =
     typeof athlete.teamId === "number" && Number.isFinite(athlete.teamId) && athlete.teamId > 0 ? athlete.teamId : null;
-  const [row] = tid
-    ? await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, tid)).limit(1)
-    : [];
+  const [row] = tid ? await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, tid)).limit(1) : [];
   if (row) return row;
 
   const teamName = typeof athlete.team === "string" ? athlete.team.trim() : "";
@@ -89,10 +81,7 @@ async function resolveAthleteTeamForMe(
   return row ?? null;
 }
 
-async function resolveTeamPlanTier(team: {
-  id: number;
-  planId: number | null;
-}): Promise<{
+async function resolveTeamPlanTier(team: { id: number; planId: number | null }): Promise<{
   tier: (typeof ProgramType.enumValues)[number] | null;
   source: "team_plan" | "approved_team_request" | "none";
 }> {
@@ -109,20 +98,9 @@ async function resolveTeamPlanTier(team: {
   const [fallback] = await db
     .select({ tier: subscriptionPlanTable.tier })
     .from(teamSubscriptionRequestTable)
-    .innerJoin(
-      subscriptionPlanTable,
-      eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id),
-    )
-    .where(
-      and(
-        eq(teamSubscriptionRequestTable.teamId, team.id),
-        eq(teamSubscriptionRequestTable.status, "approved"),
-      ),
-    )
-    .orderBy(
-      desc(teamSubscriptionRequestTable.updatedAt),
-      desc(teamSubscriptionRequestTable.id),
-    )
+    .innerJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+    .where(and(eq(teamSubscriptionRequestTable.teamId, team.id), eq(teamSubscriptionRequestTable.status, "approved")))
+    .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
     .limit(1);
   if (fallback?.tier) {
     return { tier: fallback.tier, source: "approved_team_request" };
@@ -238,6 +216,10 @@ export async function startRegistration(req: Request, res: Response) {
 
 export async function updateRole(req: Request, res: Response) {
   const input = updateRoleSchema.parse(req.body);
+  // Enforce that a user can only update their own role
+  if (input.email.toLowerCase() !== req.user!.email.toLowerCase()) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const result = await updateUserRole(input);
   return res.status(200).json(result);
 }
@@ -373,8 +355,8 @@ export async function updatePassword(req: Request, res: Response) {
   }
   const payload = await verifyAccessToken(token);
   const userId = payload.user_id as number | undefined;
-  if (!userId) {
-    return res.status(401).json({ error: "Unauthorized" });
+  if (!userId || !Number.isFinite(userId)) {
+    return res.status(400).json({ error: "Invalid token payload" });
   }
   await changePasswordLocal({
     userId,
@@ -400,13 +382,12 @@ export async function getMe(req: Request, res: Response) {
 
     const coachManagedTeam = isCoachRole
       ? await withTeamPlanTier(
-          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, fullUser.id)).limit(1))[0] ?? null,
+          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, fullUser.id)).limit(1))[0] ??
+            null,
         )
       : null;
 
-    const teamForUser = isCoachRole
-      ? coachManagedTeam
-      : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
+    const teamForUser = isCoachRole ? coachManagedTeam : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
     const teamTierFallback = teamForUser?.planTier ?? null;
     const guardianTier = fullUser.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
     const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
@@ -470,11 +451,19 @@ export async function getMe(req: Request, res: Response) {
       messagingAccessTiers,
       role: fullUser.role,
       email: fullUser.email,
-      name: fullUser.name && fullUser.name !== "User" ? fullUser.name : (athlete?.name ?? coachManagedTeam?.name ?? fullUser.name),
+      name:
+        fullUser.name && fullUser.name !== "User"
+          ? fullUser.name
+          : (athlete?.name ?? coachManagedTeam?.name ?? fullUser.name),
     };
   });
 
-  if (env.nodeEnv !== "production" && String(payload?.email ?? "").trim().toLowerCase() === "dawitanother@gmail.com") {
+  if (
+    env.nodeEnv !== "production" &&
+    String(payload?.email ?? "")
+      .trim()
+      .toLowerCase() === "dawitanother@gmail.com"
+  ) {
     logger.info(
       {
         marker: "portal-debug",

@@ -1039,7 +1039,7 @@ export default memo(function ScheduleScreen() {
         },
       ],
     );
-  }, [token, refreshEvents]);
+  }, [token, refreshEvents, toast]);
 
   // ── FAB animation ────────────────────────────────────────────
   const fabScale = useSharedValue(1);

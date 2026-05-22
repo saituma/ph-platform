@@ -3,11 +3,7 @@ import { z } from "zod";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 
 import { db } from "../db";
-import {
-  sleepLogsTable,
-  athleteTable,
-  guardianTable,
-} from "../db/schema";
+import { sleepLogsTable, athleteTable, guardianTable } from "../db/schema";
 import { isTrainingStaff } from "../lib/user-roles";
 import { getSocketServer } from "../socket-hub";
 
@@ -36,11 +32,7 @@ const feedbackSchema = z.object({
   feedback: z.string().max(2000),
 });
 
-async function canWriteSleepForUser(input: {
-  actorUserId: number;
-  actorRole: string;
-  targetUserId: number;
-}) {
+async function canWriteSleepForUser(input: { actorUserId: number; actorRole: string; targetUserId: number }) {
   if (input.targetUserId === input.actorUserId) return true;
   if (isTrainingStaff(input.actorRole)) return true;
 
@@ -50,12 +42,7 @@ async function canWriteSleepForUser(input: {
     .select({ id: athleteTable.id })
     .from(athleteTable)
     .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-    .where(
-      and(
-        eq(guardianTable.userId, input.actorUserId),
-        eq(athleteTable.userId, input.targetUserId),
-      ),
-    )
+    .where(and(eq(guardianTable.userId, input.actorUserId), eq(athleteTable.userId, input.targetUserId)))
     .limit(1);
 
   return Boolean(ownedAthlete);
@@ -65,13 +52,8 @@ export async function listSleepLogs(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const userIdRaw =
-      typeof req.query.userId === "string" ? req.query.userId : null;
-    let targetUserId = userIdRaw === "me"
-      ? req.user.id
-      : userIdRaw
-        ? Number(userIdRaw)
-        : req.user.id;
+    const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : null;
+    let targetUserId = userIdRaw === "me" ? req.user.id : userIdRaw ? Number(userIdRaw) : req.user.id;
 
     if (!Number.isFinite(targetUserId)) {
       return res.status(400).json({ error: "Invalid user ID" });
@@ -95,12 +77,7 @@ export async function listSleepLogs(req: Request, res: Response) {
           .select({ id: athleteTable.id })
           .from(athleteTable)
           .innerJoin(guardianTable, eq(athleteTable.guardianId, guardianTable.id))
-          .where(
-            and(
-              eq(guardianTable.userId, req.user.id),
-              eq(athleteTable.userId, targetUserId),
-            ),
-          )
+          .where(and(eq(guardianTable.userId, req.user.id), eq(athleteTable.userId, targetUserId)))
           .limit(1);
         if (!ownedAthlete) {
           return res.status(403).json({ error: "Forbidden" });
@@ -131,8 +108,7 @@ export async function listSleepLogs(req: Request, res: Response) {
 
     return res.status(200).json({ logs });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to fetch sleep logs";
+    const message = error instanceof Error ? error.message : "Failed to fetch sleep logs";
     console.error("[sleep] listLogs error:", error);
     return res.status(500).json({ error: message });
   }
@@ -142,9 +118,7 @@ export async function upsertSleepLog(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    let targetUserId = req.body.athleteId
-      ? Number(req.body.athleteId)
-      : req.user.id;
+    let targetUserId = req.body.athleteId ? Number(req.body.athleteId) : req.user.id;
 
     if (!Number.isFinite(targetUserId)) {
       return res.status(400).json({ error: "Invalid athlete ID" });
@@ -164,9 +138,7 @@ export async function upsertSleepLog(req: Request, res: Response) {
 
     const parsed = sleepLogSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
     }
     const input = parsed.data;
 
@@ -183,12 +155,7 @@ export async function upsertSleepLog(req: Request, res: Response) {
       const [existing] = await tx
         .select()
         .from(sleepLogsTable)
-        .where(
-          and(
-            eq(sleepLogsTable.userId, targetUserId),
-            eq(sleepLogsTable.dateKey, input.dateKey),
-          ),
-        )
+        .where(and(eq(sleepLogsTable.userId, targetUserId), eq(sleepLogsTable.dateKey, input.dateKey)))
         .limit(1);
 
       if (existing) {
@@ -222,8 +189,7 @@ export async function upsertSleepLog(req: Request, res: Response) {
 
     return res.status(200).json({ log: result });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Failed to save sleep log";
+    const message = error instanceof Error ? error.message : "Failed to save sleep log";
     console.error("[sleep] upsertLog error:", error);
     return res.status(500).json({ error: message });
   }
@@ -237,11 +203,7 @@ export async function deleteSleepLog(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid log ID" });
   }
 
-  const [log] = await db
-    .select()
-    .from(sleepLogsTable)
-    .where(eq(sleepLogsTable.id, logId))
-    .limit(1);
+  const [log] = await db.select().from(sleepLogsTable).where(eq(sleepLogsTable.id, logId)).limit(1);
 
   if (!log) return res.status(404).json({ error: "Not found" });
 
@@ -276,16 +238,10 @@ export async function addSleepFeedback(req: Request, res: Response) {
 
   const parsed = feedbackSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+    return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
   }
 
-  const [log] = await db
-    .select()
-    .from(sleepLogsTable)
-    .where(eq(sleepLogsTable.id, logId))
-    .limit(1);
+  const [log] = await db.select().from(sleepLogsTable).where(eq(sleepLogsTable.id, logId)).limit(1);
 
   if (!log) return res.status(404).json({ error: "Not found" });
 

@@ -30,8 +30,7 @@ export const defaultPortalConfig = {
   ceoIntro: {
     eyebrow: "From the CEO",
     title: "Hear It Directly",
-    body:
-      "Get a personal introduction to the platform and philosophy behind PH Performance — straight from the CEO who built it.",
+    body: "Get a personal introduction to the platform and philosophy behind PH Performance — straight from the CEO who built it.",
     name: "Piers Hatcliff",
     role: "CEO · PH Performance",
     watchLabel: "Watch Intro",
@@ -68,8 +67,7 @@ export const defaultPortalConfig = {
         role: "Head Coach · Elite Track Club",
       },
       {
-        quote:
-          "The data-driven insights allowed me to push past my plateaus and set new personal records this season.",
+        quote: "The data-driven insights allowed me to push past my plateaus and set new personal records this season.",
         name: "Elena Rodriguez",
         role: "Pro Athlete · Global Cycling",
       },

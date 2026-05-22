@@ -21,15 +21,12 @@ const teamIdQuery = z.coerce.number().int().positive().optional();
 const coachSetPasswordMessage = `Password must be ${STRONG_TEAM_PASSWORD_MIN}–${STRONG_TEAM_PASSWORD_MAX} characters and include uppercase, lowercase, a number, and a symbol.`;
 
 const optionalCoachSetPassword = z
-  .preprocess(
-    (val) => {
-      if (val === undefined || val === null) return undefined;
-      if (typeof val !== "string") return val;
-      const t = val.trim();
-      return t === "" ? undefined : t;
-    },
-    z.string().max(STRONG_TEAM_PASSWORD_MAX).optional(),
-  )
+  .preprocess((val) => {
+    if (val === undefined || val === null) return undefined;
+    if (typeof val !== "string") return val;
+    const t = val.trim();
+    return t === "" ? undefined : t;
+  }, z.string().max(STRONG_TEAM_PASSWORD_MAX).optional())
   .refine((val) => val === undefined || isStrongTeamAthletePassword(val), {
     message: coachSetPasswordMessage,
   });
@@ -66,12 +63,7 @@ export async function postTeamRosterAthleteResetPassword(req: Request, res: Resp
     return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
   }
   try {
-    const result = await resetTeamAthletePassword(
-      req.user!,
-      athleteId,
-      teamId ?? null,
-      parsed.data.customPassword,
-    );
+    const result = await resetTeamAthletePassword(req.user!, athleteId, teamId ?? null, parsed.data.customPassword);
     return res.status(200).json(result);
   } catch (error: unknown) {
     const e = error as { status?: number; message?: string };

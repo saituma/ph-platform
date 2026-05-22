@@ -610,14 +610,22 @@ export async function sendMessage(input: {
         ? { name: sender[0].name ?? null, profilePicture: sender[0].profilePicture ?? null }
         : null;
     } catch (error) {
-      log.error({ err: error, traceId: trace?.traceId, messageId: message.id }, "Failed to load direct message sender metadata");
+      log.error(
+        { err: error, traceId: trace?.traceId, messageId: message.id },
+        "Failed to load direct message sender metadata",
+      );
     }
 
     const io = getSocketServer();
     if (io) {
       const enriched = {
         ...(input.clientId ? { ...message, clientId: input.clientId } : message),
-        ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
+        ...(trace
+          ? {
+              clientTraceId: trace.traceId,
+              serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt),
+            }
+          : {}),
         contentType: resolveMessageMediaType({
           contentType: message.contentType,
           mediaUrl: message.mediaUrl,
@@ -628,7 +636,10 @@ export async function sendMessage(input: {
         readCount: participantIdsForDelivery.length ? 1 : 0,
         myReadAt: message.createdAt,
       };
-      log.debug({ messageId: message.id, senderId: input.senderId, receiverId: resolvedReceiverId }, "Emitting message:new");
+      log.debug(
+        { messageId: message.id, senderId: input.senderId, receiverId: resolvedReceiverId },
+        "Emitting message:new",
+      );
       logRealtimeLatency(trace, "direct.socket.before_broadcast", {
         messageId: message.id,
         senderId: input.senderId,
@@ -724,7 +735,12 @@ export async function sendMessage(input: {
     // Only emit user's message back to user for AI coach thread
     const enriched = {
       ...(input.clientId ? { ...message, clientId: input.clientId } : message),
-      ...(trace ? { clientTraceId: trace.traceId, serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt) } : {}),
+      ...(trace
+        ? {
+            clientTraceId: trace.traceId,
+            serverReceivedAt: Date.now() - Math.round(performance.now() - trace.startedAt),
+          }
+        : {}),
       contentType: resolveMessageMediaType({
         contentType: message.contentType,
         mediaUrl: message.mediaUrl,
@@ -753,10 +769,7 @@ export async function markThreadRead(userId: number, peerUserId?: number) {
 
   // When peerUserId is provided (e.g. from notification action), scope to that
   // thread only instead of marking every DM as read.
-  const senderFilter =
-    peerUserId && adminIds.includes(peerUserId)
-      ? [peerUserId]
-      : adminIds;
+  const senderFilter = peerUserId ? [peerUserId] : adminIds;
 
   const readAt = new Date();
   await db
@@ -853,5 +866,7 @@ export async function markMessageDelivered(messageId: number, receiverUserId: nu
 export async function isUserPremium(userId: number): Promise<boolean> {
   const { getAthleteForUser } = await import("./user.service");
   const athlete = await getAthleteForUser(userId);
-  return athlete?.currentProgramTier === "PHP_Premium";
+  if (!athlete || athlete.currentProgramTier !== "PHP_Premium") return false;
+  if (athlete.planExpiresAt && athlete.planExpiresAt < new Date()) return false;
+  return true;
 }

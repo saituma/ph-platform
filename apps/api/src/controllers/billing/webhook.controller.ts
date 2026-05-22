@@ -4,15 +4,22 @@ import { eq, desc } from "drizzle-orm";
 
 import { env } from "../../config/env";
 import { db } from "../../db";
-import { subscriptionRequestTable, teamSubscriptionRequestTable, athleteTable, teamTable, guardianTable } from "../../db/schema";
 import {
-  updateRequestFromStripeSession,
-} from "../../services/billing.service";
+  subscriptionRequestTable,
+  teamSubscriptionRequestTable,
+  athleteTable,
+  teamTable,
+  guardianTable,
+  userTable,
+  subscriptionPlanTable,
+} from "../../db/schema";
+import { updateRequestFromStripeSession } from "../../services/billing.service";
 import {
   upsertTeamPendingApprovalFromSessionMetadata,
   updateTeamRequestFromStripeCheckoutSession,
   updateTeamPlayerInvitePaymentFromStripeSession,
 } from "../../services/billing/team-request.service";
+import { sendPaymentFailedEmail } from "../../lib/mailer/billing.mailer";
 import { logger } from "../../lib/logger";
 
 /**
@@ -23,44 +30,105 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = typeof invoice.customer === "string" ? invoice.customer : (invoice.customer as any)?.id;
   if (!customerId) return;
 
-  // Look up subscription ID on the invoice
-  const subscriptionId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : (invoice.subscription as any)?.id ?? null;
+  const subscriptionId =
+    typeof invoice.subscription === "string" ? invoice.subscription : ((invoice.subscription as any)?.id ?? null);
 
-  if (subscriptionId) {
-    // Update individual subscription request
-    const [req] = await db
-      .select({ id: subscriptionRequestTable.id })
-      .from(subscriptionRequestTable)
-      .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
-      .orderBy(desc(subscriptionRequestTable.createdAt))
+  if (!subscriptionId) return;
+
+  // Individual subscription request
+  const [req] = await db
+    .select({
+      id: subscriptionRequestTable.id,
+      athleteId: subscriptionRequestTable.athleteId,
+      planId: subscriptionRequestTable.planId,
+    })
+    .from(subscriptionRequestTable)
+    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
+    .orderBy(desc(subscriptionRequestTable.createdAt))
+    .limit(1);
+
+  if (req) {
+    await db
+      .update(subscriptionRequestTable)
+      .set({ paymentStatus: "past_due", updatedAt: new Date() })
+      .where(eq(subscriptionRequestTable.id, req.id));
+
+    // Revoke access immediately — don't wait for the daily cron
+    await db
+      .update(athleteTable)
+      .set({ currentProgramTier: null, currentPlanId: null, planExpiresAt: null, updatedAt: new Date() })
+      .where(eq(athleteTable.id, req.athleteId));
+
+    logger.info({ requestId: req.id, athleteId: req.athleteId }, "Revoked athlete access after failed invoice");
+
+    // Notify the payer by email
+    void notifyPayerPaymentFailed(req.athleteId, req.planId);
+    return;
+  }
+
+  // Team subscription request
+  const [teamReq] = await db
+    .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
+    .from(teamSubscriptionRequestTable)
+    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
+    .orderBy(desc(teamSubscriptionRequestTable.createdAt))
+    .limit(1);
+
+  if (teamReq) {
+    await db
+      .update(teamSubscriptionRequestTable)
+      .set({ paymentStatus: "past_due", updatedAt: new Date() })
+      .where(eq(teamSubscriptionRequestTable.id, teamReq.id));
+    logger.info({ teamRequestId: teamReq.id }, "Marked team subscription request past_due after failed invoice");
+  }
+}
+
+async function notifyPayerPaymentFailed(athleteId: number, planId: number | null) {
+  try {
+    const [athlete] = await db
+      .select({
+        id: athleteTable.id,
+        name: athleteTable.name,
+        userId: athleteTable.userId,
+        guardianId: athleteTable.guardianId,
+      })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, athleteId))
       .limit(1);
+    if (!athlete) return;
 
-    if (req) {
-      await db
-        .update(subscriptionRequestTable)
-        .set({ paymentStatus: "past_due", updatedAt: new Date() })
-        .where(eq(subscriptionRequestTable.id, req.id));
-      logger.info({ requestId: req.id }, "Marked subscription request past_due after failed invoice");
-      return;
+    const guardianUserId = athlete.guardianId
+      ? (
+          await db
+            .select({ userId: guardianTable.userId })
+            .from(guardianTable)
+            .where(eq(guardianTable.id, athlete.guardianId))
+            .limit(1)
+        )[0]?.userId
+      : null;
+    const payerUserId = guardianUserId ?? athlete.userId;
+    if (!payerUserId) return;
+
+    const [payer] = await db
+      .select({ email: userTable.email, name: userTable.name, isDeleted: userTable.isDeleted })
+      .from(userTable)
+      .where(eq(userTable.id, payerUserId))
+      .limit(1);
+    if (!payer || payer.isDeleted) return;
+
+    let planName: string | null = null;
+    if (planId) {
+      const [plan] = await db
+        .select({ name: subscriptionPlanTable.name })
+        .from(subscriptionPlanTable)
+        .where(eq(subscriptionPlanTable.id, planId))
+        .limit(1);
+      planName = plan?.name ?? null;
     }
 
-    // Try team subscription
-    const [teamReq] = await db
-      .select({ id: teamSubscriptionRequestTable.id })
-      .from(teamSubscriptionRequestTable)
-      .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
-      .orderBy(desc(teamSubscriptionRequestTable.createdAt))
-      .limit(1);
-
-    if (teamReq) {
-      await db
-        .update(teamSubscriptionRequestTable)
-        .set({ paymentStatus: "past_due", updatedAt: new Date() })
-        .where(eq(teamSubscriptionRequestTable.id, teamReq.id));
-      logger.info({ teamRequestId: teamReq.id }, "Marked team subscription request past_due after failed invoice");
-    }
+    await sendPaymentFailedEmail({ to: payer.email, name: payer.name, athleteName: athlete.name, planName });
+  } catch (err) {
+    logger.warn({ err, athleteId }, "notifyPayerPaymentFailed skipped");
   }
 }
 
@@ -71,7 +139,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const subscriptionId = subscription.id;
 
   const [req] = await db
-    .select({ id: subscriptionRequestTable.id })
+    .select({ id: subscriptionRequestTable.id, athleteId: subscriptionRequestTable.athleteId })
     .from(subscriptionRequestTable)
     .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
     .orderBy(desc(subscriptionRequestTable.createdAt))
@@ -82,12 +150,19 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       .update(subscriptionRequestTable)
       .set({ status: "rejected", paymentStatus: "cancelled", updatedAt: new Date() })
       .where(eq(subscriptionRequestTable.id, req.id));
-    logger.info({ requestId: req.id }, "Marked subscription request cancelled after subscription.deleted");
+
+    // Revoke athlete access immediately on cancellation
+    await db
+      .update(athleteTable)
+      .set({ currentProgramTier: null, currentPlanId: null, planExpiresAt: null, updatedAt: new Date() })
+      .where(eq(athleteTable.id, req.athleteId));
+
+    logger.info({ requestId: req.id, athleteId: req.athleteId }, "Revoked athlete access after subscription.deleted");
     return;
   }
 
   const [teamReq] = await db
-    .select({ id: teamSubscriptionRequestTable.id })
+    .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
     .from(teamSubscriptionRequestTable)
     .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
     .orderBy(desc(teamSubscriptionRequestTable.createdAt))
@@ -98,7 +173,15 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       .update(teamSubscriptionRequestTable)
       .set({ status: "rejected", paymentStatus: "cancelled", updatedAt: new Date() })
       .where(eq(teamSubscriptionRequestTable.id, teamReq.id));
-    logger.info({ teamRequestId: teamReq.id }, "Marked team subscription request cancelled after subscription.deleted");
+
+    if (teamReq.teamId) {
+      await db
+        .update(teamTable)
+        .set({ planExpiresAt: null, updatedAt: new Date() })
+        .where(eq(teamTable.id, teamReq.teamId));
+    }
+
+    logger.info({ teamRequestId: teamReq.id }, "Marked team subscription cancelled after subscription.deleted");
   }
 }
 
@@ -108,16 +191,19 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
  * Stripe provides `lines.data[0].period.end` as the Unix timestamp for the new period end.
  */
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
-  const subscriptionId = typeof invoice.subscription === "string"
-    ? invoice.subscription
-    : (invoice.subscription as any)?.id ?? null;
+  const subscriptionId =
+    typeof invoice.subscription === "string" ? invoice.subscription : ((invoice.subscription as any)?.id ?? null);
   if (!subscriptionId) return;
 
   // Derive the new access end from Stripe's period end (falls back to now + 1 month)
   const periodEndUnix = invoice.lines?.data?.[0]?.period?.end ?? null;
   const newPlanExpiresAt = periodEndUnix
     ? new Date(periodEndUnix * 1000)
-    : (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })();
+    : (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + 1);
+        return d;
+      })();
 
   // Individual subscription
   const [req] = await db
@@ -150,10 +236,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         .where(eq(athleteTable.id, req.athleteId));
 
       if (athlete?.guardianId) {
-        await db
-          .update(guardianTable)
-          .set({ updatedAt: new Date() })
-          .where(eq(guardianTable.id, athlete.guardianId));
+        await db.update(guardianTable).set({ updatedAt: new Date() }).where(eq(guardianTable.id, athlete.guardianId));
       }
 
       logger.info(
@@ -270,7 +353,11 @@ export async function stripeWebhook(req: Request, res: Response) {
           await upsertTeamPendingApprovalFromSessionMetadata(session);
           await updateTeamRequestFromStripeCheckoutSession(session, session.payment_status ?? "expired");
         } else if (metaType === "team_player_invite") {
-          await updateTeamPlayerInvitePaymentFromStripeSession(session, session.payment_status ?? "expired", event.type);
+          await updateTeamPlayerInvitePaymentFromStripeSession(
+            session,
+            session.payment_status ?? "expired",
+            event.type,
+          );
         } else {
           await updateRequestFromStripeSession(session);
         }

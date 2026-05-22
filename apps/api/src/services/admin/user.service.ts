@@ -284,10 +284,7 @@ export async function listUsers(options?: { q?: string; limit?: number; managedB
   });
 }
 
-export async function getUserSummaryById(
-  userId: number,
-  options?: { managedByTeamAdminId?: number | null },
-) {
+export async function getUserSummaryById(userId: number, options?: { managedByTeamAdminId?: number | null }) {
   const filterConditions = [eq(userTable.isDeleted, false), eq(userTable.id, userId)];
   if (typeof options?.managedByTeamAdminId === "number") {
     filterConditions.push(eq(teamTable.adminId, options.managedByTeamAdminId));
@@ -392,82 +389,104 @@ export async function softDeleteUser(userId: number) {
 
   try {
     const result = await db.transaction(async (tx) => {
-    const guardians = await tx
-      .select({ id: guardianTable.id })
-      .from(guardianTable)
-      .where(eq(guardianTable.userId, userId));
-    const guardianIds = guardians.map((g) => g.id);
+      const guardians = await tx
+        .select({ id: guardianTable.id })
+        .from(guardianTable)
+        .where(eq(guardianTable.userId, userId));
+      const guardianIds = guardians.map((g) => g.id);
 
-    const athletesByUser = await tx
-      .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
-      .from(athleteTable)
-      .where(eq(athleteTable.userId, userId));
+      const athletesByUser = await tx
+        .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
+        .from(athleteTable)
+        .where(eq(athleteTable.userId, userId));
 
-    const athletesByGuardian = guardianIds.length
-      ? await tx
-          .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
-          .from(athleteTable)
-          .where(inArray(athleteTable.guardianId, guardianIds))
-      : [];
+      const athletesByGuardian = guardianIds.length
+        ? await tx
+            .select({ id: athleteTable.id, guardianId: athleteTable.guardianId, userId: athleteTable.userId })
+            .from(athleteTable)
+            .where(inArray(athleteTable.guardianId, guardianIds))
+        : [];
 
-    const athleteMap = new Map<number, { id: number; userId: number }>();
-    for (const row of [...athletesByUser, ...athletesByGuardian]) {
-      athleteMap.set(row.id, { id: row.id, userId: row.userId });
-    }
-    const athleteRows = Array.from(athleteMap.values());
-    const athleteIds = athleteRows.map((row) => row.id);
+      const athleteMap = new Map<number, { id: number; userId: number }>();
+      for (const row of [...athletesByUser, ...athletesByGuardian]) {
+        athleteMap.set(row.id, { id: row.id, userId: row.userId });
+      }
+      const athleteRows = Array.from(athleteMap.values());
+      const athleteIds = athleteRows.map((row) => row.id);
 
-    if (athleteIds.length) {
-      await tx
-        .update(guardianTable)
-        .set({ activeAthleteId: null, updatedAt: now })
-        .where(inArray(guardianTable.activeAthleteId, athleteIds));
+      if (athleteIds.length) {
+        await tx
+          .update(guardianTable)
+          .set({ activeAthleteId: null, updatedAt: now })
+          .where(inArray(guardianTable.activeAthleteId, athleteIds));
 
-      await tx
-        .delete(athleteTrainingSessionCompletionTable)
-        .where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
-      await tx
-        .delete(athleteTrainingSessionWorkoutLogTable)
-        .where(inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds));
-      await tx
-        .delete(programSectionCompletionTable)
-        .where(inArray(programSectionCompletionTable.athleteId, athleteIds));
-      await tx
-        .delete(athleteTrainingSessionLogTable)
-        .where(inArray(athleteTrainingSessionLogTable.athleteId, athleteIds));
-      await tx
-        .delete(athleteAchievementUnlockTable)
-        .where(inArray(athleteAchievementUnlockTable.athleteId, athleteIds));
-      await tx.delete(referralGroupMemberTable).where(inArray(referralGroupMemberTable.athleteId, athleteIds));
-      await tx.delete(subscriptionRequestTable).where(inArray(subscriptionRequestTable.athleteId, athleteIds));
-      await tx.delete(videoUploadTable).where(inArray(videoUploadTable.athleteId, athleteIds));
-      await tx.delete(physioRefferalsTable).where(inArray(physioRefferalsTable.athleteId, athleteIds));
-      await tx.delete(legalAcceptanceTable).where(inArray(legalAcceptanceTable.athleteId, athleteIds));
-      await tx.delete(enrollmentTable).where(inArray(enrollmentTable.athleteId, athleteIds));
-      await tx.delete(bookingTable).where(inArray(bookingTable.athleteId, athleteIds));
-      await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.athleteId, athleteIds));
+        await tx
+          .delete(athleteTrainingSessionCompletionTable)
+          .where(inArray(athleteTrainingSessionCompletionTable.athleteId, athleteIds));
+        await tx
+          .delete(athleteTrainingSessionWorkoutLogTable)
+          .where(inArray(athleteTrainingSessionWorkoutLogTable.athleteId, athleteIds));
+        await tx
+          .delete(programSectionCompletionTable)
+          .where(inArray(programSectionCompletionTable.athleteId, athleteIds));
+        await tx
+          .delete(athleteTrainingSessionLogTable)
+          .where(inArray(athleteTrainingSessionLogTable.athleteId, athleteIds));
+        await tx
+          .delete(athleteAchievementUnlockTable)
+          .where(inArray(athleteAchievementUnlockTable.athleteId, athleteIds));
+        await tx.delete(referralGroupMemberTable).where(inArray(referralGroupMemberTable.athleteId, athleteIds));
+        await tx.delete(subscriptionRequestTable).where(inArray(subscriptionRequestTable.athleteId, athleteIds));
+        await tx.delete(videoUploadTable).where(inArray(videoUploadTable.athleteId, athleteIds));
+        await tx.delete(physioRefferalsTable).where(inArray(physioRefferalsTable.athleteId, athleteIds));
+        await tx.delete(legalAcceptanceTable).where(inArray(legalAcceptanceTable.athleteId, athleteIds));
+        await tx.delete(enrollmentTable).where(inArray(enrollmentTable.athleteId, athleteIds));
+        await tx.delete(bookingTable).where(inArray(bookingTable.athleteId, athleteIds));
+        await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.athleteId, athleteIds));
 
-      await tx.delete(athleteTable).where(inArray(athleteTable.id, athleteIds));
-    }
+        await tx.delete(athleteTable).where(inArray(athleteTable.id, athleteIds));
+      }
 
-    if (guardianIds.length) {
-      await tx.delete(bookingTable).where(inArray(bookingTable.guardianId, guardianIds));
-      await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.guardianId, guardianIds));
-      await tx.delete(guardianTable).where(inArray(guardianTable.id, guardianIds));
-    }
+      if (guardianIds.length) {
+        await tx.delete(bookingTable).where(inArray(bookingTable.guardianId, guardianIds));
+        await tx.delete(foodDiaryTable).where(inArray(foodDiaryTable.guardianId, guardianIds));
+        await tx.delete(guardianTable).where(inArray(guardianTable.id, guardianIds));
+      }
 
-    const athleteUserIds = athleteRows.map((row) => row.userId).filter((id) => id !== userId);
-    for (const athleteUserId of athleteUserIds) {
-      const athleteStamp = `${athleteUserId}-${Date.now()}`;
-      await tx
+      const athleteUserIds = athleteRows.map((row) => row.userId).filter((id) => id !== userId);
+      for (const athleteUserId of athleteUserIds) {
+        const athleteStamp = `${athleteUserId}-${Date.now()}`;
+        await tx
+          .update(userTable)
+          .set({
+            isDeleted: true,
+            isBlocked: false,
+            role: "athlete",
+            name: `Deleted Athlete ${athleteUserId}`,
+            email: `deleted+${athleteStamp}@deleted.local`,
+            cognitoSub: `deleted:${athleteStamp}`,
+            profilePicture: null,
+            passwordHash: null,
+            passwordSalt: null,
+            emailVerified: false,
+            verificationCode: null,
+            verificationExpiresAt: null,
+            verificationAttempts: 0,
+            tokenVersion: sql`${userTable.tokenVersion} + 1`,
+            expoPushToken: null,
+            updatedAt: now,
+          })
+          .where(eq(userTable.id, athleteUserId));
+      }
+
+      const updated = await tx
         .update(userTable)
         .set({
           isDeleted: true,
           isBlocked: false,
-          role: "athlete",
-          name: `Deleted Athlete ${athleteUserId}`,
-          email: `deleted+${athleteStamp}@deleted.local`,
-          cognitoSub: `deleted:${athleteStamp}`,
+          name: `Deleted User ${user.id}`,
+          email: deletedEmail,
+          cognitoSub: deletedSub,
           profilePicture: null,
           passwordHash: null,
           passwordSalt: null,
@@ -479,32 +498,10 @@ export async function softDeleteUser(userId: number) {
           expoPushToken: null,
           updatedAt: now,
         })
-        .where(eq(userTable.id, athleteUserId));
-    }
+        .where(eq(userTable.id, userId))
+        .returning();
 
-    const updated = await tx
-      .update(userTable)
-      .set({
-        isDeleted: true,
-        isBlocked: false,
-        name: `Deleted User ${user.id}`,
-        email: deletedEmail,
-        cognitoSub: deletedSub,
-        profilePicture: null,
-        passwordHash: null,
-        passwordSalt: null,
-        emailVerified: false,
-        verificationCode: null,
-        verificationExpiresAt: null,
-        verificationAttempts: 0,
-        tokenVersion: sql`${userTable.tokenVersion} + 1`,
-        expoPushToken: null,
-        updatedAt: now,
-      })
-      .where(eq(userTable.id, userId))
-      .returning();
-
-    return updated[0] ?? null;
+      return updated[0] ?? null;
     });
     return result;
   } catch (error) {
@@ -523,16 +520,15 @@ export async function getUserOnboarding(userId: number) {
   return { guardian, athlete };
 }
 
-export async function updateAthlete(athleteId: number, data: { profilePicture?: string | null; currentProgramTier?: string | null }) {
+export async function updateAthlete(
+  athleteId: number,
+  data: { profilePicture?: string | null; currentProgramTier?: string | null },
+) {
   const updateData: any = { updatedAt: new Date() };
   if (data.profilePicture !== undefined) updateData.profilePicture = data.profilePicture;
   if (data.currentProgramTier !== undefined) updateData.currentProgramTier = data.currentProgramTier;
 
-  const result = await db
-    .update(athleteTable)
-    .set(updateData)
-    .where(eq(athleteTable.id, athleteId))
-    .returning();
+  const result = await db.update(athleteTable).set(updateData).where(eq(athleteTable.id, athleteId)).returning();
 
   const athlete = result[0];
   if (athlete?.userId && data.profilePicture !== undefined) {

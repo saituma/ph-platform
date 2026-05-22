@@ -40,14 +40,23 @@ export async function getAppTokenStatus(req: Request, res: Response) {
 
 // POST /api/app/set-token
 // Mirrors a JWT into an httpOnly cookie for CSRF-safe requests.
-export function setAppToken(req: Request, res: Response) {
+// Validates the token is a legitimate, non-expired PH JWT before setting it.
+export async function setAppToken(req: Request, res: Response) {
   const { token, maxAgeSeconds } = req.body ?? {};
   if (!token || typeof token !== "string") {
     return res.status(400).json({ error: "token required" });
   }
-  const maxAge = typeof maxAgeSeconds === "number" && maxAgeSeconds > 0
-    ? maxAgeSeconds
-    : 30 * 24 * 60 * 60;
+
+  try {
+    await verifyAccessToken(token);
+  } catch {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+
+  const maxAge =
+    typeof maxAgeSeconds === "number" && maxAgeSeconds > 0
+      ? Math.min(maxAgeSeconds, 30 * 24 * 60 * 60)
+      : 30 * 24 * 60 * 60;
 
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,

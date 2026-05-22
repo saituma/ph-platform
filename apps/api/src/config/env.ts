@@ -26,9 +26,9 @@ const phApiScript = process.env.PH_API_SCRIPT === "1";
 const optionalWhenScript = (messageWhenRequired: string) =>
   phApiScript ? z.string().optional() : z.string().min(1, messageWhenRequired);
 
-	const envSchema = z.object({
-	  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-	  PORT: z.coerce.number().int().positive().default(3000),
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   DATABASE_SSL: z.string().optional(),
   DATABASE_PREFER_DIRECT: z.string().optional(),
@@ -87,10 +87,10 @@ const optionalWhenScript = (messageWhenRequired: string) =>
   REDIS_URL: z.string().optional(),
   /** Sentry DSN for API error tracking. Disabled when unset. */
   SENTRY_DSN: z.string().optional(),
-	  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
-	  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
-	  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
-	  TURNSTILE_SECRET_KEY: z.string().optional(),
+  /** Domain for coach-provisioned team athlete logins: `{user}.{teamSlug}@domain` */
+  TEAM_ATHLETE_EMAIL_DOMAIN: z.string().optional(),
+  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).optional(),
+  TURNSTILE_SECRET_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY_2: z.string().optional(),
   TURNSTILE_SECRET_KEY_3: z.string().optional(),
   TURNSTILE_BYPASS: z.string().optional(),
@@ -118,7 +118,7 @@ const optionalWhenScript = (messageWhenRequired: string) =>
    * Optional — defaults to false so existing single-instance deploys are unaffected.
    */
   SOCKET_REQUIRE_REDIS: z.string().optional(),
-	});
+});
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
@@ -147,6 +147,9 @@ function validateProductionConfig(config: typeof raw) {
   requireProductionValue("STRIPE_CANCEL_URL", config.STRIPE_CANCEL_URL, failures);
   requireProductionValue("UPSTASH_REDIS_REST_URL", config.UPSTASH_REDIS_REST_URL, failures);
   requireProductionValue("UPSTASH_REDIS_REST_TOKEN", config.UPSTASH_REDIS_REST_TOKEN, failures);
+  if (config.STRIPE_SECRET_KEY) {
+    requireProductionValue("STRIPE_WEBHOOK_SECRET", config.STRIPE_WEBHOOK_SECRET, failures);
+  }
 
   if (config.ALLOW_EXPIRED_TOKENS === "true") {
     failures.push("ALLOW_EXPIRED_TOKENS must not be enabled in production");
@@ -161,13 +164,12 @@ validateProductionConfig(raw);
 
 const scriptPlaceholder = "__ph_api_script_unused__";
 
-	export const env = {
+export const env = {
   port: raw.PORT,
   nodeEnv: raw.NODE_ENV,
   databaseUrl: raw.DATABASE_URL,
   databaseSsl: raw.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
-  databasePreferDirect:
-    raw.DATABASE_PREFER_DIRECT != null ? raw.DATABASE_PREFER_DIRECT === "true" : false,
+  databasePreferDirect: raw.DATABASE_PREFER_DIRECT != null ? raw.DATABASE_PREFER_DIRECT === "true" : false,
   r2AccountId: raw.R2_ACCOUNT_ID ?? "",
   r2AccessKeyId: raw.R2_ACCESS_KEY_ID ?? "",
   r2SecretAccessKey: raw.R2_SECRET_ACCESS_KEY ?? "",
@@ -208,13 +210,13 @@ const scriptPlaceholder = "__ph_api_script_unused__";
   corsOrigins:
     raw.CORS_ORIGINS ??
     "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,https://phperformance.uk,https://ph-platform-onboarding.vercel.app",
-	  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
-	  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
-	  sentryDsn: raw.SENTRY_DSN ?? "",
-	  logLevel: raw.LOG_LEVEL,
+  requestBodyLimit: raw.REQUEST_BODY_LIMIT ?? "1mb",
+  teamAthleteEmailDomain: raw.TEAM_ATHLETE_EMAIL_DOMAIN ?? "phplatform.com",
+  sentryDsn: raw.SENTRY_DSN ?? "",
+  logLevel: raw.LOG_LEVEL,
   upstashRedisRestUrl: raw.UPSTASH_REDIS_REST_URL ?? "",
   upstashRedisRestToken: raw.UPSTASH_REDIS_REST_TOKEN ?? "",
-	  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
+  turnstileSecretKey: raw.TURNSTILE_SECRET_KEY ?? "",
   turnstileSecretKey2: raw.TURNSTILE_SECRET_KEY_2 ?? "",
   turnstileSecretKey3: raw.TURNSTILE_SECRET_KEY_3 ?? "",
   turnstileBypass: raw.TURNSTILE_BYPASS === "true",
@@ -237,4 +239,4 @@ const scriptPlaceholder = "__ph_api_script_unused__";
    * Safe default: false — existing single-instance deploys continue to work.
    */
   socketRequireRedis: raw.SOCKET_REQUIRE_REDIS === "true",
-	};
+};

@@ -1,4 +1,10 @@
-import { claimPendingBatch, markSent, markFailed, cleanupOutbox, OUTBOX_NOTIFY_CHANNEL } from "../services/outbox.service";
+import {
+  claimPendingBatch,
+  markSent,
+  markFailed,
+  cleanupOutbox,
+  OUTBOX_NOTIFY_CHANNEL,
+} from "../services/outbox.service";
 import { sendPushNotification } from "../services/push.service";
 import { deliverEmail } from "../lib/mailer/base.mailer";
 import { pool } from "../db";
@@ -76,7 +82,7 @@ export function startOutboxWorker(): void {
   logger.info("Outbox drain worker started");
 }
 
-export function stopOutboxWorker(): void {
+export async function stopOutboxWorker(): Promise<void> {
   if (_pollInterval) {
     clearInterval(_pollInterval);
     _pollInterval = null;
@@ -85,10 +91,16 @@ export function stopOutboxWorker(): void {
     clearInterval(_cleanupInterval);
     _cleanupInterval = null;
   }
+  // Wait for any in-flight drain to finish before releasing the DB client
+  while (_draining) {
+    await new Promise<void>((r) => setTimeout(r, 50));
+  }
   if (_listenClient) {
     try {
       _listenClient.release();
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
     _listenClient = null;
   }
 }

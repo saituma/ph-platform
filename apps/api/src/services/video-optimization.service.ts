@@ -3,7 +3,13 @@ import os from "os";
 import path from "path";
 import { spawn, spawnSync } from "child_process";
 
-import { deleteObject, getMediaObjectKeyFromPublicUrl, getObjectBuffer, getPublicObjectUrl, putObject } from "./s3.service";
+import {
+  deleteObject,
+  getMediaObjectKeyFromPublicUrl,
+  getObjectBuffer,
+  getPublicObjectUrl,
+  putObject,
+} from "./s3.service";
 import { logger } from "../lib/logger";
 
 let ffmpegAvailable: boolean | null = null;

@@ -49,13 +49,15 @@ export async function createGoal(req: Request, res: Response) {
 
 export async function updateGoal(req: Request, res: Response) {
   const id = z.coerce.number().int().min(1).parse(req.params.id);
-  const data = z.object({
-    title: z.string().min(1).max(255).optional(),
-    description: z.string().max(500).optional(),
-    targetValue: z.coerce.number().positive().optional(),
-    dueDate: z.string().optional(),
-    status: z.enum(["active", "archived"]).optional(),
-  }).parse(req.body);
+  const data = z
+    .object({
+      title: z.string().min(1).max(255).optional(),
+      description: z.string().max(500).optional(),
+      targetValue: z.coerce.number().positive().optional(),
+      dueDate: z.string().optional(),
+      status: z.enum(["active", "archived"]).optional(),
+    })
+    .parse(req.body);
   const goal = await GoalService.updateGoal(id, data);
   if (!goal) return res.status(404).json({ error: "Goal not found" });
   const io = getSocketServer();

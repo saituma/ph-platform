@@ -132,6 +132,7 @@ jest.mock("../../src/controllers/billing", () => ({
   listTeamPlayerInvitesAdmin: stubHandler,
   resendTeamPlayerInviteAdmin: stubHandler,
   sponsorTeamPlayerInviteAdmin: stubHandler,
+  createCustomerPortalSession: stubHandler,
 }));
 
 jest.mock("../../src/services/fcm.service", () => ({
@@ -246,9 +247,7 @@ describe("Core Routes E2E", () => {
     it("GET /api/v1/auth/me returns authenticated user", async () => {
       setupValidAuth();
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer valid-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer valid-token");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("user");
@@ -263,10 +262,7 @@ describe("Core Routes E2E", () => {
 
   describe("Auth flow — refresh", () => {
     it("POST /api/v1/auth/refresh returns 400 (refresh not supported)", async () => {
-      const res = await request(app)
-        .post("/api/v1/auth/refresh")
-        .set("Content-Type", "application/json")
-        .send({});
+      const res = await request(app).post("/api/v1/auth/refresh").set("Content-Type", "application/json").send({});
 
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("Refresh tokens are not used");
@@ -285,9 +281,7 @@ describe("Core Routes E2E", () => {
       verifyAccessToken.mockResolvedValue({ user_id: user.id });
       getUserById.mockResolvedValue(user);
 
-      const res = await request(app)
-        .get("/api/v1/auth/get-session")
-        .set("Authorization", "Bearer valid-token");
+      const res = await request(app).get("/api/v1/auth/get-session").set("Authorization", "Bearer valid-token");
 
       expect(res.status).toBe(200);
       expect(res.body.session).toMatchObject({ userId: 10 });
@@ -298,9 +292,7 @@ describe("Core Routes E2E", () => {
       verifyAccessToken.mockResolvedValue({ user_id: 99 });
       getUserById.mockResolvedValue({ ...mockUser({ id: 99 }), isDeleted: true });
 
-      const res = await request(app)
-        .get("/api/v1/auth/get-session")
-        .set("Authorization", "Bearer deleted-token");
+      const res = await request(app).get("/api/v1/auth/get-session").set("Authorization", "Bearer deleted-token");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ session: null, user: null });
@@ -310,9 +302,7 @@ describe("Core Routes E2E", () => {
       verifyAccessToken.mockResolvedValue({ user_id: 50 });
       getUserById.mockResolvedValue({ ...mockUser({ id: 50 }), isBlocked: true });
 
-      const res = await request(app)
-        .get("/api/v1/auth/get-session")
-        .set("Authorization", "Bearer blocked-token");
+      const res = await request(app).get("/api/v1/auth/get-session").set("Authorization", "Bearer blocked-token");
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ session: null, user: null });
@@ -327,10 +317,7 @@ describe("Core Routes E2E", () => {
     });
 
     it("POST without Content-Type application/json returns 415", async () => {
-      const res = await request(app)
-        .post("/api/v1/auth/login")
-        .set("Content-Type", "text/plain")
-        .send("not json");
+      const res = await request(app).post("/api/v1/auth/login").set("Content-Type", "text/plain").send("not json");
 
       expect(res.status).toBe(415);
       expect(res.body).toHaveProperty("error");

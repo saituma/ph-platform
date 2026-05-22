@@ -1,4 +1,4 @@
-import { and, count, desc, eq, lt } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lt } from "drizzle-orm";
 import { db } from "../../db";
 import { bookingTable, serviceTypeTable } from "../../db/schema";
 import {
@@ -13,11 +13,7 @@ import {
   buildGeneratedOccurrencesInRange,
   type GeneratedOccurrence,
 } from "./slot.service";
-import {
-  resolveGeneratedWindow,
-  countActiveBookingsForOccurrence,
-  countActiveBookingsForService,
-} from "./availability.service";
+import { resolveGeneratedWindow, countActiveBookingsForService } from "./availability.service";
 import { notifyBookingCancelled, notifyBookingRequested } from "./notification.service";
 
 let cachedSupportsServiceEligiblePlans: boolean | null = null;
@@ -401,7 +397,13 @@ export async function createBooking(input: {
   occurrenceKey?: string | null;
   slotKey?: string | null;
   createdBy: number;
-  viewerAthlete?: { currentProgramTier?: string | null; athleteType?: string | null; teamId?: number | null; userId?: number | null; guardianId?: number | null } | null;
+  viewerAthlete?: {
+    currentProgramTier?: string | null;
+    athleteType?: string | null;
+    teamId?: number | null;
+    userId?: number | null;
+    guardianId?: number | null;
+  } | null;
   location?: string | null;
   meetingLink?: string | null;
   notes?: string | null;
@@ -469,50 +471,83 @@ export async function createBooking(input: {
     throw new Error("Service type not available: requested time is in the past");
   }
 
-  if (!input.bypassAvailability) {
-    if (occurrenceKey) {
-      const existingCount = await countActiveBookingsForOccurrence(input.serviceTypeId, occurrenceKey, slotKey);
-      if (scopedCapacity != null && existingCount >= scopedCapacity) {
-        throw new Error("Capacity reached");
-      }
-    } else if (serviceType[0].capacity) {
-      const existingCount = await countActiveBookingsForService(input.serviceTypeId);
-      if (existingCount >= serviceType[0].capacity) {
-        throw new Error("Capacity reached");
+  // Capacity check + insert are wrapped in a transaction to prevent double-booking
+  // under concurrent requests.
+  const result = await db.transaction(async (tx) => {
+    if (!input.bypassAvailability) {
+      if (occurrenceKey) {
+        const rows = await tx
+          .select({ id: bookingTable.id })
+          .from(bookingTable)
+          .where(
+            and(
+              eq(bookingTable.serviceTypeId, input.serviceTypeId),
+              eq(bookingTable.occurrenceKey, occurrenceKey),
+              inArray(bookingTable.status, ["pending", "confirmed"] as const),
+              ...(slotKey ? [eq(bookingTable.slotKey, slotKey)] : []),
+            ),
+          );
+        if (scopedCapacity != null && rows.length >= scopedCapacity) {
+          throw new Error("Capacity reached");
+        }
+      } else if (serviceType[0].capacity) {
+        const rows = await tx
+          .select({ id: bookingTable.id })
+          .from(bookingTable)
+          .where(
+            and(
+              eq(bookingTable.serviceTypeId, input.serviceTypeId),
+              inArray(bookingTable.status, ["pending", "confirmed"] as const),
+            ),
+          );
+        if (rows.length >= serviceType[0].capacity) {
+          throw new Error("Capacity reached");
+        }
       }
     }
-  }
 
-  const result = await db
-    .insert(bookingTable)
-    .values({
-      athleteId: input.athleteId,
-      guardianId: input.guardianId,
-      type: serviceType[0].type,
-      status: "pending",
-      startsAt,
-      endTime: endsAt,
-      location: input.location ?? serviceType[0].defaultLocation ?? null,
-      meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? null,
-      notes: input.notes ?? null,
-      serviceTypeId: input.serviceTypeId,
-      occurrenceKey,
-      slotKey,
-      timezoneOffsetMinutes: input.timezoneOffsetMinutes ?? null,
-      createdBy: input.createdBy,
-    })
-    .returning();
+    const inserted = await tx
+      .insert(bookingTable)
+      .values({
+        athleteId: input.athleteId,
+        guardianId: input.guardianId,
+        type: serviceType[0].type,
+        status: "pending",
+        startsAt,
+        endTime: endsAt,
+        location: input.location ?? serviceType[0].defaultLocation ?? null,
+        meetingLink: input.meetingLink ?? serviceType[0].defaultMeetingLink ?? null,
+        notes: input.notes ?? null,
+        serviceTypeId: input.serviceTypeId,
+        occurrenceKey,
+        slotKey,
+        timezoneOffsetMinutes: input.timezoneOffsetMinutes ?? null,
+        createdBy: input.createdBy,
+      })
+      .returning();
 
-  if (result[0]) {
-    if (serviceType[0].totalSlots != null) {
-      const totalBookedNow = await countActiveBookingsForService(input.serviceTypeId);
-      if (totalBookedNow >= serviceType[0].totalSlots) {
-        await db
+    if (inserted[0] && serviceType[0].totalSlots != null) {
+      const totalRows = await tx
+        .select({ id: bookingTable.id })
+        .from(bookingTable)
+        .where(
+          and(
+            eq(bookingTable.serviceTypeId, input.serviceTypeId),
+            inArray(bookingTable.status, ["pending", "confirmed"] as const),
+          ),
+        );
+      if (totalRows.length >= serviceType[0].totalSlots) {
+        await tx
           .update(serviceTypeTable)
           .set({ isActive: false, updatedAt: new Date() })
           .where(eq(serviceTypeTable.id, input.serviceTypeId));
       }
     }
+
+    return inserted;
+  });
+
+  if (result[0]) {
     await notifyBookingRequested({
       bookingId: result[0].id,
       serviceName: serviceType[0].name,

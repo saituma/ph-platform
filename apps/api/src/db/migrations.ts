@@ -138,8 +138,16 @@ async function migrateEachJournalEntryInOwnTransaction(
         try {
           await db.execute(sql.raw(stmt));
         } catch (err: any) {
-          if (err?.code === "42703" || err?.code === "42P01" || err?.cause?.code === "42703" || err?.cause?.code === "42P01") {
-            logger.warn({ err, migration: migration.hash }, "Skipping index migration statement for missing table or column");
+          if (
+            err?.code === "42703" ||
+            err?.code === "42P01" ||
+            err?.cause?.code === "42703" ||
+            err?.cause?.code === "42P01"
+          ) {
+            logger.warn(
+              { err, migration: migration.hash },
+              "Skipping index migration statement for missing table or column",
+            );
             continue;
           }
           throw err;

@@ -31,9 +31,7 @@ export async function hasUserBlockBetween(userId: number, otherUserId: number) {
 }
 
 export async function filterBlockedRecipientsForSender(senderId: number, recipientIds: number[]) {
-  const uniqueRecipientIds = Array.from(
-    new Set(recipientIds.filter((id) => Number.isFinite(id) && id > 0)),
-  );
+  const uniqueRecipientIds = Array.from(new Set(recipientIds.filter((id) => Number.isFinite(id) && id > 0)));
   if (!uniqueRecipientIds.length) return [];
 
   const rows = await db

@@ -518,6 +518,12 @@ export async function checkInMySession(input: { scheduledSessionId: number; user
 }
 
 export async function deleteSessionTemplate(userId: number, templateId: number) {
+  const [template] = await db
+    .select({ id: sessionTemplateTable.id })
+    .from(sessionTemplateTable)
+    .where(and(eq(sessionTemplateTable.id, templateId), eq(sessionTemplateTable.createdBy, userId)))
+    .limit(1);
+  if (!template) throw new Error("TEMPLATE_NOT_FOUND");
   await db.delete(scheduledSessionTable).where(eq(scheduledSessionTable.templateId, templateId));
   await db.delete(sessionTemplateTable).where(eq(sessionTemplateTable.id, templateId));
   return { deleted: true };
@@ -556,13 +562,19 @@ export async function updateSessionTemplate(
   const [updated] = await db
     .update(sessionTemplateTable)
     .set(setValues)
-    .where(eq(sessionTemplateTable.id, templateId))
+    .where(and(eq(sessionTemplateTable.id, templateId), eq(sessionTemplateTable.createdBy, userId)))
     .returning();
   if (!updated) throw new Error("TEMPLATE_NOT_FOUND");
   return updated;
 }
 
 export async function deleteScheduledSession(userId: number, sessionId: number) {
+  const [session] = await db
+    .select({ id: scheduledSessionTable.id })
+    .from(scheduledSessionTable)
+    .where(and(eq(scheduledSessionTable.id, sessionId), eq(scheduledSessionTable.createdBy, userId)))
+    .limit(1);
+  if (!session) throw new Error("SESSION_NOT_FOUND");
   await db.delete(sessionAttendanceTable).where(eq(sessionAttendanceTable.scheduledSessionId, sessionId));
   await db.delete(scheduledSessionTable).where(eq(scheduledSessionTable.id, sessionId));
   return { deleted: true };
@@ -591,7 +603,7 @@ export async function updateScheduledSession(
   const [updated] = await db
     .update(scheduledSessionTable)
     .set(setValues)
-    .where(eq(scheduledSessionTable.id, sessionId))
+    .where(and(eq(scheduledSessionTable.id, sessionId), eq(scheduledSessionTable.createdBy, userId)))
     .returning();
   if (!updated) throw new Error("SESSION_NOT_FOUND");
   return updated;
@@ -601,18 +613,13 @@ export async function cancelScheduledSession(userId: number, sessionId: number) 
   const [updated] = await db
     .update(scheduledSessionTable)
     .set({ status: "cancelled", updatedAt: new Date() })
-    .where(eq(scheduledSessionTable.id, sessionId))
+    .where(and(eq(scheduledSessionTable.id, sessionId), eq(scheduledSessionTable.createdBy, userId)))
     .returning();
   if (!updated) throw new Error("SESSION_NOT_FOUND");
   return updated;
 }
 
-export async function getAttendanceStats(input: {
-  userId?: number;
-  teamId?: number;
-  from?: Date;
-  to?: Date;
-}) {
+export async function getAttendanceStats(input: { userId?: number; teamId?: number; from?: Date; to?: Date }) {
   const conditions: any[] = [];
   if (input.userId) conditions.push(eq(sessionAttendanceTable.userId, input.userId));
   if (input.teamId) conditions.push(eq(scheduledSessionTable.teamId, input.teamId));

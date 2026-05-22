@@ -145,6 +145,7 @@ jest.mock("../../src/controllers/billing", () => ({
   listTeamPlayerInvitesAdmin: stubHandler,
   resendTeamPlayerInviteAdmin: stubHandler,
   sponsorTeamPlayerInviteAdmin: stubHandler,
+  createCustomerPortalSession: stubHandler,
 }));
 
 jest.mock("../../src/services/fcm.service", () => ({
@@ -158,17 +159,19 @@ import { createApp } from "../../src/app";
 const app = createApp();
 
 /** Helper to build a valid mock user row */
-function mockUser(overrides: Partial<{
-  id: number;
-  role: string;
-  email: string;
-  name: string;
-  cognitoSub: string;
-  profilePicture: string | null;
-  tokenVersion: number;
-  isBlocked: boolean;
-  isDeleted: boolean;
-}> = {}) {
+function mockUser(
+  overrides: Partial<{
+    id: number;
+    role: string;
+    email: string;
+    name: string;
+    cognitoSub: string;
+    profilePicture: string | null;
+    tokenVersion: number;
+    isBlocked: boolean;
+    isDeleted: boolean;
+  }> = {},
+) {
   return {
     id: 10,
     role: "guardian",
@@ -237,9 +240,7 @@ describe("Auth Security E2E", () => {
     });
 
     it("GET /api/v1/auth/me with malformed header returns 401", async () => {
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Basic abc123");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Basic abc123");
       expect(res.status).toBe(401);
     });
   });
@@ -248,9 +249,7 @@ describe("Auth Security E2E", () => {
     it("returns 403 when user isBlocked = true", async () => {
       setupValidAuth({ isBlocked: true });
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer valid-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer valid-token");
 
       expect(res.status).toBe(403);
       expect(res.body).toHaveProperty("error", "Account is blocked");
@@ -269,9 +268,7 @@ describe("Auth Security E2E", () => {
       // Simulate deleted user: getUserById returns null
       getUserById.mockResolvedValue(null);
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer deleted-user-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer deleted-user-token");
 
       expect(res.status).toBe(401);
       expect(res.body).toHaveProperty("error", "Unauthorized");
@@ -289,9 +286,7 @@ describe("Auth Security E2E", () => {
       });
       getUserById.mockResolvedValue(null);
 
-      await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer gone-user-token");
+      await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer gone-user-token");
 
       expect(cache.del).toHaveBeenCalledWith("auth:user:42");
     });
@@ -308,9 +303,7 @@ describe("Auth Security E2E", () => {
       });
       getUserById.mockResolvedValue(mockUser({ tokenVersion: 2 })); // user's version was bumped
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer stale-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer stale-token");
 
       expect(res.status).toBe(401);
     });
@@ -320,9 +313,7 @@ describe("Auth Security E2E", () => {
     it("GET /api/v1/auth/me returns user when properly authenticated", async () => {
       setupValidAuth();
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer valid-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer valid-token");
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("user");
@@ -338,9 +329,7 @@ describe("Auth Security E2E", () => {
     it("rejects when verifyAccessToken throws", async () => {
       verifyAccessToken.mockRejectedValue(new Error("JWT expired"));
 
-      const res = await request(app)
-        .get("/api/v1/auth/me")
-        .set("Authorization", "Bearer expired-token");
+      const res = await request(app).get("/api/v1/auth/me").set("Authorization", "Bearer expired-token");
 
       expect(res.status).toBe(401);
     });

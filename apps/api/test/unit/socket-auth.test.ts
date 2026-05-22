@@ -51,7 +51,11 @@ jest.mock("../../src/lib/cache", () => ({
   cacheKeys: { authUser: (id: number) => `u:${id}`, userProfile: (id: number) => `p:${id}` },
 }));
 jest.mock("../../src/lib/user-roles", () => ({ isTrainingStaff: () => false }));
-jest.mock("../../src/lib/logger", () => ({ logger: { warn: jest.fn(), error: jest.fn() } }));
+jest.mock("../../src/lib/logger", () => {
+  const child = jest.fn().mockReturnThis();
+  const log = { warn: jest.fn(), error: jest.fn(), info: jest.fn(), child };
+  return { logger: log, createLogger: jest.fn(() => log) };
+});
 
 // ── issueSocketToken controller ────────────────────────────────────────────
 
@@ -100,10 +104,7 @@ function extractCookieToken(cookieHeader: string): string | undefined {
     .split(";")
     .map((part) => part.trim())
     .find(
-      (part) =>
-        part.startsWith("accessToken=") ||
-        part.startsWith("auth_token=") ||
-        part.startsWith("ph_app_session="),
+      (part) => part.startsWith("accessToken=") || part.startsWith("auth_token=") || part.startsWith("ph_app_session="),
     )
     ?.split("=")[1];
 }
@@ -122,9 +123,7 @@ describe("socket cookie token extraction", () => {
   });
 
   it("reads the first matching cookie when multiple are present", () => {
-    expect(extractCookieToken("other=x; ph_app_session=parent-jwt; accessToken=admin-jwt")).toBe(
-      "parent-jwt",
-    );
+    expect(extractCookieToken("other=x; ph_app_session=parent-jwt; accessToken=admin-jwt")).toBe("parent-jwt");
   });
 
   it("returns undefined when no recognised cookie is present", () => {

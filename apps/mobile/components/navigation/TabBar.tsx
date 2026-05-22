@@ -8,6 +8,7 @@ import Animated, {
   Extrapolation,
   useDerivedValue,
   useSharedValue,
+  type SharedValue,
 } from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -30,7 +31,7 @@ export interface TabConfig {
 interface TabBarProps {
   tabs: TabConfig[];
   activeIndex: number;
-  scrollOffset: Animated.SharedValue<number>;
+  scrollOffset: SharedValue<number>;
   onTabPress: (index: number) => void;
 }
 
@@ -124,7 +125,7 @@ const TabItem = React.memo(function TabItem({
 }: {
   tab: TabConfig;
   index: number;
-  scrollOffset: Animated.SharedValue<number>;
+  scrollOffset: SharedValue<number>;
   onTabPress: (index: number) => void;
   colors: any;
   isDark: boolean;

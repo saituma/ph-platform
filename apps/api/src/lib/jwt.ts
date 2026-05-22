@@ -89,7 +89,6 @@ export async function verifyPlanInviteToken(token: string) {
   return {
     planId,
     email,
-    invitedByName:
-      typeof payload.invited_by_name === "string" ? payload.invited_by_name : null,
+    invitedByName: typeof payload.invited_by_name === "string" ? payload.invited_by_name : null,
   };
 }

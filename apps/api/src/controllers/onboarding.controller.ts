@@ -21,7 +21,10 @@ import {
 import { AthleteType, ProgramType } from "../db/schema";
 import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
 
-const preferredTrainingDaysSchema = z.array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"])).min(1).max(7);
+const preferredTrainingDaysSchema = z
+  .array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]))
+  .min(1)
+  .max(7);
 
 const onboardingSchema = z
   .object({

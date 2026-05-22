@@ -2,13 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
-import {
-  athleteTable,
-  subscriptionPlanTable,
-  userTable,
-  ProgramType,
-  AthleteType,
-} from "../../db/schema";
+import { athleteTable, subscriptionPlanTable, userTable, ProgramType, AthleteType } from "../../db/schema";
 import { getUserByEmail } from "../user.service";
 import { generateProvisionPassword, hashLocalProvisionPassword } from "../admin/user.service";
 import { createCheckoutSession } from "./request.service";
@@ -614,10 +608,7 @@ function formatPenceAsGbp(cents: number): string {
   return `£${(cents / 100).toFixed(2)}`;
 }
 
-function oneTimeStripeIntervalLabel(input: {
-  durationWeeks?: number | null;
-  durationDaysPerWeek?: number | null;
-}) {
+function oneTimeStripeIntervalLabel(input: { durationWeeks?: number | null; durationDaysPerWeek?: number | null }) {
   const weeks = Number(input.durationWeeks ?? 0);
   if (Number.isFinite(weeks) && weeks > 0) {
     return `${weeks} week${weeks === 1 ? "" : "s"}`;
@@ -863,7 +854,8 @@ export async function updateSubscriptionPlan(
 
   const nextDurationFields = {
     durationWeeks: ("durationWeeks" in input ? input.durationWeeks : existing.durationWeeks) ?? null,
-    durationWeeksPrice: ("durationWeeksPrice" in input ? input.durationWeeksPrice : existing.durationWeeksPrice) ?? null,
+    durationWeeksPrice:
+      ("durationWeeksPrice" in input ? input.durationWeeksPrice : existing.durationWeeksPrice) ?? null,
     durationDaysPerWeek:
       ("durationDaysPerWeek" in input ? input.durationDaysPerWeek : existing.durationDaysPerWeek) ?? null,
     durationDaysPrice: ("durationDaysPrice" in input ? input.durationDaysPrice : existing.durationDaysPrice) ?? null,
@@ -896,12 +888,9 @@ export async function updateSubscriptionPlan(
     const discountAppliesTo = input.discountAppliesTo ?? existing.discountAppliesTo ?? null;
     const discounts = ("discounts" in input ? input.discounts : (existing.discounts as DiscountRule[] | null)) ?? null;
 
-    const weeklyChanged =
-      "weeklyPrice" in input && (input.weeklyPrice ?? null) !== (existing.weeklyPrice ?? null);
-    const monthlyChanged =
-      "monthlyPrice" in input && (input.monthlyPrice ?? null) !== (existing.monthlyPrice ?? null);
-    const yearlyChanged =
-      "yearlyPrice" in input && (input.yearlyPrice ?? null) !== (existing.yearlyPrice ?? null);
+    const weeklyChanged = "weeklyPrice" in input && (input.weeklyPrice ?? null) !== (existing.weeklyPrice ?? null);
+    const monthlyChanged = "monthlyPrice" in input && (input.monthlyPrice ?? null) !== (existing.monthlyPrice ?? null);
+    const yearlyChanged = "yearlyPrice" in input && (input.yearlyPrice ?? null) !== (existing.yearlyPrice ?? null);
     const oneTimeChanged =
       ("oneTimePrice" in input && (input.oneTimePrice ?? null) !== (existing.oneTimePrice ?? null)) ||
       (effectiveOneTimePrice ?? null) !== (existing.oneTimePrice ?? null);
@@ -1033,14 +1022,13 @@ export async function inviteUserToPlan(input: {
   }
 
   // Pick a default summary amount for the email (the user picks the actual cycle on the public page).
-  const summaryAmount =
-    plan.monthlyPrice
-      ? `${plan.monthlyPrice}/mo`
-      : plan.oneTimePrice
-        ? `${plan.oneTimePrice}${plan.durationWeeks ? ` (${plan.durationWeeks} weeks)` : ""}`
-        : plan.yearlyPrice
-          ? `${plan.yearlyPrice} (1 year)`
-          : plan.displayPrice;
+  const summaryAmount = plan.monthlyPrice
+    ? `${plan.monthlyPrice}/mo`
+    : plan.oneTimePrice
+      ? `${plan.oneTimePrice}${plan.durationWeeks ? ` (${plan.durationWeeks} weeks)` : ""}`
+      : plan.yearlyPrice
+        ? `${plan.yearlyPrice} (1 year)`
+        : plan.displayPrice;
 
   const token = await createPlanInviteToken({
     planId: plan.id,
@@ -1181,11 +1169,7 @@ export async function consumePlanInvite(input: {
   }
 
   // Find or create athlete row, populating the onboarding fields.
-  const existing = await db
-    .select()
-    .from(athleteTable)
-    .where(eq(athleteTable.userId, user.id))
-    .limit(1);
+  const existing = await db.select().from(athleteTable).where(eq(athleteTable.userId, user.id)).limit(1);
   const onboardingFields = {
     name: fullName,
     age,

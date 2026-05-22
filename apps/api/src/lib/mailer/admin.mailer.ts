@@ -155,9 +155,7 @@ export async function sendContentReportEmail(input: {
   try {
     const subject = `[Action Required] Content report — ${escapeHtml(input.reason)}`;
     const reporter = escapeHtml(displayGreetingName(input.reporterName, input.reporterEmail));
-    const reportedLabel = input.reportedUserName
-      ? escapeHtml(input.reportedUserName)
-      : `User #${input.reportedUserId}`;
+    const reportedLabel = input.reportedUserName ? escapeHtml(input.reportedUserName) : `User #${input.reportedUserId}`;
 
     const detailRows = [
       labelRow("Reporter", `${reporter} &lt;${escapeHtml(input.reporterEmail)}&gt;`),

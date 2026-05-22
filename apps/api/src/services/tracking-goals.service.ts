@@ -81,12 +81,7 @@ export async function createGoal(input: CreateGoalInput) {
     const [existing] = await db
       .select({ cnt: count() })
       .from(trackingGoalTable)
-      .where(
-        and(
-          eq(trackingGoalTable.athleteId, input.athleteId),
-          eq(trackingGoalTable.status, "active"),
-        ),
-      );
+      .where(and(eq(trackingGoalTable.athleteId, input.athleteId), eq(trackingGoalTable.status, "active")));
     if (existing && Number(existing.cnt) > 0) {
       throw new GoalLimitError("This athlete already has an active goal. Archive or delete it first.");
     }

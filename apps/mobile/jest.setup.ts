@@ -232,7 +232,7 @@ jest.mock("react-native-reanimated", () => {
     SlideInDown: { duration: jest.fn().mockReturnThis() },
     SlideOutDown: { duration: jest.fn().mockReturnThis() },
     Layout: { duration: jest.fn().mockReturnThis(), springify: jest.fn().mockReturnThis() },
-    LinearTransition: { duration: jest.fn().mockReturnThis().springify?.() || jest.fn().mockReturnThis() },
+    LinearTransition: { duration: jest.fn().mockReturnThis(), springify: jest.fn().mockReturnThis() },
     ZoomIn: { duration: jest.fn().mockReturnThis() },
     ZoomOut: { duration: jest.fn().mockReturnThis() },
     clamp: jest.fn((v: any) => v),

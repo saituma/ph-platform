@@ -117,6 +117,7 @@ jest.mock("../../src/controllers/billing", () => ({
   listTeamPlayerInvitesAdmin: stubHandler,
   resendTeamPlayerInviteAdmin: stubHandler,
   sponsorTeamPlayerInviteAdmin: stubHandler,
+  createCustomerPortalSession: stubHandler,
 }));
 
 jest.mock("../../src/services/fcm.service", () => ({
@@ -165,9 +166,7 @@ describe("Admin Users E2E", () => {
       ];
       listUsers.mockResolvedValue(users);
 
-      const res = await request(app)
-        .get("/api/v1/admin/users")
-        .set(adminHeaders());
+      const res = await request(app).get("/api/v1/admin/users").set(adminHeaders());
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("users");
@@ -177,14 +176,10 @@ describe("Admin Users E2E", () => {
     it("supports search query parameter", async () => {
       listUsers.mockResolvedValue([]);
 
-      const res = await request(app)
-        .get("/api/v1/admin/users?q=john")
-        .set(adminHeaders());
+      const res = await request(app).get("/api/v1/admin/users?q=john").set(adminHeaders());
 
       expect(res.status).toBe(200);
-      expect(listUsers).toHaveBeenCalledWith(
-        expect.objectContaining({ q: "john" }),
-      );
+      expect(listUsers).toHaveBeenCalledWith(expect.objectContaining({ q: "john" }));
     });
 
     it("returns 403 for non-admin role when roles middleware is active", async () => {
@@ -209,7 +204,6 @@ describe("Admin Users E2E", () => {
 
   describe("Delete user invalidates their session", () => {
     it("DELETE /api/v1/admin/users/:userId soft-deletes and clears cache", async () => {
-
       softDeleteUser.mockResolvedValue({
         id: 42,
         name: "Deleted User",
@@ -217,9 +211,7 @@ describe("Admin Users E2E", () => {
         isDeleted: true,
       });
 
-      const res = await request(app)
-        .delete("/api/v1/admin/users/42")
-        .set(adminHeaders());
+      const res = await request(app).delete("/api/v1/admin/users/42").set(adminHeaders());
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("user");
@@ -232,9 +224,7 @@ describe("Admin Users E2E", () => {
     it("DELETE /api/v1/admin/users/:userId returns 404 for non-existent user", async () => {
       softDeleteUser.mockResolvedValue(null);
 
-      const res = await request(app)
-        .delete("/api/v1/admin/users/999")
-        .set(adminHeaders());
+      const res = await request(app).delete("/api/v1/admin/users/999").set(adminHeaders());
 
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("error", "User not found");
@@ -243,9 +233,7 @@ describe("Admin Users E2E", () => {
     it("DELETE /api/v1/admin/users/:userId returns 500 on service error", async () => {
       softDeleteUser.mockRejectedValue(new Error("DB connection lost"));
 
-      const res = await request(app)
-        .delete("/api/v1/admin/users/42")
-        .set(adminHeaders());
+      const res = await request(app).delete("/api/v1/admin/users/42").set(adminHeaders());
 
       expect(res.status).toBe(500);
       expect(res.body).toHaveProperty("error", "Failed to delete user");
@@ -254,7 +242,6 @@ describe("Admin Users E2E", () => {
 
   describe("Block user prevents access", () => {
     it("POST /api/v1/admin/users/:userId/block sets blocked status", async () => {
-
       setUserBlocked.mockResolvedValue({
         id: 50,
         name: "Blocked User",
@@ -262,10 +249,7 @@ describe("Admin Users E2E", () => {
         isBlocked: true,
       });
 
-      const res = await request(app)
-        .post("/api/v1/admin/users/50/block")
-        .set(adminHeaders())
-        .send({ blocked: true });
+      const res = await request(app).post("/api/v1/admin/users/50/block").set(adminHeaders()).send({ blocked: true });
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("user");
@@ -283,10 +267,7 @@ describe("Admin Users E2E", () => {
         isBlocked: false,
       });
 
-      const res = await request(app)
-        .post("/api/v1/admin/users/50/block")
-        .set(adminHeaders())
-        .send({ blocked: false });
+      const res = await request(app).post("/api/v1/admin/users/50/block").set(adminHeaders()).send({ blocked: false });
 
       expect(res.status).toBe(200);
       expect(setUserBlocked).toHaveBeenCalledWith(50, false);
@@ -295,10 +276,7 @@ describe("Admin Users E2E", () => {
     it("POST /api/v1/admin/users/:userId/block returns 404 for unknown user", async () => {
       setUserBlocked.mockResolvedValue(null);
 
-      const res = await request(app)
-        .post("/api/v1/admin/users/999/block")
-        .set(adminHeaders())
-        .send({ blocked: true });
+      const res = await request(app).post("/api/v1/admin/users/999/block").set(adminHeaders()).send({ blocked: true });
 
       expect(res.status).toBe(404);
       expect(res.body).toHaveProperty("error", "User not found");
@@ -314,9 +292,7 @@ describe("Admin Users E2E", () => {
         role: "athlete",
       });
 
-      const res = await request(app)
-        .get("/api/v1/admin/users/10")
-        .set(adminHeaders());
+      const res = await request(app).get("/api/v1/admin/users/10").set(adminHeaders());
 
       expect(res.status).toBe(200);
       expect(res.body.user).toMatchObject({ id: 10, email: "athlete@example.com" });
@@ -325,9 +301,7 @@ describe("Admin Users E2E", () => {
     it("GET /api/v1/admin/users/:userId returns 404 for missing user", async () => {
       getUserSummaryById.mockResolvedValue(null);
 
-      const res = await request(app)
-        .get("/api/v1/admin/users/999")
-        .set(adminHeaders());
+      const res = await request(app).get("/api/v1/admin/users/999").set(adminHeaders());
 
       expect(res.status).toBe(404);
     });

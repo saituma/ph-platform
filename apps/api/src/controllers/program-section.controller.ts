@@ -318,12 +318,15 @@ export async function completeTrainingSessionHandler(req: Request, res: Response
       programKey: input.programKey ?? null,
     });
 
-    logger.info({
-      athleteId: athlete.id,
-      exerciseCount: result.completionsLogged,
-      programKey: input.programKey ?? null,
-      weekNumber: input.weekNumber ?? null,
-    }, "[training] session_completed");
+    logger.info(
+      {
+        athleteId: athlete.id,
+        exerciseCount: result.completionsLogged,
+        programKey: input.programKey ?? null,
+        weekNumber: input.weekNumber ?? null,
+      },
+      "[training] session_completed",
+    );
 
     return res.status(201).json(result);
   } catch (err: unknown) {

@@ -36,7 +36,7 @@ export function AdminAvatarSection({
       <View className="items-center justify-center">
         <View className="relative">
           <View className="p-1.5 rounded-[44px] border border-accent/10 bg-accent/5">
-            <Avatar size="lg" className="h-32 w-32 rounded-[38px] border-2 border-white/10 shadow-2xl">
+            <Avatar size="lg" className="h-32 w-32 rounded-[38px] border-2 border-white/10 shadow-2xl" alt="Profile avatar">
               {avatar ? (
                 <Avatar.Image source={{ uri: avatar }} className="rounded-[34px]" />
               ) : (

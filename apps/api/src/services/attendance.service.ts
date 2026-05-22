@@ -94,9 +94,10 @@ export async function getMyAttendanceStatus(userId: number) {
   const completedToday = Boolean(completion);
   const status = requiredToday ? (completedToday ? "present" : "absent") : "not_scheduled";
 
-  const message = requiredToday && !completedToday
-    ? "Today is one of your training days. Complete a session to mark attendance."
-    : null;
+  const message =
+    requiredToday && !completedToday
+      ? "Today is one of your training days. Complete a session to mark attendance."
+      : null;
 
   if (requiredToday && !completedToday) {
     const key = dateKeyUtc(now);

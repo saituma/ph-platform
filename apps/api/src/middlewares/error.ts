@@ -75,10 +75,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
 
   const defaultMessage = err instanceof Error ? err.message : String(err);
   const dbConnectionHint =
-    process.env.NODE_ENV !== "production" &&
-    dbCause?.code === "ECONNRESET" &&
-    defaultMessage.includes("Failed query")
-      ? "PostgreSQL closed the connection (often invalid/expired DATABASE_URL, paused Neon project, or network). Copy a fresh connection string from the Neon dashboard and run: pnpm --filter api db:psql -c \"select 1\""
+    process.env.NODE_ENV !== "production" && dbCause?.code === "ECONNRESET" && defaultMessage.includes("Failed query")
+      ? 'PostgreSQL closed the connection (often invalid/expired DATABASE_URL, paused Neon project, or network). Copy a fresh connection string from the Neon dashboard and run: pnpm --filter api db:psql -c "select 1"'
       : undefined;
 
   logger.error({

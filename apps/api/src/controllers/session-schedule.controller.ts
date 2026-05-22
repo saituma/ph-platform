@@ -196,9 +196,7 @@ export async function listMySessions(req: Request, res: Response) {
   // Only cache the default (no date filters) request — filtered variants are uncached
   const isDefaultQuery = !query.from && !query.to;
   const items = isDefaultQuery
-    ? await cache.getOrSet(cacheKeys.userSessions(userId), 30, () =>
-        listMyScheduledSessions({ userId }),
-      )
+    ? await cache.getOrSet(cacheKeys.userSessions(userId), 30, () => listMyScheduledSessions({ userId }))
     : await listMyScheduledSessions({
         userId,
         from: query.from ? new Date(query.from) : undefined,
@@ -456,10 +454,17 @@ export async function scanQrToken(req: Request, res: Response) {
     });
   } catch (error) {
     if (error instanceof Error && error.message === "SESSION_ASSIGNMENT_NOT_FOUND") {
-      return res.status(404).json({ error: "Session assignment not found", message: "This session is not assigned to you" });
+      return res
+        .status(404)
+        .json({ error: "Session assignment not found", message: "This session is not assigned to you" });
     }
     if (error instanceof Error && error.message === "SESSION_NOT_ATTENDABLE_TODAY") {
-      return res.status(403).json({ error: "Session can only be attended on its scheduled day", message: "This session is not scheduled for today" });
+      return res
+        .status(403)
+        .json({
+          error: "Session can only be attended on its scheduled day",
+          message: "This session is not scheduled for today",
+        });
     }
     throw error;
   }

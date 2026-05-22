@@ -24,7 +24,7 @@ export type ChatMessage = {
   mediaUrl?: string;
   videoUploadId?: number;
   time: string;
-  status?: "sent" | "delivered" | "read";
+  status?: "sent" | "delivered" | "read" | "failed";
   authorName?: string;
   authorAvatar?: string | null;
   clientId?: string;

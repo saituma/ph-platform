@@ -58,18 +58,26 @@ function parseWindowMs(window: `${number} ${"s" | "m" | "h" | "d"}`): number {
   const value = Number(match[1]);
   const unit = match[2];
   switch (unit) {
-    case "s": return value * 1_000;
-    case "m": return value * 60_000;
-    case "h": return value * 3_600_000;
-    case "d": return value * 86_400_000;
-    default: return 60_000;
+    case "s":
+      return value * 1_000;
+    case "m":
+      return value * 60_000;
+    case "h":
+      return value * 3_600_000;
+    case "d":
+      return value * 86_400_000;
+    default:
+      return 60_000;
   }
 }
 
 /** Simple in-memory rate limiter used when Redis is not configured. */
 class InMemoryRateLimiter {
   private store = new Map<string, { count: number; resetAt: number }>();
-  constructor(private maxRequests: number, private windowMs: number) {}
+  constructor(
+    private maxRequests: number,
+    private windowMs: number,
+  ) {}
 
   limit(key: string): { success: boolean; limit: number; remaining: number; reset: number } {
     const now = Date.now();
@@ -105,14 +113,12 @@ function getClientIp(req: Request): string {
  * Express middleware factory — wraps Upstash Ratelimit with Express.
  * Falls back to express-rate-limit config if Redis is unconfigured.
  */
-export function redisRateLimit(
-  requests: number,
-  window: `${number} ${"s" | "m" | "h" | "d"}`,
-  prefix = "rl",
-) {
+export function redisRateLimit(requests: number, window: `${number} ${"s" | "m" | "h" | "d"}`, prefix = "rl") {
   const limiter = createRatelimit(requests, window);
   if (!limiter && env.nodeEnv === "production") {
-    throw new Error("Distributed rate limiting is required in production. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+    throw new Error(
+      "Distributed rate limiting is required in production. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+    );
   }
   const memoryLimiter = limiter ? null : new InMemoryRateLimiter(requests, parseWindowMs(window));
 

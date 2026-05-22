@@ -83,6 +83,10 @@ export async function addMembers(req: Request, res: Response) {
 
 export async function listMembers(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const allowed = await isGroupMember(groupId, req.user!.id);
+  if (!allowed) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
   const members = await listGroupMembers(groupId);
   return res.status(200).json({ members });
 }
@@ -109,7 +113,10 @@ export async function sendGroupChatMessage(req: Request, res: Response) {
     return res.status(403).json({ error: "Forbidden" });
   }
   const input = sendGroupMessageSchema.parse(req.body);
-  const trace = createRealtimeTrace({ traceId: input.clientTraceId ?? input.clientId, clientSentAt: input.clientSentAt });
+  const trace = createRealtimeTrace({
+    traceId: input.clientTraceId ?? input.clientId,
+    clientSentAt: input.clientSentAt,
+  });
   logRealtimeLatency(trace, "http.group.receive", {
     senderId: req.user!.id,
     groupId,
@@ -216,12 +223,7 @@ export async function reportGroupMessage(req: Request, res: Response) {
   const [msg] = await db
     .select({ id: chatGroupMessageTable.id })
     .from(chatGroupMessageTable)
-    .where(
-      and(
-        eq(chatGroupMessageTable.id, messageId),
-        eq(chatGroupMessageTable.groupId, groupId),
-      ),
-    )
+    .where(and(eq(chatGroupMessageTable.id, messageId), eq(chatGroupMessageTable.groupId, groupId)))
     .limit(1);
 
   if (!msg) {
@@ -248,7 +250,7 @@ export async function searchGroupMessages(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
   const userId = req.user!.id;
   const { q } = searchGroupMessagesQuerySchema.parse(req.query ?? {});
-  const escaped = q.replace(/[%_\\]/g, '\\$&');
+  const escaped = q.replace(/[%_\\]/g, "\\$&");
 
   const allowed = await isGroupMember(groupId, userId);
   if (!allowed) {
@@ -265,12 +267,7 @@ export async function searchGroupMessages(req: Request, res: Response) {
       contentType: chatGroupMessageTable.contentType,
     })
     .from(chatGroupMessageTable)
-    .where(
-      and(
-        eq(chatGroupMessageTable.groupId, groupId),
-        ilike(chatGroupMessageTable.content, `%${escaped}%`),
-      ),
-    )
+    .where(and(eq(chatGroupMessageTable.groupId, groupId), ilike(chatGroupMessageTable.content, `%${escaped}%`)))
     .orderBy(desc(chatGroupMessageTable.createdAt))
     .limit(50);
 

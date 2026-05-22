@@ -1,9 +1,5 @@
 import { Router } from "express";
-import {
-  getBetaTesterStats,
-  listBetaTestersAdmin,
-  submitBetaTester,
-} from "../controllers/beta-tester.controller";
+import { getBetaTesterStats, listBetaTestersAdmin, submitBetaTester } from "../controllers/beta-tester.controller";
 import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
 import { rateLimiters } from "../lib/rateLimiter";

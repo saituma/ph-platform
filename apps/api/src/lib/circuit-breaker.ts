@@ -49,11 +49,7 @@ export function createBreaker<TArgs extends unknown[], TResult>(
 
 function makeServiceBreaker(name: string, overrides?: Partial<CircuitBreaker.Options>) {
   // The underlying breaker accepts a thunk and invokes it.
-  const breaker = createBreaker(
-    (fn: () => Promise<unknown>) => fn(),
-    name,
-    overrides,
-  );
+  const breaker = createBreaker((fn: () => Promise<unknown>) => fn(), name, overrides);
 
   return {
     /** Fire an async thunk through the circuit breaker with full type inference. */

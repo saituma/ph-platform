@@ -319,6 +319,7 @@ export default function UserDetailPage() {
       setActionNotice(`Plan "${plan?.name}" assigned successfully.`);
     } catch (err: unknown) {
       setActionError(getErrorMessage(err, "Failed to assign plan."));
+      setDesiredPlanId(null);
     } finally {
       setIsAssigningPlan(false);
     }
@@ -365,6 +366,7 @@ export default function UserDetailPage() {
   }, [athleteId, createMediaUploadUrl, updateAthlete]);
 
   const handleBlock = useCallback(async () => {
+    if (!rawUser?.isBlocked && !confirm("Are you sure you want to block this user?")) return;
     setActionError(null);
     setActionNotice(null);
     try {

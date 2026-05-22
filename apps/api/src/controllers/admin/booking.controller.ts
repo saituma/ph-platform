@@ -70,11 +70,7 @@ async function resolveOrCreateAdminService(input: {
 }) {
   const baseName = input.mode === "one_to_one" ? "Admin 1:1 Schedule" : "Admin Small Group Session";
   const serviceName = `${baseName} (${input.isBookable ? "Bookable" : "Fixed"})`;
-  const [existing] = await db
-    .select()
-    .from(serviceTypeTable)
-    .where(eq(serviceTypeTable.name, serviceName))
-    .limit(1);
+  const [existing] = await db.select().from(serviceTypeTable).where(eq(serviceTypeTable.name, serviceName)).limit(1);
   if (existing) return existing;
 
   return createServiceType({
@@ -166,11 +162,7 @@ export async function listNonTeamScheduleUsers(req: Request, res: Response) {
   const whereBase = and(
     isNull(athleteTable.teamId),
     eq(userTable.isDeleted, false),
-    or(
-      eq(userTable.role, "athlete"),
-      eq(userTable.role, "adult_athlete"),
-      eq(userTable.role, "youth_athlete"),
-    ),
+    or(eq(userTable.role, "athlete"), eq(userTable.role, "adult_athlete"), eq(userTable.role, "youth_athlete")),
   );
 
   const rows = await db
@@ -184,17 +176,7 @@ export async function listNonTeamScheduleUsers(req: Request, res: Response) {
     })
     .from(athleteTable)
     .innerJoin(userTable, eq(athleteTable.userId, userTable.id))
-    .where(
-      pattern
-        ? and(
-            whereBase,
-            or(
-              ilike(athleteTable.name, pattern),
-              ilike(userTable.email, pattern),
-            ),
-          )
-        : whereBase,
-    )
+    .where(pattern ? and(whereBase, or(ilike(athleteTable.name, pattern), ilike(userTable.email, pattern))) : whereBase)
     .limit(safeLimit);
 
   return res.status(200).json({ items: rows });
@@ -219,7 +201,7 @@ export async function createCustomScheduleAdmin(req: Request, res: Response) {
   const notesBase = normalizeOptionalText(input.notes);
   const groupTag =
     input.mode === "small_group"
-      ? normalizeOptionalText(input.groupName) ?? `Group ${new Date().toISOString().slice(0, 10)}`
+      ? (normalizeOptionalText(input.groupName) ?? `Group ${new Date().toISOString().slice(0, 10)}`)
       : null;
   const combinedNotes = [groupTag ? `[${groupTag}]` : null, notesBase].filter(Boolean).join(" ").trim() || null;
 

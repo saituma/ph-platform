@@ -150,9 +150,7 @@ export async function copySelectedModulesToAudience(input: {
   const sourceWorkspace = await listTrainingContentAdminWorkspace(sourceAudienceLabel);
   await ensureTrainingAudienceExists(targetAudienceLabel, input.createdBy);
 
-  const selectedModules = sourceWorkspace.modules.filter((m) =>
-    input.moduleIds.includes(m.id),
-  );
+  const selectedModules = sourceWorkspace.modules.filter((m) => input.moduleIds.includes(m.id));
 
   if (!selectedModules.length) {
     throw new Error("No matching modules found in source.");

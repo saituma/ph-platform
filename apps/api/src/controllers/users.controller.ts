@@ -40,7 +40,11 @@ export async function reportUser(req: Request, res: Response) {
   const adminEmail = (env.smtpFrom || env.smtpUser).trim();
   if (adminEmail) {
     const [reporter, reported] = await Promise.all([
-      db.select({ name: userTable.name, email: userTable.email }).from(userTable).where(eq(userTable.id, actingUserId)).limit(1),
+      db
+        .select({ name: userTable.name, email: userTable.email })
+        .from(userTable)
+        .where(eq(userTable.id, actingUserId))
+        .limit(1),
       db.select({ name: userTable.name }).from(userTable).where(eq(userTable.id, targetUserId)).limit(1),
     ]);
     sendContentReportEmail({

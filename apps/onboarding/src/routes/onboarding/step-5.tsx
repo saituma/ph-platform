@@ -410,6 +410,15 @@ function OnboardingStep5() {
 		void loadPlans();
 	}, [loadPlans]);
 
+	// Guard: redirect to step-1 if required prior steps haven't been completed
+	useEffect(() => {
+		const pendingEmail = localStorage.getItem("pending_email");
+		const userType = localStorage.getItem("user_type");
+		if (!pendingEmail || !userType) {
+			navigate({ to: "/onboarding/step-1" });
+		}
+	}, [navigate]);
+
 	useEffect(() => {
 		if (programFilter === "weekly" && billingCycle !== "six_months") {
 			setBillingCycle("six_months");
@@ -647,7 +656,16 @@ function OnboardingStep5() {
 								}
 							}
 						}
-					} catch {}
+					} catch (configErr: any) {
+						const msg = configErr?.message ?? "Failed to load payment configuration";
+						// Scope mismatch is a user-visible error — surface it
+						if (msg.includes("expired") || msg.includes("scopeKey")) {
+							throw new Error(msg);
+						}
+						// Network/parse errors: log and continue with defaults so checkout isn't silently wrong
+						console.error("[step-5] team payment config load error:", configErr);
+						throw new Error("Could not load payment configuration. Please go back to step 4 and re-save your payment settings.");
+					}
 				}
 
 			const response = await fetch(`${baseUrl}/api/billing/${isTeam ? "team/checkout" : "checkout"}`, {

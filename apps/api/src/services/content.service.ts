@@ -38,13 +38,7 @@ export async function getGalleryItems() {
   return db
     .select()
     .from(contentTable)
-    .where(
-      and(
-        eq(contentTable.surface, "home"),
-        eq(contentTable.category, "gallery"),
-        eq(contentTable.isActive, true),
-      ),
-    )
+    .where(and(eq(contentTable.surface, "home"), eq(contentTable.category, "gallery"), eq(contentTable.isActive, true)))
     .orderBy(desc(contentTable.createdAt));
 }
 
@@ -210,7 +204,12 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
   if (audience.type === "all") {
     for (const u of users) {
       if (isAdminRole(u.role)) continue; // admins don't need push for their own announcements
-      await createPushIntent({ userId: u.id, title, body, data: { type: "announcement", url: "/announcements", contentId: String(item.id) } });
+      await createPushIntent({
+        userId: u.id,
+        title,
+        body,
+        data: { type: "announcement", url: "/announcements", contentId: String(item.id) },
+      });
     }
     return;
   }
@@ -221,10 +220,7 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
 
   // Batch-load all athlete rows for all users in one query
   const [allAthleteRows, allGuardianRows, allGroupRows] = await Promise.all([
-    db
-      .select()
-      .from(athleteTable)
-      .where(inArray(athleteTable.userId, userIds)),
+    db.select().from(athleteTable).where(inArray(athleteTable.userId, userIds)),
     db
       .select({ userId: guardianTable.userId, id: guardianTable.id })
       .from(guardianTable)
@@ -240,14 +236,11 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
   const guardianIdsToLookup = allGuardianRows.map((g) => g.id);
   const guardianAthleteRows =
     guardianIdsToLookup.length > 0
-      ? await db
-          .select()
-          .from(athleteTable)
-          .where(inArray(athleteTable.guardianId, guardianIdsToLookup))
+      ? await db.select().from(athleteTable).where(inArray(athleteTable.guardianId, guardianIdsToLookup))
       : [];
 
   // Build per-user athlete lists
-  const athletesByUserId = new Map<number, typeof athleteTable.$inferSelect[]>();
+  const athletesByUserId = new Map<number, (typeof athleteTable.$inferSelect)[]>();
   for (const row of allAthleteRows) {
     if (!row.userId) continue;
     const existing = athletesByUserId.get(row.userId) ?? [];
@@ -275,14 +268,33 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
   // Match each user against the announcement audience using in-memory data (no per-user DB calls)
   for (const u of nonAdminUsers) {
     const relatedAthletes = athletesByUserId.get(u.id) ?? [];
-    const teams = new Set(relatedAthletes.map((a) => String(a.team ?? "").trim().toLowerCase()).filter(Boolean));
+    const teams = new Set(
+      relatedAthletes
+        .map((a) =>
+          String(a.team ?? "")
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean),
+    );
     const groupIds = groupIdsByUserId.get(u.id) ?? new Set<number>();
-    const ages = relatedAthletes.map((a) => resolveAgeFromAthlete(a)).filter((age): age is number => Number.isFinite(age));
-    const tiers = new Set(relatedAthletes.map((a) => a.currentProgramTier).filter((t): t is (typeof ProgramType.enumValues)[number] => Boolean(t)));
+    const ages = relatedAthletes
+      .map((a) => resolveAgeFromAthlete(a))
+      .filter((age): age is number => Number.isFinite(age));
+    const tiers = new Set(
+      relatedAthletes
+        .map((a) => a.currentProgramTier)
+        .filter((t): t is (typeof ProgramType.enumValues)[number] => Boolean(t)),
+    );
     const athleteTypes = new Set<string>();
     for (const athlete of relatedAthletes) {
-      const explicit = String(athlete.athleteType ?? "").trim().toLowerCase();
-      if (explicit) { athleteTypes.add(explicit); continue; }
+      const explicit = String(athlete.athleteType ?? "")
+        .trim()
+        .toLowerCase();
+      if (explicit) {
+        athleteTypes.add(explicit);
+        continue;
+      }
       const age = resolveAgeFromAthlete(athlete);
       if (age == null) continue;
       athleteTypes.add(age >= 18 ? "adult" : "youth");
@@ -296,7 +308,12 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
     else matches = ages.some((age) => matchesAgeRange(item, age));
 
     if (!matches) continue;
-    await createPushIntent({ userId: u.id, title, body, data: { type: "announcement", url: "/announcements", contentId: String(item.id) } });
+    await createPushIntent({
+      userId: u.id,
+      title,
+      body,
+      data: { type: "announcement", url: "/announcements", contentId: String(item.id) },
+    });
   }
 }
 
@@ -315,13 +332,7 @@ export async function listStoriesForUser(userId: number) {
       viewedAt: storyViewTable.viewedAt,
     })
     .from(storyTable)
-    .leftJoin(
-      storyViewTable,
-      and(
-        eq(storyViewTable.storyId, storyTable.id),
-        eq(storyViewTable.userId, userId),
-      ),
-    )
+    .leftJoin(storyViewTable, and(eq(storyViewTable.storyId, storyTable.id), eq(storyViewTable.userId, userId)))
     .where(eq(storyTable.isActive, true))
     .orderBy(asc(storyTable.order), desc(storyTable.updatedAt));
 
@@ -333,16 +344,11 @@ export async function listStoriesForUser(userId: number) {
 }
 
 export async function markStoryViewed(storyId: number, userId: number) {
-  await db
-    .insert(storyViewTable)
-    .values({ storyId, userId })
-    .onConflictDoNothing();
+  await db.insert(storyViewTable).values({ storyId, userId }).onConflictDoNothing();
 }
 
 export async function createSingleStory(input: StoryInput, userId: number) {
-  const maxOrder = await db
-    .select({ max: sql<number>`coalesce(max(${storyTable.order}), -1)` })
-    .from(storyTable);
+  const maxOrder = await db.select({ max: sql<number>`coalesce(max(${storyTable.order}), -1)` }).from(storyTable);
   const nextOrder = (maxOrder[0]?.max ?? -1) + 1;
 
   const [inserted] = await db
@@ -361,10 +367,7 @@ export async function createSingleStory(input: StoryInput, userId: number) {
 }
 
 export async function deleteSingleStory(storyId: number) {
-  const [deleted] = await db
-    .delete(storyTable)
-    .where(eq(storyTable.id, storyId))
-    .returning({ id: storyTable.id });
+  const [deleted] = await db.delete(storyTable).where(eq(storyTable.id, storyId)).returning({ id: storyTable.id });
   return deleted ?? null;
 }
 
@@ -723,10 +726,7 @@ export async function updateParentCourse(input: {
 }
 
 export async function deleteParentCourse(id: number) {
-  const result = await db
-    .delete(parentCourseTable)
-    .where(eq(parentCourseTable.id, id))
-    .returning();
+  const result = await db.delete(parentCourseTable).where(eq(parentCourseTable.id, id)).returning();
   return result[0] ?? null;
 }
 

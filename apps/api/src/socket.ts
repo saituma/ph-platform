@@ -104,12 +104,7 @@ setInterval(() => {
 const SOCKET_SLIDING_MAX = 20;
 const SOCKET_SLIDING_WINDOW_MS = 10_000;
 
-const SOCKET_SLIDING_EVENTS = new Set([
-  "message:send",
-  "group:send",
-  "typing:start",
-  "typing:stop",
-]);
+const SOCKET_SLIDING_EVENTS = new Set(["message:send", "group:send", "typing:start", "typing:stop"]);
 
 function isSocketSlidingRateLimited(socket: { data: Record<string, unknown> }, event: string): boolean {
   if (!SOCKET_SLIDING_EVENTS.has(event)) return false;
@@ -316,10 +311,9 @@ export function initSocket(server: HttpServer) {
       const cookieToken = cookieHeader
         .split(";")
         .map((part) => part.trim())
-        .find((part) =>
-          part.startsWith("accessToken=") ||
-          part.startsWith("auth_token=") ||
-          part.startsWith("ph_app_session="),
+        .find(
+          (part) =>
+            part.startsWith("accessToken=") || part.startsWith("auth_token=") || part.startsWith("ph_app_session="),
         )
         ?.split("=")[1];
       const token = socket.handshake.auth?.token || headerAuth || cookieToken;
@@ -517,7 +511,10 @@ export function initSocket(server: HttpServer) {
     });
 
     guarded("message:send", messageSendSchema, async (data) => {
-      const trace = createRealtimeTrace({ traceId: data.clientTraceId ?? data.clientId, clientSentAt: data.clientSentAt });
+      const trace = createRealtimeTrace({
+        traceId: data.clientTraceId ?? data.clientId,
+        clientSentAt: data.clientSentAt,
+      });
       logRealtimeLatency(trace, "socket.message.receive", {
         userId,
         receiverId: data.toUserId,
@@ -568,7 +565,7 @@ export function initSocket(server: HttpServer) {
                 ? "AI Coach requires a premium plan"
                 : msg === "USER_BLOCKED"
                   ? "Messaging is blocked for this conversation"
-                : "Messaging is not available for your current plan",
+                  : "Messaging is not available for your current plan",
           });
           return;
         }
@@ -577,7 +574,10 @@ export function initSocket(server: HttpServer) {
     });
 
     guarded("group:send", groupSendSchema, async (data) => {
-      const trace = createRealtimeTrace({ traceId: data.clientTraceId ?? data.clientId, clientSentAt: data.clientSentAt });
+      const trace = createRealtimeTrace({
+        traceId: data.clientTraceId ?? data.clientId,
+        clientSentAt: data.clientSentAt,
+      });
       logRealtimeLatency(trace, "socket.group.receive", {
         userId,
         groupId: data.groupId,

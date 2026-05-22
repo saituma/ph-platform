@@ -274,6 +274,12 @@ function OnboardingStep3() {
 			return;
 		}
 
+		// BUG 4 FIX: Validate that the phone number contains only digits
+		if (!/^\d+$/.test(cleanPhone)) {
+			toast.error("Phone number must contain only digits");
+			return;
+		}
+
 		if (preferredTrainingDays.length === 0) {
 			toast.error("Please select at least one training day");
 			return;

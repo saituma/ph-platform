@@ -4,7 +4,13 @@ import { logger } from "../lib/logger";
 
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { ProgramType, teamTable, trainingModuleSessionTable, trainingOtherType, trainingSessionBlockType } from "../db/schema";
+import {
+  ProgramType,
+  teamTable,
+  trainingModuleSessionTable,
+  trainingOtherType,
+  trainingSessionBlockType,
+} from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 
 function emitContentChanged(audienceLabel?: string) {
@@ -272,11 +278,14 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
     });
     return res.status(200).json(workspace);
   } catch (error) {
-    logger.error({
-      err: error,
-      userId: req.user?.id ?? null,
-      query: req.query,
-    }, "[training-content-v2/mobile] failed");
+    logger.error(
+      {
+        err: error,
+        userId: req.user?.id ?? null,
+        query: req.query,
+      },
+      "[training-content-v2/mobile] failed",
+    );
     return res.status(200).json({ age: null, tabs: ["Modules"], modules: [], others: [] });
   }
 }
@@ -304,11 +313,14 @@ export async function getTrainingContentMobileWorkoutsHandler(req: Request, res:
     });
     return res.status(200).json(payload);
   } catch (error) {
-    logger.error({
-      err: error,
-      userId: req.user?.id ?? null,
-      query: req.query,
-    }, "[training-content-v2/mobile/workouts] failed");
+    logger.error(
+      {
+        err: error,
+        userId: req.user?.id ?? null,
+        query: req.query,
+      },
+      "[training-content-v2/mobile/workouts] failed",
+    );
     return res.status(200).json({
       generatedAt: new Date().toISOString(),
       nextWorkoutSessionId: null,
@@ -379,7 +391,7 @@ export async function cleanupTrainingPlaceholderModulesHandler(req: Request, res
 
 export async function deleteTrainingModuleHandler(req: Request, res: Response) {
   const moduleId = z.coerce.number().int().min(1).parse(req.params.moduleId);
-  const item = await deleteTrainingModule(moduleId);
+  const item = await deleteTrainingModule(moduleId, req.user!.id);
   if (!item) {
     return res.status(404).json({ error: "Module not found" });
   }
@@ -423,7 +435,7 @@ export async function updateTrainingSessionTierLocksHandler(req: Request, res: R
 
 export async function deleteTrainingSessionHandler(req: Request, res: Response) {
   const sessionId = z.coerce.number().int().min(1).parse(req.params.sessionId);
-  const item = await deleteTrainingModuleSession(sessionId);
+  const item = await deleteTrainingModuleSession(sessionId, req.user!.id);
   if (!item) {
     return res.status(404).json({ error: "Session not found" });
   }
@@ -457,7 +469,7 @@ export async function updateTrainingSessionItemHandler(req: Request, res: Respon
 
 export async function deleteTrainingSessionItemHandler(req: Request, res: Response) {
   const itemId = z.coerce.number().int().min(1).parse(req.params.itemId);
-  const item = await deleteTrainingSessionItem(itemId);
+  const item = await deleteTrainingSessionItem(itemId, req.user!.id);
   if (!item) {
     return res.status(404).json({ error: "Session item not found" });
   }
@@ -503,7 +515,7 @@ export async function updateTrainingOtherTypeSettingHandler(req: Request, res: R
 
 export async function deleteTrainingOtherContentHandler(req: Request, res: Response) {
   const otherId = z.coerce.number().int().min(1).parse(req.params.otherId);
-  const item = await deleteTrainingOtherContent(otherId);
+  const item = await deleteTrainingOtherContent(otherId, req.user!.id);
   if (!item) {
     return res.status(404).json({ error: "Other content not found" });
   }
@@ -527,9 +539,7 @@ async function completeTrainingSessionRequest(req: Request, res: Response) {
     programTier: athlete.currentProgramTier ?? null,
     team: athlete.team ?? null,
   });
-  let foundSession = workspace.modules
-    .flatMap((module) => module.sessions)
-    .find((session) => session.id === sessionId);
+  let foundSession = workspace.modules.flatMap((module) => module.sessions).find((session) => session.id === sessionId);
   if (!foundSession) {
     // Custom plan users may not resolve to the correct workspace audience.
     // Fall back to a direct session existence check.

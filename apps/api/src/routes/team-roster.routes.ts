@@ -27,7 +27,12 @@ router.post(
   postTeamRosterAthleteResetPassword,
 );
 router.post("/team/roster/athletes", requireAuth, requireRole(["coach", "admin", "superAdmin"]), postTeamRosterAthlete);
-router.patch("/team/roster/email-slug", requireAuth, requireRole(["coach", "admin", "superAdmin"]), patchTeamRosterEmailSlug);
+router.patch(
+  "/team/roster/email-slug",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  patchTeamRosterEmailSlug,
+);
 router.patch(
   "/team/roster/athletes/:athleteId",
   requireAuth,

@@ -50,8 +50,18 @@ router.post("/public/plan-invites/:token/checkout", consumePlanInvitePublic);
 router.get("/public/invoice/:receiptId", rateLimiters.api, getPublicInvoice);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
-router.get("/billing/team/payment-config-draft/:teamId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTeamPaymentConfigDraft);
-router.put("/billing/team/payment-config-draft/:teamId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), upsertTeamPaymentConfigDraft);
+router.get(
+  "/billing/team/payment-config-draft/:teamId",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  getTeamPaymentConfigDraft,
+);
+router.put(
+  "/billing/team/payment-config-draft/:teamId",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  upsertTeamPaymentConfigDraft,
+);
 router.post("/billing/checkout", requireAuth, createCheckout);
 router.post("/billing/team/checkout", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTeamCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);

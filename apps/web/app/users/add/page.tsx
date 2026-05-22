@@ -118,6 +118,11 @@ function AddUserPageInner() {
       trainingPerWeek.trim().length > 0;
 
     if (!hasCore) return false;
+
+    // Validate birthDate is YYYY-MM-DD and a real date
+    const birthDateValid = /^\d{4}-\d{2}-\d{2}$/.test(birthDate) && !Number.isNaN(new Date(birthDate).getTime());
+    if (!birthDateValid) return false;
+
     if (formType === "youth") return guardianDisplayName.trim().length > 0;
     return true;
   }, [formType, email, guardianDisplayName, athleteName, birthDate, trainingPerWeek]);

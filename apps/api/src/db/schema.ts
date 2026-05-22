@@ -63,18 +63,9 @@ export const subscriptionStatus = pgEnum("subscription_status", [
   "rejected",
 ]);
 
-export const teamPaymentMode = pgEnum("team_payment_mode", [
-  "coach_pays_all",
-  "per_player_all",
-  "per_player_selected",
-]);
+export const teamPaymentMode = pgEnum("team_payment_mode", ["coach_pays_all", "per_player_all", "per_player_selected"]);
 
-export const teamPlayerInviteStatus = pgEnum("team_player_invite_status", [
-  "pending",
-  "paid",
-  "expired",
-  "cancelled",
-]);
+export const teamPlayerInviteStatus = pgEnum("team_player_invite_status", ["pending", "paid", "expired", "cancelled"]);
 export const sessionType = pgEnum("session_type", [
   "program",
   "warmup",
@@ -154,7 +145,10 @@ export const userTable = pgTable("users", {
 
 export const userStreakTable = pgTable("user_streaks", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }).unique(),
+  userId: integer()
+    .notNull()
+    .references(() => userTable.id, { onDelete: "cascade" })
+    .unique(),
   currentStreak: integer("current_streak").notNull().default(0),
   longestStreak: integer("longest_streak").notNull().default(0),
   totalDays: integer("total_days").notNull().default(0),
@@ -172,7 +166,9 @@ export const userDeviceTokensTable = pgTable(
   "user_device_tokens",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    userId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
     deviceId: varchar({ length: 255 }).notNull(),
     expoPushToken: varchar({ length: 255 }),
     devicePushToken: text(),
@@ -209,7 +205,7 @@ export const userLocationTable = pgTable("user_locations", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   userId: integer()
     .notNull()
-    .references(() => userTable.id),
+    .references(() => userTable.id, { onDelete: "cascade" }),
   latitude: doublePrecision().notNull(),
   longitude: doublePrecision().notNull(),
   accuracy: integer(),
@@ -223,7 +219,7 @@ export const adminSettingsTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     title: varchar({ length: 255 }),
     bio: varchar({ length: 500 }),
     timezone: varchar({ length: 100 }).notNull().default("Europe/London"),
@@ -319,10 +315,7 @@ export const teamPaymentConfigDraftTable = pgTable(
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
-    adminTeamUnique: uniqueIndex("team_payment_config_drafts_admin_team_unique").on(
-      table.adminId,
-      table.teamId,
-    ),
+    adminTeamUnique: uniqueIndex("team_payment_config_drafts_admin_team_unique").on(table.adminId, table.teamId),
   }),
 );
 
@@ -332,8 +325,8 @@ export const athleteTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     userId: integer()
       .notNull()
-      .references(() => userTable.id),
-    guardianId: integer().references(() => guardianTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    guardianId: integer().references(() => guardianTable.id, { onDelete: "set null" }),
     athleteType: AthleteType().notNull().default("youth"),
     name: varchar({ length: 255 }).notNull(),
     age: integer().notNull(),
@@ -495,7 +488,9 @@ export const sessionTable = pgTable("sessions", {
   description: varchar({ length: 500 }),
   type: sessionType().notNull().default("program"),
   // When set, this session mirrors a library session — exercises resolved from the source
-  sourceLibrarySessionId: integer("source_library_session_id").references((): AnyPgColumn => sessionTable.id, { onDelete: "set null" }),
+  sourceLibrarySessionId: integer("source_library_session_id").references((): AnyPgColumn => sessionTable.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
@@ -915,10 +910,7 @@ export const programSessionCompletionTable = pgTable(
   },
   (table) => ({
     athleteIdx: index("program_session_completions_athlete_idx").on(table.athleteId),
-    athleteSessionUnique: uniqueIndex("program_session_completions_unique").on(
-      table.athleteId,
-      table.sessionId,
-    ),
+    athleteSessionUnique: uniqueIndex("program_session_completions_unique").on(table.athleteId, table.sessionId),
   }),
 );
 
@@ -928,10 +920,10 @@ export const messageTable = pgTable(
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
     senderId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     receiverId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     content: varchar({ length: 255 }).notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
@@ -958,9 +950,7 @@ export const chatGroupTable = pgTable("chat_groups", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
   category: chatGroupCategory().notNull().default("coach_group"),
-  createdBy: integer()
-    .notNull()
-    .references(() => userTable.id),
+  createdBy: integer().references(() => userTable.id, { onDelete: "set null" }),
   createdAt: timestamp().notNull().defaultNow(),
 });
 
@@ -993,7 +983,7 @@ export const chatGroupMessageTable = pgTable(
       .references(() => chatGroupTable.id),
     senderId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     content: varchar({ length: 500 }).notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
@@ -1020,7 +1010,7 @@ export const messageReactionTable = pgTable(
       .references(() => messageTable.id),
     userId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     emoji: varchar({ length: 16 }).notNull(),
     createdAt: timestamp().notNull().defaultNow(),
   },
@@ -1038,7 +1028,7 @@ export const messageReceiptTable = pgTable(
       .references(() => messageTable.id),
     userId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     deliveredAt: timestamp().notNull().defaultNow(),
     readAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
@@ -1304,14 +1294,15 @@ export const subscriptionPlanTable = pgTable("subscription_plans", {
   discountValue: varchar({ length: 50 }),
   discountAppliesTo: varchar({ length: 20 }),
   /** Array of discount rules. When non-empty, takes precedence over the legacy single-discount triple. */
-  discounts: jsonb().$type<
-    Array<{
-      type: "percent" | "amount";
-      value: string;
-      appliesTo: "weekly" | "monthly" | "yearly" | "six_months" | "all" | "custom";
-      label?: string | null;
-    }>
-  >(),
+  discounts:
+    jsonb().$type<
+      Array<{
+        type: "percent" | "amount";
+        value: string;
+        appliesTo: "weekly" | "monthly" | "yearly" | "six_months" | "all" | "custom";
+        label?: string | null;
+      }>
+    >(),
   features: jsonb().$type<string[]>(),
   durationWeeks: integer("duration_weeks"),
   durationWeeksPrice: integer("duration_weeks_price"),
@@ -1595,7 +1586,7 @@ export const runLogTable = pgTable(
     clientId: varchar({ length: 64 }).notNull(),
     userId: integer()
       .notNull()
-      .references(() => userTable.id),
+      .references(() => userTable.id, { onDelete: "cascade" }),
     date: timestamp().notNull(),
     distanceMeters: doublePrecision().notNull(),
     durationSeconds: integer().notNull(),
@@ -1760,10 +1751,7 @@ export const sleepLogsTable = pgTable(
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
-    userDateUnique: uniqueIndex("sleep_logs_user_date_unique").on(
-      table.userId,
-      table.dateKey,
-    ),
+    userDateUnique: uniqueIndex("sleep_logs_user_date_unique").on(table.userId, table.dateKey),
     userIdx: index("sleep_logs_user_idx").on(table.userId),
     dateIdx: index("sleep_logs_date_idx").on(table.dateKey),
   }),
@@ -1787,10 +1775,7 @@ export const wellbeingLogsTable = pgTable(
     updatedAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
-    userDateUnique: uniqueIndex("wellbeing_logs_user_date_unique").on(
-      table.userId,
-      table.dateKey,
-    ),
+    userDateUnique: uniqueIndex("wellbeing_logs_user_date_unique").on(table.userId, table.dateKey),
     userIdx: index("wellbeing_logs_user_idx").on(table.userId),
     dateIdx: index("wellbeing_logs_date_idx").on(table.dateKey),
   }),
@@ -1947,7 +1932,9 @@ export const trackingGoalTable = pgTable(
   "tracking_goals",
   {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    coachId: integer().notNull().references(() => userTable.id, { onDelete: "cascade" }),
+    coachId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
     title: varchar({ length: 255 }).notNull(),
     description: varchar({ length: 500 }),
     unit: trackingGoalUnitEnum().notNull().default("km"),
@@ -1972,7 +1959,12 @@ export const trackingGoalTable = pgTable(
 // ── Enquiries ──────────────────────────────────────────────
 
 export const enquiryStatusEnum = pgEnum("enquiry_status", ["new", "contacted", "booked", "closed"]);
-export const enquiryServiceEnum = pgEnum("enquiry_service", ["1-to-1 Private", "Semi-Private (2-4)", "Team Sessions", "App Only"]);
+export const enquiryServiceEnum = pgEnum("enquiry_service", [
+  "1-to-1 Private",
+  "Semi-Private (2-4)",
+  "Team Sessions",
+  "App Only",
+]);
 
 export const enquiryTable = pgTable(
   "enquiries",
@@ -2040,38 +2032,58 @@ export const notificationOutboxTable = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("notification_outbox_drain_idx").on(t.status, t.nextRunAt),
-  ],
+  (t) => [index("notification_outbox_drain_idx").on(t.status, t.nextRunAt)],
 );
 
 // ── Guardian feedback (parent → coach thread, separate from regular messages) ──
-export const guardianFeedbackTable = pgTable("guardian_feedback", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  guardianUserId: integer("guardian_user_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
-  subject: varchar({ length: 255 }).notNull(),
-  status: varchar({ length: 20 }).notNull().default("open"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => [index("guardian_feedback_user_idx").on(t.guardianUserId)]);
+export const guardianFeedbackTable = pgTable(
+  "guardian_feedback",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    guardianUserId: integer("guardian_user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    subject: varchar({ length: 255 }).notNull(),
+    status: varchar({ length: 20 }).notNull().default("open"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("guardian_feedback_user_idx").on(t.guardianUserId)],
+);
 
-export const guardianFeedbackReplyTable = pgTable("guardian_feedback_reply", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  feedbackId: integer("feedback_id").notNull().references(() => guardianFeedbackTable.id, { onDelete: "cascade" }),
-  senderId: integer("sender_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
-  content: text().notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [index("guardian_feedback_reply_feedback_idx").on(t.feedbackId)]);
+export const guardianFeedbackReplyTable = pgTable(
+  "guardian_feedback_reply",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    feedbackId: integer("feedback_id")
+      .notNull()
+      .references(() => guardianFeedbackTable.id, { onDelete: "cascade" }),
+    senderId: integer("sender_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    content: text().notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("guardian_feedback_reply_feedback_idx").on(t.feedbackId)],
+);
 
-export const athleteInjuryLogsTable = pgTable("athlete_injury_logs", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  athleteId: integer("athlete_id").notNull().references(() => athleteTable.id, { onDelete: "cascade" }),
-  loggedByUserId: integer("logged_by_user_id").notNull().references(() => userTable.id, { onDelete: "cascade" }),
-  description: text().notNull(),
-  bodyPart: varchar("body_part", { length: 100 }),
-  severity: varchar({ length: 20 }).notNull().default("mild"),
-  occurredAt: date("occurred_at").notNull(),
-  resolvedAt: date("resolved_at"),
-  notes: text(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [index("injury_logs_athlete_idx").on(t.athleteId)]);
+export const athleteInjuryLogsTable = pgTable(
+  "athlete_injury_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer("athlete_id")
+      .notNull()
+      .references(() => athleteTable.id, { onDelete: "cascade" }),
+    loggedByUserId: integer("logged_by_user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    description: text().notNull(),
+    bodyPart: varchar("body_part", { length: 100 }),
+    severity: varchar({ length: 20 }).notNull().default("mild"),
+    occurredAt: date("occurred_at").notNull(),
+    resolvedAt: date("resolved_at"),
+    notes: text(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("injury_logs_athlete_idx").on(t.athleteId)],
+);

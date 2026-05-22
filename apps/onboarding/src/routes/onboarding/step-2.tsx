@@ -53,7 +53,7 @@ const TEAM_TYPES: { id: TeamType; label: string; description: string; icon: type
 
 function OnboardingStep2() {
 	const now = new Date();
-	const minAthleteDate = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate());
+	const minAthleteDate = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
 	const maxAthleteDate = new Date(now.getFullYear() - 7, now.getMonth(), now.getDate());
 
 	const [userType, setUserType] = useState<string | null>(null);
@@ -94,7 +94,7 @@ function OnboardingStep2() {
 		async function check() {
 			const email = localStorage.getItem("pending_email");
 			const status = await getTokenStatus();
-			const type = localStorage.getItem("user_type");
+			let type = localStorage.getItem("user_type");
 			if (cancelled) return;
 
 			if (!status.authenticated) {
@@ -124,6 +124,7 @@ function OnboardingStep2() {
 			}
 
 			// Verify step-1 was completed on the server (role/type must be set)
+			// Also validate that the localStorage user_type matches the server-returned role (BUG 1 FIX)
 			try {
 				const baseUrl = config.api.baseUrl;
 				const res = await fetch(`${baseUrl}/api/auth/me`, {
@@ -139,6 +140,24 @@ function OnboardingStep2() {
 							toast.error("Please complete step 1 first");
 							navigate({ to: "/onboarding/step-1" });
 							return;
+						}
+					}
+					// Validate localStorage user_type against the server role to prevent tampering
+					if (user && type) {
+						const serverRole: string | undefined =
+							user.role ?? user.athleteType ?? user.type;
+						const serverType = (() => {
+							if (!serverRole) return null;
+							const r = serverRole.toLowerCase();
+							if (r === "youth" || r === "youth_athlete") return "youth";
+							if (r === "adult" || r === "adult_athlete") return "adult";
+							if (r === "team" || r === "team_manager" || r === "coach") return "team";
+							return null;
+						})();
+						if (serverType && serverType !== type && !cancelled) {
+							// localStorage was tampered — correct it from the authoritative server value
+							localStorage.setItem("user_type", serverType);
+							type = serverType;
 						}
 					}
 				}

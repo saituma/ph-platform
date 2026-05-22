@@ -89,7 +89,7 @@ export default function TeamSessionsScreen() {
   const insets = useAppSafeAreaInsets();
   const { token, appRole } = useAppSelector((s) => s.user);
   const isTeamManager = appRole === "team_manager";
-  const { profileId } = useActingUser();
+  const { effectiveProfileId: profileId } = useActingUser();
   const [refreshing, setRefreshing] = useState(false);
 
   const { events, eventsLoading, refreshEvents } = useScheduleData(

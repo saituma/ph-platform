@@ -164,7 +164,12 @@ export async function listSessions(moduleId: number) {
     if (!s.sourceLibrarySessionId) return s;
     const src = libMap.get(s.sourceLibrarySessionId);
     if (!src) return s;
-    return { ...s, title: src.title ?? s.title, description: src.description ?? s.description, exerciseCount: src.exerciseCount };
+    return {
+      ...s,
+      title: src.title ?? s.title,
+      description: src.description ?? s.description,
+      exerciseCount: src.exerciseCount,
+    };
   });
 }
 
@@ -366,9 +371,7 @@ export async function linkLibrarySessionToModule(
   const [lib] = await db
     .select({ id: sessionTable.id })
     .from(sessionTable)
-    .where(
-      and(eq(sessionTable.id, librarySessionId), isNull(sessionTable.programId), isNull(sessionTable.moduleId)),
-    )
+    .where(and(eq(sessionTable.id, librarySessionId), isNull(sessionTable.programId), isNull(sessionTable.moduleId)))
     .limit(1);
   if (!lib) throw new Error("Library session not found");
 
@@ -389,11 +392,7 @@ export async function linkLibrarySessionToModule(
 
 export async function unlinkLibrarySession(sessionId: number) {
   return db.transaction(async (tx) => {
-    const [session] = await tx
-      .select()
-      .from(sessionTable)
-      .where(eq(sessionTable.id, sessionId))
-      .limit(1);
+    const [session] = await tx.select().from(sessionTable).where(eq(sessionTable.id, sessionId)).limit(1);
     if (!session) throw new Error("Session not found");
     if (!session.sourceLibrarySessionId) return session; // already unlinked
 
@@ -478,10 +477,7 @@ export async function addRunToSession(
     .limit(1);
 
   if (!exercise) {
-    [exercise] = await db
-      .insert(exerciseTable)
-      .values({ name, category: "cardio_run" })
-      .returning();
+    [exercise] = await db.insert(exerciseTable).values({ name, category: "cardio_run" }).returning();
   }
 
   const [orderRow] = await db
@@ -819,10 +815,7 @@ export async function getAthleteDetail(athleteId: number) {
     .innerJoin(programTable, eq(sessionTable.programId, programTable.id))
     .innerJoin(
       programAssignmentTable,
-      and(
-        eq(programAssignmentTable.programId, programTable.id),
-        eq(programAssignmentTable.athleteId, athleteId),
-      ),
+      and(eq(programAssignmentTable.programId, programTable.id), eq(programAssignmentTable.athleteId, athleteId)),
     )
     .leftJoin(
       programSessionCompletionTable,
@@ -833,10 +826,7 @@ export async function getAthleteDetail(athleteId: number) {
     )
     .leftJoin(
       videoUploadTable,
-      and(
-        eq(videoUploadTable.sessionExerciseId, sessionExerciseTable.id),
-        eq(videoUploadTable.athleteId, athleteId),
-      ),
+      and(eq(videoUploadTable.sessionExerciseId, sessionExerciseTable.id), eq(videoUploadTable.athleteId, athleteId)),
     )
     .where(isNotNull(sessionExerciseTable.runConfig))
     .orderBy(asc(sessionTable.weekNumber), asc(sessionTable.sessionNumber), asc(sessionExerciseTable.order));
@@ -868,9 +858,7 @@ export async function getAthleteDetail(athleteId: number) {
       runConfig: row.runConfig as Record<string, unknown> | null,
       status,
       completedAt: row.completedAt,
-      upload: row.uploadId
-        ? { id: row.uploadId, url: row.uploadUrl, notes: row.uploadNotes }
-        : null,
+      upload: row.uploadId ? { id: row.uploadId, url: row.uploadUrl, notes: row.uploadNotes } : null,
     };
   });
 
@@ -1048,10 +1036,7 @@ export async function listLibraryModules() {
     .orderBy(asc(programModuleTable.order));
 }
 
-export async function createLibraryModule(input: {
-  title: string;
-  description?: string | null;
-}) {
+export async function createLibraryModule(input: { title: string; description?: string | null }) {
   const maxOrder = await db
     .select({ maxOrder: sql<number>`COALESCE(MAX(${programModuleTable.order}), 0)` })
     .from(programModuleTable)
