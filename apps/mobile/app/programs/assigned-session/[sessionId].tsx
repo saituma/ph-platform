@@ -47,6 +47,7 @@ import { useStreakStore } from "@/lib/streakStore";
 import { apiRequest } from "@/lib/api";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { LazyVideo } from "@/components/media/LazyVideo";
+import { useSessionVideoPrefetch } from "@/hooks/useSessionVideoPrefetch";
 import type { SelectedVideo } from "@/types/video-upload";
 
 const VIDEO_MAX_MB = 90;
@@ -86,6 +87,21 @@ export default function AssignedSessionDetailScreen() {
 
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const { exercises, isLoading, error, loadExercises } = useMySessionExercises(token);
+
+  // Predictive prefetch: warm the disk cache with the demo videos for THIS
+  // session, in sequence order, so tapping a thumb plays instantly. Also
+  // includes athlete uploads + coach responses since both surface as
+  // LazyVideo thumbs on this screen.
+  const prefetchTargets = useMemo(() => {
+    const list: { url?: string | null }[] = [];
+    for (const ex of exercises) {
+      if (ex.exercise.videoUrl) list.push({ url: ex.exercise.videoUrl });
+      if (ex.videoUpload?.videoUrl) list.push({ url: ex.videoUpload.videoUrl });
+      if (ex.videoUpload?.coachVideoUrl) list.push({ url: ex.videoUpload.coachVideoUrl });
+    }
+    return list;
+  }, [exercises]);
+  useSessionVideoPrefetch(prefetchTargets);
   const { completeSession, isCompleting } = useCompleteSession(token);
   const {
     uploadVideo,

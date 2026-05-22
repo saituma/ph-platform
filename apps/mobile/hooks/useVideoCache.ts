@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
+import { getCachedEntry, recordCachedEntry } from '@/lib/video/videoCacheStore';
 
-// Module-level registry: url-hash → local file URI.
+// Module-level registry: memKey → local file URI.
 // Survives component unmounts within the same app session.
 // Provides synchronous cache hits on re-mounts (zero re-render overhead).
 const knownCachedFiles = new Map<string, string>();
@@ -39,7 +40,83 @@ function isLocalUri(url: string): boolean {
 }
 
 /**
- * TikTok/YouTube-style video cache.
+ * Download (or reuse an in-flight download for) a remote URL into the disk
+ * cache. Idempotent — concurrent callers share the same promise. Returns the
+ * local file URI on success, null on failure (or when the URL is local).
+ *
+ * This is the entry point both `useVideoCache` and the predictive prefetch
+ * queue call into so the LRU index, on-disk file, and in-memory shortcuts
+ * all stay in sync.
+ */
+export async function downloadToCache(
+  url: string,
+  cacheKey?: string | null,
+): Promise<string | null> {
+  if (!url || isLocalUri(url)) return null;
+
+  const memKey = getMemoryKey(url, cacheKey);
+  const filePath = getFilePath(url, cacheKey);
+
+  // Fast path: already known in this session.
+  const knownPath = knownCachedFiles.get(memKey);
+  if (knownPath) return knownPath;
+
+  // Persisted hit from a prior session.
+  const persisted = await getCachedEntry(memKey);
+  if (persisted) {
+    knownCachedFiles.set(memKey, persisted.filePath);
+    return persisted.filePath;
+  }
+
+  // Last-resort disk check (file present but not in index — e.g. legacy).
+  try {
+    const info = await FileSystem.getInfoAsync(filePath);
+    if (info.exists) {
+      knownCachedFiles.set(memKey, filePath);
+      await recordCachedEntry({ memKey, url, filePath });
+      return filePath;
+    }
+  } catch {
+    // ignore — fall through to download
+  }
+
+  // Dedupe concurrent downloads (e.g. multiple players + the prefetcher).
+  let download = activeDownloads.get(memKey);
+  if (!download) {
+    download = (async () => {
+      try {
+        const result = await FileSystem.createDownloadResumable(url, filePath).downloadAsync();
+        if (result?.uri) {
+          knownCachedFiles.set(memKey, filePath);
+          await recordCachedEntry({ memKey, url, filePath });
+        }
+      } catch {
+        // Silent fail — caller will fall back to streaming.
+      } finally {
+        activeDownloads.delete(memKey);
+      }
+    })();
+    activeDownloads.set(memKey, download);
+  }
+  await download;
+  return knownCachedFiles.get(memKey) ?? null;
+}
+
+/** Synchronous check — used by the prefetch queue to skip URLs already cached
+ *  this session without paying for an async lookup. */
+export function isVideoKnownCached(url: string, cacheKey?: string | null): boolean {
+  if (!url || isLocalUri(url)) return false;
+  return knownCachedFiles.has(getMemoryKey(url, cacheKey));
+}
+
+/** Synchronous check for an in-flight download — same purpose as above. */
+export function isVideoDownloading(url: string, cacheKey?: string | null): boolean {
+  if (!url || isLocalUri(url)) return false;
+  return activeDownloads.has(getMemoryKey(url, cacheKey));
+}
+
+/**
+ * TikTok/YouTube-style video cache hook.
  *
  * Strategy:
  * 1. Sync memory hit  → returns local URI in useState init (zero re-render).
@@ -85,66 +162,32 @@ export function useVideoCache(
 
     const memKey = getMemoryKey(url, cacheKey);
 
-    // Already resolved — nothing to do.
-    if (knownCachedFiles.has(memKey)) {
-      // Ensure state is in sync (e.g. after fast-refresh).
-      setCachedUri(knownCachedFiles.get(memKey)!);
+    // Already resolved in this session — sync up and bail.
+    const knownPath = knownCachedFiles.get(memKey);
+    if (knownPath) {
+      setCachedUri(knownPath);
       return;
     }
 
     let cancelled = false;
-    const filePath = getFilePath(url, cacheKey);
 
-    async function init() {
-      // Fast disk check (~20-50ms) — catches files from prior sessions.
-      try {
-        const info = await FileSystem.getInfoAsync(filePath);
-        if (info.exists) {
-          knownCachedFiles.set(memKey, filePath);
-          if (!cancelled) setCachedUri(filePath);
-          return;
-        }
-      } catch {
-        // Non-fatal — fall through to download.
-      }
+    (async () => {
+      const local = await downloadToCache(url, cacheKey);
+      if (cancelled || !local) return;
+      if (hasStartedRef.current) return; // don't swap mid-playback
+      setCachedUri(local);
+    })();
 
-      // Deduplicate concurrent downloads for the same URL.
-      let download = activeDownloads.get(memKey);
-      if (!download) {
-        download = (async () => {
-          try {
-            const result = await FileSystem.createDownloadResumable(
-              url!,
-              filePath,
-            ).downloadAsync();
-            if (result?.uri) {
-              knownCachedFiles.set(memKey, filePath);
-            }
-          } catch {
-            // Silent fail — streaming continues unaffected.
-          } finally {
-            activeDownloads.delete(memKey);
-          }
-        })();
-        activeDownloads.set(memKey, download);
-      }
-
-      await download;
-
-      // After download, update cachedUri so the next idle/load cycle uses local.
-      // Only switch if we haven't started playing yet (avoids mid-playback stutter).
-      if (!cancelled && knownCachedFiles.has(memKey) && !hasStartedRef.current) {
-        setCachedUri(filePath);
-      }
-    }
-
-    init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [url, cacheKey]);
 
   // Call this from the player when it actually starts playing so we stop
   // switching sources mid-playback.
-  const markStarted = () => { hasStartedRef.current = true; };
+  const markStarted = () => {
+    hasStartedRef.current = true;
+  };
 
   return { cachedUri, markStarted };
 }
