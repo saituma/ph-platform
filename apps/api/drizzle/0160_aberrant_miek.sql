@@ -1,4 +1,4 @@
-ALTER TABLE "guardians" DROP CONSTRAINT "guardians_activeAthleteId_athletes_id_fk";
+ALTER TABLE "guardians" DROP CONSTRAINT IF EXISTS "guardians_activeAthleteId_athletes_id_fk";
 --> statement-breakpoint
 ALTER TABLE "exercises" ADD COLUMN "posterUrl" varchar(500);--> statement-breakpoint
 ALTER TABLE "exercises" ADD COLUMN "durationSec" integer;--> statement-breakpoint

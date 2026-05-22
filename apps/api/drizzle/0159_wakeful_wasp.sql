@@ -1,24 +1,24 @@
-ALTER TABLE "admin_settings" DROP CONSTRAINT "admin_settings_userId_users_id_fk";
+ALTER TABLE "admin_settings" DROP CONSTRAINT IF EXISTS "admin_settings_userId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "athletes" DROP CONSTRAINT "athletes_userId_users_id_fk";
+ALTER TABLE "athletes" DROP CONSTRAINT IF EXISTS "athletes_userId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "athletes" DROP CONSTRAINT "athletes_guardianId_guardians_id_fk";
+ALTER TABLE "athletes" DROP CONSTRAINT IF EXISTS "athletes_guardianId_guardians_id_fk";
 --> statement-breakpoint
-ALTER TABLE "chat_group_messages" DROP CONSTRAINT "chat_group_messages_senderId_users_id_fk";
+ALTER TABLE "chat_group_messages" DROP CONSTRAINT IF EXISTS "chat_group_messages_senderId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "chat_groups" DROP CONSTRAINT "chat_groups_createdBy_users_id_fk";
+ALTER TABLE "chat_groups" DROP CONSTRAINT IF EXISTS "chat_groups_createdBy_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "message_reactions" DROP CONSTRAINT "message_reactions_userId_users_id_fk";
+ALTER TABLE "message_reactions" DROP CONSTRAINT IF EXISTS "message_reactions_userId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "message_receipts" DROP CONSTRAINT "message_receipts_userId_users_id_fk";
+ALTER TABLE "message_receipts" DROP CONSTRAINT IF EXISTS "message_receipts_userId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "messages" DROP CONSTRAINT "messages_senderId_users_id_fk";
+ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "messages_senderId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "messages" DROP CONSTRAINT "messages_receiverId_users_id_fk";
+ALTER TABLE "messages" DROP CONSTRAINT IF EXISTS "messages_receiverId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "run_logs" DROP CONSTRAINT "run_logs_userId_users_id_fk";
+ALTER TABLE "run_logs" DROP CONSTRAINT IF EXISTS "run_logs_userId_users_id_fk";
 --> statement-breakpoint
-ALTER TABLE "user_locations" DROP CONSTRAINT "user_locations_userId_users_id_fk";
+ALTER TABLE "user_locations" DROP CONSTRAINT IF EXISTS "user_locations_userId_users_id_fk";
 --> statement-breakpoint
 ALTER TABLE "chat_groups" ALTER COLUMN "createdBy" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "admin_settings" ADD CONSTRAINT "admin_settings_userId_users_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
