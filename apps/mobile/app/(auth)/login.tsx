@@ -73,13 +73,17 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     try {
       const authBase = getAuthBaseUrl();
-      const login = authBase
-        ? await signInWithWorkerAndExchange({
+      let login: { accessToken?: string; idToken?: string; refreshToken?: string | null };
+      if (authBase) {
+        try {
+          login = await signInWithWorkerAndExchange({
             authBaseUrl: authBase,
             email: data.email.trim().toLowerCase(),
             password: data.password,
-          })
-        : await apiRequest<{
+          });
+        } catch {
+          // Worker auth failed — user may only exist in the Express API (e.g. admin accounts).
+          login = await apiRequest<{
             accessToken?: string;
             idToken?: string;
             refreshToken?: string | null;
@@ -87,6 +91,17 @@ export default function LoginScreen() {
             method: "POST",
             body: { email: data.email.trim().toLowerCase(), password: data.password },
           });
+        }
+      } else {
+        login = await apiRequest<{
+          accessToken?: string;
+          idToken?: string;
+          refreshToken?: string | null;
+        }>("/auth/login", {
+          method: "POST",
+          body: { email: data.email.trim().toLowerCase(), password: data.password },
+        });
+      }
 
       const token = login.idToken ?? login.accessToken;
       if (!token) throw new Error("Login failed");
