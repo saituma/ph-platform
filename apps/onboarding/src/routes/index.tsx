@@ -17,6 +17,7 @@ import { CinematicFooter } from "@/components/ui/motion-footer";
 import { buildOgMeta } from "../lib/seo";
 import { WaitlistModal } from "../components/WaitlistModal";
 import { getTokenStatus } from "@/lib/client-storage";
+import { CountdownTimer } from "@/components/CountdownTimer";
 
 const SITE_URL = "https://phperformance.uk";
 
@@ -219,6 +220,8 @@ function LandingPage() {
                                         >
                                             PH Performance
                                         </motion.p>
+
+                                        <CountdownTimer />
 
                                         <motion.div
                                             initial={{ opacity: 0, y: 20 }}
