@@ -46,7 +46,7 @@ import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useStreakStore } from "@/lib/streakStore";
 import { apiRequest } from "@/lib/api";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
-import { VideoPlayer } from "@/components/media/VideoPlayer";
+import { LazyVideo } from "@/components/media/LazyVideo";
 import type { SelectedVideo } from "@/types/video-upload";
 
 const VIDEO_MAX_MB = 90;
@@ -713,7 +713,7 @@ function RunExerciseCard({
           </View>
           <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
             <View style={{ borderRadius: 10, overflow: "hidden" }}>
-              <VideoPlayer uri={ex.videoUpload!.videoUrl} posterUri={ex.videoUpload?.posterUrl} height={180} initialMuted hideTopChrome ignoreTabFocus />
+              <LazyVideo uri={ex.videoUpload!.videoUrl} posterUri={ex.videoUpload?.posterUrl} durationSec={ex.videoUpload?.durationSec ?? null} height={180} thumbLabel="Your upload" initialMuted hideTopChrome ignoreTabFocus />
             </View>
           </View>
         </View>
@@ -903,11 +903,12 @@ function ExerciseCard({
       {hasVideo ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
           <View style={{ borderRadius: 14, overflow: "hidden" }}>
-            <VideoPlayer
+            <LazyVideo
               uri={ex.exercise.videoUrl!}
               posterUri={ex.exercise.posterUrl}
+              durationSec={ex.exercise.durationSec ?? null}
               height={200}
-              autoPlay={false}
+              thumbLabel={ex.exercise.name || "Exercise demo"}
               initialMuted={true}
               isLooping
               hideTopChrome
@@ -945,10 +946,12 @@ function ExerciseCard({
             </View>
             <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
               <View style={{ borderRadius: 10, overflow: "hidden" }}>
-                <VideoPlayer
+                <LazyVideo
                   uri={ex.videoUpload!.videoUrl}
                   posterUri={ex.videoUpload?.posterUrl}
+                  durationSec={ex.videoUpload?.durationSec ?? null}
                   height={180}
+                  thumbLabel="Your upload"
                   initialMuted
                   hideTopChrome
                   ignoreTabFocus
@@ -1165,7 +1168,7 @@ function ExerciseCard({
 
               {ex.videoUpload.coachVideoUrl ? (
                 <View style={{ borderRadius: 14, overflow: "hidden", marginBottom: 8 }}>
-                  <VideoPlayer uri={ex.videoUpload.coachVideoUrl} posterUri={ex.videoUpload.coachVideoPosterUrl} height={180} initialMuted />
+                  <LazyVideo uri={ex.videoUpload.coachVideoUrl} posterUri={ex.videoUpload.coachVideoPosterUrl} height={180} thumbLabel="Coach response" initialMuted />
                 </View>
               ) : null}
 

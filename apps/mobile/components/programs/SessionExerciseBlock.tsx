@@ -11,6 +11,7 @@ import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { SessionItem } from "@/hooks/programs/useSessionData";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
+import { LazyVideo } from "@/components/media/LazyVideo";
 import { MarkdownText } from "@/components/ui/MarkdownText";
 import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 import type { CoachResponse } from "@/types/video-upload";
@@ -230,10 +231,11 @@ export function SessionExerciseBlock({
                   if (canInline || !isKnownExternalHost(url)) {
                     return (
                       <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000", marginBottom: 16 }}>
-                        <VideoPlayer
+                        <LazyVideo
                           uri={url}
                           posterUri={(item as { posterUrl?: string | null }).posterUrl}
-                          autoPlay={false}
+                          durationSec={(item as { durationSec?: number | null }).durationSec ?? null}
+                          thumbLabel={item.title || "Exercise video"}
                           initialMuted
                           isLooping={false}
                           useVideoResolution
@@ -333,10 +335,11 @@ export function SessionExerciseBlock({
                       <View key={String(u.id ?? u.videoUrl)} style={{ gap: 8 }}>
                         {u.videoUrl ? (
                           <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
-                            <VideoPlayer
+                            <LazyVideo
                               uri={String(u.videoUrl)}
                               posterUri={u.posterUrl ?? null}
-                              autoPlay={false}
+                              durationSec={u.durationSec ?? null}
+                              thumbLabel="Athlete upload"
                               initialMuted
                               isLooping={false}
                               maxHeightRatio={0.55}
@@ -454,10 +457,10 @@ export function SessionExerciseBlock({
                               </View>
                               {res.mediaUrl ? (
                                 <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
-                                  <VideoPlayer
+                                  <LazyVideo
                                     uri={String(res.mediaUrl)}
                                     posterUri={(res as { posterUrl?: string | null }).posterUrl ?? null}
-                                    autoPlay={false}
+                                    thumbLabel="Coach response"
                                     initialMuted
                                     isLooping={false}
                                     maxHeightRatio={0.5}
