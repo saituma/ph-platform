@@ -34,6 +34,13 @@ export const Route = createFileRoute("/onboarding/step-5")({
 });
 
 type BillingCycle = "weekly" | "monthly" | "six_months" | "yearly";
+
+function nextAnchorLabel(): string {
+	const now = new Date();
+	const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+	if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+	return anchor.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
 type ProgramFilter = "standard" | "weekly";
 
 function isWeeklyPlan(plan: any): boolean {
@@ -1033,6 +1040,11 @@ function OnboardingStep5() {
 												<span className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
 													{planBillingLabel(plan, billingCycle)}
 												</span>
+												{billingCycle === "monthly" && (
+													<span className="font-mono text-[10px] text-foreground/50 tracking-wide">
+														First payment: {nextAnchorLabel()}
+													</span>
+												)}
 											</div>
 										);
 									})()}
