@@ -33,7 +33,7 @@ import {
 
 /** Returns a Unix timestamp for the next 5th of the month at midnight UTC.
  *  All monthly subscriptions anchor to this date so every payment lands on the 5th. */
-function nextBillingAnchor(): number {
+export function nextBillingAnchor(): number {
   const now = new Date();
   const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
   if (anchor <= now) {
@@ -288,6 +288,14 @@ export async function createCheckoutSession(input: {
     success_url: `${input.successUrl ?? getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,
+    ...(mode === "subscription"
+      ? {
+          subscription_data: {
+            billing_cycle_anchor: nextBillingAnchor(),
+            proration_behavior: "create_prorations",
+          },
+        }
+      : {}),
     metadata: {
       planId: String(plan.id),
       userId: String(input.userId),

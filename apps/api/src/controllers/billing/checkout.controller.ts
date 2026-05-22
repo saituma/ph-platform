@@ -31,7 +31,7 @@ import {
   confirmPaymentSheetIntent,
   updateRequestFromStripeSession,
 } from "../../services/billing.service";
-import { getLatestSubscriptionRequest } from "../../services/billing/request.service";
+import { getLatestSubscriptionRequest, nextBillingAnchor } from "../../services/billing/request.service";
 import {
   createTeamSubscriptionRequest,
   upsertTeamPendingApprovalFromSessionMetadata,
@@ -443,7 +443,12 @@ export async function createTeamCheckout(req: Request, res: Response) {
            line_items: [{ price: priceId, quantity: 1 }],
            ...(billingCycle !== "monthly"
              ? { payment_intent_data: { receipt_email: invite.playerEmail } }
-             : {}),
+             : {
+                 subscription_data: {
+                   billing_cycle_anchor: nextBillingAnchor(),
+                   proration_behavior: "create_prorations",
+                 },
+               }),
            metadata: {
              type: "team_player_invite",
              inviteId: String(invite.id),

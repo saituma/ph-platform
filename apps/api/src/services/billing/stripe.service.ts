@@ -4,6 +4,13 @@ import { ProgramType } from "../../db/schema";
 import { logger } from "../../lib/logger";
 import { stripeBreaker } from "../../lib/circuit-breaker";
 
+function nextBillingAnchor(): number {
+  const now = new Date();
+  const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+  if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+  return Math.floor(anchor.getTime() / 1000);
+}
+
 export const stripe = env.stripeSecretKey
   ? new Stripe(env.stripeSecretKey, {
       apiVersion: "2025-02-24.acacia",
@@ -159,6 +166,14 @@ export async function createTeamCheckoutSession(input: {
     line_items: lineItems,
     ...(input.mode === "payment" && input.customerEmail
       ? { payment_intent_data: { receipt_email: input.customerEmail } }
+      : {}),
+    ...(input.mode === "subscription"
+      ? {
+          subscription_data: {
+            billing_cycle_anchor: nextBillingAnchor(),
+            proration_behavior: "create_prorations",
+          },
+        }
       : {}),
     metadata: {
       teamId: input.teamId,
