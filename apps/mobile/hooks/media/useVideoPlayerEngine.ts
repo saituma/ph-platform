@@ -19,6 +19,7 @@ interface VideoPlayerEngineParams {
   isLooping: boolean;
   effectiveShouldPlay: boolean;
   isVisible: boolean;
+  forceMuted?: boolean;
   onDurationMs?: (durationMs: number) => void;
   onEnded?: (params: { position: number; duration: number }) => void;
   fadeAnim: Animated.Value;
@@ -54,6 +55,7 @@ export function useVideoPlayerEngine({
   isLooping,
   effectiveShouldPlay,
   isVisible,
+  forceMuted = false,
   onDurationMs,
   onEnded,
   fadeAnim,
@@ -253,11 +255,20 @@ export function useVideoPlayerEngine({
     onEnded({ position, duration });
   }, [duration, onEnded, position, sourceUri]);
 
+  // When forceMuted, re-enforce muted=true after every playing/status event
+  // because native controls (nativeControls=true) can bypass React state.
+  useEffect(() => {
+    if (!forceMuted) return;
+    player.muted = true;
+    setIsMuted(true);
+  });
+
   const toggleMute = useCallback(() => {
+    if (forceMuted) return;
     const next = !isMuted;
     player.muted = next;
     setIsMuted(next);
-  }, [isMuted, player]);
+  }, [forceMuted, isMuted, player]);
 
   return {
     player,

@@ -641,6 +641,7 @@ function VideoPlayerExpoNativeMode({
     isLooping,
     effectiveShouldPlay,
     isVisible,
+    forceMuted,
     onDurationMs,
     onEnded,
     fadeAnim,
@@ -847,7 +848,7 @@ function VideoPlayerExpoNativeMode({
           player={player}
           style={{ flex: 1, width: "100%", height: "100%" }}
           contentFit={fitMode}
-          nativeControls={ignoreTabFocus}
+          nativeControls={!forceMuted && ignoreTabFocus}
           fullscreenOptions={{ enable: false, orientation: "default" }}
           allowsPictureInPicture
           {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
@@ -977,7 +978,7 @@ function VideoPlayerExpoNativeMode({
               player={player}
               style={{ width: "100%", height: "100%" }}
               contentFit="contain"
-              nativeControls
+              nativeControls={!forceMuted}
               allowsPictureInPicture
               {...(Platform.OS === "android"
                 ? { surfaceType: "textureView" as const }
