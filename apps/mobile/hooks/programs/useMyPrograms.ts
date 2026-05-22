@@ -57,8 +57,11 @@ export type SessionExercise = {
   videoUpload?: {
     id: number;
     videoUrl: string;
-    feedback: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
     coachVideoUrl: string | null;
+    coachVideoPosterUrl?: string | null;
+    feedback: string | null;
     reviewedAt: string | null;
   } | null;
   exercise: {
@@ -70,6 +73,8 @@ export type SessionExercise = {
     duration: number | null;
     restSeconds: number | null;
     videoUrl: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
     cues: string | null;
     howTo: string | null;
     notes: string | null;

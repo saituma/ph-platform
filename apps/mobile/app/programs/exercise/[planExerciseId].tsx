@@ -87,6 +87,8 @@ type PremiumExerciseDetail = {
     restSeconds?: number | null;
     notes?: string | null;
     videoUrl?: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
   } | null;
   session?: {
     id: number;
@@ -102,6 +104,8 @@ type PremiumExerciseDetail = {
     body?: string | null;
     allowVideoUpload?: boolean | null;
     videoUrl?: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
     metadata?: ExerciseMetadata | null;
   } | null;
 };
@@ -159,16 +163,18 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({
 const MediaSection = React.memo(function MediaSection({
   url,
   title,
+  posterUri,
   p,
 }: {
   url: string;
   title?: string;
+  posterUri?: string | null;
   p: ReturnType<typeof useAdminPastel>;
 }) {
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
       </View>
     );
   }
@@ -183,7 +189,7 @@ const MediaSection = React.memo(function MediaSection({
 
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
     </View>
   );
 });
@@ -281,6 +287,7 @@ export default function PremiumExerciseDetailScreen() {
   const meta = (linkedContent?.metadata ?? {}) as ExerciseMetadata;
   const title = item?.exercise?.name ?? linkedContent?.title ?? "Exercise";
   const mediaUrl = linkedContent?.videoUrl ?? item?.exercise?.videoUrl ?? null;
+  const mediaPoster = linkedContent?.posterUrl ?? item?.exercise?.posterUrl ?? null;
   const bodyText =
     linkedContent?.body ??
     item?.exercise?.howTo ??
@@ -663,7 +670,7 @@ export default function PremiumExerciseDetailScreen() {
                 ) : null}
 
                 {mediaUrl ? (
-                  <MediaSection url={mediaUrl} title={title} p={p} />
+                  <MediaSection url={mediaUrl} title={title} posterUri={mediaPoster} p={p} />
                 ) : null}
               </View>
             ) : null}

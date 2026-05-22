@@ -78,16 +78,18 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({
 const MediaSection = React.memo(function MediaSection({
   url,
   title,
+  posterUri,
   p,
 }: {
   url: string;
   title?: string;
+  posterUri?: string | null;
   p: ReturnType<typeof useAdminPastel>;
 }) {
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
       </View>
     );
   }
@@ -104,7 +106,7 @@ const MediaSection = React.memo(function MediaSection({
   }
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
     </View>
   );
 });
@@ -229,10 +231,10 @@ export default function ProgramContentDetailScreen() {
     if (!item?.videoUrl) return null;
     return (
       <View style={{ marginTop: 4 }}>
-        <MediaSection url={item.videoUrl} title={item.title} p={p} />
+        <MediaSection url={item.videoUrl} title={item.title} posterUri={item.posterUrl} p={p} />
       </View>
     );
-  }, [item?.title, item?.videoUrl, p]);
+  }, [item?.title, item?.videoUrl, item?.posterUrl, p]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>

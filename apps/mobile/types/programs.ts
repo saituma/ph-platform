@@ -22,6 +22,8 @@ export type ProgramSectionContent = {
   title: string;
   body: string;
   videoUrl?: string | null;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   completed?: boolean | null;
   allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
@@ -51,11 +53,15 @@ export type PlanExercise = {
     title?: string | null;
     allowVideoUpload?: boolean | null;
     videoUrl?: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
   } | null;
   exercise?: {
     id: number;
     name: string;
     videoUrl?: string | null;
+    posterUrl?: string | null;
+    durationSec?: number | null;
     sets?: number | null;
     reps?: number | null;
     duration?: number | null;

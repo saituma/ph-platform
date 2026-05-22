@@ -19,6 +19,8 @@ export type ContentItem = {
   body: string;
   completed?: boolean | null;
   videoUrl?: string | null;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   allowVideoUpload?: boolean | null;
   metadata?: ExerciseMetadata | null;
 };
@@ -69,6 +71,8 @@ export function useContentDetail(token: string | null, contentId: string) {
         body: data.item.body ?? "",
         completed: Boolean(data.item.completed),
         videoUrl: data.item.videoUrl ?? null,
+        posterUrl: (data.item as { posterUrl?: string | null }).posterUrl ?? null,
+        durationSec: (data.item as { durationSec?: number | null }).durationSec ?? null,
         allowVideoUpload: data.item.allowVideoUpload ?? false,
         metadata: data.item.metadata ?? null,
       });

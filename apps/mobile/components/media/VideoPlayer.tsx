@@ -798,7 +798,14 @@ function VideoPlayerExpoNativeMode({
   }, []);
 
   const isEnded = !isLooping && duration > 0 && position >= duration - 0.5;
-  const showPoster = !isPlaying && (position < 0.5 || isEnded) && !error && !previewOnly;
+  // Keep the poster up while the player is loading/buffering — otherwise the user
+  // stares at a black frame for the 1–3s before the first decoded frame arrives.
+  // The poster fades out once playback actually starts (handled by VideoView fade).
+  const isAwaitingFirstFrame = (isLoading || isBuffering) && position < 0.5;
+  const showPoster =
+    !error &&
+    !previewOnly &&
+    (isAwaitingFirstFrame || (!isPlaying && (position < 0.5 || isEnded)));
 
   const openFullscreen = useCallback(() => {
     if (pauseOthers) pauseOthers();
@@ -870,6 +877,7 @@ function VideoPlayerExpoNativeMode({
           onPress={togglePlay}
           previewOnly={previewOnly}
           onPreviewPress={onPreviewPress}
+          buffering={isAwaitingFirstFrame && isPlaying}
         />
       )}
 

@@ -20,6 +20,8 @@ type OtherItem = {
   body: string;
   scheduleNote?: string | null;
   videoUrl?: string | null;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -68,11 +70,21 @@ const ExternalLinkButton = React.memo(function ExternalLinkButton({
   );
 });
 
-function MediaSection({ url, title, p }: { url: string; title?: string; p: ReturnType<typeof useAdminPastel> }) {
+function MediaSection({
+  url,
+  title,
+  posterUri,
+  p,
+}: {
+  url: string;
+  title?: string;
+  posterUri?: string | null;
+  p: ReturnType<typeof useAdminPastel>;
+}) {
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
       </View>
     );
   }
@@ -82,13 +94,13 @@ function MediaSection({ url, title, p }: { url: string; title?: string; p: Retur
   if (isExternalVideoUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
       </View>
     );
   }
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} initialMuted ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
     </View>
   );
 }
@@ -245,7 +257,7 @@ export default function TrainingOtherDetailScreen() {
             >
               Video
             </Text>
-            <MediaSection url={item.videoUrl} title={item.title} p={p} />
+            <MediaSection url={item.videoUrl} title={item.title} posterUri={item.posterUrl} p={p} />
           </View>
         ) : null}
 

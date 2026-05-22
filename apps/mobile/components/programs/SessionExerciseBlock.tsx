@@ -232,6 +232,7 @@ export function SessionExerciseBlock({
                       <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000", marginBottom: 16 }}>
                         <VideoPlayer
                           uri={url}
+                          posterUri={(item as { posterUrl?: string | null }).posterUrl}
                           autoPlay={false}
                           initialMuted
                           isLooping={false}
@@ -334,6 +335,7 @@ export function SessionExerciseBlock({
                           <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
                             <VideoPlayer
                               uri={String(u.videoUrl)}
+                              posterUri={u.posterUrl ?? null}
                               autoPlay={false}
                               initialMuted
                               isLooping={false}
@@ -454,6 +456,7 @@ export function SessionExerciseBlock({
                                 <View style={{ borderRadius: 24, overflow: "hidden", backgroundColor: "#000" }}>
                                   <VideoPlayer
                                     uri={String(res.mediaUrl)}
+                                    posterUri={(res as { posterUrl?: string | null }).posterUrl ?? null}
                                     autoPlay={false}
                                     initialMuted
                                     isLooping={false}

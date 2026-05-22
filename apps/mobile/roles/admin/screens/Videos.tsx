@@ -73,6 +73,8 @@ type AdminVideoItem = Record<string, any> & {
   athleteUserId?: number | null;
   athleteName?: string | null;
   videoUrl?: string | null;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   createdAt?: string | null;
   notes?: string | null;
   feedback?: string | null;
@@ -783,7 +785,7 @@ export default function AdminVideosScreen() {
 
                 {selectedVideo?.videoUrl ? (
                   <View style={{ marginBottom: 16, borderRadius: 20, overflow: "hidden" }}>
-                    <VideoPlayer uri={selectedVideo.videoUrl} height={240} forceMuted />
+                    <VideoPlayer uri={selectedVideo.videoUrl} posterUri={selectedVideo.posterUrl} height={240} forceMuted />
                   </View>
                 ) : (
                   <View style={{

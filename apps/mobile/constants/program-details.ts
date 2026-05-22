@@ -10,6 +10,8 @@ export type ExerciseItem = {
   restSeconds?: number;
   notes?: string;
   videoUrl?: string;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   progressions?: string;
   regressions?: string;
   detailPath?: string;

@@ -1,6 +1,8 @@
 export interface VideoItem {
   id: string;
   videoUrl: string;
+  posterUrl?: string | null;
+  durationSec?: number | null;
   feedback: string | null;
   notes?: string;
   createdAt: string;
