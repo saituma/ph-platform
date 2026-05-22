@@ -379,8 +379,7 @@ export async function createPaymentSheetIntent(input: {
       items: [{ price: priceId }],
       payment_behavior: "default_incomplete",
       expand: ["latest_invoice.payment_intent"],
-      billing_cycle_anchor: nextBillingAnchor(),
-      proration_behavior: "create_prorations",
+      trial_end: nextBillingAnchor(),
       metadata: {
         planId: String(plan.id),
         userId: String(input.userId),

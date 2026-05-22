@@ -87,6 +87,13 @@ function formatDate(value?: string | null) {
 	}).format(date);
 }
 
+function nextAnchorLabel(): string {
+	const now = new Date();
+	const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+	if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+	return anchor.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
 function planPrice(plan: BillingPlan) {
 	// billingQuote.amount is cycle-specific (returned by the API per selected billingCycle)
 	// Fall back to displayPrice only — never fall back to pricing.monthly which would show
@@ -535,6 +542,11 @@ function BillingPage() {
 															? "for 1 year · one-time payment"
 															: "one-time payment"}
 											</p>
+											{billingCycle === "monthly" && !isCurrent && (
+												<p className="text-xs text-muted-foreground mt-1">
+													First payment: {nextAnchorLabel()}
+												</p>
+											)}
 										</div>
 									</CardHeader>
 									<CardContent>
