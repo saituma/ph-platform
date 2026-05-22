@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "@/lib/client-storage";
+
 export type GalleryApiItem = {
 	id: number;
 	url: string;
@@ -14,6 +16,7 @@ export async function fetchGalleryItems(): Promise<GalleryApiItem[]> {
 	const response = await fetch(`/api/content/gallery`, {
 		cache: "no-store",
 		credentials: "include",
+		headers: { ...getAuthHeaders() },
 	});
 
 	if (!response.ok) return [];

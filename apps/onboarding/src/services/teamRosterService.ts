@@ -1,3 +1,4 @@
+import { getAuthHeaders } from "@/lib/client-storage";
 
 export const rosterQueryKeys = {
 	all: ["teamRoster"] as const,
@@ -47,6 +48,7 @@ export async function fetchAthleteNutritionLogs(
 	});
 	const res = await fetch(`/api/nutrition/logs?${qs}`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
@@ -86,6 +88,7 @@ export async function fetchTeamRoster(
 ): Promise<TeamRosterResponse> {
 	const res = await fetch(`/api/team/roster`, {
 		credentials: "include",
+		headers: getAuthHeaders(),
 	});
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({}));
@@ -119,6 +122,7 @@ export async function createTeamAthlete(
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...getAuthHeaders(),
 		},
 		body: JSON.stringify(body),
 	});
@@ -169,6 +173,7 @@ export async function fetchTeamAthleteDetail(
 		`/api/team/roster/athletes/${athleteId}`,
 		{
 			credentials: "include",
+			headers: getAuthHeaders(),
 		},
 	);
 	const data = await res.json().catch(() => ({}));
@@ -196,6 +201,7 @@ export async function resetTeamAthletePassword(
 			credentials: "include",
 			headers: {
 				"Content-Type": "application/json",
+				...getAuthHeaders(),
 			},
 			body,
 		},
@@ -233,6 +239,7 @@ export async function updateTeamAthlete(
 			credentials: "include",
 			headers: {
 				"Content-Type": "application/json",
+				...getAuthHeaders(),
 			},
 			body: JSON.stringify(body),
 		},
@@ -256,6 +263,7 @@ export async function uploadTeamAthletePhoto(
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...getAuthHeaders(),
 		},
 		body: JSON.stringify({
 			folder: "profiles/team-athletes",
@@ -297,6 +305,7 @@ export async function updateTeamEmailSlug(
 		credentials: "include",
 		headers: {
 			"Content-Type": "application/json",
+			...getAuthHeaders(),
 		},
 		body: JSON.stringify({ emailSlug }),
 	});

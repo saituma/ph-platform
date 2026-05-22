@@ -15,7 +15,6 @@ import {
   LogOut,
   ChevronRight,
   Loader2,
-  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showPortalNutritionNav } from "@/lib/portal-roles";

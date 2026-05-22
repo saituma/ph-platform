@@ -247,7 +247,7 @@ function ServicesPage() {
                                         JOIN WAITING LIST
                                         <ArrowRight size={12} />
                                     </button>
-                                ) : (
+                                ) : "href" in service ? (
                                     <Link
                                         to={service.href}
                                         className="inline-flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-[0.1em] hover:gap-2.5 transition-all"
@@ -255,7 +255,7 @@ function ServicesPage() {
                                         GET STARTED
                                         <ArrowRight size={12} />
                                     </Link>
-                                )}
+                                ) : null}
                             </div>
                         </motion.div>
                     ))}

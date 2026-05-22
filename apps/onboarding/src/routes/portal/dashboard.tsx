@@ -468,12 +468,12 @@ function CoachDashboard({
 							<div className="space-y-2">
 								<div className="flex justify-between text-sm">
 									<span className="text-muted-foreground">Expires</span>
-									<span className="font-medium">{formatDate(planExpiresAt)}</span>
+									<span className="font-medium">{formatDate(planExpiresAt!)}</span>
 								</div>
 								<div className="h-1 w-full bg-foreground/[0.06] overflow-hidden">
 									<motion.div
 										initial={{ width: 0 }}
-										animate={{ width: `${Math.max(2, Math.min(100, (daysRemaining / 365) * 100))}%` }}
+										animate={{ width: `${Math.max(2, Math.min(100, (daysRemaining! / 365) * 100))}%` }}
 										transition={{ duration: 1, delay: 0.5, ease: "easeOut" }}
 										className="h-full bg-primary/60"
 									/>
@@ -928,30 +928,30 @@ function AthleteDashboard({
 							<div className="flex justify-between items-center mb-2">
 								<p className="text-sm text-muted-foreground">Time Remaining</p>
 								<p className="text-sm font-medium text-foreground">
-									{Math.ceil((new Date(planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days
+									{Math.ceil((new Date(planExpiresAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} Days
 								</p>
 							</div>
 							<div className="h-1 w-full bg-foreground/[0.06] overflow-hidden">
 								<motion.div
 									initial={{ width: 0 }}
-									animate={{ width: `${Math.max(0, Math.min(100, ((new Date(planExpiresAt).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%` }}
+									animate={{ width: `${Math.max(0, Math.min(100, ((new Date(planExpiresAt!).getTime() - Date.now()) / (30 * 24 * 60 * 60 * 1000)) * 100))}%` }}
 									transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
 									className="h-full bg-primary/60"
 								/>
 							</div>
-							<p className="mt-2 font-mono text-[10px] text-foreground/40 uppercase tracking-wider">Expires on {formatDate(planExpiresAt)}</p>
+							<p className="mt-2 font-mono text-[10px] text-foreground/40 uppercase tracking-wider">Expires on {formatDate(planExpiresAt!)}</p>
 						</div>
 					) : teamActiveWithoutExpiry ? (
 						<div className="pt-4 border-t border-foreground/[0.06]">
 							<p className="text-sm text-muted-foreground">
-								Team billing is active{user.team?.name?.trim() ? ` for ${user.team.name.trim()}` : ""}. Renewal dates may not show here yet; you still have access through your club.
+								Team billing is active{user.team?.name?.trim() ? ` for ${user.team?.name?.trim()}` : ""}. Renewal dates may not show here yet; you still have access through your club.
 							</p>
 						</div>
 					) : (
 						<div className="pt-4 border-t border-foreground/[0.06]">
 							<p className="text-sm text-muted-foreground">
 								{user.team?.name?.trim()
-									? `No active subscription on record for ${user.team.name.trim()} or your personal plan.`
+									? `No active subscription on record for ${user.team?.name?.trim()} or your personal plan.`
 									: "No active subscription found. Explore our plans to get started."}
 							</p>
 						</div>

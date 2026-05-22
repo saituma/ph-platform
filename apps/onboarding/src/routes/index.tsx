@@ -10,12 +10,13 @@ import {
     ArrowRight,
     Check,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MagneticText } from "@/components/ui/morphing-cursor";
 import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
 import { buildOgMeta } from "../lib/seo";
 import { WaitlistModal } from "../components/WaitlistModal";
+import { getTokenStatus } from "@/lib/client-storage";
 
 const SITE_URL = "https://phperformance.uk";
 
@@ -177,6 +178,11 @@ const APP_FEATURES_RIGHT = [
 
 function LandingPage() {
     const [waitlistOpen, setWaitlistOpen] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    useEffect(() => {
+        getTokenStatus().then((s) => setIsLoggedIn(s.authenticated));
+    }, []);
 
     return (
         <div className="relative min-h-dvh bg-[#0a0a0a] text-white overflow-x-hidden landing-page">
@@ -261,13 +267,23 @@ function LandingPage() {
                                             transition={{ duration: 0.4, delay: 0.4 }}
                                             className="flex flex-wrap items-center gap-4 mt-8"
                                         >
-                                            <Link
-                                                to="/portal/dashboard"
-                                                className="inline-flex items-center gap-2.5 px-7 py-[13px] bg-[#8aff00] text-black text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-[#9fff33] transition-colors"
-                                            >
-                                                <ArrowRight size={14} strokeWidth={2.5} />
-                                                GO TO DASHBOARD
-                                            </Link>
+                                            {isLoggedIn ? (
+                                                <Link
+                                                    to="/portal/dashboard"
+                                                    className="inline-flex items-center gap-2.5 px-7 py-[13px] bg-[#8aff00] text-black text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-[#9fff33] transition-colors"
+                                                >
+                                                    <ArrowRight size={14} strokeWidth={2.5} />
+                                                    GO TO DASHBOARD
+                                                </Link>
+                                            ) : (
+                                                <Link
+                                                    to="/register"
+                                                    className="inline-flex items-center gap-2.5 px-7 py-[13px] bg-[#8aff00] text-black text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-[#9fff33] transition-colors"
+                                                >
+                                                    <ArrowRight size={14} strokeWidth={2.5} />
+                                                    GET STARTED
+                                                </Link>
+                                            )}
                                             <a
                                                 href="#services"
                                                 className="inline-flex items-center gap-2 px-7 py-[13px] border border-white/30 text-white text-[11px] font-bold uppercase tracking-[0.14em] hover:border-white/50 hover:bg-white/5 transition-all"

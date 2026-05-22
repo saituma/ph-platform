@@ -1,3 +1,5 @@
+import { getAuthHeaders } from "@/lib/client-storage";
+
 export interface Program {
   id: number;
   title: string;
@@ -25,6 +27,7 @@ export async function fetchPrograms(_token?: string): Promise<{ items: Program[]
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
   });
 
@@ -41,6 +44,7 @@ export async function fetchTeamWorkspace(_token: string, age: number | null): Pr
 
   const response = await fetch(`/api/training-content-v2/mobile${ageQ}`, {
     credentials: "include",
+    headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
@@ -57,6 +61,7 @@ export async function fetchSectionContent(_token: string, type: string, tier: st
     `/api/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
     {
       credentials: "include",
+      headers: getAuthHeaders(),
     }
   );
 
@@ -78,6 +83,7 @@ export interface AssignedProgram {
 export async function fetchMyAssignedPrograms(_token?: string): Promise<AssignedProgram[]> {
   const response = await fetch(`/api/programs/my-assigned`, {
     credentials: "include",
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch assigned programs: ${response.status}`);
@@ -90,7 +96,7 @@ export async function fetchMyProgramFull(_token: string, programId: number) {
   const path = programId < 0
     ? `/api/programs/my-assigned/team/${-programId}`
     : `/api/programs/my-assigned/${programId}`;
-  const response = await fetch(path, { credentials: "include" });
+  const response = await fetch(path, { credentials: "include", headers: getAuthHeaders() });
   if (!response.ok) {
     throw new Error(`Failed to fetch program: ${response.status}`);
   }
@@ -101,6 +107,7 @@ export async function fetchMyProgramFull(_token: string, programId: number) {
 export async function fetchMySessionExercises(_token: string, sessionId: number) {
   const response = await fetch(`/api/programs/my-sessions/${sessionId}/exercises`, {
     credentials: "include",
+    headers: getAuthHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch session exercises: ${response.status}`);
@@ -114,6 +121,7 @@ export async function presignVideoUpload(file: File) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       folder: "training-videos",
@@ -135,6 +143,7 @@ export async function createAthleteVideo(videoUrl: string, notes?: string) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ videoUrl, notes }),
   });
@@ -150,6 +159,7 @@ export async function fetchSessionCompletion(_token: string, sessionId: number) 
     `/api/programs/my-sessions/${sessionId}/completion`,
     {
       credentials: "include",
+      headers: getAuthHeaders(),
     },
   );
   if (!response.ok) return null;
@@ -169,6 +179,7 @@ export async function completeSession(
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
+        ...getAuthHeaders(),
       },
       body: JSON.stringify(feedback ?? {}),
     },
@@ -185,6 +196,7 @@ export async function fetchProgramDetail(_token: string, programId: number): Pro
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      ...getAuthHeaders(),
     },
   });
 

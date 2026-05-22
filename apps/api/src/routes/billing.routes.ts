@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
 import { requireRole } from "../middlewares/roles";
+import { rateLimiters } from "../lib/rateLimiter";
 import {
   approveRequestAdmin,
   approveTeamRequestAdmin,
@@ -46,7 +47,7 @@ router.get("/billing/plans", listPlans);
 // Public invite endpoints (no auth — token is the credential).
 router.get("/public/plan-invites/:token", getPlanInviteSummaryPublic);
 router.post("/public/plan-invites/:token/checkout", consumePlanInvitePublic);
-router.get("/public/invoice/:receiptId", getPublicInvoice);
+router.get("/public/invoice/:receiptId", rateLimiters.api, getPublicInvoice);
 router.get("/billing/public-plans", listPlans);
 router.get("/billing/status", requireAuth, getBillingStatus);
 router.get("/billing/team/payment-config-draft/:teamId", requireAuth, requireRole(["coach", "admin", "superAdmin"]), getTeamPaymentConfigDraft);

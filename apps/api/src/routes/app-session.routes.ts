@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { verifyAccessToken } from "../lib/jwt";
@@ -57,7 +58,7 @@ export function setAppToken(req: Request, res: Response) {
   });
 
   // Set CSRF double-submit cookie (readable by JS)
-  const csrf = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const csrf = randomBytes(32).toString("hex");
   res.cookie(CSRF_COOKIE, csrf, {
     httpOnly: false,
     secure: IS_PROD,

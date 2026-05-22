@@ -3,16 +3,9 @@ import {
 	ONBOARDING_AUTH_TOKEN_STORAGE_KEY,
 	type TokenStatus,
 } from "@ph/auth";
+import { config } from "./config";
 
 const AUTH_TOKEN_KEY = ONBOARDING_AUTH_TOKEN_STORAGE_KEY;
-
-/**
- * Onboarding stores the API access token in localStorage and sends it as a
- * Bearer header on every API call. The previous design mirrored the token into
- * an httpOnly cookie via /api/app/set-token, but the production deployment
- * (nginx serving a static SPA) has no Nitro server to handle that route, so the
- * cookie was never set and the portal would redirect-loop back to /login.
- */
 
 export function getClientAuthToken(): string | null {
 	if (typeof window === "undefined") return null;
@@ -21,7 +14,23 @@ export function getClientAuthToken(): string | null {
 
 export async function setAuthToken(token: string): Promise<void> {
 	if (typeof window === "undefined") return;
+	// Keep localStorage for the Bearer-header flow used by older service calls.
 	window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+	// Mirror into httpOnly cookie so XSS cannot steal the token via localStorage.
+	// This call is client-side — it works in static SPA deployments unlike the
+	// previous SSR-based approach.
+	try {
+		const exp = readJwtExp(token);
+		const maxAgeSeconds = exp ? Math.max(0, exp - Math.floor(Date.now() / 1000)) : undefined;
+		await fetch(`${config.api.baseUrl}/api/app/set-token`, {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ token, ...(maxAgeSeconds !== undefined && { maxAgeSeconds }) }),
+		});
+	} catch {
+		// Non-fatal: localStorage still provides auth, httpOnly mirroring is best-effort.
+	}
 }
 
 export async function clearAuthToken(): Promise<void> {

@@ -11,6 +11,12 @@
       "sourceType": "github",
       "computedHash": "08a073eb451af8dacdb1574ebc412854e40eea1de1eab96b5637e60c94e36d6d"
     },
+    "app-store-screenshots": {
+      "source": "ParthJadhav/app-store-screenshots",
+      "sourceType": "github",
+      "skillPath": "skills/app-store-screenshots/SKILL.md",
+      "computedHash": "eead0ebca3cbafbe6f81a895aa158f78d70b69779b3bac6cb2d8dc56511632f5"
+    },
     "arrange": {
       "source": "pbakaus/impeccable",
       "sourceType": "github",
