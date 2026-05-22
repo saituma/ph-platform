@@ -51,9 +51,14 @@ export function LazyVideo({
       />
     );
   }
+  // The user tapped to expand — that IS the intent to play. Pass
+  // ignoreTabFocus so the engine's effectiveShouldPlay check doesn't gate on
+  // tab/nav state (which resolves false on non-tab routes like
+  // /programs/session/[sessionId], and would otherwise leave the player at
+  // 0:00 with .play() never called).
   return (
     <View>
-      <VideoPlayer {...playerProps} height={height} autoPlay shouldPlay />
+      <VideoPlayer {...playerProps} height={height} autoPlay shouldPlay ignoreTabFocus />
     </View>
   );
 }
