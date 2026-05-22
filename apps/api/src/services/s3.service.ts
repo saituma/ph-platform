@@ -137,6 +137,27 @@ export async function getObjectBuffer(input: { key: string }) {
   return Buffer.concat(chunks);
 }
 
+/** Stream an object straight to a local file. Preferred over getObjectBuffer
+ *  when the file may be large (4K video uploads can blow past 1 GB in RAM on
+ *  a Basic dyno). Returns the byte count written, so callers can keep their
+ *  "did the optimized output shrink the file?" check without re-reading the
+ *  whole thing. */
+export async function downloadObjectToFile(input: { key: string; destPath: string }) {
+  const bucket = env.r2Bucket.trim();
+  if (!bucket) {
+    throw new Error("R2_BUCKET is not configured");
+  }
+  const client = getR2S3Client();
+  const stream = (await client.getObject(bucket, input.key)) as Readable;
+  // Lazy import to keep this module loadable in environments without fs (tests).
+  const fs = await import("fs");
+  const { pipeline } = await import("stream/promises");
+  const fileStream = fs.createWriteStream(input.destPath);
+  await pipeline(stream, fileStream);
+  const stat = fs.statSync(input.destPath);
+  return { sizeBytes: stat.size };
+}
+
 export async function deleteObject(input: { key: string }) {
   const bucket = env.r2Bucket.trim();
   if (!bucket) {

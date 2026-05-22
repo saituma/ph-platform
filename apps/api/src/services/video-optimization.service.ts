@@ -5,8 +5,8 @@ import { spawn, spawnSync } from "child_process";
 
 import {
   deleteObject,
+  downloadObjectToFile,
   getMediaObjectKeyFromPublicUrl,
-  getObjectBuffer,
   getPublicObjectUrl,
   putObject,
 } from "./s3.service";
@@ -112,8 +112,12 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
   const outputPath = path.join(tempDir, "output.mp4");
   const posterPath = path.join(tempDir, "poster.jpg");
   try {
-    const source = await getObjectBuffer({ key: originalKey });
-    await fs.writeFile(inputPath, source);
+    // Stream straight to disk — buffering large (4K) videos in memory was
+    // OOM'ing the Basic dyno (R14: 1 GB+ for a single 4K file).
+    const { sizeBytes: sourceBytes } = await downloadObjectToFile({
+      key: originalKey,
+      destPath: inputPath,
+    });
 
     const transcodeStderr = await runFfmpegCapture([
       "-y",
@@ -160,6 +164,7 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
         "scale='min(960,iw)':-2",
         posterPath,
       ]);
+      // Poster JPGs are tiny (~tens of KB) — buffering is fine here.
       const posterBuffer = await fs.readFile(posterPath);
       const posterKey = posterKeyFor(originalKey);
       await putObject({ key: posterKey, body: posterBuffer, contentType: "image/jpeg" });
@@ -171,17 +176,19 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
       );
     }
 
-    const optimizedBuffer = await fs.readFile(outputPath);
+    // stat the output instead of reading the whole file just to check its size.
+    const optimizedStat = await fs.stat(outputPath);
+    const optimizedBytes = optimizedStat.size;
     // If optimization didn't shrink the file, still keep the metadata we parsed
     // — the row should record duration/dims/poster even if we leave the original
     // .mp4 in place.
-    if (optimizedBuffer.length >= source.length) {
+    if (optimizedBytes >= sourceBytes) {
       return {
         optimizedUrl: publicUrl,
         optimizedKey: originalKey,
         originalKey,
-        bytesBefore: source.length,
-        bytesAfter: source.length,
+        bytesBefore: sourceBytes,
+        bytesAfter: sourceBytes,
         posterUrl,
         durationSec,
         width,
@@ -190,10 +197,13 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
     }
 
     const optimizedKey = optimizedKeyFor(originalKey);
+    // Stream the optimized file to R2 instead of loading it into memory.
+    const fsNode = await import("fs");
     await putObject({
       key: optimizedKey,
-      body: optimizedBuffer,
+      body: fsNode.createReadStream(outputPath),
       contentType: "video/mp4",
+      size: optimizedBytes,
     });
 
     const optimizedUrl = getPublicObjectUrl(optimizedKey);
@@ -201,8 +211,8 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
       optimizedUrl,
       optimizedKey,
       originalKey,
-      bytesBefore: source.length,
-      bytesAfter: optimizedBuffer.length,
+      bytesBefore: sourceBytes,
+      bytesAfter: optimizedBytes,
       posterUrl,
       durationSec,
       width,
