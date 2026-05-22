@@ -420,6 +420,8 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
         duration: exerciseTable.duration,
         restSeconds: exerciseTable.restSeconds,
         videoUrl: exerciseTable.videoUrl,
+        posterUrl: exerciseTable.posterUrl,
+        durationSec: exerciseTable.durationSec,
         videoMuted: exerciseTable.videoMuted,
         cues: exerciseTable.cues,
         howTo: exerciseTable.howTo,
@@ -439,8 +441,11 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
       id: videoUploadTable.id,
       sessionExerciseId: videoUploadTable.sessionExerciseId,
       videoUrl: videoUploadTable.videoUrl,
+      posterUrl: videoUploadTable.posterUrl,
+      durationSec: videoUploadTable.durationSec,
       feedback: videoUploadTable.feedback,
       coachVideoUrl: videoUploadTable.coachVideoUrl,
+      coachVideoPosterUrl: videoUploadTable.coachVideoPosterUrl,
       reviewedAt: videoUploadTable.reviewedAt,
       createdAt: videoUploadTable.createdAt,
     })
@@ -475,8 +480,11 @@ export async function getMySessionExercises(userId: number, sessionId: number) {
         ? {
             id: upload.id,
             videoUrl: upload.videoUrl,
+            posterUrl: upload.posterUrl,
+            durationSec: upload.durationSec,
             feedback: upload.feedback,
             coachVideoUrl: upload.coachVideoUrl,
+            coachVideoPosterUrl: upload.coachVideoPosterUrl,
             reviewedAt: upload.reviewedAt ? upload.reviewedAt.toISOString() : null,
           }
         : null,

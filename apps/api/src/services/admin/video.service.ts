@@ -44,6 +44,8 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       guardianUserId: guardianTable.userId,
       athleteName: athleteTable.name,
       videoUrl: videoUploadTable.videoUrl,
+      posterUrl: videoUploadTable.posterUrl,
+      durationSec: videoUploadTable.durationSec,
       notes: videoUploadTable.notes,
       feedback: videoUploadTable.feedback,
       reviewedAt: videoUploadTable.reviewedAt,
@@ -110,6 +112,8 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
       guardianUserId: guardianTable.userId,
       athleteName: athleteTable.name,
       videoUrl: completionVideoUrlExpr,
+      posterUrl: sql<string | null>`NULL`,
+      durationSec: sql<number | null>`NULL`,
       notes: sql<string | null>`NULL`,
       feedback: completionCoachResponseExpr,
       reviewedAt: completionCoachResponseAtExpr,
@@ -139,5 +143,6 @@ export async function listVideoUploadsAdmin(options?: { q?: string; limit?: numb
     .map((item) => ({
       ...item,
       videoUrl: item.videoUrl ? normalizeStoredMediaUrl(item.videoUrl) : null,
+      posterUrl: item.posterUrl ? normalizeStoredMediaUrl(item.posterUrl) : null,
     }));
 }

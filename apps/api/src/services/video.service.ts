@@ -163,23 +163,32 @@ export async function createVideoUpload(input: {
     }
   })();
 
-  // Async storage optimization pass (transcode + replace URL + delete original)
+  // Async storage optimization pass (transcode + replace URL + delete original).
+  // Also extracts poster + duration/dimensions which the mobile app uses to
+  // paint the thumbnail instantly while the video buffers.
   (async () => {
     try {
       const optimized = await optimizeUploadedVideoUrl(upload.videoUrl);
       if (!optimized) return;
 
+      const replacedUrl = optimized.optimizedKey !== optimized.originalKey;
       await db
         .update(videoUploadTable)
         .set({
           videoUrl: optimized.optimizedUrl,
+          posterUrl: optimized.posterUrl,
+          durationSec: optimized.durationSec,
+          width: optimized.width,
+          height: optimized.height,
           updatedAt: new Date(),
         })
         .where(eq(videoUploadTable.id, upload.id));
 
-      await cleanupOriginalVideoObject(optimized.originalKey).catch((err) => {
-        logger.warn({ err }, "[VideoOptimization] Failed to delete original object");
-      });
+      if (replacedUrl) {
+        await cleanupOriginalVideoObject(optimized.originalKey).catch((err) => {
+          logger.warn({ err }, "[VideoOptimization] Failed to delete original object");
+        });
+      }
 
       logger.info(
         {
@@ -187,6 +196,8 @@ export async function createVideoUpload(input: {
           bytesBefore: optimized.bytesBefore,
           bytesAfter: optimized.bytesAfter,
           bytesSaved: optimized.bytesBefore - optimized.bytesAfter,
+          posterGenerated: !!optimized.posterUrl,
+          durationSec: optimized.durationSec,
         },
         `[VideoOptimization] upload=${upload.id} optimized`,
       );

@@ -230,6 +230,8 @@ export async function listExercises(options?: { limit?: number }) {
       restSeconds: exerciseTable.restSeconds,
       notes: exerciseTable.notes,
       videoUrl: exerciseTable.videoUrl,
+      posterUrl: exerciseTable.posterUrl,
+      durationSec: exerciseTable.durationSec,
       videoMuted: exerciseTable.videoMuted,
       createdAt: exerciseTable.createdAt,
       updatedAt: exerciseTable.updatedAt,
