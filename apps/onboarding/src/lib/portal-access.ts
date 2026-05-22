@@ -37,8 +37,9 @@ function teamPortalSubscriptionActive(
  * Portal (Programs, Schedule, etc.) requires paid access:
  * - **Team billing**: coach’s managed team or an athlete rostered on a team with `subscriptionStatus` `active`
  *   and (if set) a future `team.planExpiresAt`.
- * - **Individual billing**: athlete/guardian with `programTier` or `capabilities.training`
- *   (covers tier-less custom plans), and a non-expired `planExpiresAt` (null = no expiry = active).
+ * - **Individual billing**: athlete/guardian with an admin-approved `programTier` and a non-expired
+ *   `planExpiresAt` (null = no expiry = active). `capabilities.training` is intentionally excluded —
+ *   it is hardcoded true server-side and would bypass the pending-approval gate.
  */
 export function hasActivePortalSubscription(user: PortalUser): boolean {
 	if (teamPortalSubscriptionActive(user.team)) {
@@ -49,8 +50,7 @@ export function hasActivePortalSubscription(user: PortalUser): boolean {
 		return false;
 	}
 
-	const hasActivePlan = !!user.programTier || !!user.capabilities?.training;
-	if (!hasActivePlan) return false;
+	if (!user.programTier) return false;
 	if (!user.planExpiresAt) return true;
 	return isFutureExpiry(user.planExpiresAt);
 }
