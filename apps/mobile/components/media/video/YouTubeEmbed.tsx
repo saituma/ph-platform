@@ -193,7 +193,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
             height={effectiveHeight}
             width={effectiveWidth}
             videoId={videoId}
-            play={shouldPlay}
+            play={isReady && shouldPlay}
             mute={initialMuted}
             onReady={() => {
               setIsReady(true);
