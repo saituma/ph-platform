@@ -89,7 +89,7 @@ const MediaSection = React.memo(function MediaSection({
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted isLooping={false} ignoreTabFocus />
       </View>
     );
   }
@@ -106,7 +106,7 @@ const MediaSection = React.memo(function MediaSection({
   }
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted isLooping={false} ignoreTabFocus />
     </View>
   );
 });

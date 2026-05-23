@@ -84,7 +84,7 @@ function MediaSection({
   if (isYoutubeUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted isLooping={false} ignoreTabFocus />
       </View>
     );
   }
@@ -94,13 +94,13 @@ function MediaSection({
   if (isExternalVideoUrl(url)) {
     return (
       <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
+        <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted isLooping={false} ignoreTabFocus />
       </View>
     );
   }
   return (
     <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted ignoreTabFocus />
+      <VideoPlayer uri={url} title={title} posterUri={posterUri} initialMuted isLooping={false} ignoreTabFocus />
     </View>
   );
 }

@@ -107,7 +107,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
   );
   const playerKey =
     videoId && effectiveWidth > 0 && effectiveHeight > 0
-      ? `${videoId}:${Math.round(effectiveWidth)}x${Math.round(effectiveHeight)}`
+      ? videoId
       : videoId ?? "youtube";
 
   const explicitSize =
@@ -201,7 +201,7 @@ export const YouTubeEmbed = React.forwardRef<YouTubeEmbedHandle, YouTubeEmbedPro
             }}
             onChangeState={(state: string) => {
               onPlayerStateChange?.(state);
-              if (state === "playing" || state === "buffering" || state === "paused") {
+              if (state === "playing") {
                 setHasPlaybackStarted(true);
               }
             }}

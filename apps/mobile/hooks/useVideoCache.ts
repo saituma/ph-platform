@@ -135,13 +135,24 @@ export function isVideoDownloading(url: string, cacheKey?: string | null): boole
 export function useVideoCache(
   url: string | null | undefined,
   cacheKey?: string | null,
+  allowBackgroundSourceSwitch = true,
 ) {
-  const [cachedUri, setCachedUri] = useState<string | null>(() => {
+  const [cachedEntry, setCachedEntry] = useState<{
+    memKey: string;
+    filePath: string;
+  } | null>(() => {
     if (!url) return null;
-    if (isLocalUri(url)) return url;
+    if (isLocalUri(url)) return null;
     const memKey = getMemoryKey(url, cacheKey);
-    return knownCachedFiles.get(memKey) ?? null;
+    const filePath = knownCachedFiles.get(memKey);
+    return filePath ? { memKey, filePath } : null;
   });
+  const currentMemKey = url && !isLocalUri(url) ? getMemoryKey(url, cacheKey) : null;
+  const cachedUri = isLocalUri(url ?? "")
+    ? (url ?? null)
+    : cachedEntry?.memKey === currentMemKey
+      ? cachedEntry.filePath
+      : null;
 
   // Track whether the player has started so we avoid source-switching mid-play.
   const hasStartedRef = useRef(false);
@@ -152,11 +163,11 @@ export function useVideoCache(
 
   useEffect(() => {
     if (!url) {
-      setCachedUri(null);
+      setCachedEntry(null);
       return;
     }
     if (isLocalUri(url)) {
-      setCachedUri(url);
+      setCachedEntry(null);
       return;
     }
 
@@ -165,7 +176,7 @@ export function useVideoCache(
     // Already resolved in this session — sync up and bail.
     const knownPath = knownCachedFiles.get(memKey);
     if (knownPath) {
-      setCachedUri(knownPath);
+      setCachedEntry({ memKey, filePath: knownPath });
       return;
     }
 
@@ -174,14 +185,15 @@ export function useVideoCache(
     (async () => {
       const local = await downloadToCache(url, cacheKey);
       if (cancelled || !local) return;
+      if (!allowBackgroundSourceSwitch) return;
       if (hasStartedRef.current) return; // don't swap mid-playback
-      setCachedUri(local);
+      setCachedEntry({ memKey, filePath: local });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [url, cacheKey]);
+  }, [url, cacheKey, allowBackgroundSourceSwitch]);
 
   // Call this from the player when it actually starts playing so we stop
   // switching sources mid-playback.

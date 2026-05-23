@@ -341,7 +341,11 @@ function ProgramDetailPanelBase({
               </TouchableOpacity>
             </View>
             {activeVideoUrl && (
-              <VideoPlayer uri={activeVideoUrl} useVideoResolution />
+              <VideoPlayer
+                uri={activeVideoUrl}
+                useVideoResolution
+                isLooping={false}
+              />
             )}
           </View>
         </View>

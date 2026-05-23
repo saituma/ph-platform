@@ -926,7 +926,7 @@ function ExerciseCard({
               height={200}
               thumbLabel={ex.exercise.name || "Exercise demo"}
               initialMuted={true}
-              isLooping
+              isLooping={false}
               hideTopChrome
               ignoreTabFocus
             />

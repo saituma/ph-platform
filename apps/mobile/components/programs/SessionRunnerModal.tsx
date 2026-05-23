@@ -197,7 +197,13 @@ export function SessionRunnerModal({
 
               {current.videoUrl ? (
                 <View className="rounded-2xl overflow-hidden border border-app/10">
-                  <VideoPlayer uri={current.videoUrl} title={current.name} posterUri={current.posterUrl} ignoreTabFocus />
+                  <VideoPlayer
+                    uri={current.videoUrl}
+                    title={current.name}
+                    posterUri={current.posterUrl}
+                    isLooping={false}
+                    ignoreTabFocus
+                  />
                 </View>
               ) : null}
             </View>

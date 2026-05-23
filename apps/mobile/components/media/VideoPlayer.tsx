@@ -135,6 +135,7 @@ function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
   const { cachedUri, markStarted } = useVideoCache(
     props.disableCache || isY || isL ? null : normalizedUri,
     props.cacheKey,
+    !props.autoPlay,
   );
   const finalSource = props.disableCache ? normalizedUri : cachedUri || normalizedUri;
 
@@ -154,6 +155,7 @@ function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
 function VideoPlayerYoutubeMode({
   uri,
   height = 220,
+  autoPlay = false,
   initialMuted = true,
   useVideoResolution = true,
   maxHeightRatio = 1,
@@ -177,7 +179,8 @@ function VideoPlayerYoutubeMode({
   const [youtubeMuted, setYoutubeMuted] = useState(forceMuted ? true : initialMuted);
   const inlineYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
   const modalYouTubeRef = useRef<YouTubeEmbedHandle | null>(null);
-  const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(false);
+  const youtubePlaybackStartedRef = useRef(false);
+  const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(autoPlay);
   const [youtubeResumeTime, setYoutubeResumeTime] = useState(0);
 
   const [appActive, setAppActive] = useState(
@@ -189,6 +192,18 @@ function VideoPlayerYoutubeMode({
     (ignoreTabFocus || (navFocused && isTabActive)) &&
     appActive &&
     isVisible;
+
+  useEffect(() => {
+    if (autoPlay && effectiveShouldPlay) {
+      setYoutubeIsPlaying(true);
+    }
+  }, [autoPlay, effectiveShouldPlay]);
+
+  useEffect(() => {
+    youtubePlaybackStartedRef.current = false;
+    setYoutubeIsPlaying(autoPlay);
+    setYoutubeResumeTime(0);
+  }, [autoPlay, uri]);
 
   /** All YouTube embeds use a 16:9 frame (Shorts/portrait content is letterboxed inside). */
   const effectiveAspectRatio = 16 / 9;
@@ -289,9 +304,16 @@ function VideoPlayerYoutubeMode({
         initialMuted={youtubeMuted}
         onPlayerStateChange={(state: string) => {
           if (fullscreenOpen) return;
-          if (state === "playing") setYoutubeIsPlaying(true);
-          if (state === "paused" || state === "ended")
+          if (state === "playing" || state === "buffering") {
+            youtubePlaybackStartedRef.current = true;
+            setYoutubeIsPlaying(true);
+          }
+          if (
+            (state === "paused" || state === "ended") &&
+            youtubePlaybackStartedRef.current
+          ) {
             setYoutubeIsPlaying(false);
+          }
         }}
       />
 
@@ -403,9 +425,16 @@ function VideoPlayerYoutubeMode({
                 }}
                 onPlayerStateChange={(state: string) => {
                   if (!fullscreenOpen) return;
-                  if (state === "playing") setYoutubeIsPlaying(true);
-                  if (state === "paused" || state === "ended")
+                  if (state === "playing" || state === "buffering") {
+                    youtubePlaybackStartedRef.current = true;
+                    setYoutubeIsPlaying(true);
+                  }
+                  if (
+                    (state === "paused" || state === "ended") &&
+                    youtubePlaybackStartedRef.current
+                  ) {
                     setYoutubeIsPlaying(false);
+                  }
                 }}
               />
             </View>
