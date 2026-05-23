@@ -69,7 +69,8 @@ export function VideoThumb({
       ) : null}
       <View style={[StyleSheet.absoluteFillObject, styles.scrim]} />
       <View style={styles.playPill}>
-        <Feather name="play" size={28} color="#fff" />
+        <Feather name="play" size={32} color="#fff" />
+        <Text style={styles.tapLabel}>Tap to play</Text>
       </View>
       {durLabel ? (
         <View style={styles.durationChip}>
@@ -92,12 +93,13 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.32)",
   },
   playPill: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    justifyContent: "center",
     alignItems: "center",
+    gap: 6,
+  },
+  tapLabel: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    fontFamily: "Outfit-SemiBold",
   },
   durationChip: {
     position: "absolute",
