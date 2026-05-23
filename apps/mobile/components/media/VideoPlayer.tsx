@@ -295,7 +295,7 @@ function VideoPlayerYoutubeMode({
         }}
       />
 
-      {!ignoreTabFocus && !hideTopChrome && (
+      {!hideTopChrome && (
         <View
           style={{
             position: "absolute",
@@ -871,7 +871,7 @@ function VideoPlayerExpoNativeMode({
         />
       </Animated.View>
 
-      {!ignoreTabFocus && showPoster && (
+      {showPoster && (
         <VideoPoster
           posterUri={posterUri}
           onPress={togglePlay}
@@ -889,7 +889,7 @@ function VideoPlayerExpoNativeMode({
         />
       )}
 
-      {!ignoreTabFocus && !cinematic && !showPoster && (
+      {!cinematic && !showPoster && (
         <VideoControls
           isPlaying={isPlaying}
           isMuted={isMuted}
@@ -906,7 +906,7 @@ function VideoPlayerExpoNativeMode({
         />
       )}
 
-      {!ignoreTabFocus && !hideTopChrome && (
+      {!hideTopChrome && (
         <View
           style={{
             position: "absolute",
