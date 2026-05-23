@@ -178,6 +178,11 @@ export function useVideoPlayerEngine({
       const d = player.duration;
       if (typeof d === "number" && d > 0) setDuration(d);
     }
+    // init callback's play() fires before the source is ready and is a no-op;
+    // re-issue it once the player signals it's actually ready to play frames.
+    if (e.status === "readyToPlay" && autoPlay && effectiveShouldPlay) {
+      try { player.play(); } catch {}
+    }
     if (e.status === "error") {
       if (retryCountRef.current < MAX_RETRIES) {
         const delay = RETRY_DELAYS_MS[retryCountRef.current] ?? 6000;
