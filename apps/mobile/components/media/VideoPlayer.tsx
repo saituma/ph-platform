@@ -613,7 +613,7 @@ function VideoPlayerExpoNativeMode({
   height = 220,
   autoPlay = false,
   initialMuted = true,
-  isLooping = true,
+  isLooping = false,
   useVideoResolution = true,
   controllerKey,
   maxHeightRatio = 1,
