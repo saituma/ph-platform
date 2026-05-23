@@ -96,10 +96,13 @@ function pickIntroVideoForRole(
   fallback: string | null | undefined,
   audience: IntroAudience | null,
 ): string | null {
-  if (audience && Array.isArray(introVideos)) {
-    const match = introVideos.find((rule) => rule?.roles?.includes(audience))?.url;
-    if (match) return match;
+  // If the role-based system is in use (introVideos has entries), only show a
+  // video when this role has an explicit match — no cross-role bleed via fallback.
+  if (Array.isArray(introVideos) && introVideos.length > 0) {
+    if (!audience) return null;
+    return introVideos.find((rule) => rule?.roles?.includes(audience))?.url ?? null;
   }
+  // Legacy: single URL with no role targeting — show to everyone.
   return fallback ?? null;
 }
 
