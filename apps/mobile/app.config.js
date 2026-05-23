@@ -97,8 +97,17 @@ module.exports = {
       ...appJson.expo,
       plugins: normalizePlugins(appJson.expo.plugins),
       android: appJson.expo.android || {},
+      updates: {
+        url: "https://u.expo.dev/378da946-7b65-473b-9b19-1a0b4e67ea73",
+      },
+      runtimeVersion: {
+        policy: "appVersion",
+      },
       extra: {
         ...(appJson.expo.extra || {}),
+        eas: {
+          projectId: "378da946-7b65-473b-9b19-1a0b4e67ea73",
+        },
         apiBaseUrl:
           process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL,
         authBaseUrl: (process.env.EXPO_PUBLIC_AUTH_BASE_URL || "").replace(
