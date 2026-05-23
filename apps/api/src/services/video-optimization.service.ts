@@ -212,6 +212,11 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
 
     const transcodeStderr = await runFfmpegCapture([
       "-y",
+      // Cap decoder thread count so 4K HEVC sources don't buffer 16 reference
+      // frames at full resolution (~24 MB each = ~384 MB just for the decoder).
+      // 2 threads → 2-4 reference frames in flight → stays well under 512 MB.
+      "-threads",
+      "2",
       "-i",
       inputPath,
       "-c:v",
@@ -230,6 +235,8 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
       "aac",
       "-b:a",
       "96k",
+      "-threads",
+      "2",
       outputPath,
     ]);
 
