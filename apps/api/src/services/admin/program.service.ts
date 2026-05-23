@@ -12,22 +12,22 @@ import {
   enrollmentTable,
   videoUploadTable,
 } from "../../db/schema";
-import { extractPosterAndMetadata } from "../video-optimization.service";
+import { optimizeUploadedVideoUrl } from "../video-optimization.service";
 import { logger } from "../../lib/logger";
 
-/** Fire-and-forget poster extraction for an admin exercise upload. Uses the
- *  lightweight no-transcode path (safe for 4K, ~80 MB RSS peak) so it doesn't
- *  block the admin's request and won't OOM. Re-enrich is skipped when the
- *  URL hasn't changed since the last poster was extracted. */
+/** Fire-and-forget H.264 transcode + poster extraction for an admin exercise
+ *  upload. Converts HEVC/other codecs to universally-playable H.264 960p and
+ *  extracts a poster JPG. Already-.opt.mp4 files are skipped (idempotent). */
 function schedulePosterExtractionForExercise(exerciseId: number, videoUrl: string | null | undefined) {
   if (!videoUrl) return;
   void (async () => {
     try {
-      const result = await extractPosterAndMetadata(videoUrl);
-      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      const result = await optimizeUploadedVideoUrl(videoUrl);
+      if (!result) return;
       await db
         .update(exerciseTable)
         .set({
+          videoUrl: result.optimizedUrl,
           posterUrl: result.posterUrl,
           durationSec: result.durationSec,
           width: result.width,
@@ -37,10 +37,10 @@ function schedulePosterExtractionForExercise(exerciseId: number, videoUrl: strin
         .where(eq(exerciseTable.id, exerciseId));
       logger.info(
         { exerciseId, posterGenerated: !!result.posterUrl, durationSec: result.durationSec },
-        "[ExerciseUpload] poster extracted",
+        "[ExerciseUpload] transcoded to H.264 + poster extracted",
       );
     } catch (err) {
-      logger.warn({ err, exerciseId }, "[ExerciseUpload] poster extraction failed");
+      logger.warn({ err, exerciseId }, "[ExerciseUpload] transcode/poster failed");
     }
   })();
 }

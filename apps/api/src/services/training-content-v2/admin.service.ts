@@ -15,13 +15,12 @@ import {
   trainingSessionItemTable,
 } from "../../db/schema";
 import { normalizeAudienceLabel, ensureTrainingAudienceExists, listTrainingAudiences } from "./audience.service";
-import { extractPosterAndMetadata } from "../video-optimization.service";
+import { optimizeUploadedVideoUrl } from "../video-optimization.service";
 import { logger } from "../../lib/logger";
 
-/** Fire-and-forget poster extraction for training-content tables. Same
- *  pattern used in admin/program.service + program-section.service — the
- *  lightweight no-transcode path so it's safe for 4K sources on a 512 MB
- *  Basic dyno and doesn't block the admin's request. */
+/** Fire-and-forget H.264 transcode + poster extraction for training-content
+ *  tables. Converts HEVC/other codecs to H.264 960p and extracts a poster JPG.
+ *  Already-.opt.mp4 files are skipped (idempotent). */
 function schedulePosterExtraction(
   table: typeof trainingSessionItemTable | typeof trainingOtherContentTable,
   rowId: number,
@@ -31,24 +30,25 @@ function schedulePosterExtraction(
   if (!videoUrl) return;
   void (async () => {
     try {
-      const result = await extractPosterAndMetadata(videoUrl);
-      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      const result = await optimizeUploadedVideoUrl(videoUrl);
+      if (!result) return;
       await db
-        .update(table)
+        .update(table as any)
         .set({
+          videoUrl: result.optimizedUrl,
           posterUrl: result.posterUrl,
           durationSec: result.durationSec,
           width: result.width,
           height: result.height,
           updatedAt: new Date(),
         })
-        .where(eq(table.id, rowId));
+        .where(eq((table as any).id, rowId));
       logger.info(
         { table: label, rowId, posterGenerated: !!result.posterUrl, durationSec: result.durationSec },
-        "[TrainingContent] poster extracted",
+        "[TrainingContent] transcoded to H.264 + poster extracted",
       );
     } catch (err) {
-      logger.warn({ err, table: label, rowId }, "[TrainingContent] poster extraction failed");
+      logger.warn({ err, table: label, rowId }, "[TrainingContent] transcode/poster failed");
     }
   })();
 }

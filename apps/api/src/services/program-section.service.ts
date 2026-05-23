@@ -2,21 +2,22 @@ import { and, desc, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "../db";
 import { programSectionContentTable, ProgramType, sessionType } from "../db/schema";
-import { extractPosterAndMetadata } from "./video-optimization.service";
+import { optimizeUploadedVideoUrl } from "./video-optimization.service";
 import { logger } from "../lib/logger";
 
-/** Fire-and-forget poster extraction for an admin content video. Uses the
- *  lightweight no-transcode path so it doesn't block the admin's request
- *  and won't OOM on 4K source files. */
+/** Fire-and-forget H.264 transcode + poster extraction for an admin content
+ *  video. Converts HEVC/other codecs to H.264 960p and extracts a poster JPG.
+ *  Already-.opt.mp4 files are skipped (idempotent). */
 function schedulePosterExtractionForContent(contentId: number, videoUrl: string | null | undefined) {
   if (!videoUrl) return;
   void (async () => {
     try {
-      const result = await extractPosterAndMetadata(videoUrl);
-      if (!result || (!result.posterUrl && result.durationSec == null)) return;
+      const result = await optimizeUploadedVideoUrl(videoUrl);
+      if (!result) return;
       await db
         .update(programSectionContentTable)
         .set({
+          videoUrl: result.optimizedUrl,
           posterUrl: result.posterUrl,
           durationSec: result.durationSec,
           width: result.width,
