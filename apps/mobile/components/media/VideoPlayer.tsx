@@ -681,9 +681,10 @@ function VideoPlayerExpoNativeMode({
   }, []);
 
   useEffect(() => {
-    if (ignoreTabFocus) return;
     if (!effectiveShouldPlay || !isVisible) {
-      safePause();
+      // Only pause on focus/tab loss. When ignoreTabFocus=true the user explicitly
+      // tapped to play — don't kill playback just because tab focus changed.
+      if (!ignoreTabFocus) safePause();
     } else if (autoPlay) {
       if (pauseOthers) pauseOthers();
       if (playbackController && controllerKey)
