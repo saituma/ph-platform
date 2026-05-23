@@ -236,6 +236,7 @@ export function SessionExerciseBlock({
                           posterUri={item.posterUrl ?? null}
                           durationSec={item.durationSec ?? null}
                           thumbLabel={item.title || "Exercise video"}
+                          height={220}
                           initialMuted
                           isLooping={false}
                           useVideoResolution
