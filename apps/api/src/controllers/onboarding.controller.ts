@@ -1,6 +1,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { db } from "../db";
+import { athleteTable, legalAcceptanceTable } from "../db/schema";
 
 import {
   getOnboardingByUser,
@@ -325,6 +328,137 @@ export async function getGuardianAthlete(req: Request, res: Response) {
   }
 
   return res.status(200).json({ athlete });
+}
+
+const healthFormSchema = z.object({
+  parq: z.array(
+    z.object({
+      question: z.string(),
+      answer: z.boolean(),
+      details: z.string().optional(),
+    }),
+  ),
+  emergencyContact: z.object({
+    name: z.string().min(1),
+    phone: z.string().min(1),
+    relationship: z.string().min(1),
+  }),
+  medicalConditions: z.string().optional(),
+});
+
+const agreementsSchema = z.object({
+  termsAccepted: z.boolean().refine((v) => v === true),
+  privacyAccepted: z.boolean().refine((v) => v === true),
+  waiverAccepted: z.boolean().refine((v) => v === true),
+  healthFormAccurate: z.boolean().refine((v) => v === true),
+  mediaConsent: z.boolean(),
+  parentConsent: z.boolean().optional(),
+  termsVersion: z.string().default("2025-05-01"),
+  privacyVersion: z.string().default("2025-05-01"),
+  waiverVersion: z.string().default("2025-05-01"),
+  appVersion: z.string().default("1.0"),
+});
+
+export async function submitHealthForm(req: Request, res: Response) {
+  const parsed = healthFormSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  const userId = req.user!.id;
+  const athlete = await db
+    .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, userId))
+    .limit(1);
+  if (!athlete[0]) {
+    return res.status(404).json({ error: "Athlete profile not found" });
+  }
+
+  const existing = (athlete[0].extraResponses as Record<string, unknown>) ?? {};
+  await db
+    .update(athleteTable)
+    .set({
+      extraResponses: {
+        ...existing,
+        healthForm: {
+          parq: parsed.data.parq,
+          emergencyContact: parsed.data.emergencyContact,
+          medicalConditions: parsed.data.medicalConditions ?? null,
+          completedAt: new Date().toISOString(),
+        },
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(athleteTable.userId, userId));
+
+  return res.status(200).json({ ok: true });
+}
+
+export async function submitAgreements(req: Request, res: Response) {
+  const parsed = agreementsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten().fieldErrors });
+  }
+
+  const userId = req.user!.id;
+  const athleteRow = await db
+    .select({ id: athleteTable.id })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, userId))
+    .limit(1);
+  if (!athleteRow[0]) {
+    return res.status(404).json({ error: "Athlete profile not found" });
+  }
+
+  const athleteId = athleteRow[0].id;
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? null;
+  const now = new Date();
+
+  const existing = await db
+    .select({ id: legalAcceptanceTable.id })
+    .from(legalAcceptanceTable)
+    .where(eq(legalAcceptanceTable.athleteId, athleteId))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(legalAcceptanceTable)
+      .set({
+        termsAcceptedAt: now,
+        termsVersion: parsed.data.termsVersion,
+        privacyAcceptedAt: now,
+        privacyVersion: parsed.data.privacyVersion,
+        waiverAcceptedAt: now,
+        waiverVersion: parsed.data.waiverVersion,
+        mediaConsent: parsed.data.mediaConsent,
+        mediaConsentAt: now,
+        parentConsentAt: parsed.data.parentConsent ? now : null,
+        healthFormCompletedAt: now,
+        consentIp: ip,
+        appVersion: parsed.data.appVersion,
+        updatedAt: now,
+      })
+      .where(eq(legalAcceptanceTable.id, existing[0].id));
+  } else {
+    await db.insert(legalAcceptanceTable).values({
+      athleteId,
+      termsAcceptedAt: now,
+      termsVersion: parsed.data.termsVersion,
+      privacyAcceptedAt: now,
+      privacyVersion: parsed.data.privacyVersion,
+      waiverAcceptedAt: now,
+      waiverVersion: parsed.data.waiverVersion,
+      mediaConsent: parsed.data.mediaConsent,
+      mediaConsentAt: now,
+      parentConsentAt: parsed.data.parentConsent ? now : null,
+      healthFormCompletedAt: now,
+      consentIp: ip,
+      appVersion: parsed.data.appVersion,
+    });
+  }
+
+  return res.status(200).json({ ok: true });
 }
 
 export async function updateGuardianAthlete(req: Request, res: Response) {

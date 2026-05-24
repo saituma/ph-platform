@@ -4,6 +4,7 @@ import {
   athleteTable,
   athleteTrainingSessionCompletionTable,
   exerciseTable,
+  legalAcceptanceTable,
   nutritionOnboardingProfileTable,
   programAssignmentTable,
   programModuleTable,
@@ -700,6 +701,7 @@ export async function getAthleteDetail(athleteId: number) {
       age: athleteTable.age,
       athleteType: athleteTable.athleteType,
       currentProgramTier: athleteTable.currentProgramTier,
+      extraResponses: athleteTable.extraResponses,
     })
     .from(athleteTable)
     .where(eq(athleteTable.id, athleteId))
@@ -864,6 +866,12 @@ export async function getAthleteDetail(athleteId: number) {
     };
   });
 
+  const [legalAcceptance] = await db
+    .select()
+    .from(legalAcceptanceTable)
+    .where(eq(legalAcceptanceTable.athleteId, athleteId))
+    .limit(1);
+
   return {
     ...athlete,
     assignments,
@@ -871,6 +879,7 @@ export async function getAthleteDetail(athleteId: number) {
     videoUploads: mergedVideoUploads,
     nutritionOnboarding: nutritionOnboarding ?? null,
     runAttendance,
+    legalAcceptance: legalAcceptance ?? null,
   };
 }
 

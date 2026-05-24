@@ -57,7 +57,9 @@ import { Route as PortalAboutRouteImport } from './routes/portal/about'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
 import { Route as OnboardingStep4bRouteImport } from './routes/onboarding/step-4b'
+import { Route as OnboardingStep4aRouteImport } from './routes/onboarding/step-4a'
 import { Route as OnboardingStep4RouteImport } from './routes/onboarding/step-4'
+import { Route as OnboardingStep3bRouteImport } from './routes/onboarding/step-3b'
 import { Route as OnboardingStep3RouteImport } from './routes/onboarding/step-3'
 import { Route as OnboardingStep2RouteImport } from './routes/onboarding/step-2'
 import { Route as OnboardingStep1RouteImport } from './routes/onboarding/step-1'
@@ -317,9 +319,19 @@ const OnboardingStep4bRoute = OnboardingStep4bRouteImport.update({
   path: '/onboarding/step-4b',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingStep4aRoute = OnboardingStep4aRouteImport.update({
+  id: '/onboarding/step-4a',
+  path: '/onboarding/step-4a',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingStep4Route = OnboardingStep4RouteImport.update({
   id: '/onboarding/step-4',
   path: '/onboarding/step-4',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingStep3bRoute = OnboardingStep3bRouteImport.update({
+  id: '/onboarding/step-3b',
+  path: '/onboarding/step-3b',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingStep3Route = OnboardingStep3RouteImport.update({
@@ -452,7 +464,9 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
+  '/onboarding/step-3b': typeof OnboardingStep3bRoute
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4a': typeof OnboardingStep4aRoute
   '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
@@ -521,7 +535,9 @@ export interface FileRoutesByTo {
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
+  '/onboarding/step-3b': typeof OnboardingStep3bRoute
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4a': typeof OnboardingStep4aRoute
   '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
@@ -590,7 +606,9 @@ export interface FileRoutesById {
   '/onboarding/step-1': typeof OnboardingStep1Route
   '/onboarding/step-2': typeof OnboardingStep2Route
   '/onboarding/step-3': typeof OnboardingStep3Route
+  '/onboarding/step-3b': typeof OnboardingStep3bRoute
   '/onboarding/step-4': typeof OnboardingStep4Route
+  '/onboarding/step-4a': typeof OnboardingStep4aRoute
   '/onboarding/step-4b': typeof OnboardingStep4bRoute
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
@@ -661,7 +679,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
+    | '/onboarding/step-3b'
     | '/onboarding/step-4'
+    | '/onboarding/step-4a'
     | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
@@ -730,7 +750,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
+    | '/onboarding/step-3b'
     | '/onboarding/step-4'
+    | '/onboarding/step-4a'
     | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
@@ -798,7 +820,9 @@ export interface FileRouteTypes {
     | '/onboarding/step-1'
     | '/onboarding/step-2'
     | '/onboarding/step-3'
+    | '/onboarding/step-3b'
     | '/onboarding/step-4'
+    | '/onboarding/step-4a'
     | '/onboarding/step-4b'
     | '/onboarding/step-5'
     | '/onboarding/success'
@@ -863,7 +887,9 @@ export interface RootRouteChildren {
   OnboardingStep1Route: typeof OnboardingStep1Route
   OnboardingStep2Route: typeof OnboardingStep2Route
   OnboardingStep3Route: typeof OnboardingStep3Route
+  OnboardingStep3bRoute: typeof OnboardingStep3bRoute
   OnboardingStep4Route: typeof OnboardingStep4Route
+  OnboardingStep4aRoute: typeof OnboardingStep4aRoute
   OnboardingStep4bRoute: typeof OnboardingStep4bRoute
   OnboardingStep5Route: typeof OnboardingStep5Route
   OnboardingSuccessRoute: typeof OnboardingSuccessRoute
@@ -1207,11 +1233,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingStep4bRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/step-4a': {
+      id: '/onboarding/step-4a'
+      path: '/onboarding/step-4a'
+      fullPath: '/onboarding/step-4a'
+      preLoaderRoute: typeof OnboardingStep4aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding/step-4': {
       id: '/onboarding/step-4'
       path: '/onboarding/step-4'
       fullPath: '/onboarding/step-4'
       preLoaderRoute: typeof OnboardingStep4RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/step-3b': {
+      id: '/onboarding/step-3b'
+      path: '/onboarding/step-3b'
+      fullPath: '/onboarding/step-3b'
+      preLoaderRoute: typeof OnboardingStep3bRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding/step-3': {
@@ -1488,7 +1528,9 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingStep1Route: OnboardingStep1Route,
   OnboardingStep2Route: OnboardingStep2Route,
   OnboardingStep3Route: OnboardingStep3Route,
+  OnboardingStep3bRoute: OnboardingStep3bRoute,
   OnboardingStep4Route: OnboardingStep4Route,
+  OnboardingStep4aRoute: OnboardingStep4aRoute,
   OnboardingStep4bRoute: OnboardingStep4bRoute,
   OnboardingStep5Route: OnboardingStep5Route,
   OnboardingSuccessRoute: OnboardingSuccessRoute,

@@ -93,7 +93,7 @@ function OnboardingStep3() {
 			if (cancelled) return;
 
 			if (type === "team") {
-				navigate({ to: "/onboarding/step-4" });
+				navigate({ to: "/onboarding/step-4a" });
 				return;
 			}
 
@@ -239,7 +239,7 @@ function OnboardingStep3() {
 			toast.success("Goals saved!", {
 				description: "Your training path is being customized.",
 			});
-			navigate({ to: "/onboarding/step-4" });
+			navigate({ to: "/onboarding/step-3b" });
 		},
 		onError: (error) => {
 			toast.error("Error", {

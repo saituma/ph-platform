@@ -16,6 +16,8 @@ import {
   selectActiveAthlete,
   getGuardianAthlete,
   updateGuardianAthlete,
+  submitHealthForm,
+  submitAgreements,
 } from "../controllers/onboarding.controller";
 
 const router = Router();
@@ -32,6 +34,8 @@ router.get("/onboarding/athletes/:athleteId", requireAuth, getGuardianAthlete);
 router.patch("/onboarding/athletes/:athleteId", requireAuth, updateGuardianAthlete);
 router.post("/onboarding/select-athlete", requireAuth, selectActiveAthlete);
 router.patch("/onboarding/athlete-photo", requireAuth, updateAthletePhoto);
+router.post("/onboarding/health", requireAuth, submitHealthForm);
+router.post("/onboarding/agreements", requireAuth, submitAgreements);
 router.get("/onboarding/config", getOnboardingConfig);
 router.get("/onboarding/php-plus-tabs", getPhpPlusTabs);
 

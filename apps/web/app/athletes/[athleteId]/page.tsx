@@ -562,6 +562,113 @@ export default function AthleteDetailPage() {
           );
         })()}
 
+        {/* Health Form & Consent */}
+        {(() => {
+          const healthForm = (athlete.extraResponses as any)?.healthForm ?? null;
+          const consent = (athlete as any).legalAcceptance ?? null;
+          return (
+            <div className="space-y-3">
+              <SectionHeader
+                title="Health Form & Consent"
+                description="PAR-Q answers, emergency contact, and signed agreements from onboarding."
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Emergency Contact */}
+                <Card>
+                  <CardContent className="p-5 space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Emergency Contact</p>
+                    {healthForm?.emergencyContact ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Name</span>
+                          <span className="text-sm font-medium">{healthForm.emergencyContact.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Phone</span>
+                          <span className="text-sm font-medium">{healthForm.emergencyContact.phone}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Relationship</span>
+                          <span className="text-sm font-medium">{healthForm.emergencyContact.relationship}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Not submitted yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Agreements */}
+                <Card>
+                  <CardContent className="p-5 space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Signed Agreements</p>
+                    {consent ? (
+                      <div className="space-y-1.5 text-sm">
+                        {[
+                          { label: "Terms & Conditions", at: consent.termsAcceptedAt },
+                          { label: "Privacy Policy", at: consent.privacyAcceptedAt },
+                          { label: "Liability Waiver", at: consent.waiverAcceptedAt },
+                        ].map(({ label, at }) => (
+                          <div key={label} className="flex items-center justify-between">
+                            <span className="text-muted-foreground text-xs">{label}</span>
+                            {at ? (
+                              <span className="flex items-center gap-1 text-emerald-600 text-xs font-medium">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {new Date(at).toLocaleDateString("en-GB")}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                                <XCircle className="h-3.5 w-3.5" />
+                                Not signed
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-1 border-t border-border">
+                          <span className="text-muted-foreground text-xs">Media Consent</span>
+                          <span className={`text-xs font-medium ${consent.mediaConsent ? "text-emerald-600" : "text-muted-foreground"}`}>
+                            {consent.mediaConsent === null || consent.mediaConsent === undefined ? "Not answered" : consent.mediaConsent ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Not submitted yet</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* PAR-Q */}
+              {healthForm?.parq && Array.isArray(healthForm.parq) && (
+                <Card>
+                  <CardContent className="p-5 space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">PAR-Q Health Questionnaire</p>
+                    <div className="divide-y divide-border">
+                      {healthForm.parq.map((q: any, i: number) => (
+                        <div key={i} className="py-2.5 flex items-start justify-between gap-4">
+                          <p className="text-sm text-foreground/80 flex-1 leading-snug">{q.question}</p>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded ${q.answer ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"}`}>
+                              {q.answer ? "YES" : "NO"}
+                            </span>
+                            {q.details && <p className="text-xs text-muted-foreground text-right max-w-[200px]">{q.details}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {healthForm.medicalConditions && (
+                      <div className="pt-2 border-t border-border">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Additional Medical Info</p>
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{healthForm.medicalConditions}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Sleep Tracking */}
         {athlete?.userId && (
           <SleepLogsSection userId={athlete.userId} />
