@@ -287,7 +287,8 @@ export async function createCheckoutSession(input: {
     ...(mode === "subscription"
       ? {
           subscription_data: {
-            trial_end: nextBillingAnchor(),
+            billing_cycle_anchor: nextBillingAnchor(),
+            proration_behavior: "create_prorations",
           },
         }
       : {}),
@@ -378,7 +379,8 @@ export async function createPaymentSheetIntent(input: {
       items: [{ price: priceId }],
       payment_behavior: "default_incomplete",
       expand: ["latest_invoice.payment_intent"],
-      trial_end: nextBillingAnchor(),
+      billing_cycle_anchor: nextBillingAnchor(),
+      proration_behavior: "create_prorations",
       metadata: {
         planId: String(plan.id),
         userId: String(input.userId),
