@@ -19,6 +19,7 @@ import { cache, cacheKeys } from "../../lib/cache";
 
 const listPlansQuerySchema = z.object({
   billingCycle: z.enum(["monthly", "six_months", "yearly", "one_time"]).optional(),
+  audience: z.enum(["adult", "youth"]).optional(),
 });
 
 const downgradeSchema = z.object({
@@ -28,9 +29,14 @@ const downgradeSchema = z.object({
 export async function listPlans(req: Request, res: Response) {
   const parsed = listPlansQuerySchema.safeParse(req.query);
   const billingCycle = parsed.success && parsed.data.billingCycle !== "one_time" ? parsed.data.billingCycle : undefined;
+  const audience = parsed.success ? parsed.data.audience : undefined;
 
-  // Cache the public plans list (no billingCycle enrichment variants are cached separately)
+  // Cache the public plans list only when no filters are applied
   if (!billingCycle) {
+    if (audience) {
+      const plans = await listSubscriptionPlans({ includeInactive: true, audience });
+      return res.status(200).json({ plans });
+    }
     const plans = await cache.getOrSet(cacheKeys.billingPlans(), 300, () =>
       listSubscriptionPlans({ includeInactive: true }),
     );
@@ -38,7 +44,7 @@ export async function listPlans(req: Request, res: Response) {
   }
 
   // Enriched (quote-decorated) variant — not cached because quotes can change frequently
-  let plans = await listSubscriptionPlans({ includeInactive: true });
+  let plans = await listSubscriptionPlans({ includeInactive: true, audience });
   plans = await enrichPlansWithBillingQuotes(plans, billingCycle);
   return res.status(200).json({ plans });
 }

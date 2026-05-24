@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import { athleteTable, subscriptionPlanTable, userTable, ProgramType, AthleteType } from "../../db/schema";
@@ -462,15 +462,15 @@ export async function listActiveSubscriptionPlans() {
     .orderBy(subscriptionPlanTable.tier);
 }
 
-export async function listSubscriptionPlans(options?: { includeInactive?: boolean }) {
+export async function listSubscriptionPlans(options?: { includeInactive?: boolean; audience?: "adult" | "youth" }) {
   const includeInactive = options?.includeInactive ?? false;
-  const rows = includeInactive
-    ? await db.select().from(subscriptionPlanTable).orderBy(subscriptionPlanTable.id)
-    : await db
-        .select()
-        .from(subscriptionPlanTable)
-        .where(eq(subscriptionPlanTable.isActive, true))
-        .orderBy(subscriptionPlanTable.id);
+  const conditions = [];
+  if (!includeInactive) conditions.push(eq(subscriptionPlanTable.isActive, true));
+  if (options?.audience === "adult") conditions.push(isNull(subscriptionPlanTable.tier));
+  if (options?.audience === "youth") conditions.push(isNotNull(subscriptionPlanTable.tier));
+  const whereClause =
+    conditions.length === 0 ? undefined : conditions.length === 1 ? conditions[0] : and(...conditions);
+  const rows = await db.select().from(subscriptionPlanTable).where(whereClause).orderBy(subscriptionPlanTable.id);
 
   const withStripe = await Promise.all(
     rows.map(async (plan) => {
@@ -509,6 +509,7 @@ export async function enrichPlansWithBillingQuotes(
             stripePriceId: plan.stripePriceId,
             stripePriceIdMonthly: plan.stripePriceIdMonthly,
             stripePriceIdYearly: plan.stripePriceIdYearly,
+            stripePriceIdWeekly: plan.stripePriceIdWeekly,
             tier: plan.tier,
           },
           billingCycle,

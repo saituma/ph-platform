@@ -184,6 +184,8 @@ const TIER_METADATA: Record<
 	},
 };
 
+const PHP_TIERS = new Set(["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
+
 function planCardTitle(plan: { tier: string | null | undefined; name?: string | null }) {
 	// Prefer the admin-set plan.name so renames in the admin portal flow through.
 	const fromAdmin = String(plan.name ?? "").trim();
@@ -375,12 +377,19 @@ function OnboardingStep5() {
 	);
 
 	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
+	const isAdult = typeof window !== "undefined" && localStorage.getItem("user_type") === "adult";
 
 	const loadPlans = useCallback(async () => {
 		setIsLoading(true);
 		try {
 			const baseUrl = config.api.baseUrl;
+			const userType = typeof window !== "undefined" ? (localStorage.getItem("user_type") ?? "") : "";
+			const isAdultUser = userType === "adult";
+			const isYouthUser = userType === "youth";
 			const params = new URLSearchParams({ billingCycle });
+			const isTeamUser = userType === "team";
+			if (isAdultUser) params.set("audience", "adult");
+			else if (isYouthUser || isTeamUser) params.set("audience", "youth");
 			// Bypass any HTTP cache so admin edits show up immediately on refresh.
 			const response = await fetch(`${baseUrl}/api/billing/plans?${params.toString()}`, {
 				cache: "no-store",
@@ -388,20 +397,27 @@ function OnboardingStep5() {
 			});
 			if (response.ok) {
 				const data = await response.json();
-				const activePlans = dedupePlansByTier(
+				const rawPlans = dedupePlansByTier(
 					(data.plans || []).filter((p: any) => p.isActive),
 				).sort((a: any, b: any) => {
 					const orderA = TIER_METADATA[a.tier]?.order ?? 99;
 					const orderB = TIER_METADATA[b.tier]?.order ?? 99;
 					return orderA - orderB;
 				});
+				// Client-side guards: adults see only custom plans; youth/team see only standard PHP tiers.
+				const activePlans = isAdultUser
+					? rawPlans.filter((p: any) => !PHP_TIERS.has(p.tier))
+					: (isYouthUser || isTeamUser)
+						? rawPlans.filter((p: any) => PHP_TIERS.has(p.tier))
+						: rawPlans;
 
 				setPlans(activePlans);
 				if (activePlans.length > 0) {
 					setSelectedPlan((prev) => {
 						if (prev != null && activePlans.some((p: any) => p.id === prev)) return prev;
-						const preferred =
-							activePlans.find((p: any) => p.tier === "PHP_Premium") ?? activePlans[0];
+						const preferred = isAdultUser
+							? (activePlans.find((p: any) => p.tier == null) ?? activePlans[0])
+							: (activePlans.find((p: any) => p.tier === "PHP_Premium") ?? activePlans[0]);
 						return preferred.id ?? null;
 					});
 				}
@@ -747,10 +763,21 @@ function OnboardingStep5() {
 		return (
 			<main className="mx-auto max-w-lg px-4 py-16 text-center">
 				<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Plans</p>
-				<h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">No plans available</h1>
-				<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-					Subscription plans are not configured yet. Please try again later or contact support.
-				</p>
+				{isAdult ? (
+					<>
+						<h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">No adult plans available yet</h1>
+						<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+							No custom plans have been set up for adult sign-ups yet. Please contact support and we&apos;ll get you enrolled.
+						</p>
+					</>
+				) : (
+					<>
+						<h1 className="mt-2 text-2xl font-medium tracking-tight text-foreground">No plans available</h1>
+						<p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+							Subscription plans are not configured yet. Please try again later or contact support.
+						</p>
+					</>
+				)}
 			</main>
 		);
 	}
@@ -942,15 +969,17 @@ function OnboardingStep5() {
 						const isPopular = plan.tier === "PHP_Premium_Plus";
 						const displayPrice =
 							billingCycle === "yearly"
-								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? plan.displayPrice ?? "—")
+								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? "—")
 								: billingCycle === "six_months"
-									? (plan.billingQuote?.amount ?? plan.oneTimePrice ?? plan.displayPrice ?? "—")
-									: (plan.billingQuote?.amount ??
-										plan.pricing?.monthly?.discounted ??
-										plan.pricing?.badge ??
-										plan.monthlyPrice ??
-										plan.displayPrice ??
-										"—");
+									? (plan.billingQuote?.amount ?? plan.oneTimePrice ?? "—")
+									: billingCycle === "weekly"
+										? (plan.billingQuote?.amount ?? plan.weeklyPrice ?? "—")
+										: (plan.billingQuote?.amount ??
+											plan.pricing?.monthly?.discounted ??
+											plan.pricing?.badge ??
+											plan.monthlyPrice ??
+											plan.displayPrice ??
+											"—");
 						const meta = TIER_METADATA[plan.tier] ?? {
 							cardTitle: String(plan.name || "Plan").trim() || "Plan",
 							tierLine: plan.tier,
