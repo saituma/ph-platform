@@ -3,12 +3,16 @@ import { z } from "zod";
 
 import { getAthleteForUser } from "../services/user.service";
 import {
+  countAthletesForBroadcast,
   createPhysioReferral,
+  createPhysioReferralBroadcast,
   deletePhysioReferral,
+  deletePhysioReferralBroadcast,
   getPhysioReferralForAthlete,
   getPhysioReferralsForAthlete,
   listPhysioReferrals,
   updatePhysioReferral,
+  updatePhysioReferralBroadcast,
 } from "../services/physio-referral.service";
 import {
   ProgramType,
@@ -29,7 +33,10 @@ import { athleteHasFeature } from "../services/billing/feature-access.service";
 const physioMetadataSchema = z
   .object({
     referralType: z.string().optional().nullable(),
-    assignmentMode: z.enum(["single", "team", "age_range", "group"]).optional().nullable(),
+    assignmentMode: z
+      .enum(["single", "team", "age_range", "group", "all_youth", "all_adult", "all_teams", "all"])
+      .optional()
+      .nullable(),
     targetLabel: z.string().optional().nullable(),
     targetGroupKey: z.string().optional().nullable(),
     targetTeam: z.string().optional().nullable(),
@@ -75,6 +82,9 @@ const updatePhysioSchema = z.object({
   metadata: physioMetadataSchema,
 });
 
+const BROADCAST_MODES = ["all_youth", "all_adult", "all_teams", "all"] as const;
+type BroadcastMode = (typeof BROADCAST_MODES)[number];
+
 const bulkTargetingSchema = z
   .discriminatedUnion("mode", [
     z.object({
@@ -94,6 +104,10 @@ const bulkTargetingSchema = z
       mode: z.literal("group"),
       groupId: z.coerce.number().int().min(1),
     }),
+    z.object({ mode: z.literal("all_youth") }),
+    z.object({ mode: z.literal("all_adult") }),
+    z.object({ mode: z.literal("all_teams") }),
+    z.object({ mode: z.literal("all") }),
   ])
   .superRefine((value, ctx) => {
     if (value.mode === "age_range" && value.minAge > value.maxAge) {
@@ -444,6 +458,43 @@ export async function createPhysioReferralBulkAdmin(req: Request, res: Response)
   const imageUrl = getMetadataString(input.metadata ?? null, "imageUrl");
   const notes = getMetadataString(input.metadata ?? null, "notes");
   const targeting = input.targeting;
+
+  // Broadcast modes: store as a campaign, not per-athlete records
+  if ((BROADCAST_MODES as readonly string[]).includes(targeting.mode)) {
+    const broadcastMode = targeting.mode as BroadcastMode;
+    const broadcastLabels: Record<BroadcastMode, string> = {
+      all_youth: "All Youth Athletes",
+      all_adult: "All Adult Athletes",
+      all_teams: "All Team Members",
+      all: "All Users",
+    };
+    const metadata = {
+      ...(input.metadata ?? {}),
+      assignmentMode: broadcastMode,
+      targetLabel: broadcastLabels[broadcastMode],
+    };
+    const item = await createPhysioReferralBroadcast({
+      targetMode: broadcastMode,
+      referalLink: input.referalLink,
+      discountPercent: input.discountPercent ?? null,
+      metadata,
+      createdBy: req.user.id,
+    });
+    const currentCount = await countAthletesForBroadcast(broadcastMode);
+    return res.status(201).json({
+      created: [item],
+      summary: {
+        targetMode: broadcastMode,
+        targetLabel: broadcastLabels[broadcastMode],
+        matchedAthletes: currentCount,
+        createdCount: 1,
+        skippedCount: 0,
+        isBroadcast: true,
+      },
+      skipped: [],
+    });
+  }
+
   let groupName: string | undefined;
   if (targeting.mode === "group") {
     groupName = (await listReferralGroups()).find((group) => group.id === targeting.groupId)?.name ?? "Referral group";
@@ -600,6 +651,13 @@ export async function updatePhysioReferralAdmin(req: Request, res: Response) {
 
 export async function deletePhysioReferralAdmin(req: Request, res: Response) {
   const id = z.coerce.number().int().min(1).parse(req.params.id);
+  // Check if it's a broadcast first
+  const isBroadcast = req.query.broadcast === "1";
+  if (isBroadcast) {
+    const deleted = await deletePhysioReferralBroadcast(id);
+    if (!deleted) return res.status(404).json({ error: "Broadcast referral not found" });
+    return res.status(200).json({ item: { ...deleted, isBroadcast: true } });
+  }
   const deleted = await deletePhysioReferral(id);
   if (!deleted) {
     return res.status(404).json({ error: "Referral not found" });

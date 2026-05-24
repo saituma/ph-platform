@@ -1503,6 +1503,20 @@ export const physioRefferalsTable = pgTable("physio_refferals", {
   updatedAt: timestamp().notNull().defaultNow(),
 });
 
+// Broadcast referrals: target all_youth | all_adult | all_teams | all — matched dynamically for new athletes
+export const physioReferralBroadcastsTable = pgTable("physio_referral_broadcasts", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  targetMode: varchar({ length: 20 }).notNull(), // 'all_youth' | 'all_adult' | 'all_teams' | 'all'
+  referalLink: varchar({ length: 500 }),
+  discountPercent: integer(),
+  metadata: jsonb(),
+  createdBy: integer()
+    .notNull()
+    .references(() => userTable.id),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});
+
 export const serviceTypeTable = pgTable("service_types", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),

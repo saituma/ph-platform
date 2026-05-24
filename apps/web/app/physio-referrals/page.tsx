@@ -27,12 +27,13 @@ import {
 } from "../../lib/apiSlice";
 import { toast } from "../../lib/toast";
 
-type TargetMode = "single" | "team" | "age_range" | "group";
+type TargetMode = "single" | "team" | "age_range" | "group" | "all_youth" | "all_adult" | "all_teams" | "all";
+const BROADCAST_MODES: TargetMode[] = ["all_youth", "all_adult", "all_teams", "all"];
 type AgeMode = "single_age" | "range_age";
 
 type ReferralMetadata = {
   referralType?: string | null;
-  assignmentMode?: TargetMode | null;
+  assignmentMode?: string | null;
   targetLabel?: string | null;
   targetGroupKey?: string | null;
   targetTeam?: string | null;
@@ -52,13 +53,14 @@ type ReferralMetadata = {
 
 type ReferralItem = {
   id: number;
-  athleteId: number;
+  athleteId: number | null;
   athleteName?: string | null;
   programTier?: string | null;
   referalLink?: string | null;
   discountPercent?: number | null;
   metadata?: ReferralMetadata | null;
   createdAt?: string | null;
+  isBroadcast?: boolean;
 };
 
 type AthleteOption = {
@@ -157,6 +159,10 @@ function getTargetLabel(
     return `Ages ${options.minAge}-${options.maxAge}`;
   }
   if (mode === "group") return options.groupName?.trim() || "Referral group";
+  if (mode === "all_youth") return "All Youth Athletes";
+  if (mode === "all_adult") return "All Adult Athletes";
+  if (mode === "all_teams") return "All Team Members";
+  if (mode === "all") return "All Users";
   return "Individual athlete";
 }
 
@@ -618,7 +624,7 @@ function ReferralsPageInner() {
       setError("Choose a saved referral group.");
       return;
     }
-    if (targetedAthletes.length === 0) {
+    if (!BROADCAST_MODES.includes(targetMode) && targetedAthletes.length === 0) {
       setError("No athletes match that target.");
       return;
     }
@@ -634,28 +640,27 @@ function ReferralsPageInner() {
         }).unwrap();
         toast.success("Referral saved", "The athlete now has a referral and will be notified.");
       } else {
+        let targeting: Record<string, unknown>;
+        if (targetMode === "team") {
+          targeting = { mode: "team", team: teamName.trim() };
+        } else if (targetMode === "age_range") {
+          targeting = { mode: "age_range", minAge: Number(minAge), maxAge: Number(ageMode === "single_age" ? minAge : maxAge) };
+        } else if (targetMode === "group") {
+          targeting = { mode: "group", groupId: Number(groupId) };
+        } else {
+          // broadcast mode: all_youth | all_adult | all_teams | all
+          targeting = { mode: targetMode };
+        }
         const result = await createBulkReferral({
-          targeting:
-            targetMode === "team"
-              ? {
-                  mode: "team",
-                  team: teamName.trim(),
-                }
-              : targetMode === "age_range"
-              ? {
-                  mode: "age_range",
-                  minAge: Number(minAge),
-                  maxAge: Number(ageMode === "single_age" ? minAge : maxAge),
-                }
-              : { mode: "group", groupId: Number(groupId) },
+          targeting,
           referalLink,
           discountPercent: discountPercent ? Number(discountPercent) : undefined,
           metadata: buildMetadata(),
         }).unwrap();
-        toast.success(
-          "Referrals saved",
-          `${result.summary.createdCount} referral${result.summary.createdCount === 1 ? "" : "s"} created${result.summary.skippedCount ? `, ${result.summary.skippedCount} skipped` : ""}.`
-        );
+        const label = BROADCAST_MODES.includes(targetMode)
+          ? `Broadcast referral created — all matching athletes (${result.summary.matchedAthletes} current + future) will see this.`
+          : `${result.summary.createdCount} referral${result.summary.createdCount === 1 ? "" : "s"} created${result.summary.skippedCount ? `, ${result.summary.skippedCount} skipped` : ""}.`;
+        toast.success("Referrals saved", label);
       }
       resetCreateForm();
       setActiveTab("existing");
@@ -764,12 +769,13 @@ function ReferralsPageInner() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this referral?")) return;
+  const handleDelete = async (id: number, isBroadcast?: boolean) => {
+    const label = isBroadcast ? "broadcast referral" : "referral";
+    if (!window.confirm(`Delete this ${label}? ${isBroadcast ? "All athletes who see it will lose access." : ""}`)) return;
     setError(null);
     try {
-      await deleteReferral({ id }).unwrap();
-      toast.success("Referral deleted", "The referral has been removed.");
+      await deleteReferral({ id, ...(isBroadcast ? { broadcast: "1" } : {}) } as any).unwrap();
+      toast.success("Referral deleted", `The ${label} has been removed.`);
     } catch (err: unknown) {
       const message = getErrorMessage(err, "Please try again.");
       setError(message);
@@ -831,6 +837,10 @@ function ReferralsPageInner() {
                       { label: "Team", value: "team" },
                       { label: "Age Range", value: "age_range" },
                       { label: "Group", value: "group" },
+                      { label: "All Youth Athletes (current + future)", value: "all_youth" },
+                      { label: "All Adult Athletes (current + future)", value: "all_adult" },
+                      { label: "All Team Members (current + future)", value: "all_teams" },
+                      { label: "Everyone — All Users (current + future)", value: "all" },
                     ];
                     return (
                       <Select items={targetModeItems} value={targetMode} onValueChange={(v) => setTargetMode(v as TargetMode)}>
@@ -1086,16 +1096,32 @@ function ReferralsPageInner() {
 
               <div className="rounded-2xl border border-border bg-secondary/15 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Preview</p>
-                <p className="mt-2 text-2xl font-semibold text-foreground">{targetedAthletes.length}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {targetMode === "single"
-                    ? "Eligible athlete selected"
-                    : targetMode === "team"
-                      ? `Eligible athletes in ${teamName || "this team"}`
-                    : targetMode === "age_range"
-                      ? "Eligible athletes in this age range"
-                      : `Eligible athletes in ${selectedReferralGroup?.name ?? "this group"}`}
-                </p>
+                {BROADCAST_MODES.includes(targetMode) ? (
+                  <>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {targetMode === "all_youth" && "All youth athletes — current & future"}
+                      {targetMode === "all_adult" && "All adult athletes — current & future"}
+                      {targetMode === "all_teams" && "All team members — current & future"}
+                      {targetMode === "all" && "Everyone — all users current & future"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      This referral will be shown to every matching athlete, including anyone who registers in the future.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">{targetedAthletes.length}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {targetMode === "single"
+                        ? "Eligible athlete selected"
+                        : targetMode === "team"
+                          ? `Eligible athletes in ${teamName || "this team"}`
+                          : targetMode === "age_range"
+                            ? "Eligible athletes in this age range"
+                            : `Eligible athletes in ${selectedReferralGroup?.name ?? "this group"}`}
+                    </p>
+                  </>
+                )}
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1135,7 +1161,13 @@ function ReferralsPageInner() {
               </div>
 
               <Button onClick={handleCreate} disabled={isSubmitting} className="w-full">
-                {isSubmitting ? "Saving..." : targetMode === "single" ? "Save Referral & Notify Athlete" : "Create Referrals & Notify Athletes"}
+                {isSubmitting
+                  ? "Saving..."
+                  : targetMode === "single"
+                    ? "Save Referral & Notify Athlete"
+                    : BROADCAST_MODES.includes(targetMode)
+                      ? "Create Broadcast Referral"
+                      : "Create Referrals & Notify Athletes"}
               </Button>
             </CardContent>
           </Card>
@@ -1164,7 +1196,7 @@ function ReferralsPageInner() {
                     const providerLabel = resolveProviderName(meta);
                     const organizationLabel = resolveOrganizationName(meta);
                     const hasMeta = !!(providerLabel || organizationLabel || meta.location || meta.phone || meta.email || meta.specialty || meta.notes);
-                    const resolvedTier = athleteTierById.get(entry.athleteId) ?? entry.programTier ?? "PHP";
+                    const resolvedTier = (entry.athleteId != null ? athleteTierById.get(entry.athleteId) : null) ?? entry.programTier ?? "PHP";
 
                     return (
                       <div
@@ -1180,11 +1212,21 @@ function ReferralsPageInner() {
                           <div className="space-y-1">
                             <p className="text-xs uppercase tracking-[2px] text-muted-foreground">{formatDate(entry.createdAt)}</p>
                             <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-lg font-semibold text-foreground">{entry.athleteName ?? `Athlete #${entry.athleteId}`}</p>
+                              {entry.isBroadcast ? (
+                                <p className="text-lg font-semibold text-foreground">{meta.targetLabel ?? "Broadcast Referral"}</p>
+                              ) : (
+                                <p className="text-lg font-semibold text-foreground">{entry.athleteName ?? `Athlete #${entry.athleteId}`}</p>
+                              )}
                               <span className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-muted-foreground">{referralTypeLabel}</span>
+                              {entry.isBroadcast ? (
+                                <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">Broadcast</span>
+                              ) : null}
                             </div>
-                            <p className="text-xs text-muted-foreground">Tier: {resolvedTier}</p>
+                            {!entry.isBroadcast ? <p className="text-xs text-muted-foreground">Tier: {resolvedTier}</p> : null}
                             <p className="text-xs text-muted-foreground">Target: {meta.targetLabel ?? "Individual athlete"}</p>
+                            {entry.isBroadcast ? (
+                              <p className="text-xs text-muted-foreground">Visible to all current + future matching athletes</p>
+                            ) : null}
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
                             {entry.referalLink ? (
@@ -1193,24 +1235,26 @@ function ReferralsPageInner() {
                                 target="_blank"
                                 rel="noreferrer"
                                 className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                                aria-label={`Open referral link for ${entry.athleteName ?? "athlete"}`}
+                                aria-label={`Open referral link for ${entry.isBroadcast ? (meta.targetLabel ?? "broadcast") : (entry.athleteName ?? "athlete")}`}
                               >
                                 Open Link
                               </a>
                             ) : null}
-                            <button
-                              type="button"
-                              className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
-                              onClick={() => startEdit(entry)}
-                              aria-label={`Edit referral for ${entry.athleteName ?? "athlete"}`}
-                            >
-                              Edit
-                            </button>
+                            {!entry.isBroadcast ? (
+                              <button
+                                type="button"
+                                className="rounded-full border border-border px-3 py-2 text-xs text-foreground hover:bg-secondary/40"
+                                onClick={() => startEdit(entry as ReferralItem & { athleteId: number })}
+                                aria-label={`Edit referral for ${entry.athleteName ?? "athlete"}`}
+                              >
+                                Edit
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className="rounded-full border border-red-500/40 px-3 py-2 text-xs text-red-200 hover:bg-red-500/10"
-                              onClick={() => handleDelete(entry.id)}
-                              aria-label={`Delete referral for ${entry.athleteName ?? "athlete"}`}
+                              onClick={() => handleDelete(entry.id, entry.isBroadcast)}
+                              aria-label={`Delete referral for ${entry.isBroadcast ? (meta.targetLabel ?? "broadcast") : (entry.athleteName ?? "athlete")}`}
                             >
                               Delete
                             </button>

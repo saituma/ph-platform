@@ -61,9 +61,9 @@ const physioApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["PhysioReferrals"],
     }),
-    deletePhysioReferral: builder.mutation<{ item: any }, { id: number }>({
-      query: ({ id }) => ({
-        url: `/admin/physio-referrals/${id}`,
+    deletePhysioReferral: builder.mutation<{ item: any }, { id: number; broadcast?: string }>({
+      query: ({ id, broadcast }) => ({
+        url: `/admin/physio-referrals/${id}${broadcast ? `?broadcast=${broadcast}` : ""}`,
         method: "DELETE",
       }),
       invalidatesTags: ["PhysioReferrals"],
