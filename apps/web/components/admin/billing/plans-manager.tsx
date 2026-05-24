@@ -851,36 +851,37 @@ function PlanEditorDialog({
               onChange={(discounts) => update({ discounts })}
             />
 
-            <div className="space-y-3 rounded-xl border border-border p-4">
+            <div className="space-y-4 rounded-xl border border-border p-4">
               <div>
                 <div className="text-sm font-medium">Features & Access</div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Select what this plan gives members access to.
+                  Click to toggle what this plan gives members access to.
                 </p>
               </div>
               {FEATURE_CATALOG.map((group) => (
                 <div key={group.group} className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{group.group}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-4">
+                  <div className="flex flex-wrap gap-2">
                     {group.features.map((feat) => {
-                      const checked = form.features.includes(feat.key);
+                      const active = form.features.includes(feat.key);
                       return (
-                        <label key={feat.key} className="flex items-center gap-2 cursor-pointer group">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
-                            checked={checked}
-                            onChange={() => {
-                              const next = checked
-                                ? form.features.filter((k) => k !== feat.key)
-                                : [...form.features, feat.key];
-                              update({ features: next });
-                            }}
-                          />
-                          <span className="text-sm text-foreground/80 group-hover:text-foreground transition-colors">
-                            {feat.label}
-                          </span>
-                        </label>
+                        <button
+                          key={feat.key}
+                          type="button"
+                          onClick={() => {
+                            const next = active
+                              ? form.features.filter((k) => k !== feat.key)
+                              : [...form.features, feat.key];
+                            update({ features: next });
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-muted text-muted-foreground border-transparent hover:border-border hover:text-foreground"
+                          }`}
+                        >
+                          {feat.label}
+                        </button>
                       );
                     })}
                   </div>
