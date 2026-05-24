@@ -90,7 +90,11 @@ async function unoptimizedRows<T extends typeof exerciseTable>(table: T) {
 
 async function processTable(
   flag: string,
-  table: typeof exerciseTable | typeof programSectionContentTable | typeof trainingSessionItemTable | typeof trainingOtherContentTable,
+  table:
+    | typeof exerciseTable
+    | typeof programSectionContentTable
+    | typeof trainingSessionItemTable
+    | typeof trainingOtherContentTable,
   label: string,
 ) {
   if (ONLY_TABLE && ONLY_TABLE !== flag) return;
@@ -112,7 +116,9 @@ async function processTable(
 }
 
 async function main() {
-  console.log(`[transcode-admin-videos] starting  limit=${LIMIT === Infinity ? "∞" : LIMIT}  table=${ONLY_TABLE || "all"}`);
+  console.log(
+    `[transcode-admin-videos] starting  limit=${LIMIT === Infinity ? "∞" : LIMIT}  table=${ONLY_TABLE || "all"}`,
+  );
   await processTable("exercises", exerciseTable, "exercises");
   await processTable("section_contents", programSectionContentTable, "program_section_contents");
   await processTable("training_items", trainingSessionItemTable, "training_session_items");

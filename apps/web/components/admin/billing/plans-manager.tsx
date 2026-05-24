@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardPanel } from "../../ui/card";
@@ -657,25 +657,6 @@ function PlanEditorDialog({
                   onChange={(e) => update({ name: e.target.value })}
                   placeholder="e.g. PHP Premium"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="plan-tier">Tier</Label>
-                <Select
-                  items={TIER_ITEMS}
-                  value={form.tier ?? ""}
-                  onValueChange={(v) => update({ tier: (v || null) as PlanTier | null })}
-                >
-                  <SelectTrigger id="plan-tier">
-                    <SelectValue placeholder="No tier (custom plan)" />
-                  </SelectTrigger>
-                  <SelectPopup>
-                    {TIER_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectPopup>
-                </Select>
               </div>
             </div>
 

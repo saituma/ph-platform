@@ -459,12 +459,10 @@ export async function scanQrToken(req: Request, res: Response) {
         .json({ error: "Session assignment not found", message: "This session is not assigned to you" });
     }
     if (error instanceof Error && error.message === "SESSION_NOT_ATTENDABLE_TODAY") {
-      return res
-        .status(403)
-        .json({
-          error: "Session can only be attended on its scheduled day",
-          message: "This session is not scheduled for today",
-        });
+      return res.status(403).json({
+        error: "Session can only be attended on its scheduled day",
+        message: "This session is not scheduled for today",
+      });
     }
     throw error;
   }

@@ -97,3 +97,4 @@ infra/terraform/terraform.tfstate.d/
 *.zip
 *.7z
 *.rar
+.playwright-mcp/

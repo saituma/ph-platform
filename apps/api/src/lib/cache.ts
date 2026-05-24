@@ -12,7 +12,42 @@
  */
 import { Redis } from "@upstash/redis";
 
+const DEFAULT_REDIS_TIMEOUT_MS = 750;
+
+function isRedisCacheDisabled(): boolean {
+  return (
+    process.env.NODE_ENV === "test" ||
+    process.env.PH_DISABLE_REDIS_CACHE === "1" ||
+    process.env.PH_DISABLE_REDIS_CACHE === "true"
+  );
+}
+
+function getRedisTimeoutMs(): number {
+  const parsed = Number.parseInt(process.env.CACHE_REDIS_TIMEOUT_MS ?? `${DEFAULT_REDIS_TIMEOUT_MS}`, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_REDIS_TIMEOUT_MS;
+}
+
+function withRedisTimeout<T>(operation: Promise<T>): Promise<T> {
+  const timeoutMs = getRedisTimeoutMs();
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Redis cache operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    operation
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+  });
+}
+
 function createRedis(): Redis | null {
+  if (isRedisCacheDisabled()) return null;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
@@ -36,7 +71,7 @@ export const cache = {
     const redis = getRedis();
     if (redis) {
       try {
-        const cached = await redis.get<T>(key);
+        const cached = await withRedisTimeout(redis.get<T>(key));
         if (cached !== null && cached !== undefined) return cached;
       } catch {
         // Redis unavailable — fall through to fetcher
@@ -47,7 +82,7 @@ export const cache = {
 
     if (redis) {
       try {
-        await redis.set(key, JSON.stringify(value), { ex: ttlSec });
+        await withRedisTimeout(redis.set(key, JSON.stringify(value), { ex: ttlSec }));
       } catch {
         // Cache write failure is non-fatal
       }
@@ -61,7 +96,7 @@ export const cache = {
     const redis = getRedis();
     if (!redis) return;
     try {
-      await redis.del(key);
+      await withRedisTimeout(redis.del(key));
     } catch {}
   },
 
@@ -72,10 +107,10 @@ export const cache = {
     try {
       let cursor = 0;
       do {
-        const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
+        const [nextCursor, keys] = await withRedisTimeout(redis.scan(cursor, { match: pattern, count: 100 }));
         cursor = Number(nextCursor);
         if (keys.length > 0) {
-          await redis.del(...keys);
+          await withRedisTimeout(redis.del(...keys));
         }
       } while (cursor !== 0);
     } catch {}

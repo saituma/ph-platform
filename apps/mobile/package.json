@@ -76,6 +76,7 @@
     "expo-symbols": "~55.0.7",
     "expo-system-ui": "~55.0.16",
     "expo-task-manager": "~55.0.15",
+    "expo-updates": "~55.0.24",
     "expo-video": "~55.0.15",
     "expo-web-browser": "~55.0.10",
     "heroui-native": "^1.0.0",

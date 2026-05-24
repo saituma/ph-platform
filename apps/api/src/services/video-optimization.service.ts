@@ -115,9 +115,7 @@ export type PosterAndMetadataResult = {
  *  the backfill script where the video URL is already final and we just
  *  need to enrich the row. Returns null on hard failure; partial success
  *  (e.g. poster ok but metadata empty) is still returned. */
-export async function extractPosterAndMetadata(
-  publicUrl: string,
-): Promise<PosterAndMetadataResult | null> {
+export async function extractPosterAndMetadata(publicUrl: string): Promise<PosterAndMetadataResult | null> {
   const originalKey = getMediaObjectKeyFromPublicUrl(publicUrl);
   if (!originalKey) return null;
   if (!isFfmpegAvailable()) return null;

@@ -7,12 +7,16 @@ RUN corepack prepare pnpm@10.26.0 --activate
 # Install dependencies (monorepo root context)
 COPY .npmrc package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/tsconfig.json apps/api/drizzle.config.ts ./apps/api/
+COPY packages/roles/package.json packages/roles/tsconfig.json ./packages/roles/
+COPY packages/billing/package.json packages/billing/tsconfig.json ./packages/billing/
 
 RUN pnpm install --filter ./apps/api...
 
 # Build
 COPY apps/api/src ./apps/api/src
 COPY apps/api/drizzle ./apps/api/drizzle
+COPY packages/roles/src ./packages/roles/src
+COPY packages/billing/src ./packages/billing/src
 
 RUN pnpm --filter ./apps/api build
 
@@ -29,6 +33,10 @@ COPY --from=base /app/apps/api/package.json ./apps/api/package.json
 COPY --from=base /app/apps/api/dist ./apps/api/dist
 COPY --from=base /app/apps/api/drizzle ./apps/api/drizzle
 COPY --from=base /app/apps/api/drizzle.config.ts ./apps/api/drizzle.config.ts
+COPY --from=base /app/packages/roles/package.json ./packages/roles/package.json
+COPY --from=base /app/packages/roles/dist ./packages/roles/dist
+COPY --from=base /app/packages/billing/package.json ./packages/billing/package.json
+COPY --from=base /app/packages/billing/dist ./packages/billing/dist
 
 WORKDIR /app/apps/api
 

@@ -33,6 +33,9 @@ const EVENTS: Stripe.WebhookEndpointCreateParams.EnabledEvent[] = [
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
   "checkout.session.expired",
+  "invoice.payment_succeeded",
+  "invoice.payment_failed",
+  "customer.subscription.deleted",
 ];
 
 async function main() {

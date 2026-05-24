@@ -226,7 +226,9 @@ async function backfillTrainingOtherContents() {
 }
 
 async function main() {
-  console.log(`[backfill-video-posters] starting  limit=${LIMIT === Infinity ? "∞" : LIMIT}  table=${ONLY_TABLE || "all"}`);
+  console.log(
+    `[backfill-video-posters] starting  limit=${LIMIT === Infinity ? "∞" : LIMIT}  table=${ONLY_TABLE || "all"}`,
+  );
   await backfillExercises();
   await backfillSectionContents();
   await backfillTrainingSessionItems();
