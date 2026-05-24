@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { db } from "../db";
-import { athleteTable, legalAcceptanceTable } from "../db/schema";
+import { athleteTable, guardianTable, legalAcceptanceTable } from "../db/schema";
 
 import {
   getOnboardingByUser,
@@ -366,11 +366,28 @@ export async function submitHealthForm(req: Request, res: Response) {
   }
 
   const userId = req.user!.id;
-  const athlete = await db
+  let athlete = await db
     .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
     .from(athleteTable)
     .where(eq(athleteTable.userId, userId))
     .limit(1);
+
+  // For guardians: fall back to their active athlete
+  if (!athlete[0] && req.user!.role === "guardian") {
+    const [guardian] = await db
+      .select({ activeAthleteId: guardianTable.activeAthleteId })
+      .from(guardianTable)
+      .where(eq(guardianTable.userId, userId))
+      .limit(1);
+    if (guardian?.activeAthleteId) {
+      athlete = await db
+        .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
+        .from(athleteTable)
+        .where(eq(athleteTable.id, guardian.activeAthleteId))
+        .limit(1);
+    }
+  }
+
   if (!athlete[0]) {
     return res.status(404).json({ error: "Athlete profile not found" });
   }
@@ -402,11 +419,28 @@ export async function submitAgreements(req: Request, res: Response) {
   }
 
   const userId = req.user!.id;
-  const athleteRow = await db
+  let athleteRow = await db
     .select({ id: athleteTable.id })
     .from(athleteTable)
     .where(eq(athleteTable.userId, userId))
     .limit(1);
+
+  // For guardians: fall back to their active athlete
+  if (!athleteRow[0] && req.user!.role === "guardian") {
+    const [guardian] = await db
+      .select({ activeAthleteId: guardianTable.activeAthleteId })
+      .from(guardianTable)
+      .where(eq(guardianTable.userId, userId))
+      .limit(1);
+    if (guardian?.activeAthleteId) {
+      athleteRow = await db
+        .select({ id: athleteTable.id })
+        .from(athleteTable)
+        .where(eq(athleteTable.id, guardian.activeAthleteId))
+        .limit(1);
+    }
+  }
+
   if (!athleteRow[0]) {
     return res.status(404).json({ error: "Athlete profile not found" });
   }
