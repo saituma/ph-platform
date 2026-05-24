@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import {
@@ -662,28 +662,46 @@ export async function listSubscriptionRequests() {
 }
 
 export async function getLatestSubscriptionRequest(input: { userId: number; athleteId: number }) {
-  const rows = await db
-    .select({
-      requestId: subscriptionRequestTable.id,
-      status: subscriptionRequestTable.status,
-      paymentStatus: subscriptionRequestTable.paymentStatus,
-      stripeSessionId: subscriptionRequestTable.stripeSessionId,
-      createdAt: subscriptionRequestTable.createdAt,
-      planBillingCycle: subscriptionRequestTable.planBillingCycle,
-      planId: subscriptionPlanTable.id,
-      planName: subscriptionPlanTable.name,
-      planTier: subscriptionPlanTable.tier,
-      displayPrice: subscriptionPlanTable.displayPrice,
-      billingInterval: subscriptionPlanTable.billingInterval,
-    })
+  const selectShape = {
+    requestId: subscriptionRequestTable.id,
+    status: subscriptionRequestTable.status,
+    paymentStatus: subscriptionRequestTable.paymentStatus,
+    stripeSessionId: subscriptionRequestTable.stripeSessionId,
+    createdAt: subscriptionRequestTable.createdAt,
+    planBillingCycle: subscriptionRequestTable.planBillingCycle,
+    planId: subscriptionPlanTable.id,
+    planName: subscriptionPlanTable.name,
+    planTier: subscriptionPlanTable.tier,
+    displayPrice: subscriptionPlanTable.displayPrice,
+    billingInterval: subscriptionPlanTable.billingInterval,
+  };
+
+  const userFilter = and(
+    eq(subscriptionRequestTable.userId, input.userId),
+    eq(subscriptionRequestTable.athleteId, input.athleteId),
+  );
+
+  // Prefer an active (approved/pending_approval) subscription over a newer pending_payment so
+  // that starting (but not completing) a new checkout doesn't shadow the user's current plan.
+  const active = await db
+    .select(selectShape)
     .from(subscriptionRequestTable)
     .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
-    .where(
-      and(eq(subscriptionRequestTable.userId, input.userId), eq(subscriptionRequestTable.athleteId, input.athleteId)),
-    )
+    .where(and(userFilter, inArray(subscriptionRequestTable.status, ["approved", "pending_approval"])))
     .orderBy(desc(subscriptionRequestTable.createdAt))
     .limit(1);
-  return rows[0] ?? null;
+
+  if (active[0]) return active[0];
+
+  const fallback = await db
+    .select(selectShape)
+    .from(subscriptionRequestTable)
+    .leftJoin(subscriptionPlanTable, eq(subscriptionRequestTable.planId, subscriptionPlanTable.id))
+    .where(userFilter)
+    .orderBy(desc(subscriptionRequestTable.createdAt))
+    .limit(1);
+
+  return fallback[0] ?? null;
 }
 
 export async function updateSubscriptionRequestStatus(
@@ -788,11 +806,8 @@ export async function approveSubscriptionRequest(requestId: number) {
     if (request.planId) {
       athletePayload.currentPlanId = request.planId;
     }
-    // Only set currentProgramTier when the plan has one — tier-less (custom) plans
-    // grant access without changing the athlete's tier.
-    if (request.planTier) {
-      athletePayload.currentProgramTier = request.planTier;
-    }
+    // Tier-less (custom) plans get PHP_Pro access — full content unlock.
+    athletePayload.currentProgramTier = request.planTier ?? "PHP_Pro";
 
     if (cycleRaw === "one_time") {
       athletePayload.planPaymentType = "upfront";
@@ -819,7 +834,7 @@ export async function approveSubscriptionRequest(requestId: number) {
       } = {
         updatedAt: new Date(),
       };
-      if (request.planTier) guardianPayload.currentProgramTier = request.planTier;
+      guardianPayload.currentProgramTier = request.planTier ?? "PHP_Pro";
       if (request.planId) guardianPayload.currentPlanId = request.planId;
       if (Object.keys(guardianPayload).length > 1) {
         await tx.update(guardianTable).set(guardianPayload).where(eq(guardianTable.id, request.guardianId));
