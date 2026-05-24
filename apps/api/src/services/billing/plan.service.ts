@@ -775,7 +775,7 @@ export async function createSubscriptionPlan(input: {
 
 export async function importStripePriceAsPlan(input: {
   name: string;
-  tier: (typeof ProgramType.enumValues)[number];
+  tier?: (typeof ProgramType.enumValues)[number] | null;
   stripePriceId: string;
   interval: "monthly" | "yearly" | "one_time";
   displayPrice: string;

@@ -97,7 +97,7 @@ const planInviteConsumeSchema = z.object({
 
 const planImportSchema = z.object({
   name: z.string().min(1),
-  tier: z.enum(ProgramType.enumValues),
+  tier: z.enum(ProgramType.enumValues).optional().nullable(),
   stripePriceId: z.string().min(1),
   interval: z.enum(["monthly", "yearly", "one_time"]),
   displayPrice: z.string().min(1),
