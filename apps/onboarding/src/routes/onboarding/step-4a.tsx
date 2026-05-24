@@ -12,6 +12,8 @@ import {
 	Camera,
 	FileText,
 	Warning,
+	ForkKnife,
+	CalendarX,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -63,6 +65,30 @@ const MEDIA_FULL = `PH Performance may occasionally use photos and videos of tra
 PH Performance will always aim to use content professionally and respectfully. You can withdraw your consent at any time by contacting us — this will not affect any content already published.
 
 If you are under 18, parental/guardian consent is required.`;
+
+const NUTRITION_FULL = `Nutrition guidance provided by PH Performance is intended for educational and performance support purposes only.
+
+PH Performance does not provide medical nutrition therapy or diagnose medical conditions.
+
+Users should consult a qualified medical professional before making significant dietary changes, particularly if they have allergies, intolerances, medical conditions, or eating-related concerns.
+
+All nutrition advice is followed at the user's own discretion and risk.`;
+
+const CANCELLATION_FULL = `PH Performance memberships operate on a monthly payment structure.
+
+Membership fees remain fixed regardless of whether a month contains four or five weeks. This is based on a 48-week coaching year.
+
+A minimum of 24 hours notice is required to cancel or reschedule a session. Sessions cancelled with less than 24 hours notice may be lost and are not guaranteed to be rescheduled.
+
+Missed sessions without communication may also be forfeited.
+
+Membership payments are non-refundable unless agreed otherwise by PH Performance.
+
+If payments fail or remain unpaid, access to sessions, programmes, or the app may be suspended until payment is resolved.
+
+PH Performance reserves the right to amend schedules, coaches, session times, and programme structures where required.
+
+By continuing with PH Performance services, users agree to this membership and cancellation policy.`;
 
 function PolicyCard({
 	icon: Icon,
@@ -293,6 +319,18 @@ function OnboardingStep4a() {
 						title="Privacy Policy"
 						summary="I consent to PH Performance collecting and processing my personal and health data to deliver coaching services, in line with UK GDPR."
 						fullText={PRIVACY_FULL}
+					/>
+					<PolicyCard
+						icon={ForkKnife}
+						title="Nutrition Disclaimer"
+						summary="Nutrition guidance is for educational and performance support only — not medical advice. Consult a qualified professional before making significant dietary changes."
+						fullText={NUTRITION_FULL}
+					/>
+					<PolicyCard
+						icon={CalendarX}
+						title="Cancellation & Membership Policy"
+						summary="Memberships are monthly and non-refundable. 24 hours notice required to cancel or reschedule sessions. Missed sessions without notice may be forfeited."
+						fullText={CANCELLATION_FULL}
 					/>
 				</div>
 
