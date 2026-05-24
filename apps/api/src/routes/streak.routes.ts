@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middlewares/auth";
+import { requireFeature } from "../middlewares/feature";
 import { upsertUserStreak, getUserStreak } from "../services/streak.service";
 
 const router = Router();
@@ -18,7 +19,7 @@ const syncSchema = z.object({
   timezone: z.string().optional(),
 });
 
-router.post("/streaks/sync", requireAuth, async (req, res) => {
+router.post("/streaks/sync", requireAuth, requireFeature("achievements"), async (req, res) => {
   const parsed = syncSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid streak data" });
@@ -30,7 +31,7 @@ router.post("/streaks/sync", requireAuth, async (req, res) => {
   return res.status(200).json(merged);
 });
 
-router.get("/streaks/me", requireAuth, async (req, res) => {
+router.get("/streaks/me", requireAuth, requireFeature("achievements"), async (req, res) => {
   const row = await getUserStreak(req.user!.id);
   if (!row) {
     return res.status(200).json({

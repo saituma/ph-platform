@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { requireAuth } from "../middlewares/auth";
+import { requireFeature } from "../middlewares/feature";
 import { requireRole } from "../middlewares/roles";
 import {
   createPhysioReferralBulkAdmin,
@@ -15,7 +16,7 @@ import {
 
 const router = Router();
 
-router.get("/physio-referral", requireAuth, getPhysioReferral);
+router.get("/physio-referral", requireAuth, requireFeature("physio_referrals"), getPhysioReferral);
 router.get(
   "/admin/physio-referrals",
   requireAuth,
