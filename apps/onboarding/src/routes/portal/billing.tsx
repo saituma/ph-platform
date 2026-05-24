@@ -94,6 +94,16 @@ function nextAnchorLabel(): string {
 	return anchor.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 }
 
+function proratedAmount(fullMonthlyPrice: number): number {
+	const now = new Date();
+	const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+	if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+	const msRemaining = anchor.getTime() - now.getTime();
+	const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
+	const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+	return Math.round((fullMonthlyPrice * daysRemaining) / daysInMonth * 100) / 100;
+}
+
 function planPrice(plan: BillingPlan) {
 	// billingQuote.amount is cycle-specific (returned by the API per selected billingCycle)
 	// Fall back to displayPrice only — never fall back to pricing.monthly which would show
@@ -542,11 +552,17 @@ function BillingPage() {
 															? "for 1 year · one-time payment"
 															: "one-time payment"}
 											</p>
-											{billingCycle === "monthly" && !isCurrent && (
-												<p className="text-xs text-muted-foreground mt-1">
-													First payment: {nextAnchorLabel()}
-												</p>
-											)}
+											{billingCycle === "monthly" && !isCurrent && (() => {
+												const priceStr = String(planPrice(plan));
+												const raw = Number(priceStr.replace(/[^\d.]/g, "")) || null;
+												const sym = priceStr.match(/[£$€]/)?.[0] ?? "£";
+												const prorated = raw !== null ? proratedAmount(raw) : null;
+												return (
+													<p className="text-xs text-muted-foreground mt-1">
+														Due today: {prorated !== null ? `${sym}${prorated.toFixed(2)}` : "—"} · then {sym}{raw?.toFixed(2) ?? "—"}/mo from {nextAnchorLabel()}
+													</p>
+												);
+											})()}
 										</div>
 									</CardHeader>
 									<CardContent>

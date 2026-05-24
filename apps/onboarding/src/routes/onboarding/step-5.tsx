@@ -41,6 +41,17 @@ function nextAnchorLabel(): string {
 	if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
 	return anchor.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 }
+
+function proratedAmount(fullMonthlyPrice: number): number {
+	const now = new Date();
+	const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+	if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+	const msRemaining = anchor.getTime() - now.getTime();
+	const daysRemaining = msRemaining / (1000 * 60 * 60 * 24);
+	// Use days in the current month for proration denominator
+	const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+	return Math.round((fullMonthlyPrice * daysRemaining) / daysInMonth * 100) / 100;
+}
 type ProgramFilter = "standard" | "weekly";
 
 function isWeeklyPlan(plan: any): boolean {
@@ -1058,11 +1069,16 @@ function OnboardingStep5() {
 												<span className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
 													{planBillingLabel(plan, billingCycle)}
 												</span>
-												{billingCycle === "monthly" && (
-													<span className="font-mono text-[10px] text-foreground/50 tracking-wide">
-														First payment: {nextAnchorLabel()}
-													</span>
-												)}
+												{billingCycle === "monthly" && (() => {
+													const raw = parseMoneyToNumber(String(displayPrice));
+													const sym = raw !== null ? detectCurrencySymbol(String(displayPrice)) : "£";
+													const prorated = raw !== null ? proratedAmount(raw) : null;
+													return (
+														<span className="font-mono text-[10px] text-foreground/50 tracking-wide">
+															Due today: {prorated !== null ? `${sym}${prorated.toFixed(2)}` : "—"} · then {sym}{raw?.toFixed(2) ?? "—"}/mo from {nextAnchorLabel()}
+														</span>
+													);
+												})()}
 											</div>
 										);
 									})()}
