@@ -2,7 +2,7 @@ import confetti from "canvas-confetti";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 
-export const LAUNCH_DATE = new Date("2026-05-25T07:00:00Z");
+export const LAUNCH_DATE = new Date("2026-05-25T11:00:00Z");
 
 const EASE = [0.25, 0.46, 0.45, 0.94] as const;
 
