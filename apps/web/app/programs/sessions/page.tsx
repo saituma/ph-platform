@@ -50,7 +50,7 @@ const SESSION_TYPES = [
   { label: "Cooldown", value: "cooldown" },
   { label: "Stretching", value: "stretching" },
   { label: "Screening", value: "screening" },
-  { label: "Mobility", value: "mobility" },
+  { label: "Core Workout", value: "mobility" },
   { label: "Recovery", value: "recovery" },
   { label: "Offseason", value: "offseason" },
   { label: "In-season", value: "inseason" },

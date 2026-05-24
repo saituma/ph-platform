@@ -17,7 +17,7 @@ const PREMIUM_PROGRAM_TABS = [
   "Program",
   "Warmups",
   "Cool Downs",
-  "Mobility",
+  "Core Workout",
   "Recovery",
   "In-Season Program",
   "Off-Season Program",

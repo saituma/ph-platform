@@ -564,7 +564,7 @@ function AudienceDetailPageInner() {
             <CardHeader>
               <SectionHeader
                 title="Supplementary Content"
-                description={`Supporting content outside the main programme modules — warm-ups, cool-downs, mobility, and recovery.`}
+                description={`Supporting content outside the main programme modules — warm-ups, cool-downs, core workouts, and recovery.`}
               />
             </CardHeader>
             <CardContent className="space-y-3">
@@ -607,8 +607,8 @@ function AudienceDetailPageInner() {
                     className="group flex items-center justify-between rounded-xl border border-border bg-background p-3 transition hover:border-primary/40 hover:bg-primary/5"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Mobility</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Open and edit mobility content.</p>
+                      <p className="text-sm font-semibold text-foreground">Core Workout</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Open and edit core workout content.</p>
                     </div>
                     <span className="text-xs font-medium text-primary transition group-hover:translate-x-0.5">Open</span>
                   </Link>

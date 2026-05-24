@@ -90,7 +90,7 @@ export type AudienceSummary = {
 export const OTHER_TYPES = [
   { value: "warmup", label: "Warm-Up" },
   { value: "cooldown", label: "Cool-Down" },
-  { value: "mobility", label: "Mobility" },
+  { value: "mobility", label: "Core Workout" },
   { value: "recovery", label: "Recovery" },
   { value: "inseason", label: "In-Season Program" },
   { value: "offseason", label: "Off-Season Program" },

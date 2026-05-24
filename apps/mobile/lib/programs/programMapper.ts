@@ -81,7 +81,7 @@ export function mapTeamWorkspace(response: TrainingContentV2Workspace): Training
       normalize(group?.label).toLowerCase() === "recovery",
   );
   if (hasRecoveryGroup && !uniq.includes("Recovery")) {
-    const mobilityIndex = uniq.indexOf("Mobility");
+    const mobilityIndex = uniq.indexOf("Core Workout");
     if (mobilityIndex >= 0) uniq.splice(mobilityIndex + 1, 0, "Recovery");
     else pushUniq("Recovery");
   }

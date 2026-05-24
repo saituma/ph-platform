@@ -57,7 +57,7 @@ const VIDEO_SECTION_TABS = [
   { value: "warmup", label: "Warmups" },
   { value: "cooldown", label: "Cool Downs" },
   { value: "stretching", label: "Stretching" },
-  { value: "mobility", label: "Mobility" },
+  { value: "mobility", label: "Core Workout" },
   { value: "recovery", label: "Recovery" },
   { value: "offseason", label: "Off Season" },
   { value: "inseason", label: "In Season" },
