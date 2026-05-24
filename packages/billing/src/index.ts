@@ -107,7 +107,7 @@ export const FEATURE_GROUPS: Array<{ group: string; keys: FeatureKey[] }> = [
   },
 ];
 
-const PHP_DEFAULTS: FeatureKey[] = ["coach_module", "messaging", "schedule", "mobile_app", "progress_tracking"];
+const PHP_DEFAULTS: FeatureKey[] = ["coach_module", "messaging", "schedule", "mobile_app", "progress_tracking", "referrals"];
 const PHP_PREMIUM_DEFAULTS: FeatureKey[] = [
   ...PHP_DEFAULTS,
   "parent_platform",
