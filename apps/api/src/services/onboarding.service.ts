@@ -484,6 +484,11 @@ export async function getOnboardingByUser(userId: number) {
         "[Onboarding] Failed birthday notification side effect for athlete onboarding status",
       );
     }
+    // Include the athlete's own record in allAthletes so the mobile app
+    // can read their age for age-based program content (youth athletes).
+    if (decorated) {
+      (decorated as any).allAthletes = [decorated];
+    }
     return decorated;
   }
 
