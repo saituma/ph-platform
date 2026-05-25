@@ -221,7 +221,7 @@ function BillingPage() {
 		: user?.programTier ?? status?.currentProgramTier ?? null;
 
 	const activePlans = useMemo(
-		() => dedupePlansByTier(plans.filter((plan) => plan.isActive !== false)),
+		() => dedupePlansByTier(plans.filter((plan) => plan.isActive !== false && plan.tier !== "PHP_Premium_Plus")),
 		[plans],
 	);
 

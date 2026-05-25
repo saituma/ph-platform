@@ -400,8 +400,8 @@ function OnboardingStep5() {
 				const activePlans = isAdultUser
 					? rawPlans.filter((p: any) => !PHP_TIERS.has(p.tier))
 					: (isYouthUser || isTeamUser)
-						? rawPlans.filter((p: any) => PHP_TIERS.has(p.tier))
-						: rawPlans;
+						? rawPlans.filter((p: any) => PHP_TIERS.has(p.tier) && p.tier !== "PHP_Premium_Plus")
+						: rawPlans.filter((p: any) => p.tier !== "PHP_Premium_Plus");
 
 				setPlans(activePlans);
 				if (activePlans.length > 0) {
