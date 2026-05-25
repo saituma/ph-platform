@@ -56,11 +56,11 @@ function YesNoToggle({
 				className={cn(
 					"flex items-center gap-1.5 px-4 py-2 border text-xs font-mono uppercase tracking-wider transition-all",
 					value === true
-						? "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+						? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
 						: "border-foreground/[0.06] text-foreground/40 hover:border-foreground/20",
 				)}
 			>
-				<XCircle size={13} weight="bold" />
+				<CheckCircle size={13} weight="bold" />
 				Yes
 			</button>
 			<button
@@ -69,11 +69,11 @@ function YesNoToggle({
 				className={cn(
 					"flex items-center gap-1.5 px-4 py-2 border text-xs font-mono uppercase tracking-wider transition-all",
 					value === false
-						? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+						? "border-foreground/40 bg-foreground/[0.06] text-foreground/60"
 						: "border-foreground/[0.06] text-foreground/40 hover:border-foreground/20",
 				)}
 			>
-				<CheckCircle size={13} weight="bold" />
+				<XCircle size={13} weight="bold" />
 				No
 			</button>
 		</div>
