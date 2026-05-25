@@ -20,6 +20,18 @@ import {
   type AthleteBillingCycle,
 } from "./stripe.service";
 
+/**
+ * Next billing anchor: 5th of the next month after `from` (matching Stripe billing_cycle_anchor).
+ * On or after the 5th → next month's 5th. Before the 5th → this month's 5th.
+ */
+function nextMonthlyAnchor(from: Date): Date {
+  const year = from.getUTCFullYear();
+  const month = from.getUTCMonth();
+  const anchor = new Date(Date.UTC(year, month, 5));
+  if (anchor <= from) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+  return anchor;
+}
+
 /** Access window end for athlete checkout by billing choice (approval / period start). */
 export function computeAthleteAccessEnd(billingCycle: AthleteBillingCycle, from: Date): Date {
   const d = new Date(from.getTime());
@@ -28,8 +40,7 @@ export function computeAthleteAccessEnd(billingCycle: AthleteBillingCycle, from:
     return d;
   }
   if (billingCycle === "monthly") {
-    d.setMonth(d.getMonth() + 1);
-    return d;
+    return nextMonthlyAnchor(from);
   }
   if (billingCycle === "six_months") {
     d.setMonth(d.getMonth() + 6);
@@ -49,8 +60,7 @@ export function computePlanPeriodEnd(billingInterval: string | null | undefined,
     return d;
   }
   if (bi === "monthly") {
-    d.setMonth(d.getMonth() + 1);
-    return d;
+    return nextMonthlyAnchor(from);
   }
   if (bi === "yearly" || bi === "annual") {
     d.setFullYear(d.getFullYear() + 1);
