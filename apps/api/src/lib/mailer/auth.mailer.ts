@@ -100,6 +100,7 @@ export async function sendPromoCodeEmail(input: { to: string; code: string; disc
   const subject = `Your ${input.discountPercent}% PH Performance discount code`;
   const code = escapeHtml(input.code);
   const expiry = input.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const signUpUrl = "https://phperformance.uk/signup";
   const bodyHtml = `
 ${textP("As a valued PH Performance member, we have a special launch discount just for you.")}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
@@ -111,6 +112,13 @@ ${textP("As a valued PH Performance member, we have a special launch discount ju
   </tr>
 </table>
 ${textP(`Enter this code at checkout when you select your plan. This is a one-time code — it can only be used once and <strong>expires on ${expiry}</strong>.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="padding:8px 0;">
+      <a href="${signUpUrl}" style="display:inline-block;background-color:${E.accent};color:#ffffff;font-family:${E.font};font-size:14px;font-weight:700;letter-spacing:0.04em;text-decoration:none;padding:14px 32px;border-radius:8px;">Sign up &amp; use your code</a>
+    </td>
+  </tr>
+</table>
 ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">If you have any questions, reply to this email or contact PH Performance support.</span>`, "0")}`;
   const html = emailLayout({
     preheader: `Your exclusive ${input.discountPercent}% discount code — expires ${expiry}`,
