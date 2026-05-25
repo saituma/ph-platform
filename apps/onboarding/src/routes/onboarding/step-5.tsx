@@ -133,13 +133,10 @@ const TIER_METADATA: Record<
 		features: [
 			"Full app access",
 			"Full programs library",
-			"Messaging features",
-			"Schedule & calendar",
+			"Messaging & scheduling",
 			"Nutrition logging",
-			"Parent platform",
 			"Video upload for coach response",
-			"Run tracking & sharing",
-			"Physio referrals",
+			"Run tracking & physio referrals",
 		],
 	},
 	PHP_Premium_Plus: {
