@@ -214,6 +214,16 @@ export async function createCheckout(req: Request, res: Response) {
     const param = typeof error?.param === "string" ? error.param : null;
     const message = typeof error?.message === "string" ? error.message : "Failed to create checkout session";
 
+    logger.error(
+      { err: { message, statusCode, code, param, type: error?.type, raw: error?.raw?.message } },
+      "[billing] createCheckout error",
+    );
+
+    // Duplicate subscription: surface as 409 so the client can handle it properly.
+    if (statusCode === 409 || code === "subscription_already_exists") {
+      return res.status(409).json({ error: message });
+    }
+
     // Stripe returns 404 resource_missing when a referenced Price id doesn't exist in the current account/mode.
     if (statusCode === 404 && (code === "resource_missing" || code === "invalid_request_error") && param === "price") {
       return res.status(400).json({
