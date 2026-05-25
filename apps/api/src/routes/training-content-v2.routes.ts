@@ -5,6 +5,7 @@ import { requireRole } from "../middlewares/roles";
 import {
   copyTrainingModulesFromAudienceHandler,
   copySelectedModulesToAudienceHandler,
+  copySelectedOtherItemsToAudienceHandler,
   cleanupTrainingPlaceholderModulesHandler,
   createTrainingAudienceHandler,
   createTrainingModuleHandler,
@@ -56,6 +57,12 @@ router.post(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   copySelectedModulesToAudienceHandler,
+);
+router.post(
+  "/training-content-v2/admin/copy-others",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  copySelectedOtherItemsToAudienceHandler,
 );
 router.get(
   "/training-content-v2/admin",

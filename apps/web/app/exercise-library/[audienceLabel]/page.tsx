@@ -121,6 +121,16 @@ function AudienceDetailPageInner() {
   const [isCopying, setIsCopying] = useState(false);
   const [copyLoadingSource, setCopyLoadingSource] = useState(false);
 
+  const [copyOthersModalOpen, setCopyOthersModalOpen] = useState(false);
+  const [copyOthersStep, setCopyOthersStep] = useState<"plan" | "items">("plan");
+  const [copyOthersSourcePlans, setCopyOthersSourcePlans] = useState<AudienceSummary[]>([]);
+  const [copyOthersSelectedPlan, setCopyOthersSelectedPlan] = useState<string | null>(null);
+  const [copyOthersSourceWorkspace, setCopyOthersSourceWorkspace] = useState<AudienceWorkspace | null>(null);
+  const [copyOthersAllItems, setCopyOthersAllItems] = useState(true);
+  const [copyOthersSelectedItems, setCopyOthersSelectedItems] = useState<Set<number>>(new Set());
+  const [copyOthersLoadingSource, setCopyOthersLoadingSource] = useState(false);
+  const [isCopyingOthers, setIsCopyingOthers] = useState(false);
+
   const loadWorkspace = async () => {
     try {
       setError(null);
@@ -317,6 +327,63 @@ function AudienceDetailPageInner() {
       setError(err instanceof Error ? err.message : "Failed to copy modules.");
     } finally {
       setIsCopying(false);
+    }
+  };
+
+  const openCopyOthersModal = async () => {
+    setCopyOthersStep("plan");
+    setCopyOthersSelectedPlan(null);
+    setCopyOthersSourceWorkspace(null);
+    setCopyOthersSelectedItems(new Set());
+    setCopyOthersAllItems(true);
+    setCopyOthersModalOpen(true);
+    try {
+      const response = await trainingContentRequest<{ items: AudienceSummary[] } | AudienceSummary[]>("/admin/audiences");
+      const plans = Array.isArray(response) ? response : response.items ?? [];
+      const compatible = plans.filter((p) => {
+        if (p.label === storageAudienceLabel) return false;
+        if (p.label.startsWith("adult::")) return false;
+        if (storageAudienceLabel.startsWith("team::")) return p.label.startsWith("team::");
+        return !p.label.startsWith("adult::") && !p.label.startsWith("team::");
+      });
+      setCopyOthersSourcePlans(compatible);
+    } catch {
+      setCopyOthersSourcePlans([]);
+    }
+  };
+
+  const loadCopyOthersSourceWorkspace = async (label: string) => {
+    setCopyOthersLoadingSource(true);
+    try {
+      const data = await trainingContentRequest<AudienceWorkspace>(`/admin?audienceLabel=${encodeURIComponent(label)}`);
+      setCopyOthersSourceWorkspace(data);
+    } catch {
+      setCopyOthersSourceWorkspace(null);
+    } finally {
+      setCopyOthersLoadingSource(false);
+    }
+  };
+
+  const executeCopyOthers = async () => {
+    if (!copyOthersSelectedPlan) return;
+    setIsCopyingOthers(true);
+    try {
+      setError(null);
+      const result = await trainingContentRequest<AudienceWorkspace>("/admin/copy-others", {
+        method: "POST",
+        body: JSON.stringify({
+          sourceAudienceLabel: copyOthersSelectedPlan,
+          targetAudienceLabel: storageAudienceLabel,
+          itemIds: copyOthersAllItems ? null : Array.from(copyOthersSelectedItems),
+        }),
+      });
+      setWorkspace(result);
+      setCopyOthersModalOpen(false);
+      setNotice("Supplementary content copied successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to copy supplementary content.");
+    } finally {
+      setIsCopyingOthers(false);
     }
   };
 
@@ -562,10 +629,17 @@ function AudienceDetailPageInner() {
         ) : (
           <Card>
             <CardHeader>
-              <SectionHeader
-                title="Supplementary Content"
-                description={`Supporting content outside the main programme modules — warm-ups, cool-downs, core workouts, and recovery.`}
-              />
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <SectionHeader
+                  title="Supplementary Content"
+                  description={`Supporting content outside the main programme modules — warm-ups, cool-downs, core workouts, and recovery.`}
+                />
+                {!storageAudienceLabel.startsWith("adult::") && (
+                  <Button variant="outline" size="sm" onClick={() => void openCopyOthersModal()}>
+                    Copy from plan
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="rounded-2xl border border-border/70 bg-muted/20 p-4">
@@ -907,6 +981,122 @@ function AudienceDetailPageInner() {
                   onClick={() => void executeCopy()}
                 >
                   {isCopying ? "Copying..." : "Copy"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={copyOthersModalOpen} onOpenChange={setCopyOthersModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {copyOthersStep === "plan" ? "Copy supplementary content from another plan" : "Select items to copy"}
+            </DialogTitle>
+            <DialogDescription>
+              {copyOthersStep === "plan" ? "Choose the source plan to copy from." : "Copy all items or pick specific ones."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {copyOthersStep === "plan" && (
+            <div className="space-y-3">
+              {copyOthersSourcePlans.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No other compatible plans found.</p>
+              ) : (
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {copyOthersSourcePlans.map((plan) => (
+                    <button
+                      key={plan.label}
+                      type="button"
+                      className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                        copyOthersSelectedPlan === plan.label
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                      onClick={() => setCopyOthersSelectedPlan(plan.label)}
+                    >
+                      <p className="text-sm font-semibold text-foreground">{formatPlanLabel(plan.label)}</p>
+                      <p className="text-xs text-muted-foreground">{plan.otherCount} supplementary item{plan.otherCount !== 1 ? "s" : ""}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyOthersModalOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={!copyOthersSelectedPlan}
+                  onClick={async () => {
+                    if (!copyOthersSelectedPlan) return;
+                    await loadCopyOthersSourceWorkspace(copyOthersSelectedPlan);
+                    setCopyOthersStep("items");
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {copyOthersStep === "items" && (
+            <div className="space-y-3">
+              {copyOthersLoadingSource ? (
+                <p className="text-sm text-muted-foreground">Loading items...</p>
+              ) : (() => {
+                const allItems = copyOthersSourceWorkspace?.others.flatMap((g) => g.items.map((i) => ({ ...i, groupLabel: g.label }))) ?? [];
+                if (allItems.length === 0) {
+                  return <p className="text-sm text-muted-foreground">This source plan has no supplementary items.</p>;
+                }
+                return (
+                  <>
+                    <label className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={copyOthersAllItems}
+                        onChange={(e) => {
+                          setCopyOthersAllItems(e.target.checked);
+                          if (e.target.checked) setCopyOthersSelectedItems(new Set());
+                        }}
+                      />
+                      <span className="text-sm font-medium text-foreground">All items ({allItems.length})</span>
+                    </label>
+                    {!copyOthersAllItems && (
+                      <div className="max-h-60 space-y-4 overflow-y-auto">
+                        {copyOthersSourceWorkspace?.others.filter((g) => g.items.length > 0).map((group) => (
+                          <div key={group.type}>
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
+                            <div className="space-y-2">
+                              {group.items.map((item) => (
+                                <label key={item.id} className="flex items-center gap-3 rounded-xl border border-border px-4 py-2.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={copyOthersSelectedItems.has(item.id)}
+                                    onChange={(e) => {
+                                      setCopyOthersSelectedItems((prev) => {
+                                        const next = new Set(prev);
+                                        if (e.target.checked) next.add(item.id);
+                                        else next.delete(item.id);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                  <span className="text-sm text-foreground">{item.title}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setCopyOthersStep("plan")}>Back</Button>
+                <Button
+                  disabled={isCopyingOthers || (!copyOthersAllItems && copyOthersSelectedItems.size === 0)}
+                  onClick={() => void executeCopyOthers()}
+                >
+                  {isCopyingOthers ? "Copying..." : "Copy"}
                 </Button>
               </div>
             </div>

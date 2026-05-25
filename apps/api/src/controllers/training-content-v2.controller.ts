@@ -28,6 +28,7 @@ import {
   cleanupTrainingPlaceholderModules,
   copyTrainingModulesFromAudience,
   copySelectedModulesToAudience,
+  copySelectedOtherItemsToAudience,
   deleteTrainingModule,
   deleteTrainingModuleSession,
   deleteTrainingOtherContent,
@@ -89,6 +90,12 @@ const copySelectedModulesSchema = z.object({
   targetAudienceLabel: z.string().min(1).max(64),
   moduleIds: z.array(z.number().int()),
   sessionIds: z.array(z.number().int()).nullable().optional(),
+});
+
+const copySelectedOthersSchema = z.object({
+  sourceAudienceLabel: z.string().min(1).max(64),
+  targetAudienceLabel: z.string().min(1).max(64),
+  itemIds: z.array(z.number().int()).nullable().optional(),
 });
 
 const updateModuleSchema = z.object({
@@ -229,6 +236,23 @@ export async function copySelectedModulesToAudienceHandler(req: Request, res: Re
   } catch (err) {
     const message = err instanceof Error ? err.message : "Copy failed.";
     logger.error({ err }, "[copy-selected] failed");
+    return res.status(400).json({ error: message });
+  }
+}
+
+export async function copySelectedOtherItemsToAudienceHandler(req: Request, res: Response) {
+  const input = copySelectedOthersSchema.parse(req.body);
+  try {
+    const workspace = await copySelectedOtherItemsToAudience({
+      sourceAudienceLabel: input.sourceAudienceLabel,
+      targetAudienceLabel: input.targetAudienceLabel,
+      itemIds: input.itemIds ?? null,
+      createdBy: req.user!.id,
+    });
+    return res.status(200).json(workspace);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Copy failed.";
+    logger.error({ err }, "[copy-others] failed");
     return res.status(400).json({ error: message });
   }
 }

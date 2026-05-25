@@ -1,10 +1,13 @@
-import { eq } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { db } from "../../db";
 import {
   athleteTrainingSessionCompletionTable,
   trainingModuleSessionTable,
   trainingModuleTierLockTable,
   trainingModuleTable,
+  trainingOtherContentTable,
+  trainingOtherSettingTable,
+  trainingOtherType,
   trainingSessionTierLockTable,
   trainingSessionBlockType,
   trainingSessionItemTable,
@@ -205,6 +208,95 @@ export async function copySelectedModulesToAudience(input: {
             createdBy: input.createdBy,
           });
         }
+      }
+    }
+
+    return listTrainingContentAdminWorkspace(targetAudienceLabel);
+  });
+}
+
+export async function copySelectedOtherItemsToAudience(input: {
+  sourceAudienceLabel: string;
+  targetAudienceLabel: string;
+  itemIds: number[] | null;
+  createdBy: number;
+}) {
+  const sourceAudienceLabel = normalizeAudienceLabel(input.sourceAudienceLabel);
+  const targetAudienceLabel = normalizeAudienceLabel(input.targetAudienceLabel);
+
+  if (sourceAudienceLabel === targetAudienceLabel) {
+    throw new Error("Choose a different source to copy from.");
+  }
+  if (sourceAudienceLabel.startsWith("adult::") || targetAudienceLabel.startsWith("adult::")) {
+    throw new Error("Supplementary content copy is only available for youth audiences.");
+  }
+
+  const sourceWorkspace = await listTrainingContentAdminWorkspace(sourceAudienceLabel);
+  await ensureTrainingAudienceExists(targetAudienceLabel, input.createdBy);
+
+  const allSourceItems = sourceWorkspace.others.flatMap((group) =>
+    group.items.map((item) => ({
+      ...item,
+      groupType: group.type as (typeof trainingOtherType.enumValues)[number],
+      groupEnabled: group.enabled,
+    })),
+  );
+  const selectedItems =
+    input.itemIds == null ? allSourceItems : allSourceItems.filter((item) => input.itemIds!.includes(item.id));
+
+  if (!selectedItems.length) {
+    throw new Error("No matching supplementary items found in source.");
+  }
+
+  return db.transaction(async (tx) => {
+    const maxOrderRows = await tx
+      .select({ type: trainingOtherContentTable.type, maxOrder: max(trainingOtherContentTable.order) })
+      .from(trainingOtherContentTable)
+      .where(eq(trainingOtherContentTable.audienceLabel, targetAudienceLabel))
+      .groupBy(trainingOtherContentTable.type);
+    const maxOrderByType = new Map<string, number>(maxOrderRows.map((r) => [r.type, r.maxOrder ?? 0]));
+
+    const nextOrderByType = new Map<string, number>();
+    const getNextOrder = (type: string) => {
+      const base = maxOrderByType.get(type) ?? 0;
+      const next = (nextOrderByType.get(type) ?? base) + 1;
+      nextOrderByType.set(type, next);
+      return next;
+    };
+
+    const sorted = [...selectedItems].sort((a, b) => {
+      if (a.groupType !== b.groupType) return a.groupType.localeCompare(b.groupType);
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+
+    for (const item of sorted) {
+      await tx.insert(trainingOtherContentTable).values({
+        age: 0,
+        audienceLabel: targetAudienceLabel,
+        type: item.groupType,
+        title: item.title,
+        body: item.body ?? "",
+        scheduleNote: item.scheduleNote ?? null,
+        videoUrl: item.videoUrl ?? null,
+        posterUrl: item.posterUrl ?? null,
+        durationSec: item.durationSec ?? null,
+        width: item.width ?? null,
+        height: item.height ?? null,
+        metadata: (item.metadata as Record<string, unknown>) ?? null,
+        order: getNextOrder(item.groupType),
+        createdBy: input.createdBy,
+      });
+
+      if (item.groupEnabled) {
+        await tx
+          .insert(trainingOtherSettingTable)
+          .values({
+            audienceLabel: targetAudienceLabel,
+            type: item.groupType,
+            enabled: true,
+            createdBy: input.createdBy,
+          })
+          .onConflictDoNothing();
       }
     }
 
