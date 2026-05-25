@@ -314,6 +314,12 @@ export async function ensureAthleteCheckoutPriceId(
   },
   billingCycle: AthleteBillingCycle,
 ): Promise<string> {
+  // six_months: DB stripePriceIdOneTime takes priority over the tier lookup key,
+  // because the lookup key can be stale/wrong (e.g. set to the wrong amount in Stripe).
+  if (billingCycle === "six_months") {
+    const raw = (plan.stripePriceIdOneTime ?? "").trim();
+    if (raw) return ensureStripePriceIdOrLookupKeyId(raw);
+  }
   // Tier-based lookup key is only available on plans that have a tier set.
   if (plan.tier) {
     const fromLookup = await resolvePriceIdByTierLookup(plan.tier, billingCycle);
@@ -330,10 +336,6 @@ export async function ensureAthleteCheckoutPriceId(
   if (billingCycle === "yearly") {
     const raw = ensureStripePriceId(plan, "yearly");
     return ensureStripePriceIdOrLookupKeyId(raw);
-  }
-  if (billingCycle === "six_months") {
-    const raw = (plan.stripePriceIdOneTime ?? "").trim();
-    if (raw) return ensureStripePriceIdOrLookupKeyId(raw);
   }
   const tierStr = plan.tier ?? "custom";
   const lk = plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : `${tierStr}_${billingCycle}`;
