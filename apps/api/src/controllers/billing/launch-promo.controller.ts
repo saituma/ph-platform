@@ -12,7 +12,6 @@ const createCampaignSchema = z.object({
   name: z.string().min(1).max(255),
   discountPercent: z.number().int().min(1).max(100),
   emails: z.array(z.string().email()).min(1).max(500),
-  expiresAt: z.string().datetime().optional(),
 });
 
 export async function createLaunchPromoCampaignAdmin(req: Request, res: Response) {
@@ -22,15 +21,10 @@ export async function createLaunchPromoCampaignAdmin(req: Request, res: Response
     return;
   }
 
-  const { name, discountPercent, emails, expiresAt } = parsed.data;
+  const { name, discountPercent, emails } = parsed.data;
 
   try {
-    const result = await createLaunchPromoCampaign({
-      name,
-      discountPercent,
-      emails,
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-    });
+    const result = await createLaunchPromoCampaign({ name, discountPercent, emails });
     res.json({ campaign: result.campaign, codesGenerated: result.codes.length });
   } catch (err) {
     logger.error({ err }, "Failed to create launch promo campaign");

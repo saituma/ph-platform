@@ -2,6 +2,11 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "../../db";
 import { launchPromoCampaignTable, launchPromoCodeTable } from "../../db/schema";
 import { getStripeClient } from "./stripe.service";
+import { nextBillingAnchor } from "./request.service";
+
+function nextBillingAnchorDate(): Date {
+  return new Date(nextBillingAnchor() * 1000);
+}
 
 function makeCode(email: string): string {
   const prefix = "PHL";
@@ -14,15 +19,16 @@ export async function createLaunchPromoCampaign(input: {
   name: string;
   discountPercent: number;
   emails: string[];
-  expiresAt?: Date;
 }) {
   const stripe = getStripeClient();
+  const expiresAt = nextBillingAnchorDate();
+  const expiresAtUnix = Math.floor(expiresAt.getTime() / 1000);
 
   const coupon = await stripe.coupons.create({
     percent_off: input.discountPercent,
     duration: "once",
     name: input.name,
-    ...(input.expiresAt ? { redeem_by: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+    redeem_by: expiresAtUnix,
   });
 
   const [campaign] = await db
@@ -31,7 +37,7 @@ export async function createLaunchPromoCampaign(input: {
       name: input.name,
       stripeCouponId: coupon.id,
       discountPercent: input.discountPercent,
-      expiresAt: input.expiresAt ?? null,
+      expiresAt,
     })
     .returning();
 
@@ -46,7 +52,7 @@ export async function createLaunchPromoCampaign(input: {
       coupon: coupon.id,
       code,
       max_redemptions: 1,
-      ...(input.expiresAt ? { expires_at: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+      expires_at: expiresAtUnix,
     });
     codeRows.push({ campaignId: campaign.id, email: email.toLowerCase().trim(), stripePromoCodeId: promoCode.id, code });
   }
@@ -94,14 +100,16 @@ export async function deleteLaunchPromoCampaign(campaignId: number) {
   await db.delete(launchPromoCampaignTable).where(eq(launchPromoCampaignTable.id, campaignId));
 }
 
-export async function createStandalonePromoCode(input: { email: string; discountPercent: number; expiresAt?: Date }) {
+export async function createStandalonePromoCode(input: { email: string; discountPercent: number }) {
   const stripe = getStripeClient();
+  const expiresAt = nextBillingAnchorDate();
+  const expiresAtUnix = Math.floor(expiresAt.getTime() / 1000);
 
   const coupon = await stripe.coupons.create({
     percent_off: input.discountPercent,
     duration: "once",
     name: `Admin discount for ${input.email}`,
-    ...(input.expiresAt ? { redeem_by: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+    redeem_by: expiresAtUnix,
   });
 
   const code = makeCode(input.email);
@@ -109,10 +117,10 @@ export async function createStandalonePromoCode(input: { email: string; discount
     coupon: coupon.id,
     code,
     max_redemptions: 1,
-    ...(input.expiresAt ? { expires_at: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+    expires_at: expiresAtUnix,
   });
 
-  return { code, discountPercent: input.discountPercent };
+  return { code, discountPercent: input.discountPercent, expiresAt };
 }
 
 export async function markPromoCodeRedeemed(stripePromoCodeId: string) {

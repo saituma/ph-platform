@@ -60,7 +60,14 @@ export function LaunchPromoManager() {
   const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [form, setForm] = useState({ name: "", discountPercent: "20", emails: "", expiresAt: "" });
+  const [form, setForm] = useState({ name: "", discountPercent: "20", emails: "" });
+
+  const nextBillingDate = (() => {
+    const now = new Date();
+    const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+    if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+    return anchor.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  })();
   const [formError, setFormError] = useState<string | null>(null);
 
   const loadCampaigns = useCallback(async () => {
@@ -121,14 +128,13 @@ export function LaunchPromoManager() {
           name: form.name.trim(),
           discountPercent: percent,
           emails,
-          ...(form.expiresAt ? { expiresAt: new Date(form.expiresAt).toISOString() } : {}),
         }),
       });
       const data = await res.json();
       if (!res.ok) { setFormError(data.error ?? "Failed to create campaign"); return; }
 
       setShowCreateDialog(false);
-      setForm({ name: "", discountPercent: "20", emails: "", expiresAt: "" });
+      setForm({ name: "", discountPercent: "20", emails: "" });
       await loadCampaigns();
     } catch {
       setFormError("Network error — please try again");
@@ -348,15 +354,8 @@ export function LaunchPromoManager() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="expires-at">Expiry date (optional)</Label>
-              <Input
-                id="expires-at"
-                type="date"
-                value={form.expiresAt}
-                onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">Codes expire and can no longer be redeemed after this date.</p>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-300">
+              Codes automatically expire on <strong>{nextBillingDate}</strong> — the next billing date. Any unused codes after that date will be void.
             </div>
 
             <div className="space-y-1.5">
