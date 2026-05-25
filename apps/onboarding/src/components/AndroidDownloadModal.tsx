@@ -176,9 +176,17 @@ export function AndroidDownloadModal({ onClose, apkUrl }: Props) {
                             <p className="text-white/40 text-sm leading-relaxed mb-2">
                                 Your email has been added to our Play Store closed testing group.
                             </p>
-                            <p className="text-white/25 text-xs leading-relaxed">
-                                Check your Google Play app for a testing invite, or visit the Play Store and search for <span className="text-white/40">PH Performance</span>.
+                            <p className="text-white/25 text-xs leading-relaxed mb-4">
+                                Closed testing apps don't appear in search. Use the link below to join and install:
                             </p>
+                            <a
+                                href="https://play.google.com/apps/testing/com.phperformance.uk"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block w-full text-center bg-white/5 border border-white/10 hover:border-[#8aff00]/40 rounded-lg px-4 py-2.5 text-[#8aff00] text-xs font-bold tracking-wide transition"
+                            >
+                                Open Play Store Testing Page →
+                            </a>
                             <button
                                 type="button"
                                 onClick={onClose}
