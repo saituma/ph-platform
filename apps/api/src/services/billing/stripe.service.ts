@@ -309,6 +309,7 @@ export async function ensureAthleteCheckoutPriceId(
     stripePriceIdMonthly?: string | null;
     stripePriceIdYearly?: string | null;
     stripePriceIdWeekly?: string | null;
+    stripePriceIdOneTime?: string | null;
     tier?: (typeof ProgramType.enumValues)[number] | null;
   },
   billingCycle: AthleteBillingCycle,
@@ -329,6 +330,10 @@ export async function ensureAthleteCheckoutPriceId(
   if (billingCycle === "yearly") {
     const raw = ensureStripePriceId(plan, "yearly");
     return ensureStripePriceIdOrLookupKeyId(raw);
+  }
+  if (billingCycle === "six_months") {
+    const raw = (plan.stripePriceIdOneTime ?? "").trim();
+    if (raw) return ensureStripePriceIdOrLookupKeyId(raw);
   }
   const tierStr = plan.tier ?? "custom";
   const lk = plan.tier ? lookupKeyForAthleteBilling(plan.tier, billingCycle) : `${tierStr}_${billingCycle}`;

@@ -164,6 +164,7 @@ export async function quoteAthleteBillingCycleAmount(
           stripePriceId: plan.stripePriceId,
           stripePriceIdMonthly: plan.stripePriceIdMonthly,
           stripePriceIdYearly: plan.stripePriceIdYearly,
+          stripePriceIdOneTime: (plan as any).stripePriceIdOneTime ?? null,
         },
         billingCycle,
       );
@@ -541,6 +542,7 @@ export async function enrichPlansWithBillingQuotes(
             stripePriceIdMonthly: plan.stripePriceIdMonthly,
             stripePriceIdYearly: plan.stripePriceIdYearly,
             stripePriceIdWeekly: plan.stripePriceIdWeekly,
+            stripePriceIdOneTime: plan.stripePriceIdOneTime,
             tier: plan.tier,
           },
           billingCycle,
