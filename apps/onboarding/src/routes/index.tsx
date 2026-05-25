@@ -535,7 +535,7 @@ function LandingPage() {
                                             src="/google-play.svg"
                                             alt="Get it on Google Play"
                                             loading="lazy"
-                                            className="h-[90px]"
+                                            className="h-[48px]"
                                         />
                                     </button>
                                 </div>
