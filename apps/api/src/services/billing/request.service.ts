@@ -290,41 +290,12 @@ export async function createCheckoutSession(input: {
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,
     ...(mode === "subscription"
-      ? (() => {
-          const anchorTs = nextBillingAnchor();
-          const anchorDate = new Date(anchorTs * 1000);
-          const fullCents = resolvedPrice.unit_amount ?? 0;
-          const currency = resolvedPrice.currency ?? "gbp";
-          const proratedCents =
-            billingCycle === "monthly" && fullCents > 0
-              ? computeProratedCents(fullCents, new Date(), anchorDate)
-              : 0;
-          if (billingCycle === "monthly" && proratedCents > 0 && proratedCents < fullCents) {
-            return {
-              subscription_data: {
-                trial_end: anchorTs,
-                add_invoice_items: [
-                  {
-                    price_data: {
-                      currency,
-                      product_data: {
-                        name: `${plan.name} (${formatShortDate(new Date())} – ${formatShortDate(anchorDate)})`,
-                      },
-                      unit_amount: proratedCents,
-                    },
-                    quantity: 1,
-                  },
-                ],
-              },
-            };
-          }
-          return {
-            subscription_data: {
-              billing_cycle_anchor: anchorTs,
-              proration_behavior: "none" as const,
-            },
-          };
-        })()
+      ? {
+          subscription_data: {
+            billing_cycle_anchor: nextBillingAnchor(),
+            proration_behavior: "create_prorations" as const,
+          },
+        }
       : {}),
     metadata: {
       planId: String(plan.id),
