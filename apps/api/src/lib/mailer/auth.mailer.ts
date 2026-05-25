@@ -100,7 +100,7 @@ export async function sendPromoCodeEmail(input: { to: string; code: string; disc
   const subject = `Your ${input.discountPercent}% PH Performance discount code`;
   const code = escapeHtml(input.code);
   const expiry = input.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const signUpUrl = "https://phperformance.uk/signup";
+  const signUpUrl = "https://phperformance.uk/register";
   const bodyHtml = `
 ${textP("As a valued PH Performance member, we have a special launch discount just for you.")}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
