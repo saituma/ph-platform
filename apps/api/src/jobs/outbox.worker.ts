@@ -15,16 +15,25 @@ let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let _listenClient: PoolClient | null = null;
 let _draining = false;
+let _consecutiveDbErrors = 0;
 
 const POLL_MS = 10_000;
 const CLEANUP_MS = 60 * 60 * 1000;
 const BATCH_SIZE = 25;
+// Max backoff ~5 min when DB is consistently failing (quota exceeded, connectivity, etc.)
+const MAX_BACKOFF_MS = 5 * 60 * 1000;
+
+function isDbError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes("compute time quota") || msg.includes("connection") || msg.includes("ECONNREFUSED");
+}
 
 async function drainOnce(): Promise<void> {
   if (_draining) return;
   _draining = true;
   try {
     const batch = await claimPendingBatch(BATCH_SIZE);
+    _consecutiveDbErrors = 0;
     for (const row of batch) {
       try {
         if (row.channel === "push") {
@@ -41,6 +50,27 @@ async function drainOnce(): Promise<void> {
           logger.error({ err: e, outboxId: row.id }, "outbox.mark_failed_error"),
         );
       }
+    }
+  } catch (err) {
+    if (isDbError(err)) {
+      _consecutiveDbErrors++;
+      const backoffMs = Math.min(POLL_MS * Math.pow(2, _consecutiveDbErrors - 1), MAX_BACKOFF_MS);
+      logger.error({ err, consecutiveDbErrors: _consecutiveDbErrors, backoffMs }, "outbox.db_error — backing off");
+      // Reschedule poll after backoff instead of fixed interval
+      if (_pollInterval) {
+        clearInterval(_pollInterval);
+        _pollInterval = null;
+        setTimeout(() => {
+          if (_pollInterval === null) {
+            _pollInterval = setInterval(() => {
+              drainOnce().catch((e) => logger.error({ err: e }, "outbox.drain_error"));
+            }, POLL_MS);
+            drainOnce().catch((e) => logger.error({ err: e }, "outbox.drain_error"));
+          }
+        }, backoffMs);
+      }
+    } else {
+      logger.error({ err }, "outbox.drain_error");
     }
   } finally {
     _draining = false;

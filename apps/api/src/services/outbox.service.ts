@@ -1,4 +1,4 @@
-import { and, eq, lt, lte, sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { pool } from "../db";
 import { notificationOutboxTable } from "../db/schema";
@@ -46,26 +46,27 @@ export async function createEmailIntent(payload: EmailPayload): Promise<number> 
 
 export async function claimPendingBatch(limit = 25) {
   const now = new Date();
+  // Use a subquery with LIMIT + FOR UPDATE SKIP LOCKED so we only touch `limit` rows,
+  // not all pending rows (which caused expensive full-table updates before).
   const rows = await db
     .update(notificationOutboxTable)
     .set({ status: "processing", updatedAt: now })
-    .where(and(eq(notificationOutboxTable.status, "pending"), lte(notificationOutboxTable.nextRunAt, now)))
+    .where(
+      sql`${notificationOutboxTable.id} IN (
+        SELECT id FROM ${notificationOutboxTable}
+        WHERE ${notificationOutboxTable.status} = 'pending'
+          AND ${notificationOutboxTable.nextRunAt} <= ${now}
+        ORDER BY ${notificationOutboxTable.nextRunAt} ASC
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+      )`,
+    )
     .returning();
 
-  const claimed = rows.slice(0, limit);
-
-  if (claimed.length > 0 && rows.length > limit) {
-    const unclaimed = rows.slice(limit).map((r) => r.id);
-    await db
-      .update(notificationOutboxTable)
-      .set({ status: "pending", updatedAt: now })
-      .where(sql`${notificationOutboxTable.id} = ANY(${unclaimed})`);
+  if (rows.length > 0) {
+    logger.info({ count: rows.length }, "outbox.claimed");
   }
-
-  if (claimed.length > 0) {
-    logger.info({ count: claimed.length }, "outbox.claimed");
-  }
-  return claimed;
+  return rows;
 }
 
 export async function markSent(id: number): Promise<void> {
