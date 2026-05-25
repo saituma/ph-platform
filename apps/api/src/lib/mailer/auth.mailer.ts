@@ -96,6 +96,31 @@ ${textP(`<span style="color:${E.muted};font-size:13px;line-height:1.6;">If you d
   await createEmailIntent({ to: input.to, subject, html });
 }
 
+export async function sendPromoCodeEmail(input: { to: string; code: string; discountPercent: number; expiresAt: Date }) {
+  const subject = `Your ${input.discountPercent}% PH Performance discount code`;
+  const code = escapeHtml(input.code);
+  const expiry = input.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const bodyHtml = `
+${textP("As a valued PH Performance member, we have a special launch discount just for you.")}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="background-color:#f4f4f5;border-radius:12px;border:1px solid ${E.rule};padding:28px 24px;">
+      <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${E.muted};font-family:${E.font};">Your ${input.discountPercent}% discount code</p>
+      <p style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.15em;color:${E.accent};font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.3;">${code}</p>
+    </td>
+  </tr>
+</table>
+${textP(`Enter this code at checkout when you select your plan. This is a one-time code — it can only be used once and <strong>expires on ${expiry}</strong>.`)}
+${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">If you have any questions, reply to this email or contact PH Performance support.</span>`, "0")}`;
+  const html = emailLayout({
+    preheader: `Your exclusive ${input.discountPercent}% discount code — expires ${expiry}`,
+    eyebrow: "Exclusive Offer",
+    headline: `${input.discountPercent}% off your plan`,
+    bodyHtml,
+  });
+  await createEmailIntent({ to: input.to, subject, html });
+}
+
 /** Password reset email triggered by an admin (temporary password; user changes it in the app). */
 export async function sendAdminPasswordResetEmail(input: {
   to: string;

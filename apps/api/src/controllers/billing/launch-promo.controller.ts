@@ -2,10 +2,12 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 import {
   createLaunchPromoCampaign,
+  createStandalonePromoCode,
   deleteLaunchPromoCampaign,
   getLaunchPromoCampaignCodes,
   listLaunchPromoCampaigns,
 } from "../../services/billing/launch-promo.service";
+import { sendPromoCodeEmail } from "../../lib/mailer";
 import { logger } from "../../lib/logger";
 
 const createCampaignSchema = z.object({
@@ -55,6 +57,30 @@ export async function getLaunchPromoCodesAdmin(req: Request, res: Response) {
   } catch (err) {
     logger.error({ err }, "Failed to get launch promo codes");
     res.status(500).json({ error: "Failed to get codes" });
+  }
+}
+
+export async function sendPromoCodeToEmailAdmin(req: Request, res: Response) {
+  const parsed = z.object({
+    email: z.string().email(),
+    discountPercent: z.number().int().min(1).max(100),
+  }).safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+    return;
+  }
+  try {
+    const promo = await createStandalonePromoCode(parsed.data);
+    await sendPromoCodeEmail({
+      to: parsed.data.email,
+      code: promo.code,
+      discountPercent: promo.discountPercent,
+      expiresAt: promo.expiresAt,
+    });
+    res.json({ ok: true, code: promo.code, expiresAt: promo.expiresAt });
+  } catch (err) {
+    logger.error({ err }, "Failed to send promo code email");
+    res.status(500).json({ error: "Failed to send promo code" });
   }
 }
 

@@ -42,6 +42,7 @@ import {
   listLaunchPromoCampaignsAdmin,
   getLaunchPromoCodesAdmin,
   deleteLaunchPromoCampaignAdmin,
+  sendPromoCodeToEmailAdmin,
 } from "../controllers/billing";
 
 const router = Router();
@@ -188,6 +189,12 @@ router.delete(
   requireAuth,
   requireRole(["admin", "superAdmin"]),
   deleteLaunchPromoCampaignAdmin,
+);
+router.post(
+  "/admin/launch-promo/send",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  sendPromoCodeToEmailAdmin,
 );
 
 export default router;
