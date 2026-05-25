@@ -20,7 +20,7 @@ import { cn } from "#/lib/utils";
 import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
-import { DatePicker } from "#/components/ui/date-picker";
+import { BirthDatePicker } from "#/components/ui/birth-date-picker";
 import { format, differenceInYears } from "date-fns";
 import { useMutation } from "@tanstack/react-query";
 
@@ -375,16 +375,11 @@ function OnboardingStep2() {
 											<CalendarIcon size={18} className="text-foreground/40" />
 											Athlete's Birth Date
 										</label>
-										<DatePicker
-											date={birthDate}
-											setDate={setBirthDate}
-											placeholder="Select athlete's birth date"
-											minDate={minAthleteDate}
-											maxDate={maxAthleteDate}
-											disabled={[
-												{ before: minAthleteDate },
-												{ after: maxAthleteDate }
-											]}
+										<BirthDatePicker
+											value={birthDate}
+											onChange={setBirthDate}
+											minYear={minAthleteDate.getFullYear()}
+											maxYear={maxAthleteDate.getFullYear()}
 										/>
 										{!ageError && (
 											<p className="text-[10px] font-mono uppercase tracking-tight text-foreground/40 mt-1">
@@ -561,13 +556,11 @@ function OnboardingStep2() {
 											<CalendarIcon size={18} className="text-foreground/40" />
 											Your Birth Date
 										</label>
-										<DatePicker
-											date={birthDate}
-											setDate={setBirthDate}
-											placeholder="Select your birth date"
-											fromYear={1940}
-											toYear={now.getFullYear() - 16}
-											maxDate={new Date(now.getFullYear() - 16, now.getMonth(), now.getDate())}
+										<BirthDatePicker
+											value={birthDate}
+											onChange={setBirthDate}
+											minYear={1940}
+											maxYear={now.getFullYear() - 16}
 										/>
 									</div>
 								</>

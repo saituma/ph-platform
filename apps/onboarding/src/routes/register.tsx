@@ -3,8 +3,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { SignUpPage, type Testimonial } from "#/components/ui/sign-up";
+import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
+import { env } from "#/env";
 import { trackEvent } from "#/lib/analytics";
 
 export const Route = createFileRoute("/register")({
@@ -55,7 +57,12 @@ const testimonials: Testimonial[] = [
 
 function Register() {
 	const [isLoading, setIsLoading] = useState(false);
+	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+	const [turnstileReady, setTurnstileReady] = useState(false);
+	const [turnstileFailed, setTurnstileFailed] = useState(false);
+	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
+	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
 	// Capture mobile origin flag — present when opened via openAuthSessionAsync from the iOS/Android app.
 	// Stored in sessionStorage so it survives the multi-step /verification → /onboarding/* flow.
@@ -77,6 +84,11 @@ function Register() {
 		}
 	});
 
+	const isLocalDev =
+		typeof window !== "undefined" &&
+		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
+
 	const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (isLoading) return;
@@ -90,6 +102,20 @@ function Register() {
 			return;
 		}
 
+		if (shouldEnforceTurnstile && turnstileFailed) {
+			toast.error("Security check blocked", {
+				description:
+					"An ad blocker or browser extension is preventing the security verification. Please disable it for this page and reload.",
+				duration: 6000,
+			});
+			return;
+		}
+
+		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
+			toast.error("Please complete the verification challenge");
+			return;
+		}
+
 		setIsLoading(true);
 		trackEvent("sign_up_start", { email });
 		try {
@@ -98,12 +124,14 @@ function Register() {
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email }),
+					body: JSON.stringify({ email, turnstileToken }),
 				},
 			);
 			const data = await response.json();
 
 			if (!response.ok) {
+				setTurnstileToken(null);
+				setTurnstileResetKey((k: number) => k + 1);
 				if (response.status === 409) {
 					toast.error("Account already exists", {
 						description:
@@ -148,7 +176,38 @@ function Register() {
 				testimonials={testimonials}
 				onSignUp={handleSignUp}
 				onSignIn={handleSignIn}
-			/>
+			>
+				{shouldEnforceTurnstile && (
+					<div className="animate-element animate-delay-400">
+						{turnstileFailed ? (
+							<div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+								<p className="font-medium">Security check blocked</p>
+								<p className="mt-0.5 text-amber-700 dark:text-amber-400">
+									An ad blocker or browser extension is preventing the security
+									verification. Please disable it for this page and reload to continue.
+								</p>
+							</div>
+						) : (
+							<Turnstile
+								siteKey={turnstileSiteKey ?? ""}
+								action="register"
+								resetKey={turnstileResetKey}
+								onVerify={(token) => {
+									setTurnstileToken(token);
+									setTurnstileFailed(false);
+								}}
+								onReady={() => setTurnstileReady(true)}
+								onExpire={() => setTurnstileToken(null)}
+								onError={() => {
+									setTurnstileToken(null);
+									setTurnstileFailed(true);
+								}}
+								className="flex justify-center"
+							/>
+						)}
+					</div>
+				)}
+			</SignUpPage>
 		</div>
 	);
 }

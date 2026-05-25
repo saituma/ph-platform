@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
 	Check,
 	CircleNotch,
@@ -52,19 +52,7 @@ function proratedAmount(fullMonthlyPrice: number): number {
 	const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
 	return Math.round((fullMonthlyPrice * daysRemaining) / daysInMonth * 100) / 100;
 }
-type ProgramFilter = "standard" | "weekly";
 
-function isWeeklyPlan(plan: any): boolean {
-	const name = String(plan?.name ?? "").toLowerCase();
-	const tier = String(plan?.tier ?? "").toLowerCase();
-	const interval = String(plan?.billingInterval ?? "").toLowerCase();
-	const durationWeeks = Number(plan?.durationWeeks ?? 0);
-
-	if (name.includes("weekly") || tier.includes("weekly") || interval.includes("week")) return true;
-	// Any explicit duration-in-weeks program belongs in the Weekly bucket.
-	if (Number.isFinite(durationWeeks) && durationWeeks > 0) return true;
-	return false;
-}
 
 function paymentConfigScopeKey(maxAthletes: number | null | undefined) {
 	const athletes = Number.isFinite(Number(maxAthletes)) ? Number(maxAthletes) : 0;
@@ -345,7 +333,6 @@ function OnboardingStep5() {
 	const navigate = useNavigate();
 	const [plans, setPlans] = useState<any[]>([]);
 	const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
-	const [programFilter, setProgramFilter] = useState<ProgramFilter>("standard");
 	const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -360,13 +347,7 @@ function OnboardingStep5() {
 		coachPaysSeats: number;
 		playerPayersCount: number;
 	} | null>(null);
-	const filteredPlans = useMemo(
-		() =>
-			plans.filter((plan: any) =>
-				programFilter === "weekly" ? isWeeklyPlan(plan) : !isWeeklyPlan(plan),
-			),
-		[plans, programFilter],
-	);
+	const filteredPlans = plans;
 
 	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
 	const isAdult = typeof window !== "undefined" && localStorage.getItem("user_type") === "adult";
@@ -437,12 +418,6 @@ function OnboardingStep5() {
 			navigate({ to: "/onboarding/step-1" });
 		}
 	}, [navigate]);
-
-	useEffect(() => {
-		if (programFilter === "weekly" && billingCycle !== "six_months") {
-			setBillingCycle("six_months");
-		}
-	}, [programFilter, billingCycle]);
 
 	useEffect(() => {
 		if (!filteredPlans.length) return;
@@ -812,44 +787,11 @@ function OnboardingStep5() {
 					</p>
 				</div>
 
-				<div className="max-w-3xl mx-auto space-y-3">
-					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-						Program Filter
+				{filteredPlans.length === 0 ? (
+					<p className="text-center text-xs text-muted-foreground">
+						No plans available for this billing cycle.
 					</p>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-						<button
-							type="button"
-							onClick={() => setProgramFilter("standard")}
-							className={cn(
-								"border p-3 text-left transition-all",
-								programFilter === "standard"
-									? "border-foreground bg-foreground/[0.04]"
-									: "border-foreground/[0.06] hover:border-foreground/20",
-							)}
-						>
-							<p className="font-mono text-xs uppercase tracking-wider">Standard</p>
-							<p className="text-[11px] text-muted-foreground mt-1">All non-weekly programs</p>
-						</button>
-						<button
-							type="button"
-							onClick={() => setProgramFilter("weekly")}
-							className={cn(
-								"border p-3 text-left transition-all",
-								programFilter === "weekly"
-									? "border-foreground bg-foreground/[0.04]"
-									: "border-foreground/[0.06] hover:border-foreground/20",
-							)}
-						>
-							<p className="font-mono text-xs uppercase tracking-wider">Weekly</p>
-							<p className="text-[11px] text-muted-foreground mt-1">Only weekly programs</p>
-						</button>
-					</div>
-					{filteredPlans.length === 0 ? (
-						<p className="text-center text-xs text-muted-foreground">
-							No {programFilter === "weekly" ? "weekly" : "standard"} plans for this billing cycle.
-						</p>
-					) : null}
-				</div>
+				) : null}
 
 				{isTeam && (
 					<Card className="max-w-3xl mx-auto border border-foreground/[0.06] p-6">
@@ -894,54 +836,52 @@ function OnboardingStep5() {
 					</Card>
 				)}
 
-				{programFilter !== "weekly" ? (
-					<div className="max-w-3xl mx-auto space-y-3">
-						<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-							Billing
-						</p>
-						<div
-							role="radiogroup"
-							aria-label="Billing cycle"
-							className="grid grid-cols-1 sm:grid-cols-3 gap-3"
-						>
-							{BILLING_OPTIONS.map((opt) => {
-								const active = billingCycle === opt.id;
-								const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
-								const savings =
-									opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
-								return (
-									<button
-										key={opt.id}
-										type="button"
-										role="radio"
-										aria-checked={active}
-										disabled={!supported}
-										onClick={() => setBillingCycle(opt.id)}
-										className={cn(
-											"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-											active
-												? "border-foreground bg-foreground/[0.04]"
-												: "border-foreground/[0.06] hover:border-foreground/20",
-											!supported && "cursor-not-allowed opacity-40",
+				<div className="max-w-3xl mx-auto space-y-3">
+					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+						Billing
+					</p>
+					<div
+						role="radiogroup"
+						aria-label="Billing cycle"
+						className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+					>
+						{BILLING_OPTIONS.map((opt) => {
+							const active = billingCycle === opt.id;
+							const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
+							const savings =
+								opt.id === "yearly" ? "Save up to 20%" : opt.id === "six_months" ? "Save up to 10%" : null;
+							return (
+								<button
+									key={opt.id}
+									type="button"
+									role="radio"
+									aria-checked={active}
+									disabled={!supported}
+									onClick={() => setBillingCycle(opt.id)}
+									className={cn(
+										"relative border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+										active
+											? "border-foreground bg-foreground/[0.04]"
+											: "border-foreground/[0.06] hover:border-foreground/20",
+										!supported && "cursor-not-allowed opacity-40",
+									)}
+								>
+									<div className="flex items-center justify-between">
+										<p className="font-mono text-xs uppercase tracking-wider">{opt.title}</p>
+										{savings && (
+											<Badge variant="default" className="font-mono text-[9px] uppercase tracking-wider">
+												{savings}
+											</Badge>
 										)}
-									>
-										<div className="flex items-center justify-between">
-											<p className="font-mono text-xs uppercase tracking-wider">{opt.title}</p>
-											{savings && (
-												<Badge variant="default" className="font-mono text-[9px] uppercase tracking-wider">
-													{savings}
-												</Badge>
-											)}
-										</div>
-										<p className="text-[11px] text-muted-foreground mt-1">
-											{opt.description}
-										</p>
-									</button>
-								);
-							})}
-						</div>
+									</div>
+									<p className="text-[11px] text-muted-foreground mt-1">
+										{opt.description}
+									</p>
+								</button>
+							);
+						})}
 					</div>
-				) : null}
+				</div>
 
 				<div
 					role="radiogroup"
