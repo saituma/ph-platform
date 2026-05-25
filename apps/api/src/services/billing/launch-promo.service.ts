@@ -108,7 +108,7 @@ export async function createStandalonePromoCode(input: { email: string; discount
   const coupon = await stripe.coupons.create({
     percent_off: input.discountPercent,
     duration: "once",
-    name: `Admin discount for ${input.email}`,
+    name: `Discount ${input.discountPercent}% - ${input.email.split("@")[0]?.slice(0, 20) ?? "user"}`,
     redeem_by: expiresAtUnix,
   });
 
