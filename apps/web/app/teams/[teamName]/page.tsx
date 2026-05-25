@@ -304,6 +304,8 @@ export default function TeamDetailPage() {
   const [isApproving, setIsApproving] = useState(false);
   const [isSponsoring, setIsSponsoring] = useState(false);
   const [accessTierOverride, setAccessTierOverride] = useState<string>("");
+  const [bulkTier, setBulkTier] = useState<string>("");
+  const [isOverridingTier, setIsOverridingTier] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
   // Quick Add state (uses team's plan automatically)
@@ -1003,6 +1005,63 @@ export default function TeamDetailPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <SectionHeader title="Team Access Tier" description="Override the access tier for all athletes on this team." />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              This will immediately update every athlete on this team to the selected tier, regardless of their plan.
+            </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[180px] space-y-1">
+                <p className="text-xs text-muted-foreground">Current team tier: <span className="font-semibold text-foreground">{details?.planTier ? (TIER_LABELS[details.planTier] ?? details.planTier) : "Not set"}</span></p>
+                <select
+                  value={bulkTier}
+                  onChange={(e) => setBulkTier(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select new tier...</option>
+                  <option value="PHP">PHP (Starter)</option>
+                  <option value="PHP_Premium">PHP Premium</option>
+                  <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                  <option value="PHP_Pro">PHP Pro</option>
+                </select>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!bulkTier || isOverridingTier || !details?.teamId}
+                onClick={async () => {
+                  if (!bulkTier || !details?.teamId) return;
+                  if (!window.confirm(`Set all ${details.summary.memberCount} athletes on this team to ${TIER_LABELS[bulkTier] ?? bulkTier}?`)) return;
+                  setIsOverridingTier(true);
+                  try {
+                    const csrfToken = getCsrfToken();
+                    const res = await fetch(`/api/backend/admin/teams/${details.teamId}/override-tier`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+                      credentials: "include",
+                      body: JSON.stringify({ accessTier: bulkTier }),
+                    });
+                    const payload = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(payload?.error ?? "Failed to override tier.");
+                    setPageNotice(`Done — ${payload.updated} athlete${payload.updated === 1 ? "" : "s"} updated to ${TIER_LABELS[bulkTier] ?? bulkTier}.`);
+                    setBulkTier("");
+                    await loadDetails();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to override tier.");
+                  } finally {
+                    setIsOverridingTier(false);
+                  }
+                }}
+              >
+                {isOverridingTier ? "Applying..." : "Apply to all athletes"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

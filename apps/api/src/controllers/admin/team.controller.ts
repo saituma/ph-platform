@@ -13,9 +13,9 @@ import {
   updateTeamMemberAdmin,
   attachAthleteToTeamAdmin,
 } from "../../services/admin/team.service";
-import { ProgramType, teamTable } from "../../db/schema";
+import { ProgramType, teamTable, athleteTable, guardianTable } from "../../db/schema";
 import { db } from "../../db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 const teamDefaultsSchema = z.object({
   teamName: z.string().min(1),
@@ -283,6 +283,53 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
       typeof error?.message === "string" ? error.message : "Failed to approve and sponsor remaining players.";
     if (status >= 500) logger.error({ err: error }, "[admin] approveTeamSponsorRestAdminDetails");
     return res.status(status).json({ error: message });
+  }
+}
+
+export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const parsed = z.object({
+    accessTier: z.enum(ProgramType.enumValues),
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid tier" });
+
+  try {
+    const [teamRow] = await db
+      .select({ adminId: teamTable.adminId })
+      .from(teamTable)
+      .where(eq(teamTable.id, teamId))
+      .limit(1);
+    if (!teamRow) return res.status(404).json({ error: "Team not found." });
+    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const athletes = await db
+      .select({ id: athleteTable.id, guardianId: athleteTable.guardianId })
+      .from(athleteTable)
+      .where(eq(athleteTable.teamId, teamId));
+
+    if (athletes.length === 0) return res.status(200).json({ ok: true, updated: 0 });
+
+    await db
+      .update(athleteTable)
+      .set({ currentProgramTier: parsed.data.accessTier, updatedAt: new Date() })
+      .where(eq(athleteTable.teamId, teamId));
+
+    const guardianIds = athletes.map((a) => a.guardianId).filter((id): id is number => id != null);
+    if (guardianIds.length > 0) {
+      await db
+        .update(guardianTable)
+        .set({ currentProgramTier: parsed.data.accessTier, updatedAt: new Date() })
+        .where(inArray(guardianTable.id, guardianIds));
+    }
+
+    logger.info({ teamId, accessTier: parsed.data.accessTier, count: athletes.length }, "[admin] team access tier overridden");
+    return res.status(200).json({ ok: true, updated: athletes.length });
+  } catch (error: any) {
+    const status = typeof error?.status === "number" ? error.status : 500;
+    if (status >= 500) logger.error({ err: error }, "[admin] overrideTeamAccessTierAdmin");
+    return res.status(status).json({ error: error?.message ?? "Failed to override tier." });
   }
 }
 

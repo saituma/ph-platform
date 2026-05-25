@@ -45,6 +45,7 @@ router.post("/admin/teams/provision", AdminUserController.provisionTeamWithPlan)
 router.post("/admin/teams/defaults", AdminTeamController.saveTeamDefaultsAdmin);
 router.post("/admin/teams/:teamId/approve", AdminTeamController.approveTeamAdminDetails);
 router.post("/admin/teams/:teamId/approve-sponsor-rest", AdminTeamController.approveTeamSponsorRestAdminDetails);
+router.post("/admin/teams/:teamId/override-tier", AdminTeamController.overrideTeamAccessTierAdmin);
 router.delete("/admin/teams/:teamId", AdminTeamController.deleteTeamAdminDetails);
 
 // Dashboard & Settings
