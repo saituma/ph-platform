@@ -3,10 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { SignUpPage, type Testimonial } from "#/components/ui/sign-up";
-import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
-import { env } from "#/env";
 import { trackEvent } from "#/lib/analytics";
 
 export const Route = createFileRoute("/register")({
@@ -57,12 +55,7 @@ const testimonials: Testimonial[] = [
 
 function Register() {
 	const [isLoading, setIsLoading] = useState(false);
-	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-	const [turnstileReady, setTurnstileReady] = useState(false);
-	const [turnstileFailed, setTurnstileFailed] = useState(false);
-	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
-	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
 
 	// Capture mobile origin flag — present when opened via openAuthSessionAsync from the iOS/Android app.
 	// Stored in sessionStorage so it survives the multi-step /verification → /onboarding/* flow.
@@ -83,10 +76,6 @@ function Register() {
 			localStorage.setItem("pending_referral", ref);
 		}
 	});
-	const isLocalDev =
-		typeof window !== "undefined" &&
-		(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -101,11 +90,6 @@ function Register() {
 			return;
 		}
 
-		if (shouldEnforceTurnstile && !turnstileFailed && turnstileReady && !turnstileToken) {
-			toast.error("Please complete the verification challenge");
-			return;
-		}
-
 		setIsLoading(true);
 		trackEvent("sign_up_start", { email });
 		try {
@@ -114,14 +98,12 @@ function Register() {
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ email, turnstileToken }),
+					body: JSON.stringify({ email }),
 				},
 			);
 			const data = await response.json();
 
 			if (!response.ok) {
-				setTurnstileToken(null);
-				setTurnstileResetKey((k) => k + 1);
 				if (response.status === 409) {
 					toast.error("Account already exists", {
 						description:
@@ -153,7 +135,7 @@ function Register() {
 		}
 	};
 
-const handleSignIn = () => {
+	const handleSignIn = () => {
 		navigate({ to: "/login" });
 	};
 
@@ -166,28 +148,7 @@ const handleSignIn = () => {
 				testimonials={testimonials}
 				onSignUp={handleSignUp}
 				onSignIn={handleSignIn}
-			>
-				{shouldEnforceTurnstile && (
-					<div className="animate-element animate-delay-400">
-							<Turnstile
-								siteKey={turnstileSiteKey ?? ""}
-							action="register"
-							resetKey={turnstileResetKey}
-							onVerify={(token) => {
-								setTurnstileToken(token);
-								setTurnstileFailed(false);
-							}}
-							onReady={() => setTurnstileReady(true)}
-							onExpire={() => setTurnstileToken(null)}
-							onError={() => {
-								setTurnstileToken(null);
-								setTurnstileFailed(true);
-							}}
-							className="flex justify-center"
-						/>
-					</div>
-				)}
-			</SignUpPage>
+			/>
 		</div>
 	);
 }

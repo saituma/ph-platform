@@ -20,18 +20,16 @@ import {
 } from "../controllers/auth.controller";
 import { requireAuth } from "../middlewares/auth";
 import { rateLimiters } from "../lib/rateLimiter";
-import { requireTurnstile } from "../lib/turnstile";
-
 const router = Router();
 const authLimiter = rateLimiters.auth;
 const deleteAccountLimiter = rateLimiters.deleteAccount;
 
-router.post("/auth/register", authLimiter, requireTurnstile, register);
-router.post("/auth/register/start", authLimiter, requireTurnstile, startRegistration);
+router.post("/auth/register", authLimiter, register);
+router.post("/auth/register/start", authLimiter, startRegistration);
 router.post("/auth/onboarding/role", authLimiter, requireAuth, updateRole);
 router.post("/auth/confirm", authLimiter, confirmRegistration);
 router.post("/auth/resend", authLimiter, resendConfirmation);
-router.post("/auth/login", authLimiter, requireTurnstile, login);
+router.post("/auth/login", authLimiter, login);
 router.post("/auth/refresh", authLimiter, refreshToken);
 router.post("/auth/forgot", authLimiter, startPasswordReset);
 router.post("/auth/forgot/confirm", authLimiter, confirmPasswordReset);

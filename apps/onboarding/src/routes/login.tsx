@@ -3,10 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { SignInPage, type Testimonial } from "#/components/ui/sign-in";
-import { Turnstile } from "#/components/Turnstile";
 import { config } from "#/lib/config";
 import { csrfFetch } from "#/lib/csrf";
-import { env } from "#/env";
 import { isTokenExpired } from "#/lib/token-expiry";
 import { setAuthToken } from "#/lib/client-storage";
 import { trackEvent } from "#/lib/analytics";
@@ -60,17 +58,7 @@ const testimonials: Testimonial[] = [
 
 function Login() {
 	const [isLoading, setIsLoading] = useState(false);
-	const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-	const [turnstileReady, setTurnstileReady] = useState(false);
-	const [turnstileFailed, setTurnstileFailed] = useState(false);
-	const [turnstileResetKey, setTurnstileResetKey] = useState(0);
 	const navigate = useNavigate();
-	const turnstileSiteKey = env.VITE_TURNSTILE_SITE_KEY;
-	const isLocalDev =
-		typeof window !== "undefined" &&
-		(window.location.hostname === "localhost" ||
-			window.location.hostname === "127.0.0.1");
-	const shouldEnforceTurnstile = Boolean(turnstileSiteKey) && !isLocalDev;
 
 	const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -88,23 +76,13 @@ function Login() {
 			return;
 		}
 
-		if (
-			shouldEnforceTurnstile &&
-			!turnstileFailed &&
-			turnstileReady &&
-			!turnstileToken
-		) {
-			toast.error("Please complete the verification challenge");
-			return;
-		}
-
 		setIsLoading(true);
 		const apiUrl = `${config.api.baseUrl}/api/auth/login`;
 		try {
 			const tokenResponse = await csrfFetch(apiUrl, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ email, password, turnstileToken }),
+				body: JSON.stringify({ email, password }),
 			});
 			const data = await tokenResponse.json().catch(() => ({}));
 			if (!tokenResponse.ok) {
@@ -124,8 +102,6 @@ function Login() {
 			localStorage.setItem("pending_email", email);
 			navigate({ to: "/portal/dashboard", replace: true });
 		} catch (error: any) {
-			setTurnstileToken(null);
-			setTurnstileResetKey((k) => k + 1);
 			trackEvent("login_failure", { email });
 			toast.error("Login failed", {
 				description: error.message || "Invalid email or password.",
@@ -154,26 +130,6 @@ function Login() {
 				description="Sign in to access your PH Performance dashboard, training programs, and coaching tools."
 				heroImageSrc="/landing/piers.png"
 				testimonials={testimonials}
-				verificationSlot={
-					shouldEnforceTurnstile ? (
-							<Turnstile
-								siteKey={turnstileSiteKey ?? ""}
-							action="login"
-							resetKey={turnstileResetKey}
-							onVerify={(token) => {
-								setTurnstileToken(token);
-								setTurnstileFailed(false);
-							}}
-							onReady={() => setTurnstileReady(true)}
-							onExpire={() => setTurnstileToken(null)}
-							onError={() => {
-								setTurnstileToken(null);
-								setTurnstileFailed(true);
-							}}
-							className="flex justify-center"
-						/>
-					) : null
-				}
 				onSignIn={handleSignIn}
 				onResetPassword={handleResetPassword}
 				onCreateAccount={handleCreateAccount}

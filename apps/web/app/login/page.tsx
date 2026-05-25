@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
@@ -10,10 +10,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardPanel, CardFooter } f
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { Spinner } from "../../components/ui/spinner";
-
-const TURNSTILE_SCRIPT_ID = "cf-turnstile-script";
-const TURNSTILE_SCRIPT_SRC =
-  "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 function readCookieValue(name: string): string {
   if (typeof document === "undefined") return "";
@@ -31,23 +27,6 @@ function readCookieValue(name: string): string {
   }
 }
 
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        container: HTMLElement,
-        options: {
-          sitekey: string;
-          callback?: (token: string) => void;
-          "expired-callback"?: () => void;
-          "error-callback"?: () => void;
-        },
-      ) => string;
-      remove: (widgetId: string) => void;
-    };
-  }
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -55,142 +34,23 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileReady, setTurnstileReady] = useState(false);
-  const [turnstileFailed, setTurnstileFailed] = useState(false);
-  const turnstileRef = useRef<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef<string | null>(null);
-  const turnstileSiteKey = (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "").trim();
-  const turnstileLogPrefix = "[turnstile]";
-
-  useEffect(() => {
-    if (!turnstileSiteKey) {
-      console.error(`${turnstileLogPrefix} missing NEXT_PUBLIC_TURNSTILE_SITE_KEY`);
-      return;
-    }
-    console.info(`${turnstileLogPrefix} init`, {
-      host: window.location.hostname,
-      origin: window.location.origin,
-      siteKeyPrefix: `${turnstileSiteKey.slice(0, 8)}...`,
-      siteKeySuffix: `...${turnstileSiteKey.slice(-6)}`,
-      siteKeyLength: turnstileSiteKey.length,
-    });
-    let cancelled = false;
-
-    const renderWidget = () => {
-      if (cancelled || !turnstileRef.current || !window.turnstile) return;
-      console.info(`${turnstileLogPrefix} rendering widget`);
-      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
-        sitekey: turnstileSiteKey,
-        callback: (token) => {
-          console.info(`${turnstileLogPrefix} callback success`, {
-            tokenLength: token.length,
-          });
-          setTurnstileToken(token);
-          setTurnstileFailed(false);
-          setTurnstileReady(true);
-        },
-        "expired-callback": () => {
-          console.warn(`${turnstileLogPrefix} token expired`);
-          setTurnstileToken(null);
-        },
-        "error-callback": () => {
-          console.error(`${turnstileLogPrefix} error-callback fired`);
-          setTurnstileFailed(true);
-          setTurnstileToken(null);
-          setTurnstileReady(true);
-        },
-      });
-      console.info(`${turnstileLogPrefix} widget rendered`, {
-        widgetId: widgetIdRef.current,
-      });
-      setTurnstileReady(true);
-    };
-
-    const existing = document.getElementById(TURNSTILE_SCRIPT_ID) as
-      | HTMLScriptElement
-      | null;
-    if (window.turnstile) {
-      console.info(`${turnstileLogPrefix} api already available`);
-      renderWidget();
-    } else if (existing) {
-      console.info(`${turnstileLogPrefix} waiting for existing script load`);
-      existing.addEventListener("load", renderWidget, { once: true });
-      existing.addEventListener(
-        "error",
-        () => {
-          console.error(`${turnstileLogPrefix} existing script failed to load`);
-          setTurnstileFailed(true);
-        },
-        { once: true },
-      );
-    } else {
-      console.info(`${turnstileLogPrefix} injecting api script`);
-      const script = document.createElement("script");
-      script.id = TURNSTILE_SCRIPT_ID;
-      script.src = TURNSTILE_SCRIPT_SRC;
-      script.async = true;
-      script.defer = true;
-      script.onload = renderWidget;
-      script.onerror = () => {
-        console.error(`${turnstileLogPrefix} script load error`, {
-          src: TURNSTILE_SCRIPT_SRC,
-        });
-        setTurnstileFailed(true);
-      };
-      document.head.appendChild(script);
-    }
-
-    return () => {
-      cancelled = true;
-      if (widgetIdRef.current && window.turnstile) {
-        try {
-          window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          console.warn(`${turnstileLogPrefix} failed to remove widget`, {
-            widgetId: widgetIdRef.current,
-          });
-        }
-      }
-    };
-  }, [turnstileSiteKey]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    if (turnstileSiteKey && !turnstileFailed && !turnstileToken) {
-      console.warn(`${turnstileLogPrefix} submit blocked: missing token`, {
-        ready: turnstileReady,
-        failed: turnstileFailed,
-      });
-      setError("Please complete the verification challenge.");
-      return;
-    }
     setLoading(true);
 
     try {
       const csrfToken = readCookieValue("csrfToken");
-      console.info(`${turnstileLogPrefix} csrf state`, {
-        hasCookie: !!csrfToken,
-        cookieLength: csrfToken?.length,
-        allCookieKeys: document.cookie
-          .split(";")
-          .map((c) => c.trim().split("=")[0])
-          .filter(Boolean),
-      });
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
-        body: JSON.stringify({ email, password, turnstileToken }),
+        body: JSON.stringify({ email, password }),
       });
       const resBody = await res.json().catch(() => ({}));
-      console.info(`${turnstileLogPrefix} login response`, {
-        status: res.status,
-        body: resBody,
-      });
 
       if (!res.ok) {
         throw new Error(resBody?.error ?? "Login failed");
@@ -276,27 +136,10 @@ export default function LoginPage() {
                 </Alert>
               ) : null}
 
-              {turnstileSiteKey ? (
-                <div className="space-y-2">
-                  <div ref={turnstileRef} />
-                  {!turnstileReady ? (
-                    <p className="text-xs text-muted-foreground">Loading verification challenge…</p>
-                  ) : null}
-                </div>
-              ) : (
-                <Alert variant="error">
-                  <AlertDescription>
-                    Missing `NEXT_PUBLIC_TURNSTILE_SITE_KEY` in web environment.
-                  </AlertDescription>
-                </Alert>
-              )}
-
               <Button
                 type="submit"
                 className="w-full"
-                disabled={
-                  loading || (Boolean(turnstileSiteKey) && !turnstileFailed && !turnstileToken)
-                }
+                disabled={loading}
               >
                 {loading ? (
                   <Spinner className="mr-2 h-4 w-4" />
