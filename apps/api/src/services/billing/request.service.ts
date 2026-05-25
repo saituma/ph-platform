@@ -24,7 +24,7 @@ import {
 } from "./stripe.service";
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
-import { computePlanPeriodEnd, computeAthleteAccessEnd } from "./plan.service";
+import { computePlanPeriodEnd, computeAthleteAccessEnd, computeProratedCents } from "./plan.service";
 import { createPushIntent } from "../outbox.service";
 import {
   notifySubscriptionEnteredPendingApproval,
@@ -40,6 +40,10 @@ export function nextBillingAnchor(): number {
     anchor.setUTCMonth(anchor.getUTCMonth() + 1);
   }
   return Math.floor(anchor.getTime() / 1000);
+}
+
+function formatShortDate(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
 function schedulePendingApprovalEmails(requestId: number, previousStatus: string, newStatus: string) {
@@ -286,12 +290,41 @@ export async function createCheckoutSession(input: {
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,
     ...(mode === "subscription"
-      ? {
-          subscription_data: {
-            billing_cycle_anchor: nextBillingAnchor(),
-            proration_behavior: "create_prorations",
-          },
-        }
+      ? (() => {
+          const anchorTs = nextBillingAnchor();
+          const anchorDate = new Date(anchorTs * 1000);
+          const fullCents = resolvedPrice.unit_amount ?? 0;
+          const currency = resolvedPrice.currency ?? "gbp";
+          const proratedCents =
+            billingCycle === "monthly" && fullCents > 0
+              ? computeProratedCents(fullCents, new Date(), anchorDate)
+              : 0;
+          if (billingCycle === "monthly" && proratedCents > 0 && proratedCents < fullCents) {
+            return {
+              subscription_data: {
+                trial_end: anchorTs,
+                add_invoice_items: [
+                  {
+                    price_data: {
+                      currency,
+                      product_data: {
+                        name: `${plan.name} (${formatShortDate(new Date())} – ${formatShortDate(anchorDate)})`,
+                      },
+                      unit_amount: proratedCents,
+                    },
+                    quantity: 1,
+                  },
+                ],
+              },
+            };
+          }
+          return {
+            subscription_data: {
+              billing_cycle_anchor: anchorTs,
+              proration_behavior: "none" as const,
+            },
+          };
+        })()
       : {}),
     metadata: {
       planId: String(plan.id),
@@ -375,13 +408,31 @@ export async function createPaymentSheetIntent(input: {
     clientSecret = paymentIntent.client_secret ?? null;
     paymentStatus = paymentIntent.status ?? null;
   } else {
+    const anchorTs = nextBillingAnchor();
+    const anchorDate = new Date(anchorTs * 1000);
+    const subPrice = await stripeClient.prices.retrieve(priceId);
+    const fullCents = subPrice.unit_amount ?? 0;
+    const currency = subPrice.currency ?? "gbp";
+    const proratedCents = fullCents > 0 ? computeProratedCents(fullCents, new Date(), anchorDate) : 0;
+    const useProration = proratedCents > 0 && proratedCents < fullCents;
+    if (useProration) {
+      // Create a pending invoice item for the prorated period; Stripe attaches it to the
+      // first invoice when the subscription is created with trial_end.
+      await stripeClient.invoiceItems.create({
+        customer: customer.id,
+        currency,
+        unit_amount: proratedCents,
+        description: `${plan.name} (${formatShortDate(new Date())} – ${formatShortDate(anchorDate)})`,
+      });
+    }
     const subscription = await stripeClient.subscriptions.create({
       customer: customer.id,
       items: [{ price: priceId }],
       payment_behavior: "default_incomplete",
       expand: ["latest_invoice.payment_intent"],
-      billing_cycle_anchor: nextBillingAnchor(),
-      proration_behavior: "create_prorations",
+      ...(useProration
+        ? { trial_end: anchorTs }
+        : { billing_cycle_anchor: anchorTs, proration_behavior: "none" as const }),
       metadata: {
         planId: String(plan.id),
         userId: String(input.userId),

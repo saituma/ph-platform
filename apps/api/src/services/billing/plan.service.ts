@@ -32,6 +32,21 @@ function nextMonthlyAnchor(from: Date): Date {
   return anchor;
 }
 
+/**
+ * Prorated cents for the partial first period (from `from` to the monthly anchor).
+ * Uses the same 5th-of-month anchor as nextMonthlyAnchor / nextBillingAnchor.
+ */
+export function computeProratedCents(fullMonthlyCents: number, from: Date, anchor: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const daysUntilAnchor = Math.ceil((anchor.getTime() - from.getTime()) / msPerDay);
+  if (daysUntilAnchor <= 0) return 0;
+  // Full period = previous 5th → this anchor 5th
+  const prevAnchor = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 5));
+  const daysInPeriod = Math.round((anchor.getTime() - prevAnchor.getTime()) / msPerDay);
+  if (daysInPeriod <= 0) return fullMonthlyCents;
+  return Math.min(Math.ceil((daysUntilAnchor / daysInPeriod) * fullMonthlyCents), fullMonthlyCents);
+}
+
 /** Access window end for athlete checkout by billing choice (approval / period start). */
 export function computeAthleteAccessEnd(billingCycle: AthleteBillingCycle, from: Date): Date {
   const d = new Date(from.getTime());
