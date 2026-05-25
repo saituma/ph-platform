@@ -191,7 +191,7 @@ function LandingPage() {
         <div className="relative min-h-dvh bg-[#0a0a0a] text-white overflow-x-hidden landing-page">
         <AnimatePresence>
             {waitlistOpen && <WaitlistModal onClose={() => setWaitlistOpen(false)} />}
-            {androidModalOpen && <AndroidDownloadModal onClose={() => setAndroidModalOpen(false)} />}
+            {androidModalOpen && <AndroidDownloadModal onClose={() => setAndroidModalOpen(false)} apkUrl="https://expo.dev/accounts/dawitwor/projects/mobile/builds/45c17eb6-9191-4ccf-b97b-5a5d0a89fac4" />}
         </AnimatePresence>
                 {/* ━━━ Hero Section ━━━ */}
                 <section className="relative pt-16 h-dvh overflow-hidden">
@@ -512,7 +512,9 @@ function LandingPage() {
                                 </div>
                                 <div className="flex items-center justify-center lg:justify-start gap-3">
                                     <a
-                                        href="#"
+                                        href="https://apps.apple.com/app/ph-performance/id6768563715"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="inline-block"
                                         aria-label="Download on the App Store"
                                     >
