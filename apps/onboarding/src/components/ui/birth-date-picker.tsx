@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { cn } from "#/lib/utils";
 
 const MONTHS = [
@@ -10,12 +10,6 @@ function daysInMonth(month: number, year: number) {
 	return new Date(year, month + 1, 0).getDate();
 }
 
-interface BirthDateParts {
-	day: number | null;
-	month: number | null; // 0-indexed
-	year: number | null;
-}
-
 interface BirthDatePickerProps {
 	value: Date | undefined;
 	onChange: (date: Date | undefined) => void;
@@ -25,7 +19,7 @@ interface BirthDatePickerProps {
 }
 
 const selectClass =
-	"flex-1 h-14 rounded-2xl border border-border/60 bg-background/50 px-4 text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all cursor-pointer disabled:opacity-40";
+	"w-full h-14 rounded-2xl border border-border/60 bg-background/50 px-4 text-sm font-medium text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all cursor-pointer disabled:opacity-40";
 
 export function BirthDatePicker({
 	value,
@@ -34,11 +28,18 @@ export function BirthDatePicker({
 	maxYear = new Date().getFullYear(),
 	className,
 }: BirthDatePickerProps) {
-	const parts: BirthDateParts = {
-		day: value ? value.getDate() : null,
-		month: value ? value.getMonth() : null,
-		year: value ? value.getFullYear() : null,
-	};
+	const [month, setMonth] = useState<number | "">(value ? value.getMonth() : "");
+	const [day, setDay] = useState<number | "">(value ? value.getDate() : "");
+	const [year, setYear] = useState<number | "">(value ? value.getFullYear() : "");
+
+	// Sync inward if value is cleared externally
+	useEffect(() => {
+		if (!value) {
+			setMonth("");
+			setDay("");
+			setYear("");
+		}
+	}, [value]);
 
 	const years = useMemo(() => {
 		const arr: number[] = [];
@@ -48,37 +49,40 @@ export function BirthDatePicker({
 
 	const days = useMemo(() => {
 		const count =
-			parts.month !== null && parts.year !== null
-				? daysInMonth(parts.month, parts.year)
+			month !== "" && year !== ""
+				? daysInMonth(month, year)
 				: 31;
 		const arr: number[] = [];
 		for (let d = 1; d <= count; d++) arr.push(d);
 		return arr;
-	}, [parts.month, parts.year]);
+	}, [month, year]);
 
-	function commit(next: BirthDateParts) {
-		if (next.day !== null && next.month !== null && next.year !== null) {
-			const maxDay = daysInMonth(next.month, next.year);
-			const safeDay = Math.min(next.day, maxDay);
-			onChange(new Date(next.year, next.month, safeDay));
+	function commit(m: number | "", d: number | "", y: number | "") {
+		if (m !== "" && d !== "" && y !== "") {
+			const maxDay = daysInMonth(m, y);
+			const safeDay = Math.min(d, maxDay);
+			onChange(new Date(y, m, safeDay));
 		} else {
 			onChange(undefined);
 		}
 	}
 
 	function handleMonth(e: React.ChangeEvent<HTMLSelectElement>) {
-		const month = e.target.value === "" ? null : Number(e.target.value);
-		commit({ ...parts, month });
+		const val = e.target.value === "" ? "" : Number(e.target.value);
+		setMonth(val);
+		commit(val, day, year);
 	}
 
 	function handleDay(e: React.ChangeEvent<HTMLSelectElement>) {
-		const day = e.target.value === "" ? null : Number(e.target.value);
-		commit({ ...parts, day });
+		const val = e.target.value === "" ? "" : Number(e.target.value);
+		setDay(val);
+		commit(month, val, year);
 	}
 
 	function handleYear(e: React.ChangeEvent<HTMLSelectElement>) {
-		const year = e.target.value === "" ? null : Number(e.target.value);
-		commit({ ...parts, year });
+		const val = e.target.value === "" ? "" : Number(e.target.value);
+		setYear(val);
+		commit(month, day, val);
 	}
 
 	return (
@@ -87,7 +91,7 @@ export function BirthDatePicker({
 			<div className="relative flex-[5]">
 				<select
 					className={selectClass}
-					value={parts.month ?? ""}
+					value={month}
 					onChange={handleMonth}
 					aria-label="Birth month"
 				>
@@ -103,7 +107,7 @@ export function BirthDatePicker({
 			<div className="relative flex-[3]">
 				<select
 					className={selectClass}
-					value={parts.day ?? ""}
+					value={day}
 					onChange={handleDay}
 					aria-label="Birth day"
 				>
@@ -119,7 +123,7 @@ export function BirthDatePicker({
 			<div className="relative flex-[4]">
 				<select
 					className={selectClass}
-					value={parts.year ?? ""}
+					value={year}
 					onChange={handleYear}
 					aria-label="Birth year"
 				>
