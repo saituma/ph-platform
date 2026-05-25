@@ -33,5 +33,7 @@ export const FEATURE_LABELS: Record<string, string> = {
 };
 
 export function featureKeyToLabel(key: string): string {
-  return FEATURE_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (FEATURE_LABELS[key]) return FEATURE_LABELS[key];
+  if (key.includes(" ")) return key;
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

@@ -34,10 +34,10 @@ export type AppCapabilities = {
 
 /** Mirrors mobile `canUseCoachMessaging` policy toggles. */
 function messagingAllowed(
-  _programTier: string | null,
+  programTier: string | null,
   _messagingAccessTiers: readonly string[],
   planFeatures: ReadonlySet<FeatureKey> | null | undefined,
-  _hasActivePlan: boolean,
+  hasActivePlan: boolean,
 ): boolean {
   // Plan-driven toggle: if a plan has explicit features, messaging is controlled
   // only by feature keys. This allows custom plans to turn messaging off.
@@ -46,7 +46,7 @@ function messagingAllowed(
   }
   // Default policy: messaging is available for everyone unless a custom plan
   // explicitly disables it via feature keys.
-  return true;
+  return hasActivePlan || Boolean(programTier);
 }
 
 export function buildAppCapabilities(input: {
@@ -105,7 +105,10 @@ export function buildAppCapabilities(input: {
   }
 
   const has = (key: FeatureKey) => planFeatures != null && planFeatures.has(key);
-  const hasPlanFeatures = false;
+  const hasPlanFeatures = planFeatures != null && planFeatures.size > 0;
+  const hasAssignedAccess = hasPlanFeatures || hasActivePlan || Boolean(programTier);
+  const hasNutrition = has("nutrition_logging") || has("food_diaries") || has("submit_diary");
+  const hasParentContent = has("parent_platform") || has("parent_education");
 
   const isAdult = role === "adult_athlete" || (role === "athlete" && athleteType === "adult");
   const isTeamAthlete = role === "team_athlete" || hasTeam;
@@ -113,18 +116,18 @@ export function buildAppCapabilities(input: {
   const canTrackProgress = isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled);
 
   return {
-    training: true,
-    schedule: true,
-    coachBooking: !isTeamAthlete,
+    training: hasAssignedAccess,
+    schedule: has("schedule"),
+    coachBooking: !isTeamAthlete && has("bookings"),
     messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures, hasActivePlan),
     groupChat: isTeamAthlete,
-    nutrition: true,
+    nutrition: hasNutrition,
     nutritionReview: false,
-    parentContent: isYouth,
-    progressTracking: canTrackProgress,
-    teamTracking: isTeamAthlete,
-    socialTracking: isAdult && !isTeamAthlete,
-    trainingQuestionnaire: isAdult || isTeamAthlete,
+    parentContent: isYouth && hasParentContent,
+    progressTracking: canTrackProgress && has("progress_tracking"),
+    teamTracking: isTeamAthlete && (has("run_tracking") || has("social_feed") || has("progress_tracking")),
+    socialTracking: isAdult && !isTeamAthlete && has("social_feed"),
+    trainingQuestionnaire: (isAdult || isTeamAthlete) && has("progress_tracking"),
     teamManagement: false,
     athleteManagement: false,
     planManagement: false,
@@ -133,11 +136,11 @@ export function buildAppCapabilities(input: {
     adminMobile: false,
     billingPortal: true,
     mobilePayments: false,
-    semiPrivateBooking: true,
-    coachVideoUpload: true,
-    physioReferrals: true,
-    runTracking: isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled),
-    achievements: true,
-    referralRewards: true,
+    semiPrivateBooking: has("semi_private"),
+    coachVideoUpload: has("video_upload"),
+    physioReferrals: has("physio_referrals"),
+    runTracking: (isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled)) && has("run_tracking"),
+    achievements: has("achievements"),
+    referralRewards: has("referrals"),
   };
 }

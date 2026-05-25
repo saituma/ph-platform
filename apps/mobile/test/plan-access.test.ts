@@ -28,14 +28,15 @@ describe("planAccess", () => {
 
   it("ranks tiers consistently", () => {
     expect(tierRank("PHP")).toBeLessThan(tierRank("PHP_Premium"));
-    expect(tierRank("PHP_Premium")).toBeLessThan(tierRank("PHP_Premium_Plus"));
-    expect(tierRank("PHP_Premium_Plus")).toBeLessThan(tierRank("PHP_Pro"));
+    expect(tierRank("PHP_Premium")).toBe(tierRank("PHP_Premium_Plus"));
+    expect(tierRank("PHP_Premium_Plus")).toBe(tierRank("PHP_Pro"));
     expect(tierRank(null)).toBe(-1);
   });
 
   it("checks access correctly", () => {
     expect(canAccessTier("PHP_Premium", "PHP")).toBe(true);
     expect(canAccessTier("PHP", "PHP_Premium")).toBe(false);
+    expect(canAccessTier("PHP_Premium", "PHP_Pro")).toBe(true);
     expect(canAccessTier("PHP_Premium_Plus", "PHP_Premium_Plus")).toBe(true);
     expect(canAccessTier("PHP", null)).toBe(true);
   });
@@ -49,7 +50,7 @@ describe("planAccess", () => {
     expect(hasAssignedProgramTier(null)).toBe(false);
     expect(hasAssignedProgramTier("PHP")).toBe(true);
     expect(hasPremiumPlanFeatures("PHP")).toBe(false);
-    expect(hasPremiumPlanFeatures("PHP_Premium")).toBe(false);
+    expect(hasPremiumPlanFeatures("PHP_Premium")).toBe(true);
     expect(hasPremiumPlanFeatures("PHP_Premium_Plus")).toBe(true);
     expect(hasPhpPlusPlanFeatures("PHP_Premium")).toBe(false);
     expect(hasPhpPlusPlanFeatures("PHP_Premium_Plus")).toBe(true);

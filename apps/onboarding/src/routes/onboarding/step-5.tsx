@@ -127,10 +127,11 @@ const TIER_METADATA: Record<
 > = {
 	PHP: {
 		cardTitle: "PHP Program",
-		tierLine: "Core athlete access",
+		tierLine: "Restricted app access",
 		icon: TrendUp,
 		order: 1,
 		features: [
+			"Restricted app access",
 			"Coach module access",
 			"Messaging features",
 			"Schedule & calendar",
@@ -138,48 +139,39 @@ const TIER_METADATA: Record<
 	},
 	PHP_Premium: {
 		cardTitle: "PHP Premium",
-		tierLine: "Program + family tools",
+		tierLine: "Full app access",
 		icon: Trophy,
 		order: 2,
 		features: [
-			"Coach module access",
+			"Full app access",
+			"Full programs library",
 			"Messaging features",
 			"Schedule & calendar",
 			"Nutrition logging",
 			"Parent platform",
+			"Video upload for coach response",
+			"Run tracking & sharing",
+			"Physio referrals",
 		],
 	},
 	PHP_Premium_Plus: {
-		cardTitle: "PHP Plus",
-		tierLine: "Groups & video feedback",
+		cardTitle: "PHP Premium Plus",
+		tierLine: "Premium access + semi-private sessions",
 		icon: Crown,
 		order: 3,
 		features: [
-			"Coach module access",
-			"Messaging features",
-			"Schedule & calendar",
-			"Nutrition logging",
-			"Parent platform",
+			"Same full app access as PHP Premium",
 			"Includes semi-private sessions (small group coaching)",
-			"Video upload for coach response",
 		],
 	},
 	PHP_Pro: {
 		cardTitle: "PHP Pro",
-		tierLine: "Full access to everything",
+		tierLine: "Premium access + 1:1 sessions",
 		icon: Star,
 		order: 4,
 		features: [
-			"Everything in PHP Plus — coach module, messaging, schedule",
-			"Nutrition logging & parent platform",
-			"Semi-private sessions (small group coaching)",
-			"Video upload for coach response",
-			"Full programs library & progress tracking",
-			"Bookings, physio referrals & parent education",
-			"Priority messaging & faster coach turnaround",
-			"Advanced periodization & competition windows",
-			"1:1 review blocks & bespoke progression",
-			"Highest-touch pathway — unlock all app areas",
+			"Same full app access as PHP Premium",
+			"Includes 1:1 in-person sessions",
 		],
 	},
 };
@@ -966,7 +958,7 @@ function OnboardingStep5() {
 				>
 					{filteredPlans.map((plan: any) => {
 						const isSelected = selectedPlan === plan.id;
-						const isPopular = plan.tier === "PHP_Premium_Plus";
+						const isPopular = plan.tier === "PHP_Premium";
 						const displayPrice =
 							billingCycle === "yearly"
 								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? "—")

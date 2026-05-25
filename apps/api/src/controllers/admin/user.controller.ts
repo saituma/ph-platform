@@ -256,6 +256,10 @@ export async function provisionTeamWithPlan(req: Request, res: Response) {
 export async function updateProgramTier(req: Request, res: Response) {
   const input = updateTierSchema.parse(req.body);
   const athlete = await updateAthleteProgramTier(input.athleteId, input.programTier);
+  if (athlete?.userId) {
+    void cache.del(cacheKeys.authUser(athlete.userId));
+    void cache.del(cacheKeys.userProfile(athlete.userId));
+  }
   return res.status(200).json({ athlete });
 }
 
@@ -270,6 +274,10 @@ export async function updateAthleteAdmin(req: Request, res: Response) {
   const athlete = await updateAthlete(athleteId, parsed);
   if (!athlete) {
     return res.status(404).json({ error: "Athlete not found" });
+  }
+  if (athlete.userId) {
+    void cache.del(cacheKeys.authUser(athlete.userId));
+    void cache.del(cacheKeys.userProfile(athlete.userId));
   }
   return res.status(200).json({ athlete });
 }

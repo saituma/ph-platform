@@ -74,7 +74,7 @@ function tierLabel(tier: string | null) {
 		{
 			PHP: "PHP Program",
 			PHP_Premium: "PHP Premium",
-			PHP_Premium_Plus: "PHP Plus",
+			PHP_Premium_Plus: "PHP Premium Plus",
 			PHP_Pro: "PHP Pro",
 		}[tier] ?? tier.replace(/_/g, " ")
 	);

@@ -1,4 +1,5 @@
 import { buildAppCapabilities } from "../../src/services/app-capabilities.service";
+import { featuresForTier, resolveEffectiveAccessFeatures } from "../../src/services/billing/feature-access.service";
 import type { ProgramTierValue } from "../../src/services/messaging-policy.service";
 
 describe("buildAppCapabilities", () => {
@@ -10,6 +11,7 @@ describe("buildAppCapabilities", () => {
       programTier: "PHP_Premium",
       messagingAccessTiers,
       athleteType: "adult",
+      planFeatures: featuresForTier("PHP_Premium"),
     });
 
     expect(adult.mobilePayments).toBe(false);
@@ -22,6 +24,7 @@ describe("buildAppCapabilities", () => {
       programTier: "PHP_Premium",
       messagingAccessTiers,
       athleteType: "adult",
+      planFeatures: featuresForTier("PHP_Premium"),
     });
 
     expect(adult.training).toBe(true);
@@ -38,6 +41,7 @@ describe("buildAppCapabilities", () => {
       programTier: "PHP_Premium",
       messagingAccessTiers,
       athleteType: "youth",
+      planFeatures: featuresForTier("PHP_Premium"),
     });
 
     expect(youth.parentContent).toBe(true);
@@ -52,11 +56,12 @@ describe("buildAppCapabilities", () => {
       messagingAccessTiers,
       athleteType: "youth",
       hasTeam: true,
+      planFeatures: featuresForTier("PHP"),
     });
 
     expect(teamAthlete.teamTracking).toBe(true);
     expect(teamAthlete.groupChat).toBe(true);
-    expect(teamAthlete.nutrition).toBe(true);
+    expect(teamAthlete.nutrition).toBe(false);
     expect(teamAthlete.mobilePayments).toBe(false);
   });
 
@@ -82,11 +87,74 @@ describe("buildAppCapabilities", () => {
       messagingAccessTiers,
       athleteType: "adult",
       hasActivePlan: true,
+      planFeatures: featuresForTier("PHP"),
     });
 
     expect(athleteWithPlanNoTier.schedule).toBe(true);
-    expect(athleteWithPlanNoTier.coachBooking).toBe(true);
+    expect(athleteWithPlanNoTier.coachBooking).toBe(false);
     expect(athleteWithPlanNoTier.messaging).toBe(true);
-    expect(athleteWithPlanNoTier.coachVideoUpload).toBe(true);
+    expect(athleteWithPlanNoTier.coachVideoUpload).toBe(false);
+  });
+
+  it("keeps PHP Program restricted from premium-only app areas", () => {
+    const program = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: "PHP",
+      messagingAccessTiers,
+      athleteType: "adult",
+      planFeatures: featuresForTier("PHP"),
+      hasActivePlan: true,
+    });
+
+    expect(program.training).toBe(true);
+    expect(program.schedule).toBe(true);
+    expect(program.coachBooking).toBe(false);
+    expect(program.nutrition).toBe(false);
+    expect(program.coachVideoUpload).toBe(false);
+    expect(program.physioReferrals).toBe(false);
+    expect(program.socialTracking).toBe(false);
+  });
+
+  it("gives Premium full digital app access", () => {
+    const premium = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: "PHP_Premium",
+      messagingAccessTiers,
+      athleteType: "adult",
+      planFeatures: featuresForTier("PHP_Premium"),
+      hasActivePlan: true,
+    });
+
+    expect(premium.coachBooking).toBe(true);
+    expect(premium.nutrition).toBe(true);
+    expect(premium.coachVideoUpload).toBe(true);
+    expect(premium.physioReferrals).toBe(true);
+    expect(premium.socialTracking).toBe(true);
+    expect(premium.runTracking).toBe(true);
+    expect(premium.achievements).toBe(true);
+  });
+
+  it("lets a manual higher tier override a lower paid tier", () => {
+    const features = resolveEffectiveAccessFeatures({
+      paidPlan: { tier: "PHP" },
+      overrideTier: "PHP_Premium",
+    });
+
+    expect(features.has("schedule")).toBe(true);
+    expect(features.has("video_upload")).toBe(true);
+    expect(features.has("physio_referrals")).toBe(true);
+    expect(features.has("social_feed")).toBe(true);
+  });
+
+  it("lets a manual lower tier override a higher paid tier", () => {
+    const features = resolveEffectiveAccessFeatures({
+      paidPlan: { tier: "PHP_Pro" },
+      overrideTier: "PHP",
+    });
+
+    expect(features.has("schedule")).toBe(true);
+    expect(features.has("video_upload")).toBe(false);
+    expect(features.has("physio_referrals")).toBe(false);
+    expect(features.has("social_feed")).toBe(false);
   });
 });

@@ -67,7 +67,7 @@ const TIER_ORDER: Record<string, number> = {
 const TIER_LABELS: Record<string, string> = {
 	PHP: "PHP Program",
 	PHP_Premium: "PHP Premium",
-	PHP_Premium_Plus: "PHP Plus",
+	PHP_Premium_Plus: "PHP Premium Plus",
 	PHP_Pro: "PHP Pro",
 };
 

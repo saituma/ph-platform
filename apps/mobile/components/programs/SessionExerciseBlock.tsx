@@ -824,7 +824,7 @@ export function SessionExerciseBlock({
                     color: p.textSecondary,
                   }}
                 >
-                  Video upload is available on Premium Plus or Pro.
+                  Video upload is included with PHP Premium access.
                 </Text>
               </View>
             ) : null}

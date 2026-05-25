@@ -112,10 +112,10 @@ const BILLING_CYCLE_ITEMS = [
 type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
 
 const TIER_ITEMS: { label: string; value: ProgramTier; description: string }[] = [
-  { label: "PHP", value: "PHP", description: "Performance Health Programme" },
-  { label: "PHP Premium", value: "PHP_Premium", description: "Enhanced training & support" },
-  { label: "PHP Premium Plus", value: "PHP_Premium_Plus", description: "Full access with extras" },
-  { label: "PHP Pro", value: "PHP_Pro", description: "Elite programme" },
+  { label: "PHP Program", value: "PHP", description: "Restricted app access" },
+  { label: "PHP Premium", value: "PHP_Premium", description: "Full app access" },
+  { label: "PHP Premium Plus", value: "PHP_Premium_Plus", description: "Premium access + semi-private sessions" },
+  { label: "PHP Pro", value: "PHP_Pro", description: "Premium access + 1:1 sessions" },
 ];
 
 export default function AddTeamPage() {

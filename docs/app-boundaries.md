@@ -25,7 +25,7 @@ There is intentionally no `apps/portal` workspace. Do not migrate portal routes 
   - `/parent/completed/` — View guardians who completed onboarding
   - `/parent/athlete/` — Overview of athletes linked to guardian accounts
   - `/parent/onboarding/` — Guardian onboarding configuration
-  - `/parent/php-plus/` — PHP Plus tier management
+  - `/parent/php-plus/` — PHP Premium Plus tier management
   - `/parent/progress/` — Athlete training progress overview (admin view)
   - `/parent/schedule/` — Admin's own session schedule (admin-side only; see comment in file)
   - `/parent/settings/` — Admin profile settings

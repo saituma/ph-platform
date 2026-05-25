@@ -203,7 +203,7 @@ const NAV_ITEMS: PaletteList = {
     { id: "parent-messages",    children: "Parent Portal — Messages",     href: "/parent/messages",           keywords: ["guardian messages", "chat"] },
     { id: "parent-content",     children: "Parent Portal — Content",      href: "/parent/content",            keywords: ["guardian content"] },
     { id: "parent-billing",     children: "Parent Portal — Billing",      href: "/parent/billing",            keywords: ["guardian billing", "subscription"] },
-    { id: "parent-php-plus",    children: "Parent Portal — PHP Plus",     href: "/parent/php-plus",           keywords: ["premium", "plus plan"] },
+    { id: "parent-php-plus",    children: "Parent Portal — PHP Premium Plus", href: "/parent/php-plus",        keywords: ["premium", "plus plan"] },
     { id: "parent-completed",   children: "Parent Portal — Completed",    href: "/parent/completed",          keywords: ["done", "finished", "completed"] },
     { id: "parent-onboarding",  children: "Parent Portal — Onboarding",   href: "/parent/onboarding",         keywords: ["signup", "setup", "onboard"] },
     { id: "parent-support",     children: "Parent Portal — Support",      href: "/parent/support",            keywords: ["guardian support", "help"] },

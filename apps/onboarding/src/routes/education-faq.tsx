@@ -20,7 +20,7 @@ const faqSchema = {
 			name: "Do I need any special equipment to start?",
 			acceptedAnswer: {
 				"@type": "Answer",
-				text: "Many of our foundation programs (PHP and PHP Plus) are designed to be performed with minimal equipment—often just some space, a ball, or light weights.",
+				text: "PHP Program is the restricted-access starting point. PHP Premium, PHP Premium Plus, and PHP Pro share full app access, with Plus and Pro adding in-person session formats.",
 			},
 		},
 		{
@@ -28,7 +28,7 @@ const faqSchema = {
 			name: "How do the different membership tiers work?",
 			acceptedAnswer: {
 				"@type": "Answer",
-				text: "We offer four primary tiers: PHP (Base), PHP Plus, PHP Premium, and PHP Pro. The base tier provides structured training, while higher tiers add group bookings, 1-on-1 messaging, and personalized video feedback from our elite coaching staff.",
+				text: "PHP Program is restricted access. PHP Premium is full app access. PHP Premium Plus has the same app access as Premium plus in-person semi-private sessions. PHP Pro has the same app access as Premium plus 1:1 in-person sessions.",
 			},
 		},
 		{
@@ -138,11 +138,11 @@ function EducationFAQ() {
 							/>
 							<FAQItem
 								question="Do I need any special equipment to start?"
-								answer="Many of our foundation programs (PHP and PHP Plus) are designed to be performed with minimal equipment—often just some space, a ball, or light weights. As you progress into Premium and Pro tiers, our coaches will guide you on specific equipment that may benefit your specific goals."
+								answer="PHP Program is the restricted-access starting point. PHP Premium, PHP Premium Plus, and PHP Pro share full app access, with Plus and Pro adding in-person session formats."
 							/>
 							<FAQItem
 								question="How do the different membership tiers work?"
-								answer="We offer four primary tiers: PHP (Base), PHP Plus, PHP Premium, and PHP Pro. The base tier provides structured training, while higher tiers add features like group bookings, 1-on-1 messaging, and personalized video feedback from our elite coaching staff."
+								answer="PHP Program is restricted access. PHP Premium is full app access. PHP Premium Plus has the same app access as Premium plus in-person semi-private sessions. PHP Pro has the same app access as Premium plus 1:1 in-person sessions."
 							/>
 						</div>
 

@@ -107,42 +107,42 @@ export const FEATURE_GROUPS: Array<{ group: string; keys: FeatureKey[] }> = [
   },
 ];
 
-const PHP_DEFAULTS: FeatureKey[] = ["coach_module", "messaging", "schedule", "mobile_app", "progress_tracking", "referrals", "bookings"];
+const PHP_DEFAULTS: FeatureKey[] = [
+  "coach_module",
+  "messaging",
+  "schedule",
+  "mobile_app",
+  "progress_tracking",
+  "referrals",
+];
 const PHP_PREMIUM_DEFAULTS: FeatureKey[] = [
   ...PHP_DEFAULTS,
+  "programs_full",
+  "warmup_cooldown",
+  "mobility_recovery",
+  "in_season",
+  "off_season",
+  "movement_screening",
+  "stretching_foam",
+  "periodization",
+  "competition_windows",
+  "video_upload",
+  "priority_messaging",
+  "faster_turnaround",
+  "bookings",
+  "physio_referrals",
   "parent_platform",
   "nutrition_logging",
   "food_diaries",
   "parent_education",
   "submit_diary",
-];
-const PHP_PREMIUM_PLUS_DEFAULTS: FeatureKey[] = [
-  ...PHP_PREMIUM_DEFAULTS,
-  "video_upload",
-  "semi_private",
-  "bookings",
-  "warmup_cooldown",
-  "mobility_recovery",
-];
-const PHP_PRO_DEFAULTS: FeatureKey[] = [
-  ...PHP_PREMIUM_PLUS_DEFAULTS,
-  "physio_referrals",
-  "programs_full",
-  "priority_messaging",
-  "faster_turnaround",
-  "periodization",
-  "competition_windows",
-  "one_on_one_review",
-  "bespoke_progression",
-  "in_season",
-  "off_season",
-  "movement_screening",
-  "stretching_foam",
   "social_feed",
   "run_tracking",
   "achievements",
   "referrals",
 ];
+const PHP_PREMIUM_PLUS_DEFAULTS: FeatureKey[] = [...PHP_PREMIUM_DEFAULTS, "semi_private"];
+const PHP_PRO_DEFAULTS: FeatureKey[] = [...PHP_PREMIUM_DEFAULTS, "one_on_one_review"];
 
 export const TIER_DEFAULT_FEATURES: Record<string, FeatureKey[]> = {
   PHP: PHP_DEFAULTS,
@@ -195,4 +195,3 @@ export function getEffectivePlanFeatureSet(plan: {
   const tier = plan.tier ?? "PHP";
   return new Set(TIER_DEFAULT_FEATURES[tier] ?? TIER_DEFAULT_FEATURES.PHP);
 }
-

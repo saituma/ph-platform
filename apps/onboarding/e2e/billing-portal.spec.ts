@@ -58,7 +58,7 @@ const MOCK_PLANS = [
   {
     id: 3,
     tier: "PHP_Premium_Plus",
-    name: "PHP Plus",
+    name: "PHP Premium Plus",
     displayPrice: "$119",
     isActive: true,
     pricing: { monthly: { discounted: "$119" } },
@@ -266,11 +266,11 @@ test.describe("Billing Portal — Page load & structure", () => {
   test("shows 4 plan cards", async ({ page }) => {
     await setupBillingMocks(page);
     await page.goto("/portal/billing");
-    // Each plan card has a heading — PHP Program, PHP Premium, PHP Plus, PHP Pro
+    // Each plan card has a heading — PHP Program, PHP Premium, PHP Premium Plus, PHP Pro
     // CardTitle + CardDescription both render the plan name, so use .first() to avoid strict-mode violations
     await expect(page.getByText("PHP Program").first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("PHP Premium").first()).toBeVisible();
-    await expect(page.getByText("PHP Plus").first()).toBeVisible();
+    await expect(page.getByText("PHP Premium Plus").first()).toBeVisible();
     await expect(page.getByText("PHP Pro").first()).toBeVisible();
   });
 

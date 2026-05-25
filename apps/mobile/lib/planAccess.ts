@@ -40,8 +40,10 @@ export function tierRank(tier?: string | null): number {
   if (tier == null || tier === "") return -1;
   const n = normalizeProgramTier(tier);
   if (!n) return -1;
-  const idx = PROGRAM_TIER_ORDER.indexOf(n);
-  return idx >= 0 ? idx : -1;
+  if (n === "PHP") return 0;
+  // Premium, Premium Plus, and Pro share the same digital app-access level.
+  // Plus/Pro differ by included in-person session format, not content access.
+  return 1;
 }
 
 export function canAccessTier(userTier: string | null, requiredTier?: string | null): boolean {
@@ -70,19 +72,19 @@ export function hasAssignedProgramTier(tier?: string | null): boolean {
   return normalizeProgramTier(tier ?? null) != null;
 }
 
-/** PHP Premium Plus+ — parent platform, expanded coach messaging treatment. */
+/** PHP Premium+ — full app access. */
 export function hasPremiumPlanFeatures(tier?: string | null): boolean {
-  return canAccessTier(tier ?? null, "PHP_Premium_Plus");
+  return canAccessTier(tier ?? null, "PHP_Premium");
 }
 
-/** PHP Plus / Pro — semi-private booking type & session video upload for coach review. */
+/** PHP Premium Plus — semi-private in-person session entitlement. */
 export function hasPhpPlusPlanFeatures(tier?: string | null): boolean {
-  return canAccessTier(tier ?? null, "PHP_Premium_Plus");
+  return normalizeProgramTier(tier ?? null) === "PHP_Premium_Plus";
 }
 
-/** PHP Pro — full tier (e.g. physio referrals in-app). */
+/** PHP Pro — 1:1 in-person session entitlement. */
 export function hasPhpProPlanFeatures(tier?: string | null): boolean {
-  return canAccessTier(tier ?? null, "PHP_Pro");
+  return normalizeProgramTier(tier ?? null) === "PHP_Pro";
 }
 
 export type ProgramDetailRouteId = "php" | "plus" | "premium" | "pro";
