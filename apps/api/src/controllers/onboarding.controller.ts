@@ -434,19 +434,28 @@ export async function submitAgreements(req: Request, res: Response) {
     .where(eq(athleteTable.userId, userId))
     .limit(1);
 
-  // For guardians: fall back to their active athlete
+  // For guardians: fall back to activeAthleteId, then by guardianId
   if (!athleteRow[0] && req.user!.role === "guardian") {
     const [guardian] = await db
-      .select({ activeAthleteId: guardianTable.activeAthleteId })
+      .select({ id: guardianTable.id, activeAthleteId: guardianTable.activeAthleteId })
       .from(guardianTable)
       .where(eq(guardianTable.userId, userId))
       .limit(1);
-    if (guardian?.activeAthleteId) {
-      athleteRow = await db
-        .select({ id: athleteTable.id })
-        .from(athleteTable)
-        .where(eq(athleteTable.id, guardian.activeAthleteId))
-        .limit(1);
+    if (guardian) {
+      if (guardian.activeAthleteId) {
+        athleteRow = await db
+          .select({ id: athleteTable.id })
+          .from(athleteTable)
+          .where(eq(athleteTable.id, guardian.activeAthleteId))
+          .limit(1);
+      }
+      if (!athleteRow[0]) {
+        athleteRow = await db
+          .select({ id: athleteTable.id })
+          .from(athleteTable)
+          .where(eq(athleteTable.guardianId, guardian.id))
+          .limit(1);
+      }
     }
   }
 
