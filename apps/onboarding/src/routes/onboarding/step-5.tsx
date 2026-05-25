@@ -259,11 +259,13 @@ function planSupportsBillingCycle(plan: any, cycle: BillingCycle): boolean {
  * Returns null for percentOff when no detectable discount, so the card can render without a badge.
  */
 function resolvePlanPricing(plan: any, cycle: BillingCycle, displayPrice: string) {
+	const monthlyBase = parseMoneyToNumber(String(plan.monthlyPrice ?? plan.displayPrice ?? ""));
+	const monthlyBaseSym = monthlyBase != null ? detectCurrencySymbol(String(plan.monthlyPrice ?? plan.displayPrice ?? "£")) : "£";
 	const origRaw =
 		cycle === "yearly"
-			? plan.yearlyPrice
+			? (plan.yearlyPrice || (monthlyBase != null ? formatMoney(monthlyBaseSym, monthlyBase * 12) : undefined))
 			: cycle === "six_months"
-				? plan.oneTimePrice
+				? (plan.oneTimePrice || (monthlyBase != null ? formatMoney(monthlyBaseSym, monthlyBase * 6) : undefined))
 				: plan.monthlyPrice;
 	const original = String(origRaw ?? "").trim() || null;
 	const discounted = String(displayPrice ?? "").trim() || null;
@@ -899,11 +901,13 @@ function OnboardingStep5() {
 					{filteredPlans.map((plan: any) => {
 						const isSelected = selectedPlan === plan.id;
 						const isPopular = plan.tier === "PHP_Premium";
+						const monthlyRaw = parseMoneyToNumber(String(plan.monthlyPrice ?? plan.displayPrice ?? ""));
+						const monthlySym = monthlyRaw != null ? detectCurrencySymbol(String(plan.monthlyPrice ?? plan.displayPrice ?? "£")) : "£";
 						const displayPrice =
 							billingCycle === "yearly"
-								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? "—")
+								? (plan.billingQuote?.amount ?? plan.yearlyPrice ?? plan.pricing?.yearly?.discounted ?? (monthlyRaw != null ? formatMoney(monthlySym, monthlyRaw * 12) : "—"))
 								: billingCycle === "six_months"
-									? (plan.billingQuote?.amount ?? plan.oneTimePrice ?? "—")
+									? (plan.billingQuote?.amount ?? plan.oneTimePrice ?? (monthlyRaw != null ? formatMoney(monthlySym, monthlyRaw * 6) : "—"))
 									: billingCycle === "weekly"
 										? (plan.billingQuote?.amount ?? plan.weeklyPrice ?? "—")
 										: (plan.billingQuote?.amount ??

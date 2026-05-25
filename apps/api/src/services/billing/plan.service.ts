@@ -196,7 +196,13 @@ export async function quoteAthleteBillingCycleAmount(
           .replace(/\bper\s+year\b/gi, "")
           .trim()
       : null;
-    return { amount: cleaned, mode };
+    if (cleaned) return { amount: cleaned, mode };
+    // Derive yearly as monthly × 12 when no explicit yearly price is set.
+    const base = plan.monthlyPrice ?? plan.displayPrice ?? null;
+    const cents = parsePriceToCents(base);
+    if (!cents) return { amount: null, mode };
+    const symbol = getCurrencySymbol(base);
+    return { amount: formatPriceFromCents(cents * 12, symbol), mode };
   }
 
   // six_months: prefer the admin-set explicit value (stored in oneTimePrice column),
