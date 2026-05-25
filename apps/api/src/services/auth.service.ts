@@ -1,8 +1,9 @@
 import crypto, { randomInt } from "crypto";
 
 import { db } from "../db";
-import { userTable } from "../db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { athleteTable, guardianTable, subscriptionRequestTable, userTable } from "../db/schema";
+import { and, desc, eq, isNotNull, or } from "drizzle-orm";
+import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import { createLocalToken } from "../lib/jwt";
 import { sendOtpEmail } from "../lib/mailer";
@@ -383,6 +384,56 @@ export async function startEmailRegistration(input: { email: string }) {
   return { ok: true };
 }
 
+async function checkUserHasActivePlan(userId: number, role: string): Promise<boolean> {
+  // Guardian: check if any of their athletes has an active program tier
+  if (role === "guardian") {
+    const guardian = await db.select({ id: guardianTable.id, currentPlanId: guardianTable.currentPlanId })
+      .from(guardianTable)
+      .where(eq(guardianTable.userId, userId))
+      .limit(1);
+    if (!guardian[0]) return false;
+    const athlete = await db.select({ tier: athleteTable.currentProgramTier, planId: athleteTable.currentPlanId })
+      .from(athleteTable)
+      .where(and(eq(athleteTable.guardianId, guardian[0].id), isNotNull(athleteTable.currentProgramTier)))
+      .limit(1);
+    if (athlete[0]?.tier) return true;
+    // Also check approved subscription request
+    const req = await db.select({ id: subscriptionRequestTable.id })
+      .from(subscriptionRequestTable)
+      .where(and(
+        eq(subscriptionRequestTable.userId, userId),
+        or(
+          eq(subscriptionRequestTable.status, "approved"),
+          eq(subscriptionRequestTable.status, "pending_approval"),
+        ),
+      ))
+      .limit(1);
+    return req.length > 0;
+  }
+
+  // Athlete roles: check athlete record for a program tier
+  if (isAthleteUserRole(role)) {
+    const athlete = await db.select({ tier: athleteTable.currentProgramTier, planId: athleteTable.currentPlanId })
+      .from(athleteTable)
+      .where(and(eq(athleteTable.userId, userId), isNotNull(athleteTable.currentProgramTier)))
+      .limit(1);
+    if (athlete[0]?.tier) return true;
+    const req = await db.select({ id: subscriptionRequestTable.id })
+      .from(subscriptionRequestTable)
+      .where(and(
+        eq(subscriptionRequestTable.userId, userId),
+        or(
+          eq(subscriptionRequestTable.status, "approved"),
+          eq(subscriptionRequestTable.status, "pending_approval"),
+        ),
+      ))
+      .limit(1);
+    return req.length > 0;
+  }
+
+  return true;
+}
+
 export async function loginLocal(input: { email: string; password: string }) {
   const users = await withTransientDbRetryConfigured(
     "loginLocal.lookupUser",
@@ -429,6 +480,19 @@ export async function loginLocal(input: { email: string; password: string }) {
   if (!ok) {
     throw { status: 401, message: "Invalid credentials." };
   }
+
+  // Block athletes and guardians without an active plan from logging in.
+  // Admins, coaches and superAdmins always pass through.
+  if (!isTrainingStaff(user.role) && user.role !== "admin" && user.role !== "superAdmin") {
+    const hasActivePlan = await checkUserHasActivePlan(user.id, user.role);
+    if (!hasActivePlan) {
+      throw {
+        status: 403,
+        message: "No active subscription found. Please subscribe at phperformance.uk to access the app.",
+      };
+    }
+  }
+
   const nextTokenVersion = user.tokenVersion ?? 0;
   const token = await createLocalToken({
     sub: user.cognitoSub,
