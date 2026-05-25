@@ -653,7 +653,7 @@ export async function submitOnboarding(input: {
     throw new Error("Youth athletes must be under 18.");
   }
   const birthDateValue = input.birthDate ?? null;
-  const resolvedTeam = input.team?.trim() || "";
+  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
   const desiredTier = input.desiredProgramType ?? ("PHP" as (typeof ProgramType.enumValues)[number]);
   const starterPlan = await getActiveSubscriptionPlanByTier(desiredTier);
   const shouldAutoAssignStarterTier =

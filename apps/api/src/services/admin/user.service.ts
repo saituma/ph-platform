@@ -660,7 +660,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
     throw { status: 409, message: "An account with this email already exists." };
   }
 
-  const resolvedTeam = input.team?.trim() || "";
+  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
 
   let resolvedTeamIdForGuardian: number | null = null;
   if (resolvedTeam) {
@@ -786,7 +786,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   const email = input.email.trim().toLowerCase();
   const athleteName = input.athleteName.trim();
   const existing = await getUserByEmail(email);
-  const resolvedTeam = input.team?.trim() || "";
+  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
 
   let resolvedTeamId: number | null = null;
   if (resolvedTeam) {
