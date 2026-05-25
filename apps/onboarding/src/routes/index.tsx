@@ -191,7 +191,7 @@ function LandingPage() {
         <div className="relative min-h-dvh bg-[#0a0a0a] text-white overflow-x-hidden landing-page">
         <AnimatePresence>
             {waitlistOpen && <WaitlistModal onClose={() => setWaitlistOpen(false)} />}
-            {androidModalOpen && <AndroidDownloadModal onClose={() => setAndroidModalOpen(false)} apkUrl="https://expo.dev/accounts/dawitwor/projects/mobile/builds/45c17eb6-9191-4ccf-b97b-5a5d0a89fac4" />}
+            {androidModalOpen && <AndroidDownloadModal onClose={() => setAndroidModalOpen(false)} apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk" />}
         </AnimatePresence>
                 {/* ━━━ Hero Section ━━━ */}
                 <section className="relative pt-16 h-dvh overflow-hidden">

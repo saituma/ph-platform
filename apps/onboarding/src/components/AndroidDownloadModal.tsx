@@ -75,8 +75,7 @@ export function AndroidDownloadModal({ onClose, apkUrl }: Props) {
                                 {apkUrl ? (
                                     <a
                                         href={apkUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        download="ph-performance.apk"
                                         onClick={onClose}
                                         className="flex items-center gap-4 w-full bg-white/5 border border-white/10 hover:border-[#8aff00]/40 rounded-xl px-5 py-4 transition group"
                                     >
