@@ -565,6 +565,9 @@ function OnboardingStep2() {
 											date={birthDate}
 											setDate={setBirthDate}
 											placeholder="Select your birth date"
+											fromYear={1940}
+											toYear={now.getFullYear() - 16}
+											maxDate={new Date(now.getFullYear() - 16, now.getMonth(), now.getDate())}
 										/>
 									</div>
 								</>

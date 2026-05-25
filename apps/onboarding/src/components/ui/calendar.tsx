@@ -24,7 +24,7 @@ function CustomMonthCaption(props: any) {
 	const endYear = endMonth ? endMonth.getFullYear() : new Date().getFullYear();
 
 	const years = [];
-	for (let year = startYear; year <= endYear; year++) {
+	for (let year = endYear; year >= startYear; year--) {
 		years.push(year);
 	}
 

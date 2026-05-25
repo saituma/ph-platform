@@ -46,12 +46,17 @@ export function DatePicker({
 					{date ? format(date, "PPP") : <span>{placeholder}</span>}
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="w-auto p-0 rounded-2xl border-border shadow-xl" align="start">
+			<PopoverContent
+				className="w-auto p-0 rounded-2xl border-border shadow-xl"
+				align="start"
+				sideOffset={4}
+				avoidCollisions
+				collisionPadding={16}
+			>
 				<Calendar
 					mode="single"
 					selected={date}
 					onSelect={setDate}
-					initialFocus
 					defaultMonth={date || endMonth}
 					startMonth={startMonth}
 					endMonth={endMonth}
