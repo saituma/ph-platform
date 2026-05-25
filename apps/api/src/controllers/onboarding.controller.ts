@@ -372,19 +372,28 @@ export async function submitHealthForm(req: Request, res: Response) {
     .where(eq(athleteTable.userId, userId))
     .limit(1);
 
-  // For guardians: fall back to their active athlete
+  // For guardians: fall back to their athlete by guardianId (covers both active and the only linked athlete)
   if (!athlete[0] && req.user!.role === "guardian") {
     const [guardian] = await db
-      .select({ activeAthleteId: guardianTable.activeAthleteId })
+      .select({ id: guardianTable.id, activeAthleteId: guardianTable.activeAthleteId })
       .from(guardianTable)
       .where(eq(guardianTable.userId, userId))
       .limit(1);
-    if (guardian?.activeAthleteId) {
-      athlete = await db
-        .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
-        .from(athleteTable)
-        .where(eq(athleteTable.id, guardian.activeAthleteId))
-        .limit(1);
+    if (guardian) {
+      if (guardian.activeAthleteId) {
+        athlete = await db
+          .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
+          .from(athleteTable)
+          .where(eq(athleteTable.id, guardian.activeAthleteId))
+          .limit(1);
+      }
+      if (!athlete[0]) {
+        athlete = await db
+          .select({ id: athleteTable.id, extraResponses: athleteTable.extraResponses })
+          .from(athleteTable)
+          .where(eq(athleteTable.guardianId, guardian.id))
+          .limit(1);
+      }
     }
   }
 
@@ -407,7 +416,7 @@ export async function submitHealthForm(req: Request, res: Response) {
       },
       updatedAt: new Date(),
     })
-    .where(eq(athleteTable.userId, userId));
+    .where(eq(athleteTable.id, athlete[0].id));
 
   return res.status(200).json({ ok: true });
 }
