@@ -1,6 +1,7 @@
 import { desc, sql } from "drizzle-orm";
 import { db } from "../db";
 import { betaTesterTable } from "../db/schema";
+import { addTesterToGoogleGroup } from "./google-play.service";
 
 export async function createBetaTester(input: {
   name: string;
@@ -17,6 +18,12 @@ export async function createBetaTester(input: {
       reason: input.reason ?? null,
     })
     .returning();
+
+  // Best-effort: auto-add to Play Store closed testing group. Never blocks response.
+  addTesterToGoogleGroup(input.email).catch((err: unknown) => {
+    console.error("[google-play] Failed to add tester to group:", (err as Error)?.message ?? err);
+  });
+
   return row;
 }
 

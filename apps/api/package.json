@@ -67,6 +67,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^7.4.0",
     "firebase-admin": "^13.10.0",
+    "googleapis": "^172.0.0",
     "helmet": "^8.0.0",
     "ioredis": "^5.10.1",
     "jose": "^5.9.3",

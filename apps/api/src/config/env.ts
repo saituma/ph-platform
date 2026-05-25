@@ -100,6 +100,8 @@ const envSchema = z.object({
   GOOGLE_CALENDAR_ID: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: z.string().optional(),
+  /** Google Group email for Play Store closed testing, e.g. ph-tester@googlegroups.com */
+  GOOGLE_PLAY_TESTERS_GROUP: z.string().email().optional(),
   /** Max connections per pool instance. Keep low in production (instances × pool_max = total DB connections). */
   DB_POOL_MAX: z.coerce.number().int().positive().optional(),
   /** Idle connection timeout in ms before a client is released back to the OS. */
@@ -226,6 +228,7 @@ export const env = {
   googleCalendarId: raw.GOOGLE_CALENDAR_ID ?? "",
   googleServiceAccountEmail: raw.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "",
   googleServiceAccountPrivateKey: raw.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ?? "",
+  googlePlayTestersGroup: raw.GOOGLE_PLAY_TESTERS_GROUP ?? "",
   /** Max pool connections per instance. Default: 5 in production, 10 in dev/test (safe scaling default). */
   dbPoolMax: raw.DB_POOL_MAX ?? (raw.NODE_ENV === "production" ? 5 : 10),
   /** Idle timeout ms. Default: 30 000 ms (30 s) — recycles idle sockets before server-side closure. */
