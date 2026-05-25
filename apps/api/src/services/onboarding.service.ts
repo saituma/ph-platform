@@ -486,8 +486,10 @@ export async function getOnboardingByUser(userId: number) {
     }
     // Include the athlete's own record in allAthletes so the mobile app
     // can read their age for age-based program content (youth athletes).
+    // Use a shallow copy to avoid a circular JSON reference (decorated → allAthletes[0] → decorated).
     if (decorated) {
-      (decorated as any).allAthletes = [decorated];
+      const { allAthletes: _ignored, ...safeDecorated } = decorated as any;
+      (decorated as any).allAthletes = [safeDecorated];
     }
     return decorated;
   }

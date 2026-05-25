@@ -445,7 +445,9 @@ export async function getMe(req: Request, res: Response) {
       injuries: athlete?.injuries ?? null,
       onboardingCompleted: athlete?.onboardingCompleted ?? false,
       trainingStats: athlete?.trainingStats ?? null,
-      allAthletes: athlete?.allAthletes ?? null,
+      allAthletes: athlete?.allAthletes
+        ? (athlete.allAthletes as any[]).map(({ allAthletes: _, ...a }) => a)
+        : null,
       capabilities,
       planFeatures: Array.from(planFeatures),
       messagingAccessTiers,
