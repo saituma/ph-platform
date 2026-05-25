@@ -38,6 +38,10 @@ import {
   upsertTeamPaymentConfigDraft,
   listTeamPlayerInvitesAdmin,
   createCustomerPortalSession,
+  createLaunchPromoCampaignAdmin,
+  listLaunchPromoCampaignsAdmin,
+  getLaunchPromoCodesAdmin,
+  deleteLaunchPromoCampaignAdmin,
 } from "../controllers/billing";
 
 const router = Router();
@@ -159,6 +163,31 @@ router.post(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   sponsorTeamPlayerInviteAdmin,
+);
+
+router.get(
+  "/admin/launch-promo/campaigns",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  listLaunchPromoCampaignsAdmin,
+);
+router.post(
+  "/admin/launch-promo/campaigns",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  createLaunchPromoCampaignAdmin,
+);
+router.get(
+  "/admin/launch-promo/campaigns/:campaignId/codes",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  getLaunchPromoCodesAdmin,
+);
+router.delete(
+  "/admin/launch-promo/campaigns/:campaignId",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  deleteLaunchPromoCampaignAdmin,
 );
 
 export default router;

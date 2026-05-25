@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, CreditCard, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, CreditCard, ShieldCheck, Ticket, Users } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
 import {
@@ -96,6 +96,15 @@ export default function BillingOverviewPage() {
         "View and manage team payment modes, track invite statuses, and monitor missing payments.",
       href: "/billing/team-payments",
       icon: Users,
+      badge: null,
+      badgeDetail: null,
+    },
+    {
+      title: "Launch Discount Codes",
+      description:
+        "Generate one-time promo codes for existing clients. Each email gets a unique code they enter at checkout.",
+      href: "/billing/launch-promo",
+      icon: Ticket,
       badge: null,
       badgeDetail: null,
     },

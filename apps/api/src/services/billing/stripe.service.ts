@@ -159,6 +159,7 @@ export async function createTeamCheckoutSession(input: {
     stripeClient.checkout.sessions.create({
       mode: input.mode,
       customer_email: input.customerEmail,
+      allow_promotion_codes: true,
       ...(input.mode === "payment" ? { customer_creation: "always" } : {}),
       payment_method_types: ["card"],
       line_items: lineItems,

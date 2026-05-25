@@ -281,6 +281,7 @@ export async function createCheckoutSession(input: {
   const session = await stripeClient.checkout.sessions.create({
     mode,
     line_items: lineItems,
+    allow_promotion_codes: true,
     success_url: `${input.successUrl ?? getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: getCancelUrl(),
     customer_email: input.userEmail,

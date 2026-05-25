@@ -2131,3 +2131,31 @@ export const athleteInjuryLogsTable = pgTable(
   },
   (t) => [index("injury_logs_athlete_idx").on(t.athleteId)],
 );
+
+export const launchPromoCampaignTable = pgTable("launch_promo_campaigns", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar({ length: 255 }).notNull(),
+  stripeCouponId: varchar("stripe_coupon_id", { length: 100 }).notNull(),
+  discountPercent: integer("discount_percent").notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const launchPromoCodeTable = pgTable(
+  "launch_promo_codes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => launchPromoCampaignTable.id, { onDelete: "cascade" }),
+    email: varchar({ length: 255 }).notNull(),
+    stripePromoCodeId: varchar("stripe_promo_code_id", { length: 100 }).notNull(),
+    code: varchar({ length: 50 }).notNull(),
+    redeemedAt: timestamp("redeemed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("launch_promo_codes_campaign_idx").on(t.campaignId),
+    index("launch_promo_codes_email_idx").on(t.email),
+  ],
+);
