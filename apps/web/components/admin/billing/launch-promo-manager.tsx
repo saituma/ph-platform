@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Download, Percent, Plus, Trash2, Users } from "lucide-react";
 
+import { getCsrfToken } from "./billing-admin-utils";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import {
@@ -65,7 +66,9 @@ export function LaunchPromoManager() {
   const loadCampaigns = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/backend/admin/launch-promo/campaigns");
+      const res = await fetch("/api/backend/admin/launch-promo/campaigns", {
+        headers: { "x-csrf-token": getCsrfToken() },
+      });
       const data = await res.json();
       setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
     } catch {
@@ -83,7 +86,9 @@ export function LaunchPromoManager() {
     setSelectedCampaign(campaign);
     setIsLoadingCodes(true);
     try {
-      const res = await fetch(`/api/backend/admin/launch-promo/campaigns/${campaign.id}/codes`);
+      const res = await fetch(`/api/backend/admin/launch-promo/campaigns/${campaign.id}/codes`, {
+        headers: { "x-csrf-token": getCsrfToken() },
+      });
       const data = await res.json();
       setCampaignCodes(Array.isArray(data.codes) ? data.codes : []);
     } catch {
@@ -111,7 +116,7 @@ export function LaunchPromoManager() {
     try {
       const res = await fetch("/api/backend/admin/launch-promo/campaigns", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() },
         body: JSON.stringify({
           name: form.name.trim(),
           discountPercent: percent,
@@ -136,7 +141,10 @@ export function LaunchPromoManager() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await fetch(`/api/backend/admin/launch-promo/campaigns/${deleteTarget.id}`, { method: "DELETE" });
+      await fetch(`/api/backend/admin/launch-promo/campaigns/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: { "x-csrf-token": getCsrfToken() },
+      });
       setDeleteTarget(null);
       if (selectedCampaign?.id === deleteTarget.id) { setSelectedCampaign(null); setCampaignCodes([]); }
       await loadCampaigns();
