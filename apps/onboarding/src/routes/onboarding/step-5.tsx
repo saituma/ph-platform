@@ -259,13 +259,11 @@ function planSupportsBillingCycle(plan: any, cycle: BillingCycle): boolean {
  * Returns null for percentOff when no detectable discount, so the card can render without a badge.
  */
 function resolvePlanPricing(plan: any, cycle: BillingCycle, displayPrice: string) {
-	const monthlyBase = parseMoneyToNumber(String(plan.monthlyPrice ?? plan.displayPrice ?? ""));
-	const monthlyBaseSym = monthlyBase != null ? detectCurrencySymbol(String(plan.monthlyPrice ?? plan.displayPrice ?? "£")) : "£";
 	const origRaw =
 		cycle === "yearly"
-			? (plan.yearlyPrice || (monthlyBase != null ? formatMoney(monthlyBaseSym, monthlyBase * 12) : undefined))
+			? plan.yearlyPrice
 			: cycle === "six_months"
-				? (plan.oneTimePrice || (monthlyBase != null ? formatMoney(monthlyBaseSym, monthlyBase * 6) : undefined))
+				? plan.oneTimePrice
 				: plan.monthlyPrice;
 	const original = String(origRaw ?? "").trim() || null;
 	const discounted = String(displayPrice ?? "").trim() || null;
