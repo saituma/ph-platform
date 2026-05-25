@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Suspense, useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Camera, Loader2, RefreshCw, User } from "lucide-react";
+import { ArrowLeft, Camera, Copy, Loader2, Percent, RefreshCw, User } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { isStrongPassword } from "@/lib/password-rules";
 
@@ -91,10 +91,12 @@ function AddUserPageInner() {
   const [passwordMode, setPasswordMode] = useState<"generated" | "manual">("generated");
   const [generatedPassword, setGeneratedPassword] = useState<string>(() => generateAdminProvisionPassword());
   const [manualPassword, setManualPassword] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
   const [lastProvisionSummary, setLastProvisionSummary] = useState<{
     accountType: "youth" | "adult";
     email: string;
     emailSent: boolean;
+    promoCode?: { code: string; discountPercent: number } | null;
   } | null>(null);
 
   useEffect(() => {
@@ -147,6 +149,7 @@ function AddUserPageInner() {
     setPasswordMode("generated");
     setGeneratedPassword(generateAdminProvisionPassword());
     setManualPassword("");
+    setDiscountPercent("");
   };
 
   const handleAthletePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -215,6 +218,7 @@ function AddUserPageInner() {
     const cleanedPerformanceGoals = performanceGoals.map((item) => item.trim()).filter((item) => item.length > 0);
     const cleanedEquipmentAccess = equipmentAccess.map((item) => item.trim()).filter((item) => item.length > 0);
     try {
+      const parsedDiscount = discountPercent.trim() ? parseInt(discountPercent.trim(), 10) : undefined;
       const result = formType === "youth"
         ? await provision({
             email: email.trim(),
@@ -237,6 +241,7 @@ function AddUserPageInner() {
             privacyVersion,
             appVersion: "admin-web",
             initialPassword: selectedPassword,
+            discountPercent: parsedDiscount,
           }).unwrap()
         : await provisionAdult({
             email: email.trim(),
@@ -255,11 +260,13 @@ function AddUserPageInner() {
             privacyVersion,
             appVersion: "admin-web",
             initialPassword: selectedPassword,
+            discountPercent: parsedDiscount,
           }).unwrap();
       setLastProvisionSummary({
         accountType: formType,
         email: email.trim(),
         emailSent: result.emailSent,
+        promoCode: result.promoCode,
       });
       resetForm();
       if (result.emailSent) {
@@ -297,13 +304,33 @@ function AddUserPageInner() {
                   {lastProvisionSummary.accountType === "youth" ? "Youth athlete + guardian login created." : "Adult athlete login created."}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-1 text-sm">
+              <CardContent className="grid gap-2 text-sm">
                 <p>
                   <span className="font-medium">Email:</span> {lastProvisionSummary.email}
                 </p>
                 <p>
-                  <span className="font-medium">Email sent:</span> {lastProvisionSummary.emailSent ? "Yes" : "No"}
+                  <span className="font-medium">Welcome email sent:</span> {lastProvisionSummary.emailSent ? "Yes" : "No"}
                 </p>
+                {lastProvisionSummary.promoCode ? (
+                  <div className="mt-1 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                        {lastProvisionSummary.promoCode.discountPercent}% discount code (included in email)
+                      </p>
+                      <p className="font-mono text-base font-bold tracking-widest text-emerald-800 dark:text-emerald-200">
+                        {lastProvisionSummary.promoCode.code}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 hover:bg-emerald-500/20"
+                      onClick={() => void navigator.clipboard.writeText(lastProvisionSummary.promoCode?.code ?? "")}
+                      title="Copy code"
+                    >
+                      <Copy className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
+                    </button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
@@ -521,6 +548,25 @@ function AddUserPageInner() {
                     <SelectItem value="12">12 months</SelectItem>
                   </SelectPopup>
                 </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="discountPercent">
+                  Launch discount{" "}
+                  <span className="ml-1 font-normal text-muted-foreground text-xs">(optional — generates a one-time promo code and includes it in the welcome email)</span>
+                </Label>
+                <div className="relative max-w-xs">
+                  <Input
+                    id="discountPercent"
+                    type="number"
+                    min={1}
+                    max={100}
+                    placeholder="e.g. 20"
+                    value={discountPercent}
+                    onChange={(ev) => setDiscountPercent(ev.target.value)}
+                    className="pr-8"
+                  />
+                  <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                </div>
               </div>
             </CardContent>
           </Card>

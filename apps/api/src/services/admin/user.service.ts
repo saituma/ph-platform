@@ -29,6 +29,7 @@ import {
 } from "../../db/schema";
 
 import { sendAdminPasswordResetEmail, sendAdminWelcomeCredentialsEmail } from "../../lib/mailer";
+import { createStandalonePromoCode } from "../billing/launch-promo.service";
 import { ensureAthleteUserRecord, submitOnboarding } from "../onboarding.service";
 import { getAthleteForUser, getUserByEmail, getUserById } from "../user.service";
 import { calculateAge, parseISODate } from "../../lib/age";
@@ -630,6 +631,7 @@ export type CreateGuardianWithOnboardingAdminInput = {
   appVersion: string;
   initialPassword?: string;
   extraResponses?: Record<string, unknown>;
+  discountPercent?: number;
 };
 
 export type CreateAdultAthleteAdminInput = {
@@ -651,6 +653,7 @@ export type CreateAdultAthleteAdminInput = {
   appVersion: string;
   initialPassword?: string;
   extraResponses?: Record<string, unknown>;
+  discountPercent?: number;
 };
 
 export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWithOnboardingAdminInput) {
@@ -755,12 +758,22 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         .where(eq(userTable.id, onboardingResult.athleteUserId));
     }
 
+    let promoCode: { code: string; discountPercent: number } | null = null;
+    if (input.discountPercent) {
+      try {
+        promoCode = await createStandalonePromoCode({ email, discountPercent: input.discountPercent });
+      } catch (promoErr) {
+        logger.error({ err: promoErr }, "[admin] Failed to create promo code during guardian provision");
+      }
+    }
+
     let emailSent = true;
     try {
       await sendAdminWelcomeCredentialsEmail({
         to: email,
         guardianName: input.guardianDisplayName.trim(),
         temporaryPassword: tempPassword,
+        promoCode: promoCode ?? undefined,
       });
     } catch (mailErr) {
       logger.error({ err: mailErr }, "[admin] Welcome email failed after provisioning");
@@ -773,6 +786,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       athleteUserId: onboardingResult.athleteUserId,
       status: onboardingResult.status,
       emailSent,
+      promoCode,
     };
   } catch (error: any) {
     if (userId) {
@@ -919,12 +933,22 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
       });
     }
 
+    let promoCode: { code: string; discountPercent: number } | null = null;
+    if (input.discountPercent) {
+      try {
+        promoCode = await createStandalonePromoCode({ email, discountPercent: input.discountPercent });
+      } catch (promoErr) {
+        logger.error({ err: promoErr }, "[admin] Failed to create promo code during adult provision");
+      }
+    }
+
     let emailSent = true;
     try {
       await sendAdminWelcomeCredentialsEmail({
         to: email,
         guardianName: athleteName,
         temporaryPassword: tempPassword,
+        promoCode: promoCode ?? undefined,
       });
     } catch (mailErr) {
       logger.error({ err: mailErr }, "[admin] Adult welcome email failed after provisioning");
@@ -937,6 +961,7 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
       athleteUserId: athlete.userId,
       status: desiredProgramType ? "active" : "completed",
       emailSent,
+      promoCode,
     };
   } catch (error: any) {
     if (userId) {

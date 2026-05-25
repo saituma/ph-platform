@@ -57,6 +57,7 @@ const usersApi = apiSlice.injectEndpoints({
         athleteUserId: number;
         status: string;
         emailSent: boolean;
+        promoCode?: { code: string; discountPercent: number } | null;
       },
       {
         email: string;
@@ -84,6 +85,7 @@ const usersApi = apiSlice.injectEndpoints({
         appVersion: string;
         initialPassword?: string;
         extraResponses?: Record<string, unknown>;
+        discountPercent?: number;
       }
     >({
       query: (body) => ({
@@ -100,6 +102,7 @@ const usersApi = apiSlice.injectEndpoints({
         athleteUserId: number;
         status: string;
         emailSent: boolean;
+        promoCode?: { code: string; discountPercent: number } | null;
       },
       {
         email: string;
@@ -125,6 +128,7 @@ const usersApi = apiSlice.injectEndpoints({
         appVersion: string;
         initialPassword?: string;
         extraResponses?: Record<string, unknown>;
+        discountPercent?: number;
       }
     >({
       query: (body) => ({

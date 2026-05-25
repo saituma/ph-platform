@@ -43,6 +43,7 @@ const provisionGuardianSchema = z.object({
   appVersion: z.string().min(1),
   initialPassword: z.string().min(8).max(128).optional(),
   extraResponses: z.record(z.string(), z.any()).optional(),
+  discountPercent: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 const provisionAdultAthleteSchema = z.object({
@@ -64,6 +65,7 @@ const provisionAdultAthleteSchema = z.object({
   appVersion: z.string().min(1),
   initialPassword: z.string().min(8).max(128).optional(),
   extraResponses: z.record(z.string(), z.any()).optional(),
+  discountPercent: z.coerce.number().int().min(1).max(100).optional(),
 });
 
 const provisionTeamMemberSchema = z.object({

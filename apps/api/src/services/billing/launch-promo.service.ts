@@ -94,6 +94,27 @@ export async function deleteLaunchPromoCampaign(campaignId: number) {
   await db.delete(launchPromoCampaignTable).where(eq(launchPromoCampaignTable.id, campaignId));
 }
 
+export async function createStandalonePromoCode(input: { email: string; discountPercent: number; expiresAt?: Date }) {
+  const stripe = getStripeClient();
+
+  const coupon = await stripe.coupons.create({
+    percent_off: input.discountPercent,
+    duration: "once",
+    name: `Admin discount for ${input.email}`,
+    ...(input.expiresAt ? { redeem_by: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+  });
+
+  const code = makeCode(input.email);
+  await stripe.promotionCodes.create({
+    coupon: coupon.id,
+    code,
+    max_redemptions: 1,
+    ...(input.expiresAt ? { expires_at: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
+  });
+
+  return { code, discountPercent: input.discountPercent };
+}
+
 export async function markPromoCodeRedeemed(stripePromoCodeId: string) {
   await db
     .update(launchPromoCodeTable)

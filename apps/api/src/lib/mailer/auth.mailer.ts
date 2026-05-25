@@ -30,10 +30,25 @@ export async function sendAdminWelcomeCredentialsEmail(input: {
   to: string;
   guardianName: string;
   temporaryPassword: string;
+  promoCode?: { code: string; discountPercent: number };
 }) {
   const subject = "Your PH Performance account is ready";
   const name = escapeHtml(input.guardianName);
   const pwd = escapeHtml(input.temporaryPassword);
+
+  const promoSection = input.promoCode
+    ? `
+${textP(`As a special thank-you, your coach has included a <strong>${input.promoCode.discountPercent}% launch discount</strong>. Enter the code below when you choose your plan at checkout — it can only be used once.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="background-color:#f4f4f5;border-radius:12px;border:1px solid ${E.rule};padding:20px 24px;">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${E.muted};font-family:${E.font};">Your discount code</p>
+      <p style="margin:0;font-size:22px;font-weight:700;letter-spacing:0.12em;color:${E.accent};font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.3;">${escapeHtml(input.promoCode.code)}</p>
+    </td>
+  </tr>
+</table>`
+    : "";
+
   const bodyHtml = `
 ${textP(`Hi ${name},`)}
 ${textP(`Your coach has created your PH Performance account. Sign in on the mobile app with the email address this message was sent to and the temporary password below. You will be asked to choose a new password when you first sign in.`)}
@@ -45,6 +60,7 @@ ${textP(`Your coach has created your PH Performance account. Sign in on the mobi
     </td>
   </tr>
 </table>
+${promoSection}
 ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your security, do not share this email. If you did not expect this message, contact PH Performance support.</span>`, "0")}`;
   const html = emailLayout({
     preheader: "Your PH Performance login details",
