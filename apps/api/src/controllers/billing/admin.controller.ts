@@ -320,7 +320,19 @@ export async function listTeamRequestsAdmin(_req: Request, res: Response) {
 
 export async function approveTeamRequestAdmin(req: Request, res: Response) {
   const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
+  const accessTierOverride = z
+    .enum(["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"] as const)
+    .optional()
+    .nullable()
+    .parse(req.body?.accessTierOverride ?? null);
   try {
+    // Persist the override on the request row before approving so the service picks it up
+    if (accessTierOverride) {
+      await db
+        .update(teamSubscriptionRequestTable)
+        .set({ accessTierOverride, updatedAt: new Date() })
+        .where(eq(teamSubscriptionRequestTable.id, requestId));
+    }
     const updated = await approveTeamSubscriptionRequest(requestId);
     if (!updated) {
       return res.status(404).json({ error: "Request not found" });

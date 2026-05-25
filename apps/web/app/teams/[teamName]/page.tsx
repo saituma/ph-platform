@@ -303,6 +303,7 @@ export default function TeamDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isSponsoring, setIsSponsoring] = useState(false);
+  const [accessTierOverride, setAccessTierOverride] = useState<string>("");
   const [hasMounted, setHasMounted] = useState(false);
 
   // Quick Add state (uses team's plan automatically)
@@ -442,7 +443,7 @@ export default function TeamDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
         credentials: "include",
-        body: JSON.stringify({ billingCycle: "monthly" }),
+        body: JSON.stringify({ billingCycle: "monthly", accessTierOverride: accessTierOverride || null }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -465,7 +466,7 @@ export default function TeamDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
         credentials: "include",
-        body: JSON.stringify({ billingCycle: "monthly" }),
+        body: JSON.stringify({ billingCycle: "monthly", accessTierOverride: accessTierOverride || null }),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -882,15 +883,39 @@ export default function TeamDetailPage() {
                   )}
 
                   {(details.subscriptionStatus ?? "pending_payment") !== "active" ? (
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={approveTeam} disabled={isApproving}>
-                        {isApproving ? "Approving..." : "Approve"}
-                      </Button>
-                      {details.paymentQueue.totalCount > details.paymentQueue.paidCount ? (
-                        <Button variant="outline" onClick={approveSponsorRest} disabled={isSponsoring}>
-                          {isSponsoring ? "Sponsoring..." : "Approve - sponsor the rest"}
+                    <div className="space-y-3">
+                      <div className="rounded-xl border border-border p-3 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Access Tier Override</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Charge the plan price but give athletes a different access tier. Leave blank to use the plan's default tier.
+                        </p>
+                        <select
+                          value={accessTierOverride}
+                          onChange={(e) => setAccessTierOverride(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="">Use plan default</option>
+                          <option value="PHP">PHP (Starter)</option>
+                          <option value="PHP_Premium">PHP Premium</option>
+                          <option value="PHP_Premium_Plus">PHP Premium Plus</option>
+                          <option value="PHP_Pro">PHP Pro</option>
+                        </select>
+                        {accessTierOverride ? (
+                          <p className="text-[11px] text-amber-300">
+                            Athletes will be granted <strong>{TIER_LABELS[accessTierOverride] ?? accessTierOverride}</strong> access regardless of the plan tier.
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" onClick={approveTeam} disabled={isApproving}>
+                          {isApproving ? "Approving..." : "Approve"}
                         </Button>
-                      ) : null}
+                        {details.paymentQueue.totalCount > details.paymentQueue.paidCount ? (
+                          <Button variant="outline" onClick={approveSponsorRest} disabled={isSponsoring}>
+                            {isSponsoring ? "Sponsoring..." : "Approve - sponsor the rest"}
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null}
                 </>

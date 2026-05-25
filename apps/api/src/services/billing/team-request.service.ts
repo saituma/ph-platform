@@ -387,7 +387,11 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
       .from(subscriptionPlanTable)
       .where(eq(subscriptionPlanTable.id, request.planId))
       .limit(1);
-    if (plan?.tier) {
+    if (plan) {
+      // accessTierOverride lets admin charge one plan tier but grant a different access tier.
+      // Falls back to plan.tier, then PHP_Pro for tier-less plans.
+      const effectiveTier = request.accessTierOverride ?? plan.tier ?? "PHP_Pro";
+
       // Find athletes that will be granted tier so we can mirror to their
       // guardians (parent_platform access is gated on guardian's tier).
       const athletesAboutToGrant = await db
@@ -398,7 +402,7 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
       await db
         .update(athleteTable)
         .set({
-          currentProgramTier: plan.tier,
+          currentProgramTier: effectiveTier,
           currentPlanId: plan.id,
           planExpiresAt: expiresAt,
           updatedAt: new Date(),
@@ -410,7 +414,7 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
         await db
           .update(guardianTable)
           .set({
-            currentProgramTier: plan.tier,
+            currentProgramTier: effectiveTier,
             currentPlanId: plan.id,
             updatedAt: new Date(),
           })

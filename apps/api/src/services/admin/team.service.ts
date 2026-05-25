@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import {
@@ -455,9 +455,13 @@ export async function createTeamAdmin(input: {
   };
 }
 
-export async function approveTeamAdmin(teamId: number, billingCycle: "monthly" | "6months" | "yearly" = "monthly") {
+export async function approveTeamAdmin(
+  teamId: number,
+  billingCycle: "monthly" | "6months" | "yearly" = "monthly",
+  accessTierOverride?: (typeof ProgramType.enumValues)[number] | null,
+) {
   const rows = await db
-    .select({ id: teamTable.id, name: teamTable.name, subscriptionStatus: teamTable.subscriptionStatus })
+    .select({ id: teamTable.id, name: teamTable.name, subscriptionStatus: teamTable.subscriptionStatus, planId: teamTable.planId })
     .from(teamTable)
     .where(eq(teamTable.id, teamId))
     .limit(1);
@@ -480,12 +484,46 @@ export async function approveTeamAdmin(teamId: number, billingCycle: "monthly" |
     })
     .where(eq(teamTable.id, teamId));
 
+  // Determine effective tier: override > plan tier > PHP_Pro
+  let effectiveTier: (typeof ProgramType.enumValues)[number] | null = accessTierOverride ?? null;
+  if (!effectiveTier && team.planId) {
+    const [plan] = await db
+      .select({ tier: subscriptionPlanTable.tier })
+      .from(subscriptionPlanTable)
+      .where(eq(subscriptionPlanTable.id, team.planId))
+      .limit(1);
+    effectiveTier = plan?.tier ?? "PHP_Pro";
+  }
+  if (!effectiveTier) effectiveTier = "PHP_Pro";
+
+  // Grant tier to all athletes on this team who don't already have one
+  const athletes = await db
+    .select({ id: athleteTable.id, guardianId: athleteTable.guardianId })
+    .from(athleteTable)
+    .where(and(eq(athleteTable.teamId, teamId), isNull(athleteTable.currentProgramTier)));
+
+  if (athletes.length > 0) {
+    await db
+      .update(athleteTable)
+      .set({ currentProgramTier: effectiveTier, planExpiresAt: expiresAt, updatedAt: new Date() })
+      .where(and(eq(athleteTable.teamId, teamId), isNull(athleteTable.currentProgramTier)));
+
+    const guardianIds = athletes.map((a) => a.guardianId).filter((id): id is number => id != null);
+    if (guardianIds.length > 0) {
+      await db
+        .update(guardianTable)
+        .set({ currentProgramTier: effectiveTier, updatedAt: new Date() })
+        .where(inArray(guardianTable.id, guardianIds));
+    }
+  }
+
   return { ok: true, teamId, status: "active" };
 }
 
 export async function approveTeamSponsorRestAdmin(
   teamId: number,
   billingCycle: "monthly" | "6months" | "yearly" = "monthly",
+  accessTierOverride?: (typeof ProgramType.enumValues)[number] | null,
 ) {
   const [latestRequest] = await db
     .select({ id: teamSubscriptionRequestTable.id })
@@ -495,7 +533,15 @@ export async function approveTeamSponsorRestAdmin(
     .limit(1);
 
   if (!latestRequest) {
-    return approveTeamAdmin(teamId, billingCycle);
+    return approveTeamAdmin(teamId, billingCycle, accessTierOverride);
+  }
+
+  // Persist the override so approveTeamSubscriptionRequest picks it up
+  if (accessTierOverride) {
+    await db
+      .update(teamSubscriptionRequestTable)
+      .set({ accessTierOverride, updatedAt: new Date() })
+      .where(eq(teamSubscriptionRequestTable.id, latestRequest.id));
   }
 
   await db

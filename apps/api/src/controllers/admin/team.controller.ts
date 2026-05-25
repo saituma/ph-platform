@@ -240,6 +240,7 @@ export async function updateTeamMemberAdminDetails(req: Request, res: Response) 
 export async function approveTeamAdminDetails(req: Request, res: Response) {
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   const billingCycle = z.enum(["monthly", "6months", "yearly"]).optional().parse(req.body?.billingCycle) ?? "monthly";
+  const accessTierOverride = z.enum(ProgramType.enumValues).optional().nullable().parse(req.body?.accessTierOverride ?? null);
   try {
     const [teamRow] = await db
       .select({ adminId: teamTable.adminId })
@@ -250,7 +251,7 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
     if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const result = await approveTeamAdmin(teamId, billingCycle);
+    const result = await approveTeamAdmin(teamId, billingCycle, accessTierOverride);
     return res.status(200).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;
@@ -263,6 +264,7 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
 export async function approveTeamSponsorRestAdminDetails(req: Request, res: Response) {
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   const billingCycle = z.enum(["monthly", "6months", "yearly"]).optional().parse(req.body?.billingCycle) ?? "monthly";
+  const accessTierOverride = z.enum(ProgramType.enumValues).optional().nullable().parse(req.body?.accessTierOverride ?? null);
   try {
     const [teamRow] = await db
       .select({ adminId: teamTable.adminId })
@@ -273,7 +275,7 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
     if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
-    const result = await approveTeamSponsorRestAdmin(teamId, billingCycle);
+    const result = await approveTeamSponsorRestAdmin(teamId, billingCycle, accessTierOverride);
     return res.status(200).json(result);
   } catch (error: any) {
     const status = typeof error?.status === "number" ? error.status : 500;

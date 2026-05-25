@@ -1391,6 +1391,8 @@ export const teamSubscriptionRequestTable = pgTable("team_subscription_requests"
   termsAcceptedAt: timestamp(),
   /** Version of T&C accepted (e.g. "1.0"). */
   termsVersion: varchar({ length: 50 }),
+  /** When set, athletes on this team get this tier on approval instead of the plan's tier. */
+  accessTierOverride: ProgramType("access_tier_override"),
   /** True once all required payments (coach + all player invites) are confirmed. */
   allPaymentsComplete: boolean().notNull().default(false),
   /** True once required player invite emails are successfully sent (if paymentMode needs invites). */
