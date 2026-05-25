@@ -36,7 +36,6 @@ import {
   syncTeamRequestPaymentAdmin,
   updatePlanAdmin,
   upsertTeamPaymentConfigDraft,
-  verifyRevenueCatPurchase,
   listTeamPlayerInvitesAdmin,
   createCustomerPortalSession,
 } from "../controllers/billing";
@@ -66,7 +65,6 @@ router.post("/billing/checkout", requireAuth, createCheckout);
 router.post("/billing/team/checkout", requireAuth, requireRole(["coach", "admin", "superAdmin"]), createTeamCheckout);
 router.post("/billing/payment-sheet", requireAuth, createPaymentSheet);
 router.post("/billing/payment-sheet/confirm", requireAuth, confirmPaymentSheet);
-router.post("/billing/revenuecat/verify", requireAuth, verifyRevenueCatPurchase);
 router.post("/billing/confirm", requireAuth, confirmCheckout);
 router.post("/billing/customer-portal", requireAuth, createCustomerPortalSession);
 // Public variant for unauthenticated invite-flow returns (Stripe session_id is the credential).

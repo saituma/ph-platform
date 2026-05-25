@@ -127,7 +127,6 @@ jest.mock("../../src/controllers/billing", () => ({
   approveTeamRequestAdmin: stubHandler,
   rejectTeamRequestAdmin: stubHandler,
   syncTeamRequestPaymentAdmin: stubHandler,
-  verifyRevenueCatPurchase: stubHandler,
   listInvoices: stubHandler,
   listTeamPlayerInvitesAdmin: stubHandler,
   resendTeamPlayerInviteAdmin: stubHandler,

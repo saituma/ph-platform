@@ -1177,13 +1177,23 @@ export async function attachAthleteToTeamAdmin(input: {
     teamId: team.id,
     updatedAt: new Date(),
   };
+  // Fetch the full team row once: we need sponsoredPlanId for the sponsored
+  // branch AND planId/planExpiresAt to grant tier on non-sponsored attach to
+  // an already-active team (otherwise non-sponsored athletes added after
+  // approval silently have no access).
+  const [fullTeam] = await db
+    .select({
+      sponsoredPlanId: teamTable.sponsoredPlanId,
+      planId: teamTable.planId,
+      planExpiresAt: teamTable.planExpiresAt,
+      subscriptionStatus: teamTable.subscriptionStatus,
+    })
+    .from(teamTable)
+    .where(eq(teamTable.id, team.id))
+    .limit(1);
+
   if (input.isSponsored) {
     athletePatch.isSponsored = true;
-    const [fullTeam] = await db
-      .select({ sponsoredPlanId: teamTable.sponsoredPlanId })
-      .from(teamTable)
-      .where(eq(teamTable.id, team.id))
-      .limit(1);
     if (fullTeam?.sponsoredPlanId) {
       const [sponsoredPlan] = await db
         .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
@@ -1193,6 +1203,26 @@ export async function attachAthleteToTeamAdmin(input: {
       if (sponsoredPlan?.tier) {
         athletePatch.currentProgramTier = sponsoredPlan.tier;
         athletePatch.currentPlanId = sponsoredPlan.id;
+        if (fullTeam.planExpiresAt) athletePatch.planExpiresAt = fullTeam.planExpiresAt;
+      }
+    }
+  } else if (fullTeam?.planId) {
+    // Non-sponsored athlete joining an active team — inherit team's base
+    // tier so they actually have access. Skips this if the team isn't
+    // active (no plan, expired, or never approved).
+    const teamActive =
+      fullTeam.subscriptionStatus === "active" ||
+      (fullTeam.planExpiresAt != null && fullTeam.planExpiresAt > new Date());
+    if (teamActive) {
+      const [teamPlan] = await db
+        .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
+        .from(subscriptionPlanTable)
+        .where(eq(subscriptionPlanTable.id, fullTeam.planId))
+        .limit(1);
+      if (teamPlan?.tier) {
+        athletePatch.currentProgramTier = teamPlan.tier;
+        athletePatch.currentPlanId = teamPlan.id;
+        if (fullTeam.planExpiresAt) athletePatch.planExpiresAt = fullTeam.planExpiresAt;
       }
     }
   }

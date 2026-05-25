@@ -1,7 +1,7 @@
-import { and, gt, inArray, isNotNull, isNull, lt, lte } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, lte, or } from "drizzle-orm";
 
 import { db } from "../db";
-import { athleteTable, guardianTable, notificationTable, userTable } from "../db/schema";
+import { athleteTable, guardianTable, notificationTable, teamTable, userTable } from "../db/schema";
 import { sendPlanExpiredEmail, sendPlanExpiringSoonEmail } from "../lib/mailer";
 import { createPushIntent } from "./outbox.service";
 
@@ -20,7 +20,12 @@ export async function runSubscriptionExpirySweep() {
 }
 
 async function processExpiredPlans(now: Date) {
-  const expired = await db
+  // Pull athletes whose own plan window has lapsed. We then have to *exclude*
+  // athletes on a team whose team subscription is still active — otherwise the
+  // cron silently nukes every team athlete one cycle after team approval
+  // (athlete.planExpiresAt is set at team approval, but the renewal webhook
+  // only extends teamTable.planExpiresAt, never the athlete row).
+  const candidates = await db
     .select()
     .from(athleteTable)
     .where(
@@ -30,6 +35,25 @@ async function processExpiredPlans(now: Date) {
         inArray(athleteTable.currentProgramTier, [...PAID_TIERS]),
       ),
     );
+
+  // Look up the active-team set in one query and filter in memory — keeps
+  // this cron resilient to schema changes on teamTable.
+  const teamIds = Array.from(new Set(candidates.map((a) => a.teamId).filter((id): id is number => id != null)));
+  const activeTeamIds = new Set<number>();
+  if (teamIds.length > 0) {
+    const activeTeams = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(
+        and(
+          inArray(teamTable.id, teamIds),
+          or(eq(teamTable.subscriptionStatus, "active"), gt(teamTable.planExpiresAt, now)),
+        ),
+      );
+    for (const t of activeTeams) activeTeamIds.add(t.id);
+  }
+
+  const expired = candidates.filter((a) => !(a.teamId != null && activeTeamIds.has(a.teamId)));
 
   // Batch-load all guardians and users to avoid N+1 queries
   const guardianIds = expired.map((a) => a.guardianId).filter((id): id is number => id != null);
@@ -112,7 +136,7 @@ async function processExpiredPlans(now: Date) {
 }
 
 async function processExpiringReminders(now: Date, horizon: Date) {
-  const rows = await db
+  const candidates = await db
     .select()
     .from(athleteTable)
     .where(
@@ -124,6 +148,25 @@ async function processExpiringReminders(now: Date, horizon: Date) {
         isNull(athleteTable.planRenewalReminderSentAt),
       ),
     );
+
+  // Don't spam team athletes with personal "plan expiring" emails when their
+  // team subscription is still active — the athlete row's planExpiresAt is
+  // a stale snapshot from team approval; renewals only update teamTable.
+  const teamIds = Array.from(new Set(candidates.map((a) => a.teamId).filter((id): id is number => id != null)));
+  const activeTeamIds = new Set<number>();
+  if (teamIds.length > 0) {
+    const activeTeams = await db
+      .select({ id: teamTable.id })
+      .from(teamTable)
+      .where(
+        and(
+          inArray(teamTable.id, teamIds),
+          or(eq(teamTable.subscriptionStatus, "active"), gt(teamTable.planExpiresAt, now)),
+        ),
+      );
+    for (const t of activeTeams) activeTeamIds.add(t.id);
+  }
+  const rows = candidates.filter((a) => !(a.teamId != null && activeTeamIds.has(a.teamId)));
 
   // Batch-load all guardians and users to avoid N+1 queries
   const reminderGuardianIds = rows.map((a) => a.guardianId).filter((id): id is number => id != null);

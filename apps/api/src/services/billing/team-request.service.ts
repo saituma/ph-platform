@@ -4,12 +4,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import {
+  athleteTable,
+  guardianTable,
   subscriptionPlanTable,
   teamSubscriptionRequestTable,
   teamPlayerPaymentInviteTable,
   teamTable,
   userTable,
 } from "../../db/schema";
+import { inArray, isNull } from "drizzle-orm";
 import { newReceiptPublicId } from "../../lib/receipt-public-id";
 import { checkoutSessionPaymentIntentId } from "../../lib/stripe-checkout-receipt";
 import { getStripeClient } from "./stripe.service";
@@ -373,6 +376,48 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
       updatedAt: new Date(),
     })
     .where(eq(teamTable.id, request.teamId));
+
+  // Grant tier + expiry to every athlete on this team who hasn't been
+  // explicitly overridden by an admin (currentProgramTier IS NULL).
+  // Athletes with a tier already set keep it — this preserves admin overrides
+  // (e.g. team paid PHP but admin set specific athletes to PHP_Premium).
+  if (request.planId != null) {
+    const [plan] = await db
+      .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
+      .from(subscriptionPlanTable)
+      .where(eq(subscriptionPlanTable.id, request.planId))
+      .limit(1);
+    if (plan?.tier) {
+      // Find athletes that will be granted tier so we can mirror to their
+      // guardians (parent_platform access is gated on guardian's tier).
+      const athletesAboutToGrant = await db
+        .select({ id: athleteTable.id, guardianId: athleteTable.guardianId })
+        .from(athleteTable)
+        .where(and(eq(athleteTable.teamId, request.teamId), isNull(athleteTable.currentProgramTier)));
+
+      await db
+        .update(athleteTable)
+        .set({
+          currentProgramTier: plan.tier,
+          currentPlanId: plan.id,
+          planExpiresAt: expiresAt,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(athleteTable.teamId, request.teamId), isNull(athleteTable.currentProgramTier)));
+
+      const guardianIds = athletesAboutToGrant.map((a) => a.guardianId).filter((id): id is number => id != null);
+      if (guardianIds.length > 0) {
+        await db
+          .update(guardianTable)
+          .set({
+            currentProgramTier: plan.tier,
+            currentPlanId: plan.id,
+            updatedAt: new Date(),
+          })
+          .where(inArray(guardianTable.id, guardianIds));
+      }
+    }
+  }
 
   if (updatedRequest && previousStatus !== "approved") {
     void notifyTeamSubscriptionApproved(updatedRequest.id).catch((err) => {
