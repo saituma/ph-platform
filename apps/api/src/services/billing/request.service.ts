@@ -200,7 +200,16 @@ export async function createCheckoutSession(input: {
     throw err;
   }
 
-  const reusable = existingForPlan.find((r) => r.status === "pending_payment" && r.stripeSessionId);
+  const billingCycle = input.billingCycle ?? "monthly";
+
+  // Only reuse a pending session if it was created for the same billing cycle.
+  // A user switching from yearly → monthly must get a new session, not the old yearly one.
+  const reusable = existingForPlan.find(
+    (r) =>
+      r.status === "pending_payment" &&
+      r.stripeSessionId &&
+      (r.planBillingCycle ?? "monthly") === billingCycle,
+  );
   if (reusable && reusable.stripeSessionId) {
     try {
       const stripeClient = getStripeClient();
@@ -212,8 +221,6 @@ export async function createCheckoutSession(input: {
       // Stale session — fall through and create a new one below.
     }
   }
-
-  const billingCycle = input.billingCycle ?? "monthly";
   let priceId: string;
   let mode: "subscription" | "payment";
   if (billingCycle === "one_time") {

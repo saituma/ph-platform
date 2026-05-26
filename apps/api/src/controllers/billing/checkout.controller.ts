@@ -181,7 +181,6 @@ export async function upsertTeamPaymentConfigDraft(req: Request, res: Response) 
 }
 
 export async function createCheckout(req: Request, res: Response) {
-  logger.info({ body: req.body }, "[checkout] createCheckout received body");
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", details: parsed.error.flatten() });
