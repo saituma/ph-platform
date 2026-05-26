@@ -340,7 +340,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     activeTab,
     setActiveTab,
     load: loadTeam,
-  } = useTeamWorkspace(token, activeAthlete?.age || (isTeamMode ? 18 : null));
+  } = useTeamWorkspace(token, activeAthlete?.age || null);
 
   const {
     programs,
@@ -357,7 +357,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     if (useAgeBasedContent) {
       loadTeam();
     }
-  }, [useAgeBasedContent]);
+  }, [useAgeBasedContent, loadTeam]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

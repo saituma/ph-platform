@@ -38,6 +38,7 @@ import { RootErrorBoundary } from "@/components/RootErrorBoundary";
 import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 import { useAppSelector } from "@/store/hooks";
+import { useOtaUpdater } from "@/hooks/useOtaUpdater";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { isSentryEnabled, Sentry } from "@/lib/sentry";
@@ -116,6 +117,8 @@ function SocketQueryBridge() {
 }
 
 function RootLayout() {
+  useOtaUpdater();
+
   useEffect(() => {
     void runStartupSelfTest();
   }, []);
