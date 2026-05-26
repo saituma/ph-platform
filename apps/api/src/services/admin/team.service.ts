@@ -16,7 +16,7 @@ import {
 } from "../../db/schema";
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 import { createTeamManagerUser } from "./user.service";
-import { sendPlanInviteEmail } from "../../lib/mailer/billing.mailer";
+import { sendPlanInviteEmail, sendTeamPlayerPaymentInviteEmail } from "../../lib/mailer/billing.mailer";
 import { teamPlayerPaymentInviteTable } from "../../db/schema";
 import { randomUUID } from "crypto";
 import { approveTeamSubscriptionRequest } from "../billing/team-request.service";
@@ -298,6 +298,8 @@ export async function createTeamAdmin(input: {
   }
 
   let checkoutUrl: string | null = null;
+  const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly";
+  const lookupKey = `${input.tier.toLowerCase()}_${intervalKey}`;
 
   if (paymentMethod === "cash") {
     // 1. CASH FLOW: Activate immediately
@@ -318,10 +320,6 @@ export async function createTeamAdmin(input: {
       .where(eq(teamTable.id, created.id));
   } else {
     // 2. STRIPE FLOW (Pay Now or Email Link)
-    // Construct the Lookup Key based on your convention: tier_interval
-    // e.g. "php_pro_six_months"
-    const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "6months" ? "six_months" : "yearly";
-    const lookupKey = `${input.tier.toLowerCase()}_${intervalKey}`;
 
     try {
       const sponsoredLineItem =
@@ -427,9 +425,8 @@ export async function createTeamAdmin(input: {
       })
       .returning({ id: teamSubscriptionRequestTable.id });
 
-    // 2. Create the invites
-
-    const invites = payerRows.map((row) => ({
+    // 2. Create the invite rows
+    const inviteValues = payerRows.map((row) => ({
       requestId: reqRow.id,
       teamId: created.id,
       playerEmail: row.email,
@@ -441,8 +438,109 @@ export async function createTeamAdmin(input: {
       updatedAt: new Date(),
     }));
 
-    await db.insert(teamPlayerPaymentInviteTable).values(invites).onConflictDoNothing();
-    invitesSent = invites.length;
+    const insertedInvites = await db
+      .insert(teamPlayerPaymentInviteTable)
+      .values(inviteValues)
+      .onConflictDoNothing()
+      .returning();
+
+    invitesSent = insertedInvites.length;
+
+    // 3. Create Stripe checkout sessions and send invite emails
+    let emailsSent = 0;
+    let inviteEmailsError: string | null = null;
+    try {
+      const stripeClient = getStripeClient();
+      // Resolve the price ID for per-player invites
+      let priceId: string | undefined;
+      try {
+        const prices = await stripeClient.prices.list({ lookup_keys: [lookupKey], active: true });
+        if (prices.data[0]) priceId = prices.data[0].id;
+      } catch {}
+
+      if (priceId) {
+        const priceObj = await stripeClient.prices.retrieve(priceId);
+        const seatAmountCents = priceObj.unit_amount ?? planAmountCents ?? 0;
+
+        for (const invite of insertedInvites) {
+          try {
+            const now = new Date();
+            const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+            if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+            const billingAnchor = Math.floor(anchor.getTime() / 1000);
+
+            const playerSession = await stripeClient.checkout.sessions.create({
+              mode: billingCycle === "monthly" ? "subscription" : "payment",
+              customer_email: invite.playerEmail,
+              ...(billingCycle !== "monthly" ? { customer_creation: "always" } : {}),
+              payment_method_types: ["card"],
+              line_items: [{ price: priceId, quantity: 1 }],
+              ...(billingCycle !== "monthly"
+                ? { payment_intent_data: { receipt_email: invite.playerEmail } }
+                : {
+                    subscription_data: {
+                      billing_cycle_anchor: billingAnchor,
+                      proration_behavior: "create_prorations",
+                    },
+                  }),
+              metadata: {
+                type: "team_player_invite",
+                inviteId: String(invite.id),
+                requestId: String(reqRow.id),
+                teamId: String(created.id),
+              },
+              success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
+              cancel_url: getCancelUrl(),
+            });
+
+            await db
+              .update(teamPlayerPaymentInviteTable)
+              .set({ stripeSessionId: playerSession.id, stripePaymentLinkUrl: playerSession.url, amountCents: seatAmountCents, updatedAt: new Date() })
+              .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+
+            if (playerSession.url) {
+              const emailResult = await sendTeamPlayerPaymentInviteEmail({
+                to: invite.playerEmail,
+                payerName: invite.playerName,
+                teamName: created.name,
+                planName: String(plan?.name ?? plan?.tier ?? "PH Performance plan"),
+                checkoutUrl: playerSession.url,
+              });
+              if (emailResult.ok) {
+                emailsSent += 1;
+                await db
+                  .update(teamPlayerPaymentInviteTable)
+                  .set({ emailSentAt: new Date(), emailLastError: null, updatedAt: new Date() })
+                  .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+              } else {
+                inviteEmailsError = emailResult.error;
+                await db
+                  .update(teamPlayerPaymentInviteTable)
+                  .set({ emailLastError: emailResult.error, updatedAt: new Date() })
+                  .where(eq(teamPlayerPaymentInviteTable.id, invite.id));
+              }
+            }
+          } catch (inviteErr) {
+            logger.error({ err: inviteErr, inviteId: invite.id }, "[createTeam] Failed to send player invite");
+            inviteEmailsError = inviteErr instanceof Error ? inviteErr.message : "Failed to send player invite";
+          }
+        }
+      }
+    } catch (stripeErr) {
+      logger.error({ err: stripeErr }, "[createTeam] Failed to set up player invite Stripe sessions");
+      inviteEmailsError = stripeErr instanceof Error ? stripeErr.message : "Stripe setup failed";
+    }
+
+    const allEmailsSent = invitesSent > 0 && emailsSent === invitesSent;
+    await db
+      .update(teamSubscriptionRequestTable)
+      .set({
+        inviteEmailsReady: allEmailsSent,
+        inviteEmailsLastAttemptAt: new Date(),
+        inviteEmailsError,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamSubscriptionRequestTable.id, reqRow.id));
   }
 
   return {

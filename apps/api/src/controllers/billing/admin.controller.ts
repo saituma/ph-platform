@@ -479,14 +479,25 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
     };
     const primaryLineItem =
       priceId && !priceId.startsWith("seed_") ? { price: priceId, quantity: 1 } : fallbackLineItem();
-    const createCheckoutSession = (lineItem: Stripe.Checkout.SessionCreateParams.LineItem) =>
-      getStripeClient().checkout.sessions.create({
+    const createCheckoutSession = (lineItem: Stripe.Checkout.SessionCreateParams.LineItem) => {
+      const now = new Date();
+      const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5));
+      if (anchor <= now) anchor.setUTCMonth(anchor.getUTCMonth() + 1);
+      const billingAnchor = Math.floor(anchor.getTime() / 1000);
+      return getStripeClient().checkout.sessions.create({
         mode: interval === "monthly" ? "subscription" : "payment",
         customer_email: row.playerEmail,
         ...(interval !== "monthly" ? { customer_creation: "always" as const } : {}),
         payment_method_types: ["card"],
         line_items: [lineItem],
-        ...(interval !== "monthly" ? { payment_intent_data: { receipt_email: row.playerEmail } } : {}),
+        ...(interval !== "monthly"
+          ? { payment_intent_data: { receipt_email: row.playerEmail } }
+          : {
+              subscription_data: {
+                billing_cycle_anchor: billingAnchor,
+                proration_behavior: "create_prorations",
+              },
+            }),
         metadata: {
           type: "team_player_invite",
           inviteId: String(row.inviteId),
@@ -496,6 +507,7 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
         success_url: `${getSuccessUrl()}?session_id={CHECKOUT_SESSION_ID}&player_paid=true`,
         cancel_url: getCancelUrl(),
       });
+    };
     let session: Stripe.Checkout.Session;
     try {
       session = await createCheckoutSession(primaryLineItem);

@@ -78,7 +78,8 @@ async function forward(req: NextRequest) {
       p.includes("/programs/") ||
       p.includes("/youth-athletes") ||
       p.includes("/subscription-requests") ||
-      p.includes("/team-subscription-requests");
+      p.includes("/team-subscription-requests") ||
+      p.includes("/admin/teams");
     responseHeaders["Cache-Control"] = isRealtime
       ? "private, no-store"
       : "private, max-age=15, stale-while-revalidate=45";

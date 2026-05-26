@@ -274,7 +274,11 @@ export default function AddTeamPage() {
       return setError("Fill in at least one athlete profile with a name before creating the team.");
     }
 
-    const coachPaysSeats = 0;
+    // Number of filled athletes whose payment is covered by the manager (not selected as self-pay)
+    const coachPaysSeats =
+      paymentMode === "per_player_selected"
+        ? filledProfiles.filter((_, i) => !selectedPayers.has(i)).length
+        : 0;
 
     setIsSubmitting(true);
     try {
