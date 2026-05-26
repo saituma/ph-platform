@@ -1,7 +1,7 @@
 import crypto, { randomInt } from "crypto";
 
 import { db } from "../db";
-import { athleteTable, guardianTable, subscriptionRequestTable, userTable } from "../db/schema";
+import { athleteTable, guardianTable, subscriptionRequestTable, teamTable, userTable } from "../db/schema";
 import { and, desc, eq, isNotNull, or } from "drizzle-orm";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
@@ -481,6 +481,27 @@ export async function loginLocal(input: { email: string; password: string }) {
     throw { status: 401, message: "Invalid credentials." };
   }
 
+  // Block team athletes from logging in if their team hasn't been approved yet.
+  if (isAthleteUserRole(user.role)) {
+    const [athlete] = await db
+      .select({ teamId: athleteTable.teamId })
+      .from(athleteTable)
+      .where(eq(athleteTable.userId, user.id))
+      .limit(1);
+    if (athlete?.teamId) {
+      const [team] = await db
+        .select({ subscriptionStatus: teamTable.subscriptionStatus })
+        .from(teamTable)
+        .where(eq(teamTable.id, athlete.teamId))
+        .limit(1);
+      if (team && ["pending_approval", "pending_payment"].includes(team.subscriptionStatus ?? "")) {
+        throw {
+          status: 403,
+          message: "Your team membership is pending approval. You will be able to log in once your coach has been notified and access has been confirmed.",
+        };
+      }
+    }
+  }
 
   const nextTokenVersion = user.tokenVersion ?? 0;
   const token = await createLocalToken({
