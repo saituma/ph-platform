@@ -399,6 +399,40 @@ export default function Header() {
 								⌘K
 							</button>
 
+							{/* Enquiry dropdown */}
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button
+										type="button"
+										className="text-[11px] font-medium tracking-[0.12em] uppercase text-white/50 hover:text-white transition-colors px-2 py-1 flex items-center gap-1"
+									>
+										Enquiry
+										<svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
+											<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+										</svg>
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent className="w-52 mt-1 bg-[#111] border-white/10" align="end">
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/121">
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">1-1 Coaching</span>
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/semi-private">
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">Small Group Training</span>
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/team">
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">Team Programmes</span>
+										</Link>
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+
 							{isPending ? (
 								<div className="h-7 w-7 rounded-full bg-white/10 animate-pulse" />
 							) : sessionUser ? (
@@ -605,7 +639,33 @@ export default function Header() {
 									</Link>
 								))}
 
-								{!isPending && sessionUser ? (
+								{/* Enquiry links in mobile menu */}
+						<div className="border-t border-white/5 pt-1">
+							<div className="py-2 text-[10px] font-bold tracking-[0.16em] uppercase text-white/25">Enquiry</div>
+							<Link
+								to="/enquiry/121"
+								onClick={() => setMobileMenuOpen(false)}
+								className="block py-2.5 text-[12px] font-medium uppercase tracking-[0.14em] border-b border-white/5 text-white/50 hover:text-white"
+							>
+								1-1 Coaching
+							</Link>
+							<Link
+								to="/enquiry/semi-private"
+								onClick={() => setMobileMenuOpen(false)}
+								className="block py-2.5 text-[12px] font-medium uppercase tracking-[0.14em] border-b border-white/5 text-white/50 hover:text-white"
+							>
+								Small Group Training
+							</Link>
+							<Link
+								to="/enquiry/team"
+								onClick={() => setMobileMenuOpen(false)}
+								className="block py-2.5 text-[12px] font-medium uppercase tracking-[0.14em] border-b border-white/5 text-white/50 hover:text-white"
+							>
+								Team Programmes
+							</Link>
+						</div>
+
+						{!isPending && sessionUser ? (
 									<div className="mt-3 space-y-3">
 										<Link
 											to="/portal/dashboard"
