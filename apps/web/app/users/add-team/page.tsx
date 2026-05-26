@@ -160,6 +160,7 @@ export default function AddTeamPage() {
   const [athleteProfiles, setAthleteProfiles] = useState<AthleteProfile[]>([]);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
   const [slotDraft, setSlotDraft] = useState<AthleteProfile>({ name: "", birthDate: "", guardianEmail: "" });
+  const [selectedPayers, setSelectedPayers] = useState<Set<number>>(new Set());
 
   // Misc
   const [error, setError] = useState<string | null>(null);
@@ -259,14 +260,15 @@ export default function AddTeamPage() {
     if (!cleanPassword || !isStrongPassword(cleanPassword)) return setError("Manager password must be 8+ characters with uppercase, lowercase, number, and special character.");
     if (!hasActivePlanForTier) return setError(`No active billing plan is configured for ${tier}. Activate one in Billing first.`);
 
-    const submitPayers = athleteProfiles
-      .filter((p) => p.name.trim())
-      .map((p) => {
+    const filledProfiles = athleteProfiles.filter((p) => p.name.trim());
+    const submitPayers = filledProfiles
+      .map((p, i) => {
         const nameSlug = p.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
         const autoEmail = nameSlug && cleanSlug ? `${nameSlug}.${cleanSlug}@${EMAIL_DOMAIN}` : "";
-        return { name: p.name.trim(), email: (p.guardianEmail.trim() || autoEmail).toLowerCase(), selected: true };
+        const pays = paymentMode === "per_player_all" || selectedPayers.has(i);
+        return { name: p.name.trim(), email: (p.guardianEmail.trim() || autoEmail).toLowerCase(), selected: pays };
       })
-      .filter((row) => row.email.includes("@"));
+      .filter((row) => row.email.includes("@") && row.selected);
 
     if (paymentMode !== "coach_pays_all" && submitPayers.length === 0) {
       return setError("Fill in at least one athlete profile with a name before creating the team.");
@@ -655,19 +657,45 @@ export default function AddTeamPage() {
                         const nameSlug = profile.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
                         const autoEmail = nameSlug && emailSlug ? `${nameSlug}.${emailSlug}@${EMAIL_DOMAIN}` : "";
                         const payEmail = profile.guardianEmail.trim() || autoEmail;
+                        const isPayer = paymentMode === "per_player_all" || selectedPayers.has(index);
                         return (
-                          <div key={index} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3">
+                          <div
+                            key={index}
+                            className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition ${paymentMode === "per_player_selected" ? "cursor-pointer hover:border-primary/40" : ""} ${isPayer ? "border-emerald-500/30 bg-emerald-500/5" : "border-border bg-muted/10"}`}
+                            onClick={() => {
+                              if (paymentMode !== "per_player_selected") return;
+                              setSelectedPayers((prev) => {
+                                const next = new Set(prev);
+                                next.has(index) ? next.delete(index) : next.add(index);
+                                return next;
+                              });
+                            }}
+                          >
+                            {paymentMode === "per_player_selected" && (
+                              <input
+                                type="checkbox"
+                                readOnly
+                                checked={selectedPayers.has(index)}
+                                className="h-4 w-4 accent-primary shrink-0"
+                              />
+                            )}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{profile.name}</p>
                               <p className="text-xs text-muted-foreground truncate">{payEmail || <span className="text-amber-400">No email — fill guardian email in profile</span>}</p>
                             </div>
-                            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">Pays</span>
+                            {isPayer
+                              ? <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">Pays</span>
+                              : <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">Sponsored</span>
+                            }
                           </div>
                         );
                       })}
-                      <p className="text-[11px] text-muted-foreground">
-                        Payment invites will be sent to guardian emails where set, otherwise to the athlete&apos;s platform email.
-                      </p>
+                      {paymentMode === "per_player_selected" && (
+                        <p className="text-[11px] text-muted-foreground">Tick who will pay — unchecked players are sponsored by the manager.</p>
+                      )}
+                      {paymentMode === "per_player_all" && (
+                        <p className="text-[11px] text-muted-foreground">All players will receive a payment invite.</p>
+                      )}
                     </div>
                   );
                 })()}
