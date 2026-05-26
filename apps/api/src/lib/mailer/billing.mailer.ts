@@ -283,6 +283,7 @@ export async function sendTeamPlayerPaymentInviteEmail(input: {
   teamName: string;
   planName: string;
   checkoutUrl: string;
+  loginCredentials?: { email: string; temporaryPassword: string } | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const subject = `Payment link for ${input.teamName}`;
@@ -290,6 +291,21 @@ export async function sendTeamPlayerPaymentInviteEmail(input: {
     const safeTeam = escapeHtml(input.teamName);
     const safePlan = escapeHtml(input.planName);
     const who = input.payerName ? escapeHtml(input.payerName) : "there";
+
+    const credentialsSection = input.loginCredentials
+      ? `
+${textP(`Your athlete account has also been created. Use the details below to sign in to the PH Performance app after completing payment.`)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td style="background:#f4f4f5;border-radius:12px;border:1px solid #e4e4e7;padding:20px 24px;">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;font-family:${E.font};">App login</p>
+      <div style="margin-bottom:4px;font-family:${E.font};font-size:14px;">Email: <strong>${escapeHtml(input.loginCredentials.email)}</strong></div>
+      <div style="font-family:${E.font};font-size:14px;">Temporary password: <strong style="font-family:ui-monospace,Menlo,Consolas,monospace;background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #d4d4d8;">${escapeHtml(input.loginCredentials.temporaryPassword)}</strong></div>
+    </td>
+  </tr>
+</table>`
+      : "";
+
     const bodyHtml = `
 ${textP(`Hi ${who},`)}
 ${textP(`You’ve been selected to complete your payment for <strong>${safeTeam}</strong> on the <strong>${safePlan}</strong> plan.`)}
@@ -303,7 +319,8 @@ ${textP(`Use the secure Stripe checkout link below to complete payment.`)}
     </td>
   </tr>
 </table>
-${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not open, paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}`;
+${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not open, paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}
+${credentialsSection}`;
 
     const html = emailLayout({
       preheader: `Complete your payment for ${input.teamName}.`,

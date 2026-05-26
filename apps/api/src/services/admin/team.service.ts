@@ -372,6 +372,37 @@ export async function createTeamAdmin(input: {
     await syncTeamChatMembers(created.id, group.id);
   }
 
+  // Provision athlete accounts from profiles and build a credentials map keyed by payer email
+  // so the payment invite email can include login details for the athlete.
+  const athleteCredentialsByEmail = new Map<string, { email: string; temporaryPassword: string }>();
+  const profiles = (input.athleteProfiles ?? []).filter((p) => p.name?.trim());
+  for (const profile of profiles) {
+    try {
+      const username = profile.name!.trim();
+      const age = (() => {
+        if (!profile.birthDate) return 10;
+        const dob = new Date(profile.birthDate);
+        if (isNaN(dob.getTime())) return 10;
+        const today = new Date();
+        let a = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
+        return Math.max(5, Math.min(99, a));
+      })();
+      const provisioned = await createTeamRosterAthlete(
+        { id: input.createdByUserId, role: "admin" },
+        { teamId: created.id, username, name: username, age, birthDate: profile.birthDate ?? undefined },
+      );
+      const creds = { email: provisioned.email, temporaryPassword: provisioned.temporaryPassword };
+      athleteCredentialsByEmail.set(provisioned.email.toLowerCase(), creds);
+      if (profile.guardianEmail?.trim()) {
+        athleteCredentialsByEmail.set(profile.guardianEmail.trim().toLowerCase(), creds);
+      }
+    } catch (err) {
+      logger.warn({ err, profile }, "[createTeam] Failed to provision athlete from profile");
+    }
+  }
+
   // Handle player payment invites if needed
   let invitesSent = 0;
   if (
@@ -507,6 +538,7 @@ export async function createTeamAdmin(input: {
                 teamName: created.name,
                 planName: String(plan?.name ?? plan?.tier ?? "PH Performance plan"),
                 checkoutUrl: playerSession.url,
+                loginCredentials: athleteCredentialsByEmail.get(invite.playerEmail.toLowerCase()) ?? null,
               });
               if (emailResult.ok) {
                 emailsSent += 1;
@@ -543,31 +575,6 @@ export async function createTeamAdmin(input: {
         updatedAt: new Date(),
       })
       .where(eq(teamSubscriptionRequestTable.id, reqRow.id));
-  }
-
-  // Provision athlete accounts from profiles supplied in the add-team form
-  const profiles = (input.athleteProfiles ?? []).filter((p) => p.name?.trim());
-  for (const profile of profiles) {
-    try {
-      const username = profile.name!.trim();
-      const age = (() => {
-        if (!profile.birthDate) return 10;
-        const dob = new Date(profile.birthDate);
-        if (isNaN(dob.getTime())) return 10;
-        const today = new Date();
-        let a = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
-        return Math.max(5, Math.min(99, a));
-      })();
-      await createTeamRosterAthlete(
-        { id: input.createdByUserId, role: "admin" },
-        { teamId: created.id, username, name: username, age, birthDate: profile.birthDate ?? undefined },
-      );
-    } catch (err) {
-      // Non-fatal: log and continue so a duplicate or other error doesn't block team creation
-      logger.warn({ err, profile }, "[createTeam] Failed to provision athlete from profile");
-    }
   }
 
   return {
