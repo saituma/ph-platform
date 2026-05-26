@@ -18,6 +18,7 @@ import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession
 import { createTeamManagerUser } from "./user.service";
 import { createTeamRosterAthlete } from "../team-roster.service";
 import { sendPlanInviteEmail, sendTeamPlayerPaymentInviteEmail } from "../../lib/mailer/billing.mailer";
+import { sendAdminWelcomeCredentialsEmail } from "../../lib/mailer/auth.mailer";
 import { teamPlayerPaymentInviteTable } from "../../db/schema";
 import { randomUUID } from "crypto";
 import { approveTeamSubscriptionRequest } from "../billing/team-request.service";
@@ -347,20 +348,30 @@ export async function createTeamAdmin(input: {
 
       checkoutUrl = session.url;
 
-      if (paymentMethod === "email_link" && checkoutUrl && adminEmail) {
+      if (adminEmail) {
         const managerName = adminUserRows[0] ? input.managerName || adminEmail.split("@")[0] : adminEmail.split("@")[0];
-        await sendPlanInviteEmail({
-          to: adminEmail,
-          name: managerName,
-          planName: cleanTeamName,
-          planTier: input.tier,
-          checkoutUrl,
-          invitedByName: null,
-          loginCredentials:
-            input.managerEmail && input.managerPassword
-              ? { email: input.managerEmail, temporaryPassword: input.managerPassword }
-              : null,
-        });
+        const loginCreds =
+          input.managerEmail && input.managerPassword
+            ? { email: input.managerEmail, temporaryPassword: input.managerPassword }
+            : null;
+        if (checkoutUrl) {
+          await sendPlanInviteEmail({
+            to: adminEmail,
+            name: managerName,
+            planName: cleanTeamName,
+            planTier: input.tier,
+            checkoutUrl,
+            invitedByName: null,
+            loginCredentials: loginCreds,
+          });
+        } else if (loginCreds) {
+          // Cash payment — no checkout URL, just send login credentials
+          await sendAdminWelcomeCredentialsEmail({
+            to: adminEmail,
+            guardianName: managerName,
+            temporaryPassword: loginCreds.temporaryPassword,
+          });
+        }
       }
     } catch (err: any) {
       logger.error({ err }, "[Stripe] Failed to create team checkout session");
