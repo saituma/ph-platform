@@ -248,7 +248,7 @@ export async function approveTeamAdminDetails(req: Request, res: Response) {
       .where(eq(teamTable.id, teamId))
       .limit(1);
     if (!teamRow) return res.status(404).json({ error: "Team not found." });
-    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+    if (req.user?.role !== "superAdmin" && req.user?.role !== "admin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const result = await approveTeamAdmin(teamId, billingCycle, accessTierOverride);
@@ -272,7 +272,7 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
       .where(eq(teamTable.id, teamId))
       .limit(1);
     if (!teamRow) return res.status(404).json({ error: "Team not found." });
-    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+    if (req.user?.role !== "superAdmin" && req.user?.role !== "admin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const result = await approveTeamSponsorRestAdmin(teamId, billingCycle, accessTierOverride);
@@ -300,7 +300,7 @@ export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
       .where(eq(teamTable.id, teamId))
       .limit(1);
     if (!teamRow) return res.status(404).json({ error: "Team not found." });
-    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+    if (req.user?.role !== "superAdmin" && req.user?.role !== "admin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -342,7 +342,7 @@ export async function deleteTeamAdminDetails(req: Request, res: Response) {
       .where(eq(teamTable.id, teamId))
       .limit(1);
     if (!teamRow) return res.status(404).json({ error: "Team not found." });
-    if (req.user?.role !== "superAdmin" && teamRow.adminId !== req.user?.id) {
+    if (req.user?.role !== "superAdmin" && req.user?.role !== "admin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
     }
     const result = await deleteTeamAdmin(teamId);

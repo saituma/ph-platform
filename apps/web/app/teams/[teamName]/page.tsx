@@ -870,9 +870,10 @@ export default function TeamDetailPage() {
                                 onClick={async () => {
                                   setResendingInvite(invite.id);
                                   try {
+                                    const csrfToken = getCsrfToken();
                                     const r = await fetch(
                                       `/api/backend/admin/team-subscription-requests/${details.paymentQueue!.requestId}/invites/${invite.id}/resend`,
-                                      { method: "POST", credentials: "include" },
+                                      { method: "POST", credentials: "include", headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined },
                                     );
                                     if (!r.ok) {
                                       const d = await r.json().catch(() => ({}));
