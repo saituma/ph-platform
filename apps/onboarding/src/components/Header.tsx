@@ -80,6 +80,10 @@ export default function Header() {
 	} | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [androidModalOpen, setAndroidModalOpen] = useState(false);
+	const [appWaitlistOpen, setAppWaitlistOpen] = useState(false);
+	const [waitlistForm, setWaitlistForm] = useState({ fullName: "", email: "", mobile: "" });
+	const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+	const [waitlistSuccess, setWaitlistSuccess] = useState(false);
 	const navigate = useNavigate();
 	const isLoggedIn = !isPending && !!sessionUser;
 
@@ -291,6 +295,112 @@ export default function Header() {
 					apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk"
 				/>
 			)}
+
+			{/* App Waiting List Modal */}
+			{appWaitlistOpen && (
+				<div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+					<div
+						className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+						onClick={() => { setAppWaitlistOpen(false); setWaitlistSuccess(false); setWaitlistForm({ fullName: "", email: "", mobile: "" }); }}
+					/>
+					<div className="relative w-full max-w-md bg-[#0f0f0f] border border-white/10 rounded-[8px] p-8">
+						<button
+							type="button"
+							onClick={() => { setAppWaitlistOpen(false); setWaitlistSuccess(false); setWaitlistForm({ fullName: "", email: "", mobile: "" }); }}
+							className="absolute top-4 right-4 text-white/30 hover:text-white/70 transition-colors"
+							aria-label="Close"
+						>
+							<X size={18} />
+						</button>
+
+						{waitlistSuccess ? (
+							<div className="text-center py-6">
+								<div className="w-12 h-12 rounded-full bg-[#8aff00]/10 border border-[#8aff00]/30 flex items-center justify-center mx-auto mb-4">
+									<svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+										<path d="M5 13l4 4L19 7" stroke="#8aff00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+									</svg>
+								</div>
+								<p className="text-[13px] font-bold uppercase tracking-[0.1em] text-[#8aff00] mb-2">You're on the list!</p>
+								<p className="text-[12px] text-white/40">We'll be in touch as soon as the app launches.</p>
+							</div>
+						) : (
+							<>
+								<div className="mb-6">
+									<div className="flex items-center gap-2 mb-3">
+										<span className="w-[6px] h-[6px] rounded-full bg-[#8aff00]" />
+										<span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8aff00]">PH Performance App</span>
+									</div>
+									<h2 className="text-[22px] font-bold uppercase tracking-[0.06em] text-white leading-tight mb-3">
+										Join the Waiting List
+									</h2>
+									<p className="text-[12px] text-white/50 leading-relaxed">
+										Track programmes, log nutrition, monitor GPS running data, book sessions, and review progress — all in one place.
+									</p>
+								</div>
+								<form
+									onSubmit={async (e) => {
+										e.preventDefault();
+										setWaitlistSubmitting(true);
+										try {
+											await fetch(`${config.api.baseUrl}/waitlist`, {
+												method: "POST",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify(waitlistForm),
+											});
+										} catch {
+											// show success even if API unavailable
+										} finally {
+											setWaitlistSubmitting(false);
+											setWaitlistSuccess(true);
+										}
+									}}
+									className="space-y-3"
+								>
+									<div>
+										<label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-white/40 mb-1.5">Full Name</label>
+										<input
+											type="text"
+											required
+											value={waitlistForm.fullName}
+											onChange={(e) => setWaitlistForm(f => ({ ...f, fullName: e.target.value }))}
+											placeholder="Your full name"
+											className="w-full bg-white/5 border border-white/10 rounded-[4px] px-4 py-2.5 text-[13px] text-white placeholder-white/20 outline-none focus:border-[#8aff00]/50 transition-colors"
+										/>
+									</div>
+									<div>
+										<label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-white/40 mb-1.5">Email Address</label>
+										<input
+											type="email"
+											required
+											value={waitlistForm.email}
+											onChange={(e) => setWaitlistForm(f => ({ ...f, email: e.target.value }))}
+											placeholder="you@example.com"
+											className="w-full bg-white/5 border border-white/10 rounded-[4px] px-4 py-2.5 text-[13px] text-white placeholder-white/20 outline-none focus:border-[#8aff00]/50 transition-colors"
+										/>
+									</div>
+									<div>
+										<label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-white/40 mb-1.5">Mobile Number</label>
+										<input
+											type="tel"
+											value={waitlistForm.mobile}
+											onChange={(e) => setWaitlistForm(f => ({ ...f, mobile: e.target.value }))}
+											placeholder="+44 7700 000000"
+											className="w-full bg-white/5 border border-white/10 rounded-[4px] px-4 py-2.5 text-[13px] text-white placeholder-white/20 outline-none focus:border-[#8aff00]/50 transition-colors"
+										/>
+									</div>
+									<button
+										type="submit"
+										disabled={waitlistSubmitting}
+										className="w-full mt-2 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-5 py-3 text-[11px] font-bold uppercase tracking-[0.1em] hover:bg-[#8aff00]/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										{waitlistSubmitting ? "Submitting..." : "Join the Waiting List"}
+									</button>
+								</form>
+							</>
+						)}
+					</div>
+				</div>
+			)}
 			{/* Feature 8: Announcement banner */}
 			<AnimatePresence>
 				{latestAnnouncement && (
@@ -399,15 +509,40 @@ export default function Header() {
 								⌘K
 							</button>
 
+							{/* PH Performance App waiting list */}
+							<button
+								type="button"
+								onClick={() => setAppWaitlistOpen(true)}
+								className="border border-[#8aff00] rounded-[4px] px-5 py-2.5 hover:bg-[#8aff00]/5 transition-all flex items-center gap-3"
+							>
+								<span className="w-[7px] h-[7px] rounded-full bg-[#8aff00] shrink-0" />
+								<div className="text-left">
+									<span className="block text-[11px] font-bold tracking-[0.08em] uppercase leading-tight text-[#8aff00]">
+										PH PERFORMANCE APP
+									</span>
+									<span className="block text-[9px] font-normal text-white/40 tracking-wide mt-[2px]">
+										Join the Waiting List
+									</span>
+								</div>
+							</button>
+
 							{/* Enquiry dropdown */}
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
 									<button
 										type="button"
-										className="text-[11px] font-medium tracking-[0.12em] uppercase text-white/50 hover:text-white border border-white/20 hover:border-white/40 rounded-[4px] px-3 py-2 flex items-center gap-1.5 transition-all"
+										className="border border-white/30 hover:border-white/60 rounded-[4px] px-5 py-2.5 hover:bg-white/5 transition-all flex items-center gap-3"
 									>
-										Enquiry
-										<svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
+										<span className="w-[7px] h-[7px] rounded-full bg-white/40 shrink-0" />
+										<div className="text-left">
+											<span className="block text-[11px] font-bold tracking-[0.08em] uppercase leading-tight text-white/80">
+												ENQUIRY
+											</span>
+											<span className="block text-[9px] font-normal text-white/40 tracking-wide mt-[2px]">
+												Find the right plan
+											</span>
+										</div>
+										<svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-40 ml-1">
 											<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
 										</svg>
 									</button>
@@ -702,16 +837,25 @@ export default function Header() {
 										</div>
 									</div>
 								) : (
-									<button
-										type="button"
-										onClick={() => {
-											setMobileMenuOpen(false);
-											navigate({ to: "/register" });
-										}}
-										className="w-full mt-3 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-									>
-										SIGN UP TO APP NOW
-									</button>
+									<>
+										<button
+											type="button"
+											onClick={() => { setMobileMenuOpen(false); setAppWaitlistOpen(true); }}
+											className="w-full mt-3 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
+										>
+											PH PERFORMANCE APP — JOIN WAITLIST
+										</button>
+										<button
+											type="button"
+											onClick={() => {
+												setMobileMenuOpen(false);
+												navigate({ to: "/register" });
+											}}
+											className="w-full mt-2 border border-white/20 text-white/50 rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
+										>
+											SIGN UP TO APP NOW
+										</button>
+									</>
 								)}
 							</motion.div>
 						)}
