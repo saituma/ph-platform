@@ -496,7 +496,7 @@ function BillingPage() {
 
 			<StaggerList className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 				{activePlans.map((plan) => {
-					const isCurrent = currentTier === plan.tier;
+					const isCurrent = currentTier === plan.tier && subStatusVariant !== "none";
 					const currentRank = currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0;
 					const targetRank = TIER_ORDER[plan.tier] ?? 0;
 					const isDowngrade = !isTeamBilling && currentRank > 0 && targetRank < currentRank;
@@ -552,7 +552,7 @@ function BillingPage() {
 															? "for 1 year · one-time payment"
 															: "one-time payment"}
 											</p>
-											{billingCycle === "monthly" && !isCurrent && (() => {
+											{billingCycle === "monthly" && !isCurrent && plan.billingQuote?.mode === "subscription" && (() => {
 												const priceStr = String(planPrice(plan));
 												const raw = Number(priceStr.replace(/[^\d.]/g, "")) || null;
 												const sym = priceStr.match(/[£$€]/)?.[0] ?? "£";
