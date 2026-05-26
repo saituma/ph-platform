@@ -98,7 +98,7 @@ const BILLING_OPTIONS: {
 	},
 	{
 		id: "six_months",
-		title: "6 months",
+		title: "4 weeks",
 		description: "Single payment",
 	},
 	{

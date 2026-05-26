@@ -46,7 +46,7 @@ export const Route = createFileRoute("/portal/billing")({
 const BILLING_CYCLES: { id: BillingCycle; label: string; hint: string }[] = [
 	{ id: "weekly", label: "Weekly", hint: "Recurring" },
 	{ id: "monthly", label: "Monthly", hint: "Recurring" },
-	{ id: "six_months", label: "6 months", hint: "Upfront" },
+	{ id: "six_months", label: "4 weeks", hint: "Upfront" },
 	{ id: "yearly", label: "Yearly", hint: "Upfront" },
 ];
 
