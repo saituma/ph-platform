@@ -87,6 +87,8 @@ const teamCheckoutSchema = z.object({
       }),
     )
     .optional(),
+  sponsoredPlayerCount: z.coerce.number().int().min(0).default(0),
+  sponsoredPlanId: z.coerce.number().int().min(1).optional().nullable(),
 });
 
 const teamPaymentDraftSchema = z.object({
@@ -393,10 +395,17 @@ export async function createTeamCheckout(req: Request, res: Response) {
       termsVersion: parsed.data.termsVersion,
     });
 
+    const sponsoredCount = Math.min(
+      Math.max(0, parsed.data.sponsoredPlayerCount ?? 0),
+      team.maxAthletes ?? 0,
+    );
+    const sponsoredPlanId = sponsoredCount > 0 ? (parsed.data.sponsoredPlanId ?? null) : null;
     await db
       .update(teamTable)
       .set({
         planId: plan.id,
+        sponsoredPlayerCount: sponsoredCount,
+        sponsoredPlanId: sponsoredPlanId,
         updatedAt: new Date(),
       })
       .where(eq(teamTable.id, team.id));

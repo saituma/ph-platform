@@ -344,6 +344,8 @@ function OnboardingStep5() {
 		coachPaysSeats: number;
 		playerPayersCount: number;
 	} | null>(null);
+	const [sponsoredCount, setSponsoredCount] = useState<number>(0);
+	const [sponsoredPlanId, setSponsoredPlanId] = useState<number | null>(null);
 	const filteredPlans = plans;
 
 	const isTeam = typeof window !== "undefined" && localStorage.getItem("user_type") === "team";
@@ -676,14 +678,16 @@ function OnboardingStep5() {
 					...getAuthHeaders(),
 				},
 				body: JSON.stringify({
-					...(isTeam ? { 
+					...(isTeam ? {
 						teamId,
 						paymentMode,
 						coachPaysSeats,
 						termsAcceptedAt,
 						termsVersion,
 						playerEmails,
-						playerPayers
+						playerPayers,
+						sponsoredPlayerCount: sponsoredCount,
+						sponsoredPlanId: sponsoredPlanId ?? undefined,
 					} : null),
 					planId: selectedPlanData.id,
 					billingCycle,
@@ -841,6 +845,58 @@ function OnboardingStep5() {
 						)}
 					</Card>
 				)}
+
+				{isTeam && teamCheckout?.maxAthletes ? (
+					<Card className="border border-foreground/[0.06] bg-foreground/[0.02] p-5 space-y-4 max-w-3xl mx-auto w-full">
+						<div>
+							<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">Sponsored Players</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								Set how many players get a different plan paid by you. Must be {teamCheckout.maxAthletes} or fewer.
+							</p>
+						</div>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="space-y-1.5">
+								<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+									Number of sponsored players
+								</label>
+								<input
+									type="number"
+									min={0}
+									max={teamCheckout.maxAthletes}
+									value={sponsoredCount}
+									onChange={(e) => {
+										const v = Math.max(0, Math.min(teamCheckout.maxAthletes, Number(e.target.value)));
+										setSponsoredCount(v);
+										if (v === 0) setSponsoredPlanId(null);
+									}}
+									className="w-full border border-foreground/[0.06] bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20"
+								/>
+							</div>
+							{sponsoredCount > 0 && (
+								<div className="space-y-1.5">
+									<label className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+										Sponsored plan
+									</label>
+									<select
+										value={sponsoredPlanId ?? ""}
+										onChange={(e) => setSponsoredPlanId(e.target.value ? Number(e.target.value) : null)}
+										className="w-full border border-foreground/[0.06] bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20"
+									>
+										<option value="">Select a plan…</option>
+										{plans.map((p) => (
+											<option key={p.id} value={p.id}>{p.name}</option>
+										))}
+									</select>
+								</div>
+							)}
+						</div>
+						{sponsoredCount > 0 && (
+							<p className="text-xs text-foreground/60">
+								{sponsoredCount} player{sponsoredCount !== 1 ? "s" : ""} will be marked as sponsored and get the selected plan when you add them to the roster.
+							</p>
+						)}
+					</Card>
+				) : null}
 
 				<div className="max-w-3xl mx-auto space-y-3">
 					<p className="text-center font-mono text-[10px] uppercase tracking-wider text-foreground/40">
