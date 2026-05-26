@@ -15,15 +15,21 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 
-type PlayerPayerRow = {
-  id: string;
+type AthleteProfile = {
   name: string;
-  email: string;
-  selected: boolean;
+  birthDate: string;
+  guardianEmail: string;
 };
 
 type SubscriptionPlan = {
@@ -143,13 +149,17 @@ export default function AddTeamPage() {
   const [maxAthletes, setMaxAthletes] = useState(10);
   const [paymentMethod, setPaymentMethod] = useState<"email_link" | "cash">("email_link");
   const [paymentMode, setPaymentMode] = useState<"coach_pays_all" | "per_player_all" | "per_player_selected">("coach_pays_all");
-  const [playerPayers, setPlayerPayers] = useState<PlayerPayerRow[]>([{ id: crypto.randomUUID(), name: "", email: "", selected: true }]);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "6months" | "yearly">("monthly");
 
   // Sponsored players
   const [hasSponsoredPlayers, setHasSponsoredPlayers] = useState(false);
   const [sponsoredPlayerCount, setSponsoredPlayerCount] = useState(1);
   const [sponsoredTier, setSponsoredTier] = useState<ProgramTier>("PHP");
+
+  // Athlete profiles
+  const [athleteProfiles, setAthleteProfiles] = useState<AthleteProfile[]>([]);
+  const [editingSlot, setEditingSlot] = useState<number | null>(null);
+  const [slotDraft, setSlotDraft] = useState<AthleteProfile>({ name: "", birthDate: "", guardianEmail: "" });
 
   // Misc
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +172,16 @@ export default function AddTeamPage() {
   useEffect(() => {
     if (!slugEdited) setEmailSlug(slugify(teamName));
   }, [teamName, slugEdited]);
+
+  // Sync athlete profile slots to maxAthletes
+  useEffect(() => {
+    setAthleteProfiles((prev) => {
+      const blank = (): AthleteProfile => ({ name: "", birthDate: "", guardianEmail: "" });
+      if (prev.length === maxAthletes) return prev;
+      if (prev.length < maxAthletes) return [...prev, ...Array.from({ length: maxAthletes - prev.length }, blank)];
+      return prev.slice(0, maxAthletes);
+    });
+  }, [maxAthletes]);
 
   useEffect(() => {
     let mounted = true;
@@ -239,30 +259,20 @@ export default function AddTeamPage() {
     if (!cleanPassword || !isStrongPassword(cleanPassword)) return setError("Manager password must be 8+ characters with uppercase, lowercase, number, and special character.");
     if (!hasActivePlanForTier) return setError(`No active billing plan is configured for ${tier}. Activate one in Billing first.`);
 
-    const normalizedRows = playerPayers.map((row) => ({
-      name: row.name.trim(),
-      email: row.email.trim().toLowerCase(),
-      selected: row.selected,
-    }));
+    const submitPayers = athleteProfiles
+      .filter((p) => p.name.trim())
+      .map((p) => {
+        const nameSlug = p.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        const autoEmail = nameSlug && cleanSlug ? `${nameSlug}.${cleanSlug}@${EMAIL_DOMAIN}` : "";
+        return { name: p.name.trim(), email: (p.guardianEmail.trim() || autoEmail).toLowerCase(), selected: true };
+      })
+      .filter((row) => row.email.includes("@"));
 
-    const hasAnyPlayerInput = normalizedRows.some((row) => row.name || row.email);
-    const normalizedPayers = normalizedRows.filter((row) => row.name && row.email.includes("@"));
-
-    if (paymentMode !== "coach_pays_all" && !hasAnyPlayerInput) {
-      return setError("Add at least one player name and email.");
+    if (paymentMode !== "coach_pays_all" && submitPayers.length === 0) {
+      return setError("Fill in at least one athlete profile with a name before creating the team.");
     }
 
-    if (paymentMode === "per_player_all") {
-      const missing = normalizedRows.some((row) => !row.name || !row.email.includes("@"));
-      if (missing) return setError("All player rows need name and email.");
-    }
-
-    if (paymentMode === "per_player_selected" && !normalizedPayers.some((row) => row.selected)) {
-      return setError("Select at least one player who will pay.");
-    }
-
-    const selectedCount = normalizedPayers.filter((row) => row.selected).length;
-    const coachPaysSeats = paymentMode === "per_player_selected" ? Math.max(0, maxAthletes - selectedCount) : 0;
+    const coachPaysSeats = 0;
 
     setIsSubmitting(true);
     try {
@@ -292,8 +302,13 @@ export default function AddTeamPage() {
           sponsoredTier: hasSponsoredPlayers ? sponsoredTier : undefined,
           paymentMode,
           coachPaysSeats: paymentMode === "per_player_selected" ? coachPaysSeats : 0,
-          playerEmails: normalizedPayers.map((row) => row.email),
-          playerPayers: normalizedPayers,
+          playerEmails: submitPayers.map((row) => row.email),
+          playerPayers: submitPayers,
+          athleteProfiles: athleteProfiles.map((p) => ({
+            name: p.name.trim() || null,
+            birthDate: p.birthDate || null,
+            guardianEmail: p.guardianEmail.trim() || null,
+          })),
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -310,19 +325,22 @@ export default function AddTeamPage() {
   };
 
   const hasActivePlanForTier = activeTierSet.has(tier);
-  const normalizedRows = playerPayers.map((row) => ({
-    name: row.name.trim(),
-    email: row.email.trim().toLowerCase(),
-    selected: row.selected,
-  }));
-  const normalizedPayers = normalizedRows.filter((row) => row.name && row.email.includes("@"));
-  const selectedCount = normalizedPayers.filter((row) => row.selected).length;
+  const normalizedPayers = athleteProfiles
+    .filter((p) => p.name.trim())
+    .map((p) => {
+      const nameSlug = p.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const autoEmail = nameSlug && emailSlug ? `${nameSlug}.${emailSlug}@${EMAIL_DOMAIN}` : "";
+      return {
+        name: p.name.trim(),
+        email: (p.guardianEmail.trim() || autoEmail).toLowerCase(),
+        selected: true,
+      };
+    })
+    .filter((row) => row.email.includes("@"));
   const estimatedPlayerPayerCount =
     paymentMode === "coach_pays_all"
       ? maxAthletes
-      : paymentMode === "per_player_all"
-        ? normalizedPayers.length
-        : selectedCount;
+      : normalizedPayers.length;
   const selectedPlan = plansByTier[tier];
   const perSeatPence =
     billingCycle === "yearly"
@@ -344,17 +362,6 @@ export default function AddTeamPage() {
     hasActivePlanForTier &&
     !isSubmitting;
 
-  const addPlayerRow = () => {
-    setPlayerPayers((rows) => [...rows, { id: crypto.randomUUID(), name: "", email: "", selected: paymentMode !== "per_player_selected" }]);
-  };
-
-  const updatePlayerRow = (id: string, patch: Partial<PlayerPayerRow>) => {
-    setPlayerPayers((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
-
-  const removePlayerRow = (id: string) => {
-    setPlayerPayers((rows) => (rows.length <= 1 ? rows : rows.filter((row) => row.id !== id)));
-  };
 
   return (
     <AdminShell
@@ -633,49 +640,37 @@ export default function AddTeamPage() {
             {paymentMode !== "coach_pays_all" && (
               <div className="space-y-3 col-span-full">
                 <Label>Players and payer list</Label>
-                <p className="text-xs text-muted-foreground">
-                  Add each player name and email. {paymentMode === "per_player_selected" ? "Tick who will pay; unchecked players are sponsored by manager after approval." : "All listed players will receive payment invites."}
-                </p>
-                {playerPayers.map((row, index) => (
-                  <div key={row.id} className="grid gap-2 rounded-xl border border-border p-3 sm:grid-cols-12">
-                    <div className="sm:col-span-4">
-                      <Input
-                        placeholder="Player name"
-                        value={row.name}
-                        onChange={(e) => updatePlayerRow(row.id, { name: e.target.value })}
-                      />
+                {(() => {
+                  const filledProfiles = athleteProfiles.filter((p) => p.name.trim());
+                  if (filledProfiles.length === 0) {
+                    return (
+                      <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                        Fill in athlete profiles in the <strong>Athlete Profiles</strong> section below — they will appear here automatically.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {filledProfiles.map((profile, index) => {
+                        const nameSlug = profile.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+                        const autoEmail = nameSlug && emailSlug ? `${nameSlug}.${emailSlug}@${EMAIL_DOMAIN}` : "";
+                        const payEmail = profile.guardianEmail.trim() || autoEmail;
+                        return (
+                          <div key={index} className="flex items-center gap-3 rounded-xl border border-border bg-muted/20 px-4 py-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{profile.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{payEmail || <span className="text-amber-400">No email — fill guardian email in profile</span>}</p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">Pays</span>
+                          </div>
+                        );
+                      })}
+                      <p className="text-[11px] text-muted-foreground">
+                        Payment invites will be sent to guardian emails where set, otherwise to the athlete&apos;s platform email.
+                      </p>
                     </div>
-                    <div className="sm:col-span-5">
-                      <Input
-                        type="email"
-                        placeholder="player@email.com"
-                        value={row.email}
-                        onChange={(e) => updatePlayerRow(row.id, { email: e.target.value })}
-                      />
-                    </div>
-                    <div className="sm:col-span-2 flex items-center justify-center">
-                      {paymentMode === "per_player_selected" ? (
-                        <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={row.selected}
-                            onChange={(e) => updatePlayerRow(row.id, { selected: e.target.checked })}
-                          />
-                          Pays
-                        </label>
-                      ) : (
-                        <span className="text-xs text-emerald-300">Pays</span>
-                      )}
-                    </div>
-                    <div className="sm:col-span-1 flex items-center justify-end">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removePlayerRow(row.id)} disabled={playerPayers.length <= 1}>
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="sm:col-span-12 text-[11px] text-muted-foreground">Player #{index + 1}</div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={addPlayerRow}>+ Add another player</Button>
+                  );
+                })()}
               </div>
             )}
           </CardContent>
@@ -754,6 +749,56 @@ export default function AddTeamPage() {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* ── Athlete Profiles ─────────────────────────────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Athlete Profiles</CardTitle>
+            <CardDescription>
+              Click each slot to fill in the athlete&apos;s details. Birthdate is required for age-matched training content.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {athleteProfiles.map((profile, index) => {
+                const filled = !!(profile.name && profile.birthDate);
+                const nameSlug = profile.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+                const autoEmail = nameSlug && emailSlug ? `${nameSlug}.${emailSlug}@${EMAIL_DOMAIN}` : null;
+                return (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      setSlotDraft({ ...profile });
+                      setEditingSlot(index);
+                    }}
+                    className={`rounded-xl border p-4 text-left transition hover:border-primary/60 hover:bg-primary/5 ${filled ? "border-emerald-500/40 bg-emerald-500/5" : "border-dashed border-border"}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Athlete #{index + 1}</p>
+                        <p className="mt-1 truncate text-sm font-medium text-foreground">
+                          {profile.name || <span className="italic text-muted-foreground">Not filled in</span>}
+                        </p>
+                        {profile.birthDate ? (
+                          <p className="mt-0.5 text-xs text-muted-foreground">DOB: {profile.birthDate}</p>
+                        ) : (
+                          <p className="mt-0.5 text-xs text-amber-400">Birthdate missing</p>
+                        )}
+                        {autoEmail ? (
+                          <p className="mt-0.5 truncate text-[10px] text-muted-foreground/60">{autoEmail}</p>
+                        ) : null}
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${filled ? "bg-emerald-500/15 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                        {filled ? "Done" : "Empty"}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -844,6 +889,52 @@ export default function AddTeamPage() {
           </Button>
         </div>
       </form>
+
+      {/* Athlete slot dialog */}
+      <Dialog open={editingSlot !== null} onOpenChange={(open) => { if (!open) setEditingSlot(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Athlete #{(editingSlot ?? 0) + 1}</DialogTitle>
+            <DialogDescription>Fill in this athlete&apos;s details. Birthdate is required for age-matched content.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>Full name <span className="text-amber-400">*</span></Label>
+              <Input placeholder="e.g. James Smith" value={slotDraft.name} onChange={(e) => setSlotDraft((d) => ({ ...d, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Date of birth <span className="text-amber-400">*</span></Label>
+              <Input type="date" value={slotDraft.birthDate} onChange={(e) => setSlotDraft((d) => ({ ...d, birthDate: e.target.value }))} />
+            </div>
+            {athleteType === "youth" ? (
+              <div className="space-y-1.5">
+                <Label>Guardian email <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <Input type="email" placeholder="parent@email.com" value={slotDraft.guardianEmail} onChange={(e) => setSlotDraft((d) => ({ ...d, guardianEmail: e.target.value }))} />
+                <p className="text-[11px] text-muted-foreground">Parent will receive the athlete&apos;s login email and team slug.</p>
+              </div>
+            ) : null}
+            {slotDraft.name && emailSlug ? (
+              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Login email: <span className="font-mono text-foreground">{slotDraft.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}.{emailSlug}@{EMAIL_DOMAIN}</span>
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="outline" type="button" onClick={() => setEditingSlot(null)}>Cancel</Button>
+              <Button
+                type="button"
+                disabled={!slotDraft.name.trim() || !slotDraft.birthDate}
+                onClick={() => {
+                  if (editingSlot === null) return;
+                  setAthleteProfiles((prev) => prev.map((p, i) => i === editingSlot ? { ...slotDraft } : p));
+                  setEditingSlot(null);
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AdminShell>
   );
 }
