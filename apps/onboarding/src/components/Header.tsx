@@ -376,17 +376,17 @@ export default function Header() {
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label="Download on the App Store"
-								className="opacity-60 hover:opacity-100 transition-opacity"
+								className="opacity-85 hover:opacity-100 transition-opacity"
 							>
-								<img src="/apple-app-store.svg" alt="App Store" className="h-[28px]" />
+								<img src="/apple-app-store.svg" alt="App Store" className="h-[36px]" />
 							</a>
 							<button
 								type="button"
 								onClick={() => setAndroidModalOpen(true)}
 								aria-label="Get it on Google Play"
-								className="opacity-60 hover:opacity-100 transition-opacity"
+								className="opacity-85 hover:opacity-100 transition-opacity"
 							>
-								<img src="/google-play.svg" alt="Google Play" className="h-[28px]" />
+								<img src="/google-play.svg" alt="Google Play" className="h-[36px]" />
 							</button>
 
 							{/* Feature 7: Cmd+K hint */}
