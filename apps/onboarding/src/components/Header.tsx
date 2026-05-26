@@ -509,23 +509,6 @@ export default function Header() {
 								⌘K
 							</button>
 
-							{/* PH Performance App waiting list */}
-							<button
-								type="button"
-								onClick={() => setAppWaitlistOpen(true)}
-								className="border border-[#8aff00] rounded-[4px] px-5 py-2.5 hover:bg-[#8aff00]/5 transition-all flex items-center gap-3"
-							>
-								<span className="w-[7px] h-[7px] rounded-full bg-[#8aff00] shrink-0" />
-								<div className="text-left">
-									<span className="block text-[11px] font-bold tracking-[0.08em] uppercase leading-tight text-[#8aff00]">
-										PH PERFORMANCE APP
-									</span>
-									<span className="block text-[9px] font-normal text-white/40 tracking-wide mt-[2px]">
-										Join the Waiting List
-									</span>
-								</div>
-							</button>
-
 							{/* Enquiry dropdown */}
 							<DropdownMenu>
 								<DropdownMenuTrigger asChild>
@@ -547,7 +530,14 @@ export default function Header() {
 										</svg>
 									</button>
 								</DropdownMenuTrigger>
-								<DropdownMenuContent className="w-52 mt-1 bg-[#111] border-white/10" align="end">
+								<DropdownMenuContent className="w-56 mt-1 bg-[#111] border-white/10" align="end">
+									<DropdownMenuItem
+										className="px-3 py-2.5 cursor-pointer focus:bg-white/5"
+										onClick={() => setAppWaitlistOpen(true)}
+									>
+										<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#8aff00]">PH Performance App</span>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
 									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
 										<Link to="/enquiry/121">
 											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">1-1 Coaching</span>
@@ -777,6 +767,13 @@ export default function Header() {
 								{/* Enquiry links in mobile menu */}
 						<div className="border-t border-white/5 pt-1">
 							<div className="py-2 text-[10px] font-bold tracking-[0.16em] uppercase text-white/25">Enquiry</div>
+							<button
+								type="button"
+								onClick={() => { setMobileMenuOpen(false); setAppWaitlistOpen(true); }}
+								className="block w-full text-left py-2.5 text-[12px] font-medium uppercase tracking-[0.14em] border-b border-white/5 text-[#8aff00]"
+							>
+								PH Performance App
+							</button>
 							<Link
 								to="/enquiry/121"
 								onClick={() => setMobileMenuOpen(false)}
@@ -837,25 +834,16 @@ export default function Header() {
 										</div>
 									</div>
 								) : (
-									<>
-										<button
-											type="button"
-											onClick={() => { setMobileMenuOpen(false); setAppWaitlistOpen(true); }}
-											className="w-full mt-3 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-										>
-											PH PERFORMANCE APP — JOIN WAITLIST
-										</button>
-										<button
-											type="button"
-											onClick={() => {
-												setMobileMenuOpen(false);
-												navigate({ to: "/register" });
-											}}
-											className="w-full mt-2 border border-white/20 text-white/50 rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-										>
-											SIGN UP TO APP NOW
-										</button>
-									</>
+									<button
+										type="button"
+										onClick={() => {
+											setMobileMenuOpen(false);
+											navigate({ to: "/register" });
+										}}
+										className="w-full mt-3 border border-[#8aff00] text-[#8aff00] rounded-[4px] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em]"
+									>
+										SIGN UP TO APP NOW
+									</button>
 								)}
 							</motion.div>
 						)}
