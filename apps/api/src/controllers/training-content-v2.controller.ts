@@ -620,3 +620,34 @@ export async function finishTrainingSessionHandler(req: Request, res: Response) 
 export async function completeTrainingWorkoutHandler(req: Request, res: Response) {
   return completeTrainingSessionRequest(req, res);
 }
+
+export async function getAthleteTrainingContentAdminHandler(req: Request, res: Response) {
+  try {
+    const athleteId = z.coerce.number().int().positive().parse(req.params.athleteId);
+    const { athleteTable } = await import("../db/schema");
+    const [athlete] = await db
+      .select({
+        id: athleteTable.id,
+        age: athleteTable.age,
+        currentProgramTier: athleteTable.currentProgramTier,
+        athleteType: athleteTable.athleteType,
+        team: athleteTable.team,
+      })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, athleteId))
+      .limit(1);
+    if (!athlete) return res.status(404).json({ error: "Athlete not found." });
+    const age = athlete.age ?? null;
+    if (!age) return res.status(200).json({ age: null, modules: [], others: [] });
+    const workspace = await getTrainingContentMobileWorkspace({
+      age,
+      athleteId: athlete.id,
+      programTier: athlete.currentProgramTier ?? null,
+      team: athlete.athleteType === "adult" ? (athlete.team ?? null) : null,
+    });
+    return res.status(200).json({ ...workspace, age, athleteType: athlete.athleteType });
+  } catch (error) {
+    logger.error({ err: error }, "[admin] getAthleteTrainingContent error");
+    return res.status(500).json({ error: "Failed to load training content." });
+  }
+}

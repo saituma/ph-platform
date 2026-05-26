@@ -18,6 +18,7 @@ import {
   deleteTrainingSessionItemHandler,
   finishTrainingSessionHandler,
   completeTrainingWorkoutHandler,
+  getAthleteTrainingContentAdminHandler,
   getTrainingContentAdminWorkspaceHandler,
   getTrainingContentMobileWorkoutsHandler,
   getTrainingContentMobileWorkspaceHandler,
@@ -179,6 +180,13 @@ router.delete(
   requireAuth,
   requireRole(["coach", "admin", "superAdmin"]),
   deleteTrainingOtherContentHandler,
+);
+
+router.get(
+  "/training-content-v2/admin/athletes/:athleteId/training",
+  requireAuth,
+  requireRole(["coach", "admin", "superAdmin"]),
+  getAthleteTrainingContentAdminHandler,
 );
 
 export default router;

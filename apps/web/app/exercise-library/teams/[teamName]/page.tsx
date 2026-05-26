@@ -663,6 +663,13 @@ function TeamDetailPageInner() {
                 Others
               </Button>
             </Link>
+            <Link
+              href={`/exercise-library/teams/${encodeURIComponent(audienceLabel)}/members`}
+            >
+              <Button size="sm" variant="ghost">
+                Members
+              </Button>
+            </Link>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
             {activeView === "modules" ? (
