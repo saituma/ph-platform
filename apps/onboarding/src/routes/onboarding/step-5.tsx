@@ -1132,97 +1132,57 @@ function OnboardingStep5() {
 					<Card className="border border-foreground/[0.06] bg-foreground/[0.02] overflow-hidden">
 						<div className="p-4 border-b border-foreground/[0.06] bg-foreground/[0.04]">
 							<h3 className="font-mono text-[10px] uppercase tracking-wider text-foreground font-bold">
-								PH Performance – Terms & Policies
+								PH Performance – Membership & Payment Policy
 							</h3>
 						</div>
 						<div className="p-6 max-h-[250px] overflow-y-auto space-y-6 text-[11px] text-muted-foreground leading-relaxed font-mono custom-scrollbar">
-							<section className="space-y-2">
-								<p className="text-foreground font-bold italic">Please read carefully before signing up. By completing registration and payment, you confirm that you have read, understood, and agreed to the following terms.</p>
-							</section>
 
 							<section className="space-y-4">
-								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">IN-PERSON SESSIONS</h4>
-								<div className="space-y-3">
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Membership & Payments</p>
-										<p>All clients are enrolled on a monthly payment plan. Payments are fixed monthly regardless of whether there are 4 or 5 sessions. Your membership covers 48 sessions per year. Your payment secures your coaching slot, not attendance. All payments are strictly non-refundable.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Coach Availability</p>
-										<p>PH Performance operates across 48 weeks of the year. Monthly payments remain unchanged during this time.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Cancellations & Missed Sessions</p>
-										<p>Sessions cancelled with less than 24 hours notice will be considered used and are non-refundable. Missed sessions/no-shows are counted as used sessions and cannot be carried over. Make-up sessions are not guaranteed. Repeated missed sessions may result in loss of place.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Membership Cancellation & Notice Period</p>
-										<p>Clients must provide a minimum of 30 days written notice to cancel their membership. Memberships remain active throughout the 30-day notice period and any scheduled payments during this period will still be collected. No partial refunds will be issued.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Pausing & Freezing</p>
-										<p>Memberships cannot be paused or frozen unless agreed in exceptional circumstances by PH Performance.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Refund Policy</p>
-										<p>Missed sessions, unused sessions, partial months, or change of mind purchases are non-refundable.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Failed or Unpaid Payments</p>
-										<p>If recurring payments fail or remain unpaid, PH Performance reserves the right to suspend access to coaching sessions, programmes, and app features until payment has been resolved.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Health & Responsibility</p>
-										<p>Clients must disclose injuries. PH Performance not liable for undisclosed conditions or misuse.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Code of Conduct</p>
-										<p>Respect, punctuality and effort required. Failure may result in removal.</p>
-									</div>
-								</div>
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">Membership & Payments</h4>
+								<ul className="space-y-2 list-none">
+									<li>Memberships operate on a fixed monthly membership basis</li>
+									<li>Monthly payments remain the same regardless of whether there are 4 or 5 weeks within a month</li>
+									<li>Membership structure is based across 48 coaching weeks per calendar year</li>
+									<li>Planned breaks, holidays, and facility closures are already factored into membership pricing</li>
+									<li>Payments are collected automatically via Direct Debit or recurring card payment</li>
+									<li>Payments are non-refundable once processed</li>
+									<li>Failed or missed payments may result in suspension of app access and coaching services</li>
+									<li>New members joining midway through a billing cycle may be charged a prorated first payment</li>
+									<li>Memberships will automatically continue unless cancelled correctly</li>
+								</ul>
 							</section>
 
 							<section className="space-y-4 pt-4 border-t border-foreground/[0.06]">
-								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">APP USERS</h4>
-								<div className="space-y-3">
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Subscription & Payments</p>
-										<p>App memberships are billed monthly. All payments are strictly non-refundable. This includes unused programmes, lack of engagement, and cancellations. Payment provides access, not guaranteed results.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Access & Account Responsibility</p>
-										<p>App is for personal use only. Login sharing prohibited. PH Performance may remove access without refund if misuse occurs.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Programme Use & Responsibility</p>
-										<p>Users must follow programmes as instructed. PH Performance not liable for: - Incorrect execution Failure to follow guidance - Misuse of training programmes</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Results Disclaimer</p>
-										<p>Results are not guaranteed. They depend on effort, consistency, and lifestyle. Lack of results does not qualify for refund.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Health & Medical Responsibility</p>
-										<p>Users must disclose injuries and confirm fitness to train. PH Performance not liable for: Undisclosed conditions - Training against medical advice</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">App Features & Availability</p>
-										<p>Features may change at any time. PH Performance not liable for downtime or technical issues.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Communication & Support</p>
-										<p>Support depends on membership tier. Response times not guaranteed.</p>
-									</div>
-									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Termination of Access</p>
-										<p>Access may be removed for misuse or breach of terms. No refunds issued.</p>
-									</div>
-								</div>
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">Missed Sessions</h4>
+								<ul className="space-y-2 list-none">
+									<li>A minimum of 24 hours notice is required for any missed session</li>
+									<li>Sessions missed with less than 24 hours notice cannot be rescheduled or refunded</li>
+									<li>Missed sessions due to holidays, football matches, illness, or personal commitments are not guaranteed to be made up</li>
+									<li>Alternative sessions may be offered where availability allows but are not guaranteed</li>
+									<li>PH Performance may operate waiting lists for limited coaching slots</li>
+									<li>Repeated non-attendance or non-payment may result in removal from the programme</li>
+								</ul>
+							</section>
+
+							<section className="space-y-4 pt-4 border-t border-foreground/[0.06]">
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">Cancellation Policy</h4>
+								<ul className="space-y-2 list-none">
+									<li>A minimum of 30 days written notice prior to the next billing date is required to cancel a membership</li>
+									<li>Cancellation requests must be submitted in writing</li>
+									<li>Memberships and payments remain active throughout the notice period</li>
+									<li>If notice is given within less than 30 days of the next billing date, an additional payment may still be processed before cancellation takes effect</li>
+								</ul>
+							</section>
+
+							<section className="space-y-4 pt-4 border-t border-foreground/[0.06]">
+								<h4 className="text-foreground font-bold uppercase tracking-tight text-xs">App & Membership Access</h4>
+								<ul className="space-y-2 list-none">
+									<li>Active membership is required to maintain access to the app, programmes, recovery content, nutrition resources, messaging features, and coaching support</li>
+								</ul>
 							</section>
 
 							<section className="pt-4 border-t border-foreground/[0.06]">
-								<p className="text-foreground font-bold">Final Agreement</p>
-								<p>By signing up, you confirm agreement to all terms. This forms a binding agreement.</p>
+								<p className="text-foreground font-bold italic">By completing signup and payment, members and/or parents/guardians agree to the payment policy, cancellation policy, terms and conditions, and coaching policies of PH Performance.</p>
 							</section>
 						</div>
 					</Card>
