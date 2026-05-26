@@ -325,6 +325,7 @@ export default function TeamDetailPage() {
   const [fpGoals, setFpGoals] = useState("");
   const [fpInjuries, setFpInjuries] = useState("");
   const [fpGuardianName, setFpGuardianName] = useState("");
+  const [resendingInvite, setResendingInvite] = useState<number | null>(null);
 
   const [provisionAdult, { isLoading: isProvisioningAdult }] = useProvisionAdultAthleteMutation();
   const [provisionGuardian, { isLoading: isProvisioningGuardian }] = useProvisionGuardianMutation();
@@ -861,6 +862,33 @@ export default function TeamDetailPage() {
                             </p>
                             {invite.emailLastError && invite.emailLastError !== "sponsored_by_manager" ? (
                               <p className="mt-1 text-[11px] text-red-300">{invite.emailLastError}</p>
+                            ) : null}
+                            {invite.status !== "paid" && !invite.sponsoredByManager ? (
+                              <button
+                                type="button"
+                                disabled={resendingInvite === invite.id}
+                                onClick={async () => {
+                                  setResendingInvite(invite.id);
+                                  try {
+                                    const r = await fetch(
+                                      `/api/backend/admin/team-subscription-requests/${details.paymentQueue!.requestId}/invites/${invite.id}/resend`,
+                                      { method: "POST", credentials: "include" },
+                                    );
+                                    if (!r.ok) {
+                                      const d = await r.json().catch(() => ({}));
+                                      toast.error(d.error || "Failed to resend");
+                                    } else {
+                                      toast.success("Invite email resent");
+                                      await loadDetails();
+                                    }
+                                  } finally {
+                                    setResendingInvite(null);
+                                  }
+                                }}
+                                className="mt-1.5 text-[11px] font-medium text-primary hover:underline disabled:opacity-50"
+                              >
+                                {resendingInvite === invite.id ? "Sending…" : "Resend email"}
+                              </button>
                             ) : null}
                           </div>
                           <div className="text-right text-xs">
