@@ -390,11 +390,17 @@ export async function getMe(req: Request, res: Response) {
     const teamForUser = isCoachRole ? coachManagedTeam : await withTeamPlanTier(await resolveAthleteTeamForMe(athlete));
     const teamTierFallback = teamForUser?.planTier ?? null;
     const guardianTier = fullUser.role === "guardian" ? (athlete?.guardianProgramTier ?? null) : null;
-    const programTier = guardianTier ?? athlete?.currentProgramTier ?? teamTierFallback;
+    // If the athlete's team is pending approval, suppress any manually-set athlete tier so it
+    // cannot leak premium access before the admin has approved the team subscription.
+    const teamIsPending =
+      teamForUser != null &&
+      ["pending_approval", "pending_payment"].includes(teamForUser.subscriptionStatus ?? "");
+    const athleteTier = teamIsPending ? null : (athlete?.currentProgramTier ?? null);
+    const programTier = guardianTier ?? athleteTier ?? teamTierFallback;
     const tierSource =
       guardianTier != null
         ? "guardian"
-        : athlete?.currentProgramTier != null
+        : athleteTier != null
           ? "athlete"
           : teamTierFallback != null
             ? "team"
