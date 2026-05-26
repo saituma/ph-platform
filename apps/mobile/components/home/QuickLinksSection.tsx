@@ -44,9 +44,9 @@ function getLinksForRole(
     case "adult_athlete_team":
     case "team": {
       const links: QuickLink[] = [];
-      if (!hideWellbeingSleep && capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
-      if (capabilities?.progressTracking !== false) links.push({ label: "Progress", icon: "stats", route: "/progress" });
-      if (!hideWellbeingSleep && capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (capabilities?.progressTracking === true) links.push({ label: "Progress", icon: "stats", route: "/progress" });
+      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
       links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
       return links;
     }
@@ -54,9 +54,9 @@ function getLinksForRole(
     case "youth_athlete_guardian_only":
     case "youth_athlete_team_guardian": {
       const links: QuickLink[] = [];
-      if (!hideWellbeingSleep && capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
-      if (!hideWellbeingSleep && capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
-      if (!isPhpBase && !isTeamRole) links.push({ label: "Parent", icon: "parents", route: "/parent-platform" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      if (capabilities?.parentContent === true) links.push({ label: "Parent", icon: "parents", route: "/parent-platform" });
       links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
       return links;
     }

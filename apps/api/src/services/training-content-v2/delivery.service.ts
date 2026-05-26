@@ -59,13 +59,13 @@ export async function getTrainingContentMobileWorkspace(input: {
         )[0]?.currentProgramTier ?? null)
       : null);
   const isAdult = input.age >= 18;
-  const isYouthOnTeam = !isAdult && hasTeam(input.team);
+  const isOnTeam = hasTeam(input.team);
   const effectiveTier = isAdult ? (resolvedAthleteTier ?? DEFAULT_ADULT_PROGRAM_TIER) : resolvedAthleteTier;
-  const selectedAudienceLabel = hasTeam(input.team) && isAdult
-    ? formatTeamAudienceLabel(input.team!.trim())
-    : isAdult
-      ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[effectiveTier!]}`
-      : null; // youth athletes (including team youth) always get age-scored content
+  // Always use age-scored (youth) or adult-tier as the primary content source.
+  // Team modules are appended on top as supplementary content.
+  const selectedAudienceLabel = isAdult
+    ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[effectiveTier!]}`
+    : null;
 
   const resolvedAudienceLabel = selectedAudienceLabel ? selectedAudienceLabel : "age_scored";
 
@@ -85,8 +85,14 @@ export async function getTrainingContentMobileWorkspace(input: {
         })()
       : await listTrainingContentAdminWorkspace(resolvedAudienceLabel);
 
-  const teamWorkspace =
-    isYouthOnTeam ? await listTrainingContentAdminWorkspace(formatTeamAudienceLabel(input.team!.trim())) : null;
+  let teamWorkspace: Awaited<ReturnType<typeof listTrainingContentAdminWorkspace>> | null = null;
+  if (isOnTeam) {
+    try {
+      teamWorkspace = await listTrainingContentAdminWorkspace(formatTeamAudienceLabel(input.team!.trim()));
+    } catch {
+      // never let team module fetch kill primary content
+    }
+  }
   const completionRows = input.athleteId
     ? await db
         .select()
