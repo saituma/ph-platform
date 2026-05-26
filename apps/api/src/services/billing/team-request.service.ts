@@ -168,8 +168,11 @@ export async function updateTeamRequestFromStripeCheckoutSession(
   const request = requests[0] ?? null;
   if (!request) return null;
 
-  const amountCents =
+  const rawAmountCents =
     typeof (session as any).amount_total === "number" ? ((session as any).amount_total as number) : null;
+  // When a promo makes the checkout free (amount_total === 0), store null so the
+  // seat-based fallback in the admin view shows the real plan value instead of £0.
+  const amountCents = rawAmountCents === 0 ? null : rawAmountCents;
   const currency = typeof (session as any).currency === "string" ? ((session as any).currency as string) || null : null;
   const stripeSubscriptionId =
     typeof (session as any).subscription === "string" ? ((session as any).subscription as string) : null;

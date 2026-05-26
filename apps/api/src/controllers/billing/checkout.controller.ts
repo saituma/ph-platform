@@ -388,7 +388,7 @@ export async function createTeamCheckout(req: Request, res: Response) {
       planBillingCycle: billingCycle,
       stripeSessionId: session?.id ?? null,
       paymentMode,
-      coachPaysSeats,
+      coachPaysSeats: paymentMode === "coach_pays_all" ? coachQuantity : coachPaysSeats,
       termsAcceptedAt,
       termsVersion: parsed.data.termsVersion,
     });
