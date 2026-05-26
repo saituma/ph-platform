@@ -495,12 +495,19 @@ export async function createTeamAdmin(input: {
     let inviteEmailsError: string | null = null;
     try {
       const stripeClient = getStripeClient();
-      // Resolve the price ID for per-player invites
+      const { resolveTierFallbackPrice } = await import("../billing/stripe.service");
+      // Resolve the price ID for per-player invites (with monthly fallback)
       let priceId: string | undefined;
       try {
         const prices = await stripeClient.prices.list({ lookup_keys: [lookupKey], active: true });
         if (prices.data[0]) priceId = prices.data[0].id;
       } catch {}
+      if (!priceId && intervalKey === "monthly") {
+        priceId = resolveTierFallbackPrice(input.tier, "monthly") || undefined;
+      }
+      if (!priceId) {
+        throw new Error(`No Stripe price found for ${lookupKey}. Configure a price lookup key in Stripe or set the fallback env var.`);
+      }
 
       if (priceId) {
         const priceObj = await stripeClient.prices.retrieve(priceId);
