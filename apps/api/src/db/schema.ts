@@ -1374,7 +1374,7 @@ export const teamSubscriptionRequestTable = pgTable("team_subscription_requests"
     .notNull()
     .references(() => subscriptionPlanTable.id),
   planBillingCycle: varchar({ length: 20 }),
-  stripeSessionId: varchar({ length: 255 }),
+  stripeSessionId: varchar({ length: 255 }).unique(),
   stripeSubscriptionId: varchar({ length: 255 }),
   stripePaymentIntentId: varchar({ length: 255 }),
   paymentStatus: varchar({ length: 100 }),
