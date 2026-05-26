@@ -287,7 +287,9 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
       }
     }
 
-    const rawAge = parsed.success ? parsed.data.age : (athlete?.age ?? null);
+    // Prefer the athlete's actual DB age over the query param to avoid clients
+    // sending stale/fallback ages (e.g. mobile briefly defaulting to 18 while loading).
+    const rawAge = athlete?.age ?? (parsed.success ? parsed.data.age : null);
     const athleteTeam = athlete?.team ?? null;
     const hasTeamName = athleteTeam && athleteTeam.trim().toLowerCase() !== "unknown";
     const age = rawAge || (hasTeamName ? 18 : null);
