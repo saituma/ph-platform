@@ -378,7 +378,7 @@ export default function Header() {
 								aria-label="Download on the App Store"
 								className="opacity-85 hover:opacity-100 transition-opacity"
 							>
-								<img src="/apple-app-store.svg" alt="App Store" className="h-[52px]" />
+								<img src="/apple-app-store.svg" alt="App Store" className="h-[40px]" />
 							</a>
 							<button
 								type="button"
@@ -386,7 +386,7 @@ export default function Header() {
 								aria-label="Get it on Google Play"
 								className="opacity-85 hover:opacity-100 transition-opacity"
 							>
-								<img src="/google-play.svg" alt="Google Play" className="h-[52px]" />
+								<img src="/google-play.svg" alt="Google Play" className="h-[40px]" />
 							</button>
 
 							{/* Feature 7: Cmd+K hint */}
