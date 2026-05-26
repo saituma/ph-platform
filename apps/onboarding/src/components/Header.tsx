@@ -404,7 +404,7 @@ export default function Header() {
 								<DropdownMenuTrigger asChild>
 									<button
 										type="button"
-										className="text-[11px] font-medium tracking-[0.12em] uppercase text-white/50 hover:text-white transition-colors px-2 py-1 flex items-center gap-1"
+										className="text-[11px] font-medium tracking-[0.12em] uppercase text-white/50 hover:text-white border border-white/20 hover:border-white/40 rounded-[4px] px-3 py-2 flex items-center gap-1.5 transition-all"
 									>
 										Enquiry
 										<svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-50">
