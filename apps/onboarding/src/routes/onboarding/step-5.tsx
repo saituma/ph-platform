@@ -851,7 +851,7 @@ function OnboardingStep5() {
 						aria-label="Billing cycle"
 						className="grid grid-cols-1 sm:grid-cols-3 gap-3"
 					>
-						{BILLING_OPTIONS.map((opt) => {
+						{BILLING_OPTIONS.filter((opt) => opt.id !== "six_months" || isAdult).map((opt) => {
 							const active = billingCycle === opt.id;
 							const supported = plans.some((p) => planSupportsBillingCycle(p, opt.id));
 							const savings =

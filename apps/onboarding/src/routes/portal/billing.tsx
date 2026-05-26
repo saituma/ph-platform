@@ -470,7 +470,10 @@ function BillingPage() {
 						<CardDescription>Choose how checkout prices are shown.</CardDescription>
 					</CardHeader>
 					<CardContent className="grid gap-2">
-						{BILLING_CYCLES.map((cycle) => (
+						{BILLING_CYCLES.filter((cycle) => {
+							if (cycle.id !== "six_months") return true;
+							return !isTeamBilling && user?.athleteType === "adult";
+						}).map((cycle) => (
 							<motion.button
 								key={cycle.id}
 								whileHover={{ scale: 1.01 }}
