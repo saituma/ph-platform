@@ -739,9 +739,40 @@ function TeamDetailPageInner() {
                 </DndContext>
               ) : null}
               {!workspace?.modules.length ? (
-                <p className="text-sm text-muted-foreground">
-                  No modules created yet.
-                </p>
+                <div className="flex flex-col items-center gap-6 rounded-2xl border-2 border-dashed border-border bg-muted/30 px-6 py-10 text-center">
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-foreground">No modules yet</p>
+                    <p className="text-sm text-muted-foreground">Import from an age group template or create from scratch.</p>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <Button
+                      onClick={() => {
+                        setCopyStep("team");
+                        setCopySourceTab("age-groups");
+                        setCopySourceWorkspace(null);
+                        setCopyAllModules(true);
+                        setCopySelectedModules(new Set());
+                        setCopyAllSessions(true);
+                        setCopySelectedSessions(new Set());
+                        setCopySourceLabel("");
+                        setCopySourceTeam("");
+                        setCopySearch("");
+                        setCopyModalOpen(true);
+                      }}
+                    >
+                      Import from age group
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setModuleForm({ id: null, title: "" });
+                        setModalOpen(true);
+                      }}
+                    >
+                      Create manually
+                    </Button>
+                  </div>
+                </div>
               ) : null}
             </CardContent>
           </Card>
