@@ -107,6 +107,12 @@ async function reconcileTeamRequestPayments(requestId: number) {
 
   if (updated) {
     scheduleTeamPendingApprovalEmails(updated.id, previousStatus, updated.status);
+    if (nextStatus === "pending_approval" && previousStatus !== "pending_approval") {
+      await db
+        .update(teamTable)
+        .set({ subscriptionStatus: "pending_approval", updatedAt: new Date() })
+        .where(eq(teamTable.id, updated.teamId));
+    }
   }
   return updated ?? null;
 }
