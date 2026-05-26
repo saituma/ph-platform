@@ -719,17 +719,61 @@ export default function Header() {
 							)}
 						</div>
 
-						{/* Mobile hamburger */}
-						<button
-							type="button"
-							onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-							aria-expanded={mobileMenuOpen}
-							aria-controls="mobile-menu"
-							aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-							className="lg:hidden text-white p-2"
-						>
-							{mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-						</button>
+						{/* Mobile right side */}
+						<div className="lg:hidden flex items-center gap-2">
+							{/* Enquiry card */}
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<button
+										type="button"
+										className="flex items-center gap-1.5 border border-white/20 rounded-[4px] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-white/60 hover:text-white hover:border-white/40 transition-all"
+									>
+										Enquiry
+										<svg width="8" height="8" viewBox="0 0 10 10" fill="none" className="opacity-50">
+											<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+										</svg>
+									</button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent className="w-52 bg-[#111] border-white/10" align="end">
+									<DropdownMenuItem
+										className="px-3 py-2.5 cursor-pointer focus:bg-white/5"
+										onClick={() => setAppWaitlistOpen(true)}
+									>
+										<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-[#8aff00]">PH Performance App</span>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/121" onClick={() => setMobileMenuOpen(false)}>
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">1-1 Coaching</span>
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/semi-private" onClick={() => setMobileMenuOpen(false)}>
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">Small Group Training</span>
+										</Link>
+									</DropdownMenuItem>
+									<DropdownMenuSeparator className="bg-white/5" />
+									<DropdownMenuItem asChild className="px-3 py-2.5 cursor-pointer focus:bg-white/5">
+										<Link to="/enquiry/team" onClick={() => setMobileMenuOpen(false)}>
+											<span className="text-[11px] font-bold tracking-[0.1em] uppercase text-white">Team Programmes</span>
+										</Link>
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+
+							{/* Hamburger */}
+							<button
+								type="button"
+								onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+								aria-expanded={mobileMenuOpen}
+								aria-controls="mobile-menu"
+								aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+								className="text-white p-2"
+							>
+								{mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+							</button>
+						</div>
 					</div>
 
 					{/* Feature 3: Scroll progress bar */}
