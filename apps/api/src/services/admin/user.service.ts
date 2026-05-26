@@ -523,11 +523,12 @@ export async function getUserOnboarding(userId: number) {
 
 export async function updateAthlete(
   athleteId: number,
-  data: { profilePicture?: string | null; currentProgramTier?: string | null },
+  data: { profilePicture?: string | null; currentProgramTier?: string | null; phoneNumber?: string | null },
 ) {
   const updateData: any = { updatedAt: new Date() };
   if (data.profilePicture !== undefined) updateData.profilePicture = data.profilePicture;
   if (data.currentProgramTier !== undefined) updateData.currentProgramTier = data.currentProgramTier;
+  if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
 
   const result = await db.update(athleteTable).set(updateData).where(eq(athleteTable.id, athleteId)).returning();
 

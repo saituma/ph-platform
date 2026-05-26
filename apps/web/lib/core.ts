@@ -236,6 +236,7 @@ export type UserOnboardingAthlete = {
   growthNotes?: string | null;
   performanceGoals?: string;
   equipmentAccess?: string;
+  phoneNumber?: string | null;
   profilePicture?: string | null;
   onboardingCompleted?: boolean;
   onboardingCompletedAt?: string | null;

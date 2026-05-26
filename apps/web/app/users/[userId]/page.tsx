@@ -36,7 +36,7 @@ import {
   ShieldCheck,
   Hash,
   Camera,
-  UploadCloud,
+  Phone,
   BarChart3,
   Moon,
   Apple,
@@ -193,6 +193,8 @@ export default function UserDetailPage() {
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [programTier, setProgramTier] = useState("PHP");
   const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const [desiredPlanId, setDesiredPlanId] = useState<number | null>(null);
@@ -291,6 +293,25 @@ export default function UserDetailPage() {
   useEffect(() => {
     setProgramTier(resolvedTier);
   }, [resolvedTier]);
+
+  useEffect(() => {
+    setPhoneInput(onboarding?.athlete?.phoneNumber ?? "");
+  }, [onboarding?.athlete?.phoneNumber]);
+
+  const handleSavePhone = useCallback(async () => {
+    if (!athleteId) return;
+    setActionError(null);
+    setActionNotice(null);
+    setIsSavingPhone(true);
+    try {
+      await updateAthlete({ athleteId, patch: { phoneNumber: phoneInput.trim() || null } }).unwrap();
+      setActionNotice("Phone number saved.");
+    } catch (err: unknown) {
+      setActionError(getErrorMessage(err, "Failed to save phone number."));
+    } finally {
+      setIsSavingPhone(false);
+    }
+  }, [athleteId, phoneInput, updateAthlete]);
 
   const handleAssignPlan = useCallback(async () => {
     if (!athleteId || !desiredPlanId) return;
@@ -712,6 +733,29 @@ export default function UserDetailPage() {
                   <p className="text-xs font-semibold text-foreground truncate">{f.value || "—"}</p>
                 </div>
               ))}
+            </div>
+            {/* Phone number — editable */}
+            <div className="rounded-xl bg-muted/30 border border-border/60 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Phone className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Phone number</span>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="h-8 text-xs flex-1 font-mono"
+                  placeholder="+1 555 000 0000"
+                  value={phoneInput}
+                  onChange={e => setPhoneInput(e.target.value)}
+                />
+                <Button
+                  size="sm"
+                  className="h-8 px-3 text-xs shrink-0"
+                  onClick={() => void handleSavePhone()}
+                  disabled={isSavingPhone || !athleteId}
+                >
+                  {isSavingPhone ? "Saving…" : "Save"}
+                </Button>
+              </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {onboarding?.athlete?.performanceGoals && (

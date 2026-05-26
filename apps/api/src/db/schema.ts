@@ -335,6 +335,7 @@ export const athleteTable = pgTable(
     team: varchar({ length: 255 }).notNull(),
     trainingPerWeek: integer().notNull(),
     preferredTrainingDays: jsonb("preferred_training_days").$type<string[]>().notNull().default([]),
+    phoneNumber: varchar({ length: 50 }),
     injuries: jsonb(),
     growthNotes: varchar({ length: 255 }),
     performanceGoals: varchar({ length: 255 }),

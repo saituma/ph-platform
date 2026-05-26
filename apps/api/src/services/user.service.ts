@@ -224,7 +224,7 @@ export async function getAthleteForUser(userId: number) {
       extraResponses: athleteTable.extraResponses,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
-      phoneNumber: guardianTable.phoneNumber,
+      phoneNumber: sql<string | null>`coalesce(${athleteTable.phoneNumber}, ${guardianTable.phoneNumber})`,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
@@ -263,7 +263,7 @@ export async function getAthleteForUser(userId: number) {
       extraResponses: athleteTable.extraResponses,
       createdAt: athleteTable.createdAt,
       updatedAt: athleteTable.updatedAt,
-      phoneNumber: guardianTable.phoneNumber,
+      phoneNumber: sql<string | null>`coalesce(${athleteTable.phoneNumber}, ${guardianTable.phoneNumber})`,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))

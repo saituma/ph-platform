@@ -169,7 +169,7 @@ const usersApi = apiSlice.injectEndpoints({
     }),
     updateAthlete: builder.mutation<
       any,
-      { athleteId: number; patch: { profilePicture?: string | null; currentProgramTier?: string | null } }
+      { athleteId: number; patch: { profilePicture?: string | null; currentProgramTier?: string | null; phoneNumber?: string | null } }
     >({
       query: ({ athleteId, patch }) => ({
         url: `/admin/athletes/${athleteId}`,

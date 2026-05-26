@@ -268,6 +268,7 @@ export async function updateProgramTier(req: Request, res: Response) {
 const updateAthleteSchema = z.object({
   profilePicture: z.string().url().optional().nullable(),
   currentProgramTier: z.enum(ProgramType.enumValues).optional().nullable(),
+  phoneNumber: z.string().max(50).optional().nullable(),
 });
 
 export async function updateAthleteAdmin(req: Request, res: Response) {
