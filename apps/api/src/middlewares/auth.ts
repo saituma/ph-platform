@@ -7,6 +7,10 @@ import { logger } from "../lib/logger";
 import { createUserFromCognito, getAthleteForUser, getUserByCognitoSub, getUserById } from "../services/user.service";
 import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { cache, cacheKeys } from "../lib/cache";
+import { db } from "../db";
+import { athleteTable, teamTable } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { isAthleteUserRole } from "../lib/user-roles";
 
 const DB_OUTAGE_AUTH_LOG_THROTTLE_MS = 2_000;
 const SESSION_COOKIE_NAMES = ["ph_app_session", "auth_token", "accessToken"];
@@ -107,6 +111,35 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     if (user.isBlocked) {
       return res.status(403).json({ error: "Account is blocked" });
     }
+
+    // Block team athletes whose team is pending approval from accessing any endpoint.
+    if (isAthleteUserRole(user.role)) {
+      const teamStatus = await cache.getOrSet(
+        `user:${user.id}:team_status`,
+        60,
+        async () => {
+          const [athlete] = await db
+            .select({ teamId: athleteTable.teamId })
+            .from(athleteTable)
+            .where(eq(athleteTable.userId, user.id))
+            .limit(1);
+          if (!athlete?.teamId) return "none";
+          const [team] = await db
+            .select({ subscriptionStatus: teamTable.subscriptionStatus })
+            .from(teamTable)
+            .where(eq(teamTable.id, athlete.teamId))
+            .limit(1);
+          return team?.subscriptionStatus ?? "none";
+        },
+      );
+      if (teamStatus === "pending_approval" || teamStatus === "pending_payment") {
+        return res.status(403).json({
+          error: "Your team membership is pending approval. You will be able to access the app once your coach has confirmed your place.",
+          code: "TEAM_PENDING_APPROVAL",
+        });
+      }
+    }
+
     req.user = {
       id: user.id,
       role: user.role,
