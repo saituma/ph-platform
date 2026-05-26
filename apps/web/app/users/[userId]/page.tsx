@@ -731,15 +731,17 @@ export default function UserDetailPage() {
                 {onboarding?.athlete?.injuries ? (
                   <div className="flex flex-wrap gap-1.5">
                     {(() => {
-                      try {
-                        const parsed = JSON.parse(onboarding.athlete.injuries as string);
-                        if (Array.isArray(parsed)) return parsed.map((inj, i) => (
-                          <Badge key={i} className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
-                            {typeof inj === "string" ? inj : JSON.stringify(inj)}
-                          </Badge>
-                        ));
-                      } catch {}
-                      return <span className="text-xs">{onboarding.athlete.injuries}</span>;
+                      // injuries is jsonb — already parsed, never a raw string
+                      let parsed: unknown = onboarding.athlete.injuries;
+                      if (typeof parsed === "string") {
+                        try { parsed = JSON.parse(parsed); } catch { /* keep as string */ }
+                      }
+                      if (Array.isArray(parsed)) return parsed.map((inj, i) => (
+                        <Badge key={i} className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                          {typeof inj === "string" ? inj : JSON.stringify(inj)}
+                        </Badge>
+                      ));
+                      return <span className="text-xs">{typeof parsed === "string" ? parsed : JSON.stringify(parsed)}</span>;
                     })()}
                   </div>
                 ) : (
