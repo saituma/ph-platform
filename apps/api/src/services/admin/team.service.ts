@@ -523,6 +523,7 @@ export async function createTeamAdmin(input: {
             const playerSession = await stripeClient.checkout.sessions.create({
               mode: billingCycle === "monthly" ? "subscription" : "payment",
               customer_email: invite.playerEmail,
+              allow_promotion_codes: true,
               ...(billingCycle !== "monthly" ? { customer_creation: "always" } : {}),
               payment_method_types: ["card"],
               line_items: [{ price: priceId, quantity: 1 }],

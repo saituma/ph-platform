@@ -487,6 +487,7 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
       return getStripeClient().checkout.sessions.create({
         mode: interval === "monthly" ? "subscription" : "payment",
         customer_email: row.playerEmail,
+        allow_promotion_codes: true,
         ...(interval !== "monthly" ? { customer_creation: "always" as const } : {}),
         payment_method_types: ["card"],
         line_items: [lineItem],
