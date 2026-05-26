@@ -1153,11 +1153,23 @@ function OnboardingStep5() {
 									</div>
 									<div>
 										<p className="text-foreground/80 font-bold underline mb-1">Cancellations & Missed Sessions</p>
-										<p>24 hours notice required for cancellations. Missed sessions: - Not carried over - Not credited - Not refunded. Make-up sessions not guaranteed. Repeated missed sessions may result in loss of place.</p>
+										<p>Sessions cancelled with less than 24 hours notice will be considered used and are non-refundable. Missed sessions/no-shows are counted as used sessions and cannot be carried over. Make-up sessions are not guaranteed. Repeated missed sessions may result in loss of place.</p>
 									</div>
 									<div>
-										<p className="text-foreground/80 font-bold underline mb-1">Membership Cancellation</p>
-										<p>Minimum 1 month written notice required. Payments continue during notice period. No partial refunds issued.</p>
+										<p className="text-foreground/80 font-bold underline mb-1">Membership Cancellation & Notice Period</p>
+										<p>Clients must provide a minimum of 30 days written notice to cancel their membership. Memberships remain active throughout the 30-day notice period and any scheduled payments during this period will still be collected. No partial refunds will be issued.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Pausing & Freezing</p>
+										<p>Memberships cannot be paused or frozen unless agreed in exceptional circumstances by PH Performance.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Refund Policy</p>
+										<p>Missed sessions, unused sessions, partial months, or change of mind purchases are non-refundable.</p>
+									</div>
+									<div>
+										<p className="text-foreground/80 font-bold underline mb-1">Failed or Unpaid Payments</p>
+										<p>If recurring payments fail or remain unpaid, PH Performance reserves the right to suspend access to coaching sessions, programmes, and app features until payment has been resolved.</p>
 									</div>
 									<div>
 										<p className="text-foreground/80 font-bold underline mb-1">Health & Responsibility</p>
