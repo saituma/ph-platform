@@ -8,6 +8,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 import type { AppRole } from "@/lib/appRole";
+import type { AppCapabilities } from "@/store/slices/userSlice";
 
 type QuickLink = {
   label: string;
@@ -15,7 +16,7 @@ type QuickLink = {
   route: string;
 };
 
-function getLinksForRole(appRole: AppRole | null): QuickLink[] {
+function getLinksForRole(appRole: AppRole | null, capabilities: AppCapabilities | null): QuickLink[] {
   switch (appRole) {
     case "coach":
       return [
@@ -32,22 +33,24 @@ function getLinksForRole(appRole: AppRole | null): QuickLink[] {
       ];
     case "adult_athlete":
     case "adult_athlete_team":
-    case "team":
-      return [
-        { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
-        { label: "Progress", icon: "stats", route: "/progress" },
-        { label: "Sleep", icon: "sleep", route: "/sleep" },
-        { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
-      ];
+    case "team": {
+      const links: QuickLink[] = [];
+      if (capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (capabilities?.progressTracking !== false) links.push({ label: "Progress", icon: "stats", route: "/progress" });
+      if (capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
+      return links;
+    }
     case "youth_athlete":
     case "youth_athlete_guardian_only":
-    case "youth_athlete_team_guardian":
-      return [
-        { label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" },
-        { label: "Sleep", icon: "sleep", route: "/sleep" },
-        { label: "Parent", icon: "parents", route: "/parent-platform" },
-        { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
-      ];
+    case "youth_athlete_team_guardian": {
+      const links: QuickLink[] = [];
+      if (capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      links.push({ label: "Parent", icon: "parents", route: "/parent-platform" });
+      links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
+      return links;
+    }
     default:
       return [
         { label: "Nutrition", icon: "tracking", route: "/nutrition" },
@@ -131,8 +134,14 @@ const QuickLinkItem = React.memo(function QuickLinkItem({ link }: { link: QuickL
   );
 });
 
-export const QuickLinksSection = React.memo(function QuickLinksSection({ appRole }: { appRole: AppRole | null }) {
-  const links = getLinksForRole(appRole);
+export const QuickLinksSection = React.memo(function QuickLinksSection({
+  appRole,
+  capabilities,
+}: {
+  appRole: AppRole | null;
+  capabilities: AppCapabilities | null;
+}) {
+  const links = getLinksForRole(appRole, capabilities);
 
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>

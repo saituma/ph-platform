@@ -81,6 +81,7 @@ import {
 } from "@/lib/progressReminders";
 import { AdaptiveSheet } from "@/components/native/AdaptiveSheet";
 import { useAppToast } from "@/hooks/useAppToast";
+import { useAppSelector } from "@/store/hooks";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const { width: _SCREEN_W } = Dimensions.get("window");
@@ -417,6 +418,18 @@ export default function ProgressScreen() {
   const reduceMotion = useReducedMotion();
   const toast = useAppToast();
   const router = useRouter();
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+
+  if (capabilities?.progressTracking === false) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <BarChart3 size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   const [tab, setTab] = useState<Tab>("strength");
   const [strength, setStrength] = useState<StrengthEntry[]>([]);

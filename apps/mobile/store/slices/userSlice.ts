@@ -39,6 +39,8 @@ export type AppCapabilities = {
   nutritionReview: boolean;
   parentContent: boolean;
   progressTracking: boolean;
+  wellbeing: boolean;
+  sleep: boolean;
   teamTracking: boolean;
   socialTracking: boolean;
   trainingQuestionnaire: boolean;

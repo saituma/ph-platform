@@ -825,7 +825,7 @@ export default function TrackingHomeScreen() {
           </Animated.View>
 
           {/* ── Progress Shortcut (bento link card) ── */}
-          <Animated.View entering={FadeInDown.delay(360).springify().damping(18)}>
+          {capabilities?.progressTracking !== false && <Animated.View entering={FadeInDown.delay(360).springify().damping(18)}>
             <Pressable
               onPress={() => router.push("/progress" as any)}
               style={({ pressed }) => ({
@@ -863,7 +863,7 @@ export default function TrackingHomeScreen() {
               </View>
               <ChevronRight size={18} color={PASTEL_LAVENDER_TEXT} />
             </Pressable>
-          </Animated.View>
+          </Animated.View>}
 
           {/* ── Activities (categorized runs) ── */}
           {capabilities?.runTracking !== false && <View style={{ gap: 10 }}>

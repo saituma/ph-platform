@@ -393,9 +393,10 @@ const HomeScreen = memo(function HomeScreen() {
   }, [router]);
 
   const navigateToProgress = useCallback(() => {
+    if (capabilities?.progressTracking === false) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/progress" as any);
-  }, [router]);
+  }, [router, capabilities]);
 
   const navigateToTracking2 = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -580,7 +581,7 @@ const HomeScreen = memo(function HomeScreen() {
 
           {/* Quick links */}
           <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(500).duration(300).springify()}>
-            <QuickLinksSection appRole={appRole} />
+            <QuickLinksSection appRole={appRole} capabilities={capabilities} />
           </Animated.View>
 
           {/* Intro video */}

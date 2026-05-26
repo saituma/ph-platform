@@ -10,6 +10,18 @@ import { Text } from "@/components/ScaledText";
 
 export default function SleepScreen() {
   const p = useAdminPastel();
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+
+  if (capabilities?.sleep === false) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <Lock size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return <SleepDashboard />;
 }

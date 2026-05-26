@@ -208,6 +208,24 @@ export default function WellbeingScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
+  const capabilities = useAppSelector((s) => s.user.capabilities);
+
+  if (capabilities?.wellbeing === false) {
+    return (
+      <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <ArrowLeft
+          size={20}
+          color={p.textMuted}
+          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
+          onPress={() => router.back()}
+        />
+        <AlertTriangle size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </View>
+    );
+  }
   const { logs, todayLog, isLoading, isSaving, loadLogs, saveLog } = useWellbeingData(token);
 
   const [mood, setMood] = useState(todayLog?.mood ?? 3);

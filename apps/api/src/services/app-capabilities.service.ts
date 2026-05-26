@@ -13,6 +13,8 @@ export type AppCapabilities = {
   nutritionReview: boolean;
   parentContent: boolean;
   progressTracking: boolean;
+  wellbeing: boolean;
+  sleep: boolean;
   teamTracking: boolean;
   socialTracking: boolean;
   trainingQuestionnaire: boolean;
@@ -84,6 +86,8 @@ export function buildAppCapabilities(input: {
       nutritionReview: true,
       parentContent: true,
       progressTracking: true,
+      wellbeing: true,
+      sleep: true,
       teamTracking: true,
       socialTracking: true,
       trainingQuestionnaire: true,
@@ -114,6 +118,8 @@ export function buildAppCapabilities(input: {
   const isTeamAthlete = role === "team_athlete" || hasTeam;
   const isYouth = role === "guardian" || role === "youth_athlete" || athleteType === "youth";
   const canTrackProgress = isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled);
+  // PHP Program is the entry-level tier — wellbeing, sleep, progress and nutrition are Premium+ only.
+  const isPhpBasic = programTier === "PHP" && !has("programs_full");
 
   return {
     training: hasAssignedAccess,
@@ -121,10 +127,12 @@ export function buildAppCapabilities(input: {
     coachBooking: !isTeamAthlete && has("bookings"),
     messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures, hasActivePlan),
     groupChat: isTeamAthlete,
-    nutrition: hasNutrition,
+    nutrition: !isPhpBasic && hasNutrition,
     nutritionReview: false,
     parentContent: isYouth && hasParentContent,
-    progressTracking: canTrackProgress && has("progress_tracking"),
+    progressTracking: !isPhpBasic && canTrackProgress && has("progress_tracking"),
+    wellbeing: !isPhpBasic && hasAssignedAccess,
+    sleep: !isPhpBasic && hasAssignedAccess,
     teamTracking: isTeamAthlete && (has("run_tracking") || has("social_feed") || has("progress_tracking")),
     socialTracking: isAdult && !isTeamAthlete && has("social_feed"),
     trainingQuestionnaire: (isAdult || isTeamAthlete) && has("progress_tracking"),

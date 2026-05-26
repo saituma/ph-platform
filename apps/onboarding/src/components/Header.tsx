@@ -1,4 +1,5 @@
 import { Layout, SignOut, User as UserIcon } from "@phosphor-icons/react";
+import { AndroidDownloadModal } from "./AndroidDownloadModal";
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -78,6 +79,7 @@ export default function Header() {
 		image: string;
 	} | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+	const [androidModalOpen, setAndroidModalOpen] = useState(false);
 	const navigate = useNavigate();
 	const isLoggedIn = !isPending && !!sessionUser;
 
@@ -283,6 +285,12 @@ export default function Header() {
 
 	return (
 		<>
+			{androidModalOpen && (
+				<AndroidDownloadModal
+					onClose={() => setAndroidModalOpen(false)}
+					apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk"
+				/>
+			)}
 			{/* Feature 8: Announcement banner */}
 			<AnimatePresence>
 				{latestAnnouncement && (
@@ -362,6 +370,25 @@ export default function Header() {
 
 						{/* Desktop right side — auth */}
 						<div className="hidden lg:flex items-center gap-3">
+							{/* App store badges */}
+							<a
+								href="https://apps.apple.com/app/ph-performance/id6768563715"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="Download on the App Store"
+								className="opacity-60 hover:opacity-100 transition-opacity"
+							>
+								<img src="/apple-app-store.svg" alt="App Store" className="h-[28px]" />
+							</a>
+							<button
+								type="button"
+								onClick={() => setAndroidModalOpen(true)}
+								aria-label="Get it on Google Play"
+								className="opacity-60 hover:opacity-100 transition-opacity"
+							>
+								<img src="/google-play.svg" alt="Google Play" className="h-[28px]" />
+							</button>
+
 							{/* Feature 7: Cmd+K hint */}
 							<button
 								type="button"
