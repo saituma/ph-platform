@@ -60,15 +60,11 @@ export async function getTrainingContentMobileWorkspace(input: {
       : null);
   const isAdult = input.age >= 18;
   const effectiveTier = isAdult ? (resolvedAthleteTier ?? DEFAULT_ADULT_PROGRAM_TIER) : resolvedAthleteTier;
-  const selectedAudienceLabel = hasTeam(input.team)
+  const selectedAudienceLabel = hasTeam(input.team) && isAdult
     ? formatTeamAudienceLabel(input.team!.trim())
     : isAdult
       ? `${ADULT_AUDIENCE_PREFIX}${PROGRAM_TIER_LABELS[effectiveTier!]}`
-      : (() => {
-          // Youth still selects by age.
-          // Audience labels are age ranges (e.g. "12-14") or "All".
-          return null;
-        })();
+      : null; // youth athletes (including team youth) always get age-scored content
 
   const resolvedAudienceLabel = selectedAudienceLabel ? selectedAudienceLabel : "age_scored";
 
