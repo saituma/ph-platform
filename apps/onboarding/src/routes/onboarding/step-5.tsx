@@ -418,6 +418,15 @@ function OnboardingStep5() {
 
 	useEffect(() => {
 		if (!filteredPlans.length) return;
+		// If no plan supports the current billing cycle, switch to the first supported cycle.
+		const anySupportsCurrent = filteredPlans.some((p: any) => planSupportsBillingCycle(p, billingCycle));
+		if (!anySupportsCurrent) {
+			const firstCycle = firstSupportedCycleForPlan(filteredPlans[0]);
+			if (firstCycle) {
+				setBillingCycle(firstCycle);
+				return;
+			}
+		}
 		if (selectedPlan != null) {
 			const selected = filteredPlans.find((p: any) => p.id === selectedPlan);
 			if (selected && planSupportsBillingCycle(selected, billingCycle)) return;
@@ -1029,7 +1038,7 @@ function OnboardingStep5() {
 												<span className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
 													{planBillingLabel(plan, billingCycle)}
 												</span>
-												{billingCycle === "monthly" && (() => {
+												{billingCycle === "monthly" && plan.billingQuote?.mode === "subscription" && (() => {
 													const raw = parseMoneyToNumber(String(displayPrice));
 													const sym = raw !== null ? detectCurrencySymbol(String(displayPrice)) : "£";
 													const prorated = raw !== null ? proratedAmount(raw) : null;
