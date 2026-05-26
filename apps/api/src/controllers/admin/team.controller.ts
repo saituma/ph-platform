@@ -112,6 +112,15 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
           }),
         )
         .optional(),
+      athleteProfiles: z
+        .array(
+          z.object({
+            name: z.string().nullable().optional(),
+            birthDate: z.string().nullable().optional(),
+            guardianEmail: z.string().nullable().optional(),
+          }),
+        )
+        .optional(),
     })
     .safeParse(req.body);
   if (!parsed.success) {
@@ -144,6 +153,7 @@ export async function createTeamAdminDetails(req: Request, res: Response) {
       coachPaysSeats: parsed.data.coachPaysSeats,
       playerEmails: parsed.data.playerEmails,
       playerPayers: parsed.data.playerPayers,
+      athleteProfiles: parsed.data.athleteProfiles,
     });
     return res.status(201).json(result);
   } catch (error: any) {

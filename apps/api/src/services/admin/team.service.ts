@@ -16,6 +16,7 @@ import {
 } from "../../db/schema";
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 import { createTeamManagerUser } from "./user.service";
+import { createTeamRosterAthlete } from "../team-roster.service";
 import { sendPlanInviteEmail, sendTeamPlayerPaymentInviteEmail } from "../../lib/mailer/billing.mailer";
 import { teamPlayerPaymentInviteTable } from "../../db/schema";
 import { randomUUID } from "crypto";
@@ -183,6 +184,7 @@ export async function createTeamAdmin(input: {
   coachPaysSeats?: number;
   playerEmails?: string[];
   playerPayers?: Array<{ name: string; email: string; selected?: boolean }>;
+  athleteProfiles?: Array<{ name?: string | null; birthDate?: string | null; guardianEmail?: string | null }>;
 }) {
   const cleanTeamName = input.teamName.trim();
   if (!cleanTeamName) {
@@ -541,6 +543,31 @@ export async function createTeamAdmin(input: {
         updatedAt: new Date(),
       })
       .where(eq(teamSubscriptionRequestTable.id, reqRow.id));
+  }
+
+  // Provision athlete accounts from profiles supplied in the add-team form
+  const profiles = (input.athleteProfiles ?? []).filter((p) => p.name?.trim());
+  for (const profile of profiles) {
+    try {
+      const username = profile.name!.trim();
+      const age = (() => {
+        if (!profile.birthDate) return 10;
+        const dob = new Date(profile.birthDate);
+        if (isNaN(dob.getTime())) return 10;
+        const today = new Date();
+        let a = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
+        return Math.max(5, Math.min(99, a));
+      })();
+      await createTeamRosterAthlete(
+        { id: input.createdByUserId, role: "admin" },
+        { teamId: created.id, username, name: username, age, birthDate: profile.birthDate ?? undefined },
+      );
+    } catch (err) {
+      // Non-fatal: log and continue so a duplicate or other error doesn't block team creation
+      logger.warn({ err, profile }, "[createTeam] Failed to provision athlete from profile");
+    }
   }
 
   return {
