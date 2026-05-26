@@ -21,10 +21,9 @@ function getLinksForRole(
   capabilities: AppCapabilities | null,
   programTier: string | null,
 ): QuickLink[] {
-  const isPhpBase = programTier === "PHP";
-  const isTeamRole =
-    appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
-  const hideWellbeingSleep = isPhpBase || isTeamRole;
+  // Wellbeing/Sleep is gated by tier only (PHP Starter has no access);
+  // team athletes on higher tiers (PHP_Premium etc.) should still see these.
+  const hideWellbeingSleep = programTier === "PHP";
 
   switch (appRole) {
     case "coach":

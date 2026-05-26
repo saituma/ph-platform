@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getCachedEntry, recordCachedEntry } from '@/lib/video/videoCacheStore';
 
@@ -135,71 +135,47 @@ export function isVideoDownloading(url: string, cacheKey?: string | null): boole
 export function useVideoCache(
   url: string | null | undefined,
   cacheKey?: string | null,
-  allowBackgroundSourceSwitch = true,
+  _allowBackgroundSourceSwitch = true,
 ) {
-  const [cachedEntry, setCachedEntry] = useState<{
-    memKey: string;
-    filePath: string;
-  } | null>(() => {
+  // Lock in the source URI at mount. Swapping the source mid-play caused the
+  // expo-video player to restart at 0s on Android even when the user hadn't
+  // touched anything — most visibly when the background download finished and
+  // we tried to swap https → file://. Only sync (in-memory) cache hits are
+  // used; misses stream from network this session, and the background download
+  // populates the cache for the NEXT mount.
+  const [initialEntry] = useState<{ memKey: string; filePath: string } | null>(() => {
     if (!url) return null;
     if (isLocalUri(url)) return null;
     const memKey = getMemoryKey(url, cacheKey);
     const filePath = knownCachedFiles.get(memKey);
     return filePath ? { memKey, filePath } : null;
   });
-  const currentMemKey = url && !isLocalUri(url) ? getMemoryKey(url, cacheKey) : null;
+
   const cachedUri = isLocalUri(url ?? "")
     ? (url ?? null)
-    : cachedEntry?.memKey === currentMemKey
-      ? cachedEntry.filePath
-      : null;
+    : initialEntry?.filePath ?? null;
 
-  // Track whether the player has started so we avoid source-switching mid-play.
-  const hasStartedRef = useRef(false);
-
+  // Kick off the disk lookup + download in the background so the file is ready
+  // for the next time this URL mounts. Crucially we do NOT update state with
+  // the resulting path — the current player keeps its mount-time source URI.
   useEffect(() => {
-    hasStartedRef.current = false;
-  }, [url]);
-
-  useEffect(() => {
-    if (!url) {
-      setCachedEntry(null);
-      return;
-    }
-    if (isLocalUri(url)) {
-      setCachedEntry(null);
-      return;
-    }
-
-    const memKey = getMemoryKey(url, cacheKey);
-
-    // Already resolved in this session — sync up and bail.
-    const knownPath = knownCachedFiles.get(memKey);
-    if (knownPath) {
-      setCachedEntry({ memKey, filePath: knownPath });
-      return;
-    }
-
+    if (!url || isLocalUri(url)) return;
     let cancelled = false;
-
     (async () => {
-      const local = await downloadToCache(url, cacheKey);
-      if (cancelled || !local) return;
-      if (!allowBackgroundSourceSwitch) return;
-      if (hasStartedRef.current) return; // don't swap mid-playback
-      setCachedEntry({ memKey, filePath: local });
+      try {
+        await downloadToCache(url, cacheKey);
+      } catch {
+        // ignored — caller is already streaming from the network URL
+      }
+      if (cancelled) return;
     })();
-
     return () => {
       cancelled = true;
     };
-  }, [url, cacheKey, allowBackgroundSourceSwitch]);
+  }, [url, cacheKey]);
 
-  // Call this from the player when it actually starts playing so we stop
-  // switching sources mid-playback.
-  const markStarted = () => {
-    hasStartedRef.current = true;
-  };
+  // No-op now (kept for API compatibility with existing callers).
+  const markStarted = () => {};
 
   return { cachedUri, markStarted };
 }

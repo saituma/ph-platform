@@ -190,10 +190,17 @@ export async function extractPosterAndMetadata(publicUrl: string): Promise<Poste
   }
 }
 
-export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<OptimizedVideoResult | null> {
+export async function optimizeUploadedVideoUrl(
+  publicUrl: string,
+  options: { force?: boolean } = {},
+): Promise<OptimizedVideoResult | null> {
   const originalKey = getMediaObjectKeyFromPublicUrl(publicUrl);
   if (!originalKey) return null;
-  if (originalKey.endsWith(".opt.mp4")) return null;
+  // `force: true` re-transcodes already-optimized files — needed to fix the
+  // legacy batch encoded with 10-bit H.264 (High 10 profile) that Android
+  // can't decode. The output key is the same `.opt.mp4` so the row URL stays
+  // stable, but the underlying object is overwritten with 8-bit yuv420p.
+  if (!options.force && originalKey.endsWith(".opt.mp4")) return null;
   if (!isFfmpegAvailable()) return null;
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "video-opt-"));
@@ -219,6 +226,17 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
       inputPath,
       "-c:v",
       "libx264",
+      // Force broadly compatible 8-bit H.264 (yuv420p, Main profile, level 4.0).
+      // Without these, libx264 inherits the source bit depth — 10-bit inputs
+      // produce High 10 profile output, which Android's hardware decoder can't
+      // play (iOS plays it fine). Symptom: video stuck at 0s on Android with
+      // repeated "Unable to play video" errors.
+      "-profile:v",
+      "main",
+      "-pix_fmt",
+      "yuv420p",
+      "-level",
+      "4.0",
       "-preset",
       "veryfast",
       "-crf",
@@ -292,7 +310,11 @@ export async function optimizeUploadedVideoUrl(publicUrl: string): Promise<Optim
       };
     }
 
-    const optimizedKey = optimizedKeyFor(originalKey);
+    // In force mode the input is already a `.opt.mp4`; reuse the same key so we
+    // overwrite the bad encode in place. Otherwise derive the `.opt.mp4` key
+    // from the original name (e.g. `foo.mov` → `foo.opt.mp4`).
+    const optimizedKey =
+      options.force && originalKey.endsWith(".opt.mp4") ? originalKey : optimizedKeyFor(originalKey);
     // Stream the optimized file to R2 instead of loading it into memory.
     const fsNode = await import("fs");
     await putObject({

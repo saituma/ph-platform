@@ -171,7 +171,11 @@ export function useVideoPlayerEngine({
 
   useEventListener(player, "statusChange", (e) => {
     if (e.status === "readyToPlay" || e.status === "loading") {
-      retryCountRef.current = 0;
+      // Only reset retry count on actual success (readyToPlay). Resetting on
+      // "loading" too created an infinite retry loop on Android when a video
+      // failed: error → replace → loading (reset!) → error → repeat forever,
+      // which appeared as the video re-starting at 0s indefinitely.
+      if (e.status === "readyToPlay") retryCountRef.current = 0;
       Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
       setIsLoading(false);
       // Grab duration here too — covers HLS/streaming sources where sourceLoad may not fire

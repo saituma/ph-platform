@@ -18,6 +18,7 @@ import {
   Platform,
 } from "react-native";
 import { VideoView } from "expo-video";
+import Constants from "expo-constants";
 import {
   NavigationContext,
   NavigationContainerRefContext,
@@ -132,12 +133,18 @@ function VideoPlayerBase(props: VideoPlayerProps & { navFocused: boolean }) {
     [normalizedUri],
   );
 
+  // In Expo Go (dev/managed), cached file:// URIs from the app cache directory
+  // don't always play in the bundled expo-video build — the player keeps erroring
+  // and re-issuing the source, which appears as "video stuck at 0s, refreshing".
+  // Stream directly from the network in dev/Expo Go.
+  const isExpoGo = (Constants as any)?.appOwnership === "expo";
+  const disableCache = props.disableCache || isExpoGo;
   const { cachedUri, markStarted } = useVideoCache(
-    props.disableCache || isY || isL ? null : normalizedUri,
+    disableCache || isY || isL ? null : normalizedUri,
     props.cacheKey,
     !props.autoPlay,
   );
-  const finalSource = props.disableCache ? normalizedUri : cachedUri || normalizedUri;
+  const finalSource = disableCache ? normalizedUri : cachedUri || normalizedUri;
 
   if (isY) return <VideoPlayerYoutubeMode {...props} />;
   if (isL) {
