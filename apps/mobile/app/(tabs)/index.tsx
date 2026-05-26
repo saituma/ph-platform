@@ -315,6 +315,7 @@ const HomeScreen = memo(function HomeScreen() {
   const homeContentLoading = !homeContent;
   const stats = statsQuery.data;
   const capabilities = useAppSelector((s) => s.user.capabilities);
+  const programTier = useAppSelector((s) => s.user.programTier);
   const hasTeam = appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
   const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach" || capabilities?.runTracking === true;
 
@@ -581,7 +582,7 @@ const HomeScreen = memo(function HomeScreen() {
 
           {/* Quick links */}
           <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(500).duration(300).springify()}>
-            <QuickLinksSection appRole={appRole} capabilities={capabilities} />
+            <QuickLinksSection appRole={appRole} capabilities={capabilities} programTier={programTier} />
           </Animated.View>
 
           {/* Intro video */}

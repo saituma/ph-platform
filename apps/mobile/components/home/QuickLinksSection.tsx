@@ -16,7 +16,16 @@ type QuickLink = {
   route: string;
 };
 
-function getLinksForRole(appRole: AppRole | null, capabilities: AppCapabilities | null): QuickLink[] {
+function getLinksForRole(
+  appRole: AppRole | null,
+  capabilities: AppCapabilities | null,
+  programTier: string | null,
+): QuickLink[] {
+  const isPhpBase = programTier === "PHP";
+  const isTeamRole =
+    appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
+  const hideWellbeingSleep = isPhpBase || isTeamRole;
+
   switch (appRole) {
     case "coach":
       return [
@@ -35,9 +44,9 @@ function getLinksForRole(appRole: AppRole | null, capabilities: AppCapabilities 
     case "adult_athlete_team":
     case "team": {
       const links: QuickLink[] = [];
-      if (capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
       if (capabilities?.progressTracking !== false) links.push({ label: "Progress", icon: "stats", route: "/progress" });
-      if (capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      if (!hideWellbeingSleep && capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
       links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
       return links;
     }
@@ -45,9 +54,9 @@ function getLinksForRole(appRole: AppRole | null, capabilities: AppCapabilities 
     case "youth_athlete_guardian_only":
     case "youth_athlete_team_guardian": {
       const links: QuickLink[] = [];
-      if (capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
-      if (capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
-      links.push({ label: "Parent", icon: "parents", route: "/parent-platform" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing !== false) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
+      if (!hideWellbeingSleep && capabilities?.sleep !== false) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
+      if (!isPhpBase && !isTeamRole) links.push({ label: "Parent", icon: "parents", route: "/parent-platform" });
       links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
       return links;
     }
@@ -137,11 +146,13 @@ const QuickLinkItem = React.memo(function QuickLinkItem({ link }: { link: QuickL
 export const QuickLinksSection = React.memo(function QuickLinksSection({
   appRole,
   capabilities,
+  programTier,
 }: {
   appRole: AppRole | null;
   capabilities: AppCapabilities | null;
+  programTier?: string | null;
 }) {
-  const links = getLinksForRole(appRole, capabilities);
+  const links = getLinksForRole(appRole, capabilities, programTier ?? null);
 
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>

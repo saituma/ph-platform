@@ -59,6 +59,7 @@ export async function getTrainingContentMobileWorkspace(input: {
         )[0]?.currentProgramTier ?? null)
       : null);
   const isAdult = input.age >= 18;
+  const isYouthOnTeam = !isAdult && hasTeam(input.team);
   const effectiveTier = isAdult ? (resolvedAthleteTier ?? DEFAULT_ADULT_PROGRAM_TIER) : resolvedAthleteTier;
   const selectedAudienceLabel = hasTeam(input.team) && isAdult
     ? formatTeamAudienceLabel(input.team!.trim())
@@ -83,6 +84,9 @@ export async function getTrainingContentMobileWorkspace(input: {
           return listTrainingContentAdminWorkspace(label);
         })()
       : await listTrainingContentAdminWorkspace(resolvedAudienceLabel);
+
+  const teamWorkspace =
+    isYouthOnTeam ? await listTrainingContentAdminWorkspace(formatTeamAudienceLabel(input.team!.trim())) : null;
   const completionRows = input.athleteId
     ? await db
         .select()
@@ -219,11 +223,40 @@ export async function getTrainingContentMobileWorkspace(input: {
       };
     })
     .filter((group) => group.enabled && group.items.length > 0);
+  const teamModules = (teamWorkspace?.modules ?? []).map((module) => {
+    const sessions = module.sessions.map((session) => {
+      const completed = completionSet.has(session.id);
+      return {
+        id: session.id,
+        title: session.title,
+        dayLength: session.dayLength,
+        order: session.order,
+        completed,
+        locked: false,
+        lockedReason: null,
+        unlockTiers: [],
+        items: sortItemsByBlockThenOrder(session.items as any[]).map((item) => ({ ...item })),
+      };
+    });
+    const completed = sessions.length > 0 && sessions.every((s) => s.completed);
+    return {
+      id: module.id,
+      title: module.title,
+      order: module.order,
+      totalDayLength: module.totalDayLength,
+      completed,
+      locked: false,
+      lockedReason: null,
+      unlockTiers: [],
+      sessions,
+    };
+  });
+
   return {
     age: input.age,
     audienceLabel: selectedAudienceLabel,
     tabs: ["Modules", ...availableOtherSections.map((group) => group.label)],
-    modules,
+    modules: [...modules, ...teamModules],
     others: availableOtherSections,
   };
 }

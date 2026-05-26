@@ -28,6 +28,7 @@ import {
   setCapabilities,
   setManagedAthletes,
   setMessagingAccessTiers,
+  setOnboardingCompleted,
   setPlanFeatures,
   setProgramTier,
   type AppCapabilities,
@@ -36,6 +37,7 @@ import { enrichTeamFieldsIfOnboardingHasThem } from "../../lib/auth/enrichTeamFr
 import { resolveAppRole } from "../../lib/appRole";
 import { markLoginFresh } from "../../store/AuthPersist";
 import { openRegisterSession } from "../../lib/auth/openRegisterSession";
+import { openResumeOnboardingSession } from "../../lib/auth/openResumeOnboardingSession";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGIN_BG = require("@/assets/images/home-bg.png");
@@ -118,6 +120,7 @@ export default function LoginScreen() {
           messagingAccessTiers?: string[];
           capabilities?: AppCapabilities | null;
           planFeatures?: string[];
+          onboardingCompleted?: boolean | null;
           allAthletes?: {
             id?: number;
             userId?: number | null;
@@ -138,6 +141,11 @@ export default function LoginScreen() {
 
       const apiRole = me.user.role ?? null;
 
+      // Athletes with incomplete onboarding are sent to the onboarding website
+      // to finish the flow before accessing the app. Admins/coaches (null onboardingCompleted)
+      // are treated as complete so they are never blocked.
+      const needsOnboarding = me.user.onboardingCompleted === false;
+
       const { fields: teamFields, athleteType: athleteTypeResolved } =
         await enrichTeamFieldsIfOnboardingHasThem({ token, meUser: me.user });
 
@@ -156,6 +164,7 @@ export default function LoginScreen() {
         }),
       );
       dispatch(setApiUserRole(apiRole));
+      dispatch(setOnboardingCompleted(me.user.onboardingCompleted ?? null));
       dispatch(setProgramTier(me.user.programTier ?? null));
       dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
       dispatch(setCapabilities(me.user.capabilities ?? null));
@@ -176,6 +185,21 @@ export default function LoginScreen() {
           }),
         ),
       );
+
+      if (needsOnboarding) {
+        const result = await openResumeOnboardingSession({ token });
+        if (result.status === "submitted") {
+          router.replace("/");
+        } else if (result.status === "dismissed") {
+          toast.info(
+            "Onboarding not complete",
+            "Please finish setting up your account to access the app.",
+          );
+        } else {
+          toast.error("Could not open onboarding", result.message);
+        }
+        return;
+      }
 
       router.replace("/");
     } catch (err: unknown) {
