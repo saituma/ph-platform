@@ -482,7 +482,7 @@ export default function Header() {
 						<div className="hidden lg:flex items-center gap-3">
 							{/* App store badges */}
 							<a
-								href="https://apps.apple.com/app/ph-performance/id6768563715"
+								href="https://apps.apple.com/gb/app/ph-performance/id6768563715"
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label="Download on the App Store"
