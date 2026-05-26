@@ -481,17 +481,6 @@ export async function loginLocal(input: { email: string; password: string }) {
     throw { status: 401, message: "Invalid credentials." };
   }
 
-  // Block athletes and guardians without an active plan from logging in.
-  // Admins, coaches and superAdmins always pass through.
-  if (!isTrainingStaff(user.role) && user.role !== "admin" && user.role !== "superAdmin") {
-    const hasActivePlan = await checkUserHasActivePlan(user.id, user.role);
-    if (!hasActivePlan) {
-      throw {
-        status: 403,
-        message: "No active subscription found. Please subscribe at phperformance.uk to access the app.",
-      };
-    }
-  }
 
   const nextTokenVersion = user.tokenVersion ?? 0;
   const token = await createLocalToken({
