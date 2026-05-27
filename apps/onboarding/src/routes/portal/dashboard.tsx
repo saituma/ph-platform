@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Activity,
 	ArrowRight,
+	Baby,
 	Bell,
 	Calendar,
 	Clock,
@@ -11,6 +12,7 @@ import {
 	ExternalLink,
 	Megaphone,
 	MessageSquare,
+	Plus,
 	Shield,
 	UserPlus,
 	Users,
@@ -970,6 +972,76 @@ function AthleteDashboard({
 				<StaggerItem><QuickAction to="/portal/messages" icon={<MessageSquare className="h-4 w-4" />} label="Messages" badge={totalUnread || undefined} /></StaggerItem>
 				<StaggerItem><QuickAction to="/portal/nutrition" icon={<Utensils className="h-4 w-4" />} label="Nutrition" /></StaggerItem>
 			</StaggerList>
+
+			{/* Guardian: My Children */}
+			{user.athleteType === "youth" && (
+				<motion.section
+					variants={fadeUp}
+					initial="hidden"
+					animate="visible"
+					transition={{ delay: 0.2 }}
+					className="border border-foreground/[0.06] p-6 space-y-4"
+				>
+					<div className="flex items-center justify-between">
+						<div className="flex items-center gap-2">
+							<Baby className="h-4 w-4 text-primary" />
+							<h2 className="font-mono text-xs uppercase tracking-wider text-foreground">My Children</h2>
+						</div>
+						<Link
+							to="/portal/add-child"
+							className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-primary hover:text-primary/80 transition-colors font-bold"
+						>
+							<Plus className="h-3 w-3" />
+							Add Child
+						</Link>
+					</div>
+					{user.allAthletes && user.allAthletes.length > 0 ? (
+						<StaggerList className="space-y-2">
+							{user.allAthletes.map((child) => (
+								<StaggerItem key={child.id}>
+									<motion.div
+										whileHover={{ x: 2 }}
+										transition={{ duration: 0.15 }}
+										className="flex items-center gap-4 p-3 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.1] transition-all duration-200"
+									>
+										<div className="h-8 w-8 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0">
+											{child.name?.slice(0, 2).toUpperCase() || "?"}
+										</div>
+										<div className="min-w-0 flex-1">
+											<p className="text-sm font-medium truncate">{child.name || "Unnamed"}</p>
+											<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
+												{child.currentProgramTier
+													? child.currentProgramTier.replace(/_/g, " ")
+													: "No plan"}
+											</p>
+										</div>
+										{child.planExpiresAt && (
+											<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 shrink-0">
+												Expires {new Date(child.planExpiresAt).toLocaleDateString(undefined, {
+													month: "short",
+													day: "numeric",
+												})}
+											</span>
+										)}
+									</motion.div>
+								</StaggerItem>
+							))}
+						</StaggerList>
+					) : (
+						<div className="py-8 text-center">
+							<Baby className="h-6 w-6 mx-auto mb-2 text-foreground/20" />
+							<p className="text-sm text-muted-foreground">No children registered yet.</p>
+							<Link
+								to="/portal/add-child"
+								className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-foreground/50 hover:text-foreground mt-3 transition-colors"
+							>
+								<Plus className="h-3 w-3" />
+								Add your first child
+							</Link>
+						</div>
+					)}
+				</motion.section>
+			)}
 
 			{/* Announcements Banner */}
 			{announcements.length > 0 && (

@@ -53,6 +53,8 @@ import { Route as PortalDashboardRouteImport } from './routes/portal/dashboard'
 import { Route as PortalCoachAppRouteImport } from './routes/portal/coach-app'
 import { Route as PortalBillingRouteImport } from './routes/portal/billing'
 import { Route as PortalAnnouncementsRouteImport } from './routes/portal/announcements'
+import { Route as PortalAddChildSuccessRouteImport } from './routes/portal/add-child-success'
+import { Route as PortalAddChildRouteImport } from './routes/portal/add-child'
 import { Route as PortalAboutRouteImport } from './routes/portal/about'
 import { Route as OnboardingSuccessRouteImport } from './routes/onboarding/success'
 import { Route as OnboardingStep5RouteImport } from './routes/onboarding/step-5'
@@ -69,6 +71,7 @@ import { Route as EnquiryTeamRouteImport } from './routes/enquiry/team'
 import { Route as EnquirySemiPrivateRouteImport } from './routes/enquiry/semi-private'
 import { Route as Enquiry121RouteImport } from './routes/enquiry/121'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as AuthHandoffRouteImport } from './routes/auth.handoff'
 import { Route as PortalTeamIndexRouteImport } from './routes/portal/team/index'
 import { Route as PortalProgramsIndexRouteImport } from './routes/portal/programs/index'
 import { Route as PortalParentPlatformIndexRouteImport } from './routes/portal/parent-platform/index'
@@ -299,6 +302,16 @@ const PortalAnnouncementsRoute = PortalAnnouncementsRouteImport.update({
   path: '/announcements',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalAddChildSuccessRoute = PortalAddChildSuccessRouteImport.update({
+  id: '/add-child-success',
+  path: '/add-child-success',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalAddChildRoute = PortalAddChildRouteImport.update({
+  id: '/add-child',
+  path: '/add-child',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalAboutRoute = PortalAboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -379,6 +392,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => BlogRoute,
 } as any)
+const AuthHandoffRoute = AuthHandoffRouteImport.update({
+  id: '/auth/handoff',
+  path: '/auth/handoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PortalTeamIndexRoute = PortalTeamIndexRouteImport.update({
   id: '/team/',
   path: '/team/',
@@ -455,6 +473,7 @@ export interface FileRoutesByFullPath {
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/waitlist': typeof WaitlistRoute
+  '/auth/handoff': typeof AuthHandoffRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -471,6 +490,8 @@ export interface FileRoutesByFullPath {
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
+  '/portal/add-child': typeof PortalAddChildRoute
+  '/portal/add-child-success': typeof PortalAddChildSuccessRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
   '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
@@ -526,6 +547,7 @@ export interface FileRoutesByTo {
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/waitlist': typeof WaitlistRoute
+  '/auth/handoff': typeof AuthHandoffRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -542,6 +564,8 @@ export interface FileRoutesByTo {
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
+  '/portal/add-child': typeof PortalAddChildRoute
+  '/portal/add-child-success': typeof PortalAddChildSuccessRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
   '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
@@ -597,6 +621,7 @@ export interface FileRoutesById {
   '/testimonials-demo': typeof TestimonialsDemoRoute
   '/verification': typeof VerificationRoute
   '/waitlist': typeof WaitlistRoute
+  '/auth/handoff': typeof AuthHandoffRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/enquiry/121': typeof Enquiry121Route
   '/enquiry/semi-private': typeof EnquirySemiPrivateRoute
@@ -613,6 +638,8 @@ export interface FileRoutesById {
   '/onboarding/step-5': typeof OnboardingStep5Route
   '/onboarding/success': typeof OnboardingSuccessRoute
   '/portal/about': typeof PortalAboutRoute
+  '/portal/add-child': typeof PortalAddChildRoute
+  '/portal/add-child-success': typeof PortalAddChildSuccessRoute
   '/portal/announcements': typeof PortalAnnouncementsRoute
   '/portal/billing': typeof PortalBillingRoute
   '/portal/coach-app': typeof PortalCoachAppRoute
@@ -670,6 +697,7 @@ export interface FileRouteTypes {
     | '/testimonials-demo'
     | '/verification'
     | '/waitlist'
+    | '/auth/handoff'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -686,6 +714,8 @@ export interface FileRouteTypes {
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
+    | '/portal/add-child'
+    | '/portal/add-child-success'
     | '/portal/announcements'
     | '/portal/billing'
     | '/portal/coach-app'
@@ -741,6 +771,7 @@ export interface FileRouteTypes {
     | '/testimonials-demo'
     | '/verification'
     | '/waitlist'
+    | '/auth/handoff'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -757,6 +788,8 @@ export interface FileRouteTypes {
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
+    | '/portal/add-child'
+    | '/portal/add-child-success'
     | '/portal/announcements'
     | '/portal/billing'
     | '/portal/coach-app'
@@ -811,6 +844,7 @@ export interface FileRouteTypes {
     | '/testimonials-demo'
     | '/verification'
     | '/waitlist'
+    | '/auth/handoff'
     | '/blog/$slug'
     | '/enquiry/121'
     | '/enquiry/semi-private'
@@ -827,6 +861,8 @@ export interface FileRouteTypes {
     | '/onboarding/step-5'
     | '/onboarding/success'
     | '/portal/about'
+    | '/portal/add-child'
+    | '/portal/add-child-success'
     | '/portal/announcements'
     | '/portal/billing'
     | '/portal/coach-app'
@@ -883,6 +919,7 @@ export interface RootRouteChildren {
   TestimonialsDemoRoute: typeof TestimonialsDemoRoute
   VerificationRoute: typeof VerificationRoute
   WaitlistRoute: typeof WaitlistRoute
+  AuthHandoffRoute: typeof AuthHandoffRoute
   OnboardingDashboardRoute: typeof OnboardingDashboardRoute
   OnboardingStep1Route: typeof OnboardingStep1Route
   OnboardingStep2Route: typeof OnboardingStep2Route
@@ -1205,6 +1242,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalAnnouncementsRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/add-child-success': {
+      id: '/portal/add-child-success'
+      path: '/add-child-success'
+      fullPath: '/portal/add-child-success'
+      preLoaderRoute: typeof PortalAddChildSuccessRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/add-child': {
+      id: '/portal/add-child'
+      path: '/add-child'
+      fullPath: '/portal/add-child'
+      preLoaderRoute: typeof PortalAddChildRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/about': {
       id: '/portal/about'
       path: '/about'
@@ -1316,6 +1367,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof BlogRoute
+    }
+    '/auth/handoff': {
+      id: '/auth/handoff'
+      path: '/auth/handoff'
+      fullPath: '/auth/handoff'
+      preLoaderRoute: typeof AuthHandoffRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/portal/team/': {
       id: '/portal/team/'
@@ -1434,6 +1492,8 @@ const PortalParentPlatformRouteWithChildren =
 
 interface PortalRouteChildren {
   PortalAboutRoute: typeof PortalAboutRoute
+  PortalAddChildRoute: typeof PortalAddChildRoute
+  PortalAddChildSuccessRoute: typeof PortalAddChildSuccessRoute
   PortalAnnouncementsRoute: typeof PortalAnnouncementsRoute
   PortalBillingRoute: typeof PortalBillingRoute
   PortalCoachAppRoute: typeof PortalCoachAppRoute
@@ -1466,6 +1526,8 @@ interface PortalRouteChildren {
 
 const PortalRouteChildren: PortalRouteChildren = {
   PortalAboutRoute: PortalAboutRoute,
+  PortalAddChildRoute: PortalAddChildRoute,
+  PortalAddChildSuccessRoute: PortalAddChildSuccessRoute,
   PortalAnnouncementsRoute: PortalAnnouncementsRoute,
   PortalBillingRoute: PortalBillingRoute,
   PortalCoachAppRoute: PortalCoachAppRoute,
@@ -1524,6 +1586,7 @@ const rootRouteChildren: RootRouteChildren = {
   TestimonialsDemoRoute: TestimonialsDemoRoute,
   VerificationRoute: VerificationRoute,
   WaitlistRoute: WaitlistRoute,
+  AuthHandoffRoute: AuthHandoffRoute,
   OnboardingDashboardRoute: OnboardingDashboardRoute,
   OnboardingStep1Route: OnboardingStep1Route,
   OnboardingStep2Route: OnboardingStep2Route,

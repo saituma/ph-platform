@@ -76,6 +76,46 @@ export async function createPlanInviteToken(input: {
     .sign(secret);
 }
 
+/**
+ * Sign a short-lived token carrying a child athlete's provisional credentials.
+ * Embedded in the Stripe success redirect so the guardian can retrieve the creds
+ * exactly once (within 1 hour).
+ */
+export async function createChildCredentialsToken(input: {
+  childEmail: string;
+  tempPassword: string;
+  childName: string;
+  athleteId: number;
+}) {
+  const secret = new TextEncoder().encode(env.jwtSecret);
+  return await new SignJWT({
+    purpose: "child_credentials",
+    child_email: input.childEmail,
+    temp_password: input.tempPassword,
+    child_name: input.childName,
+    athlete_id: input.athleteId,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(secret);
+}
+
+export async function verifyChildCredentialsToken(token: string) {
+  const payload = await verifyAccessToken(token);
+  if (payload.purpose !== "child_credentials") {
+    throw new Error("Invalid credentials token");
+  }
+  const childEmail = typeof payload.child_email === "string" ? payload.child_email : "";
+  const tempPassword = typeof payload.temp_password === "string" ? payload.temp_password : "";
+  const childName = typeof payload.child_name === "string" ? payload.child_name : "";
+  const athleteId = Number(payload.athlete_id);
+  if (!childEmail || !tempPassword || !Number.isFinite(athleteId) || athleteId < 1) {
+    throw new Error("Invalid credentials payload");
+  }
+  return { childEmail, tempPassword, childName, athleteId };
+}
+
 export async function verifyPlanInviteToken(token: string) {
   const payload = await verifyAccessToken(token);
   if (payload.purpose !== "plan_invite") {

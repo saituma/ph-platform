@@ -25,6 +25,13 @@ import {
   deleteInjuryLog,
   listAdminInjuryLogs,
 } from "../services/guardian-portal.service";
+import { eq } from "drizzle-orm";
+import { createChildCredentialsToken, verifyChildCredentialsToken } from "../lib/jwt";
+import { createCheckoutSession } from "../services/billing/request.service";
+import { sendChildCredentialsEmail } from "../lib/mailer/auth.mailer";
+import { logger } from "../lib/logger";
+import { db } from "../db";
+import { userTable } from "../db/schema";
 
 const router = Router();
 
@@ -90,6 +97,98 @@ router.post("/portal/guardian/children", async (req: Request, res: Response) => 
 
   const result = await addGuardianChild(req.user!.id, req.user!.email, parsed.data);
   return res.status(201).json(result);
+});
+
+// ── POST /api/portal/guardian/children/checkout ──────────────────────────────
+const checkoutChildSchema = z.object({
+  name: z.string().min(2),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sport: z.string().optional(),
+  injuries: z.string().optional(),
+  performanceGoals: z.string().optional(),
+  planId: z.number().int().min(1),
+  billingCycle: z.enum(["weekly", "monthly", "six_months", "yearly"]).default("monthly"),
+});
+
+router.post("/portal/guardian/children/checkout", async (req: Request, res: Response) => {
+  try {
+    const parsed = checkoutChildSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+    }
+
+    const { name, birthDate, sport, injuries, performanceGoals, planId, billingCycle } = parsed.data;
+
+    // 1. Create the child user + athlete record
+    const child = await addGuardianChild(req.user!.id, req.user!.email, {
+      name,
+      birthDate,
+      athleteType: "youth",
+      sport,
+      injuries,
+      performanceGoals,
+    });
+
+    // 2. Create a credentials token so the success page can retrieve them
+    const credentialsToken = await createChildCredentialsToken({
+      childEmail: child.childEmail,
+      tempPassword: child.tempPassword,
+      childName: child.name,
+      athleteId: child.id,
+    });
+
+    // 3. Create a Stripe checkout session for the child's plan
+    const successUrl = `https://phperformance.uk/portal/add-child-success?session_id={CHECKOUT_SESSION_ID}&child_id=${child.id}&cred=${encodeURIComponent(credentialsToken)}`;
+
+    const { session } = await createCheckoutSession({
+      userId: req.user!.id,
+      userEmail: req.user!.email,
+      athleteId: child.id,
+      planId,
+      billingCycle,
+      successUrl,
+    });
+
+    // 4. Send credentials email to the guardian
+    try {
+      const [parentUser] = await db
+        .select({ name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, req.user!.id))
+        .limit(1);
+      await sendChildCredentialsEmail({
+        to: req.user!.email,
+        guardianName: parentUser?.name ?? "Parent",
+        childName: child.name,
+        childEmail: child.childEmail,
+        tempPassword: child.tempPassword,
+      });
+    } catch (mailErr) {
+      logger.error({ err: mailErr }, "[guardian] Child credentials email failed");
+    }
+
+    return res.status(201).json({
+      checkoutUrl: session.url,
+      childEmail: child.childEmail,
+      childName: child.name,
+    });
+  } catch (error: any) {
+    logger.error({ err: error }, "[guardian] children/checkout failed");
+    const status = error?.statusCode ?? error?.status ?? 500;
+    const message = typeof error?.message === "string" ? error.message : "Failed to create checkout";
+    return res.status(status).json({ error: message });
+  }
+});
+
+// ── GET /api/portal/guardian/children/credentials/:token ────────────────────
+router.get("/portal/guardian/children/credentials/:token", async (req: Request, res: Response) => {
+  try {
+    const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+    const { childEmail, tempPassword, childName, athleteId } = await verifyChildCredentialsToken(token);
+    return res.json({ childEmail, tempPassword, childName, athleteId });
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired credentials token" });
+  }
 });
 
 // ── GET /api/portal/guardian/children/:athleteId ──────────────────────────────

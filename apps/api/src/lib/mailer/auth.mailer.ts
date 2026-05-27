@@ -80,11 +80,10 @@ ${textP(`<span style="color:${E.muted};font-size:13px;line-height:1.6;">If you d
   await createEmailIntent({ to: input.to, subject, html });
 }
 
-export function renderPromoCodeEmail(input: {
-  code: string;
-  discountPercent: number;
-  expiresAt: Date;
-}): { subject: string; html: string } {
+export function renderPromoCodeEmail(input: { code: string; discountPercent: number; expiresAt: Date }): {
+  subject: string;
+  html: string;
+} {
   const subject = `Your ${input.discountPercent}% PH Performance discount code`;
   const expiry = input.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const signUpUrl = "https://phperformance.uk/register";
@@ -121,6 +120,48 @@ export async function sendPromoCodeEmail(input: {
   expiresAt: Date;
 }) {
   const { subject, html } = renderPromoCodeEmail(input);
+  await createEmailIntent({ to: input.to, subject, html });
+}
+
+// ─── Child credentials email (sent to the guardian after Add Child checkout) ──
+
+export function renderChildCredentialsEmail(input: {
+  guardianName: string;
+  childName: string;
+  childEmail: string;
+  tempPassword: string;
+}): { subject: string; html: string } {
+  const subject = `${input.childName}'s PH Performance login is ready`;
+  const guardian = escapeHtml(input.guardianName);
+  const child = escapeHtml(input.childName);
+
+  const bodyHtml = `
+${textP(`Hi ${guardian},`)}
+${textP(`<strong style="color:${E.accent};">${child}</strong> has been registered as an athlete on PH Performance. Use the credentials below to sign in on the mobile app.`)}
+${codeCard("Login email", input.childEmail)}
+${codeCard("Temporary password", input.tempPassword, { mono: true })}
+${textP("We recommend changing the password after the first sign-in.")}
+${primaryButton("https://phperformance.uk/download", "Download the app")}
+${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For security, do not share this email. If you did not request this, contact PH Performance support.</span>`, "0")}`;
+
+  const html = emailLayout({
+    preheader: `${child}'s PH Performance login details`,
+    eyebrow: "New athlete",
+    headline: `${child} is all set`,
+    bodyHtml,
+  });
+
+  return { subject, html };
+}
+
+export async function sendChildCredentialsEmail(input: {
+  to: string;
+  guardianName: string;
+  childName: string;
+  childEmail: string;
+  tempPassword: string;
+}) {
+  const { subject, html } = renderChildCredentialsEmail(input);
   await createEmailIntent({ to: input.to, subject, html });
 }
 

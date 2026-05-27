@@ -39,10 +39,13 @@ export type PatchMeInput = {
 export type AddChildInput = {
   name: string;
   age?: number;
+  birthDate?: string;
   athleteType: "youth" | "adult";
   sport?: string;
   injuries?: string;
   performanceGoals?: string;
+  planId?: number;
+  billingCycle?: string;
 };
 
 // ── Private helpers ───────────────────────────────────────────────────────────
@@ -186,14 +189,48 @@ export async function addGuardianChild(
   userId: number,
   email: string,
   data: AddChildInput,
-): Promise<{ id: number; name: string; guardianId: number }> {
+): Promise<{
+  id: number;
+  name: string;
+  guardianId: number;
+  childUserId: number;
+  childEmail: string;
+  tempPassword: string;
+}> {
   const guardian = await ensureGuardian(userId, email);
   const { name, age, athleteType, sport, injuries, performanceGoals } = data;
+
+  // Generate slug email and temporary password for the child's own user account
+  const nameParts = name.trim().split(/\s+/);
+  const first = nameParts[0]?.toLowerCase().replace(/[^a-z0-9]/g, "") || "athlete";
+  const last = (nameParts.slice(1).join("") || "child").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const rand4 = crypto.randomBytes(2).toString("hex"); // 4 hex chars
+  const childEmail = `${first}-${last}-${rand4}@athlete.phperformance.uk`;
+
+  const tempPassword = `TmpPH#${crypto.randomBytes(4).toString("hex")}`;
+  const { hash, salt } = hashPassword(tempPassword);
+
+  // Create a dedicated user record for the child
+  const [childUser] = await db
+    .insert(userTable)
+    .values({
+      cognitoSub: `local:${crypto.randomUUID()}`,
+      name,
+      email: childEmail,
+      role: "youth_athlete",
+      passwordHash: hash,
+      passwordSalt: salt,
+      emailVerified: true,
+      verificationCode: null,
+      verificationExpiresAt: null,
+      verificationAttempts: 0,
+    })
+    .returning();
 
   const [athlete] = await db
     .insert(athleteTable)
     .values({
-      userId,
+      userId: childUser.id,
       guardianId: guardian.id,
       name,
       age: age ?? 0,
@@ -206,7 +243,14 @@ export async function addGuardianChild(
     })
     .returning();
 
-  return { id: athlete.id, name: athlete.name, guardianId: guardian.id };
+  return {
+    id: athlete.id,
+    name: athlete.name,
+    guardianId: guardian.id,
+    childUserId: childUser.id,
+    childEmail,
+    tempPassword,
+  };
 }
 
 export async function getGuardianChild(userId: number, athleteId: number): Promise<unknown | null | "forbidden"> {
