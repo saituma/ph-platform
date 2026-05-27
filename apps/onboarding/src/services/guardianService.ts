@@ -55,6 +55,7 @@ export const guardianService = {
 	addChildCheckout: (data: {
 		childName: string;
 		birthDate: string;
+		password?: string;
 		sport?: string;
 		injuries?: string;
 		performanceGoals?: string;
@@ -64,6 +65,12 @@ export const guardianService = {
 		apiRequest<{ checkoutUrl: string; sessionId?: string }>(
 			"/portal/guardian/children/checkout",
 			{ method: "POST", body: { ...data, name: data.childName } },
+		),
+
+	updateChildPassword: (athleteId: number, password: string) =>
+		apiRequest<{ ok: boolean }>(
+			`/portal/guardian/children/${athleteId}/password`,
+			{ method: "PATCH", body: { password } },
 		),
 
 	getChildCredentials: (token: string) =>

@@ -108,6 +108,7 @@ function AddChildPage() {
 	// Step 1: child details
 	const [childName, setChildName] = useState("");
 	const [birthDate, setBirthDate] = useState("");
+	const [password, setPassword] = useState("");
 	const [sport, setSport] = useState("");
 	const [injuries, setInjuries] = useState("");
 	const [performanceGoals, setPerformanceGoals] = useState("");
@@ -154,7 +155,7 @@ function AddChildPage() {
 		}
 	}, [activePlans, selectedPlanId]);
 
-	const canProceedStep1 = childName.trim().length > 0 && birthDate.trim().length > 0;
+	const canProceedStep1 = childName.trim().length > 0 && birthDate.trim().length > 0 && password.trim().length >= 6;
 	const canProceedStep2 = selectedPlanId != null;
 
 	const handleNext = () => {
@@ -184,6 +185,7 @@ function AddChildPage() {
 			const result = await guardianService.addChildCheckout({
 				childName: childName.trim(),
 				birthDate,
+				password: password.trim(),
 				sport: sport.trim() || undefined,
 				injuries: injuries.trim() || undefined,
 				performanceGoals: performanceGoals.trim() || undefined,
@@ -291,6 +293,8 @@ function AddChildPage() {
 					setChildName={setChildName}
 					birthDate={birthDate}
 					setBirthDate={setBirthDate}
+					password={password}
+					setPassword={setPassword}
 					sport={sport}
 					setSport={setSport}
 					injuries={injuries}
@@ -341,6 +345,8 @@ function StepChildDetails({
 	setChildName,
 	birthDate,
 	setBirthDate,
+	password,
+	setPassword,
 	sport,
 	setSport,
 	injuries,
@@ -354,6 +360,8 @@ function StepChildDetails({
 	setChildName: (v: string) => void;
 	birthDate: string;
 	setBirthDate: (v: string) => void;
+	password: string;
+	setPassword: (v: string) => void;
 	sport: string;
 	setSport: (v: string) => void;
 	injuries: string;
@@ -406,6 +414,25 @@ function StepChildDetails({
 							className="h-12 rounded-xl border-2 focus-visible:ring-primary"
 							required
 						/>
+					</div>
+
+					<div className="space-y-2">
+						<Label htmlFor="password" className="font-mono text-[10px] uppercase tracking-wider text-foreground/60">
+							Login Password *
+						</Label>
+						<Input
+							id="password"
+							type="password"
+							placeholder="Set a password for your child's account (min 6 characters)"
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							className="h-12 rounded-xl border-2 focus-visible:ring-primary"
+							required
+							minLength={6}
+						/>
+						<p className="text-[10px] font-mono text-foreground/40">
+							Your child will use this password to log in to the PH Performance app.
+						</p>
 					</div>
 
 					<div className="space-y-2">

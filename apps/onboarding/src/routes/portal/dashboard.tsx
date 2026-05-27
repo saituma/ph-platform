@@ -1,18 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import React, { useCallback, useState } from "react";
 import {
 	Activity,
 	ArrowRight,
 	Baby,
 	Bell,
 	Calendar,
+	ChevronDown,
+	ChevronUp,
 	Clock,
 	CreditCard,
 	Dumbbell,
 	ExternalLink,
+	Eye,
+	EyeOff,
+	Key,
 	Megaphone,
 	MessageSquare,
 	Plus,
+	Save,
 	Shield,
 	UserPlus,
 	Users,
@@ -34,7 +41,10 @@ import {
 	getCoachTeamPortalPlanSummary,
 	isCoachPortalUser,
 } from "@/lib/portal-access";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import { usePortal } from "@/portal/PortalContext";
+import { guardianService } from "@/services/guardianService";
 import { fetchHomeContent, homeQueryKeys } from "@/services/homeService";
 import { fetchInbox } from "@/services/messagesService";
 import { fetchMyAssignedPrograms } from "@/services/programsService";
@@ -999,36 +1009,7 @@ function AthleteDashboard({
 						<StaggerList className="space-y-2">
 							{user.allAthletes.map((child) => (
 								<StaggerItem key={child.id}>
-									<motion.div
-										whileHover={{ x: 2 }}
-										transition={{ duration: 0.15 }}
-										className="flex items-center gap-4 p-3 border border-foreground/[0.06] hover:bg-foreground/[0.02] hover:border-foreground/[0.1] transition-all duration-200"
-									>
-										<div className="h-8 w-8 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0">
-											{child.name?.slice(0, 2).toUpperCase() || "?"}
-										</div>
-										<div className="min-w-0 flex-1">
-											<p className="text-sm font-medium truncate">{child.name || "Unnamed"}</p>
-											{child.email && (
-												<p className="font-mono text-[10px] text-foreground/30 truncate">{child.email}</p>
-											)}
-											<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
-												{child.planName
-													? child.planName
-													: child.currentProgramTier
-														? child.currentProgramTier.replace(/_/g, " ")
-														: "No plan"}
-											</p>
-										</div>
-										{child.planExpiresAt && (
-											<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40 shrink-0">
-												Expires {new Date(child.planExpiresAt).toLocaleDateString(undefined, {
-													month: "short",
-													day: "numeric",
-												})}
-											</span>
-										)}
-									</motion.div>
+									<ChildCard child={child} />
 								</StaggerItem>
 							))}
 						</StaggerList>
@@ -1428,5 +1409,149 @@ function AthleteDashboard({
 				</motion.div>
 			)}
 		</PageTransition>
+	);
+}
+
+/* ─── Child Card (expandable with password edit) ─── */
+
+type ChildData = NonNullable<NonNullable<ReturnType<typeof usePortal>["user"]>["allAthletes"]>[number];
+
+function ChildCard({ child }: { child: ChildData }) {
+	const [expanded, setExpanded] = useState(false);
+	const [newPassword, setNewPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
+	const [saving, setSaving] = useState(false);
+
+	const handleSavePassword = useCallback(async () => {
+		if (newPassword.length < 6) {
+			toast.error("Password must be at least 6 characters");
+			return;
+		}
+		setSaving(true);
+		try {
+			await guardianService.updateChildPassword(child.id, newPassword);
+			toast.success(`Password updated for ${child.name}`);
+			setNewPassword("");
+			setShowPassword(false);
+		} catch (err: any) {
+			toast.error(err.message || "Failed to update password");
+		} finally {
+			setSaving(false);
+		}
+	}, [child.id, child.name, newPassword]);
+
+	return (
+		<motion.div
+			className="border border-foreground/[0.06] hover:border-foreground/[0.1] transition-all duration-200"
+		>
+			<button
+				type="button"
+				onClick={() => setExpanded(!expanded)}
+				className="flex items-center gap-4 p-3 w-full text-left hover:bg-foreground/[0.02] transition-colors"
+			>
+				<div className="h-8 w-8 bg-foreground/10 flex items-center justify-center text-[10px] font-mono text-foreground/60 shrink-0">
+					{child.name?.slice(0, 2).toUpperCase() || "?"}
+				</div>
+				<div className="min-w-0 flex-1">
+					<p className="text-sm font-medium truncate">{child.name || "Unnamed"}</p>
+					{child.email && (
+						<p className="font-mono text-[10px] text-foreground/30 truncate">{child.email}</p>
+					)}
+					<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
+						{child.planName
+							? child.planName
+							: child.currentProgramTier
+								? child.currentProgramTier.replace(/_/g, " ")
+								: "No plan"}
+					</p>
+				</div>
+				<div className="flex items-center gap-2 shrink-0">
+					{child.planExpiresAt && (
+						<span className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+							Expires {new Date(child.planExpiresAt).toLocaleDateString(undefined, {
+								month: "short",
+								day: "numeric",
+							})}
+						</span>
+					)}
+					{expanded ? (
+						<ChevronUp className="h-3.5 w-3.5 text-foreground/30" />
+					) : (
+						<ChevronDown className="h-3.5 w-3.5 text-foreground/30" />
+					)}
+				</div>
+			</button>
+
+			{expanded && (
+				<motion.div
+					initial={{ height: 0, opacity: 0 }}
+					animate={{ height: "auto", opacity: 1 }}
+					transition={{ duration: 0.2 }}
+					className="border-t border-foreground/[0.06] px-3 py-4 space-y-3"
+				>
+					<div className="grid grid-cols-2 gap-2">
+						<div className="p-2 bg-foreground/[0.02] border border-foreground/[0.04]">
+							<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">Login Email</p>
+							<p className="font-mono text-xs text-foreground/70 break-all mt-0.5">{child.email || "—"}</p>
+						</div>
+						<div className="p-2 bg-foreground/[0.02] border border-foreground/[0.04]">
+							<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">Plan</p>
+							<p className="font-mono text-xs text-foreground/70 mt-0.5">
+								{child.planName || child.currentProgramTier?.replace(/_/g, " ") || "No plan"}
+							</p>
+						</div>
+						<div className="p-2 bg-foreground/[0.02] border border-foreground/[0.04]">
+							<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">Type</p>
+							<p className="font-mono text-xs text-foreground/70 mt-0.5 capitalize">{child.athleteType || "youth"}</p>
+						</div>
+						<div className="p-2 bg-foreground/[0.02] border border-foreground/[0.04]">
+							<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40">Status</p>
+							<p className="font-mono text-xs text-foreground/70 mt-0.5">
+								{child.currentPlanId ? (
+									<span className="text-primary font-bold">Active</span>
+								) : (
+									<span className="text-foreground/40">No plan</span>
+								)}
+							</p>
+						</div>
+					</div>
+
+					<div className="border border-foreground/[0.06] p-3 space-y-2">
+						<div className="flex items-center gap-1.5">
+							<Key className="h-3 w-3 text-foreground/40" />
+							<p className="font-mono text-[9px] uppercase tracking-wider text-foreground/40 font-bold">Change Password</p>
+						</div>
+						<div className="flex gap-2">
+							<div className="relative flex-1">
+								<Input
+									type={showPassword ? "text" : "password"}
+									placeholder="New password (min 6 chars)"
+									value={newPassword}
+									onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPassword(e.target.value)}
+									className="h-9 text-xs pr-8"
+									minLength={6}
+								/>
+								<button
+									type="button"
+									onClick={() => setShowPassword(!showPassword)}
+									className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60 transition-colors"
+								>
+									{showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+								</button>
+							</div>
+							<button
+								type="button"
+								onClick={handleSavePassword}
+								disabled={saving || newPassword.length < 6}
+								className="h-9 px-3 bg-primary text-primary-foreground font-mono text-[10px] uppercase tracking-wider font-bold disabled:opacity-40 hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+							>
+								<Save className="h-3 w-3" />
+								{saving ? "Saving..." : "Save"}
+							</button>
+						</div>
+					</div>
+				</motion.div>
+			)}
+		</motion.div>
 	);
 }

@@ -24,6 +24,7 @@ import {
   resolveInjuryLog,
   deleteInjuryLog,
   listAdminInjuryLogs,
+  updateGuardianChildPassword,
 } from "../services/guardian-portal.service";
 import { eq } from "drizzle-orm";
 import { createChildCredentialsToken, verifyChildCredentialsToken } from "../lib/jwt";
@@ -103,6 +104,7 @@ router.post("/portal/guardian/children", async (req: Request, res: Response) => 
 const checkoutChildSchema = z.object({
   name: z.string().min(2),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  password: z.string().min(6).optional(),
   sport: z.string().optional(),
   injuries: z.string().optional(),
   performanceGoals: z.string().optional(),
@@ -117,12 +119,13 @@ router.post("/portal/guardian/children/checkout", async (req: Request, res: Resp
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
     }
 
-    const { name, birthDate, sport, injuries, performanceGoals, planId, billingCycle } = parsed.data;
+    const { name, birthDate, password, sport, injuries, performanceGoals, planId, billingCycle } = parsed.data;
 
     // 1. Create the child user + athlete record
     const child = await addGuardianChild(req.user!.id, req.user!.email, {
       name,
       birthDate,
+      password,
       athleteType: "youth",
       sport,
       injuries,
@@ -220,6 +223,17 @@ router.patch("/portal/guardian/children/:athleteId/medical", async (req: Request
 
   if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
   if (result === null) return res.status(404).json({ error: "Not found" });
+  return res.json(result);
+});
+
+// ── PATCH /api/portal/guardian/children/:athleteId/password ─────────────────
+router.patch("/portal/guardian/children/:athleteId/password", async (req: Request, res: Response) => {
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const { password } = z.object({ password: z.string().min(6) }).parse(req.body);
+
+  const result = await updateGuardianChildPassword(req.user!.id, athleteId, password);
+  if (result === "forbidden") return res.status(403).json({ error: "Forbidden" });
+  if (result === null) return res.status(404).json({ error: "Child not found" });
   return res.json(result);
 });
 
