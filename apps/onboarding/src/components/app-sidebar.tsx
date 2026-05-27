@@ -26,6 +26,7 @@ import {
 	Star,
 	Stethoscope,
 	User,
+	UserPlus,
 	Users,
 } from "lucide-react";
 import {
@@ -90,6 +91,12 @@ const parentPlatformNavItem = {
 	label: "Parent Platform",
 	path: "/portal/parent-platform",
 	icon: Users,
+} as const;
+
+const addChildNavItem = {
+	label: "Add Child",
+	path: "/portal/add-child",
+	icon: UserPlus,
 } as const;
 
 const activityItems = [
@@ -168,8 +175,11 @@ export function AppSidebar() {
 		role === "adult_athlete" || role === "adult_athlete_team" || athleteType === "adult";
 	const isYouthByType = athleteType === "youth";
 	const isYouthByAge = derivedAge != null && derivedAge < 18;
+	const isPhpBasicPlan = user?.programTier === "PHP";
 	const showParentPlatformNav =
-		!isAdultAthlete && (isYouthAthleteRole || isYouthByType || isYouthByAge);
+		!isAdultAthlete && !isPhpBasicPlan && (isYouthAthleteRole || isYouthByType || isYouthByAge);
+	const showAddChild =
+		!isAdultAthlete && (isYouthAthleteRole || isYouthByType || isYouthByAge || user?.role === "guardian");
 
 	const isActive = (path: string) => portalNavItemIsActive(pathname, path);
 
@@ -303,6 +313,9 @@ export function AppSidebar() {
 							{showParentPlatformNav
 								? renderNavItem(parentPlatformNavItem, isActive(parentPlatformNavItem.path))
 								: null}
+							{showAddChild
+								? renderNavItem(addChildNavItem, isActive(addChildNavItem.path))
+								: null}
 							{isPortalCoachLikeRole(user?.role)
 								? coachOnlyNavItems.map((item) => renderNavItem(item, isActive(item.path)))
 								: null}
@@ -331,7 +344,7 @@ export function AppSidebar() {
 								.filter(
 									(item) =>
 										(item.path !== "/portal/nutrition" ||
-											showPortalNutritionNav(user?.role)) &&
+											(!isPhpBasicPlan && showPortalNutritionNav(user?.role))) &&
 										(item.path !== "/portal/physio-referral" ||
 											showPortalPhysioReferralNav(user?.role)),
 								)
