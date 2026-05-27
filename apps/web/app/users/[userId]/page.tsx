@@ -127,6 +127,7 @@ type AdminUserRow = {
 
 type BillingRequest = {
   userId?: number;
+  planName?: string | null;
   planTier?: string | null;
   displayPrice?: string | null;
   billingInterval?: string | null;
@@ -201,6 +202,7 @@ export default function UserDetailPage() {
   const [isAssigningPlan, setIsAssigningPlan] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [billingStatus, setBillingStatus] = useState<{
+    planName?: string | null;
     planTier?: string | null;
     displayPrice?: string | null;
     billingInterval?: string | null;
@@ -413,6 +415,7 @@ export default function UserDetailPage() {
         setBillingStatus(
           match
             ? {
+                planName: match.planName ?? null,
                 planTier: match.planTier ?? null,
                 displayPrice: match.displayPrice ?? null,
                 billingInterval: match.billingInterval ?? null,
@@ -662,9 +665,10 @@ export default function UserDetailPage() {
                 </div>
                 <p className="text-sm font-bold text-foreground">
                   {(() => {
+                    if (billingStatus?.planTier === "Custom") return "Off Season Program";
                     const activeTier = billingStatus?.planTier || resolvedTier;
                     const plan = availablePlans.find(p => p.tier === activeTier);
-                    return plan?.name || activeTier || "No Plan";
+                    return billingStatus?.planName || plan?.name || activeTier || "No Plan";
                   })()}
                 </p>
                 <div className="flex items-center gap-4 pt-2 border-t border-border/60">

@@ -122,15 +122,18 @@ export function escapeAttr(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+// Brand palette — mobile-dark theme
 export const E = {
-  outerBg: "transparent",
-  card: "#ffffff",
-  accent: "#16a34a",
-  text: "#18181b",
-  muted: "#52525b",
-  soft: "#71717a",
-  rule: "#e4e4e7",
-  font: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif",
+  outerBg:    "#0A0A0A",
+  card:       "#0F0F10",
+  cardBorder: "#1F1F22",
+  accent:     "#9EF700",
+  accentDeep: "#7AC800",
+  text:       "#FAFAF9",
+  muted:      "#A1A1AA",
+  soft:       "#71717A",
+  rule:       "#26262A",
+  font:       "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif",
 };
 
 export function emailLayout(input: {
@@ -147,9 +150,9 @@ export function emailLayout(input: {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
 <title>${headline}</title>
 </head>
 <body style="margin:0;padding:0;background-color:${E.outerBg};">
@@ -158,28 +161,33 @@ export function emailLayout(input: {
       ? `<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:transparent;opacity:0;">${pre}</div>`
       : ""
   }
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${E.outerBg};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
-      <td align="center" style="padding:32px 16px 40px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;border-collapse:separate;background-color:${E.card};border:1px solid ${E.rule};border-radius:16px;border-spacing:0;">
+      <td align="center" style="background-color:${E.outerBg};padding:32px 16px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;border-collapse:separate;border:1px solid ${E.cardBorder};border-radius:20px;border-spacing:0;">
           <tr>
-            <td style="background-color:${E.card};border-radius:16px 16px 0 0;padding:28px 36px 20px;border-bottom:1px solid ${E.rule};">
-              <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${E.accent};font-family:${E.font};">${eyebrow}</p>
-              <h1 style="margin:0;font-size:22px;font-weight:700;line-height:1.3;color:${E.text};font-family:${E.font};">${headline}</h1>
+            <td style="background-color:${E.card};border-radius:20px 20px 0 0;padding:28px 36px 24px;border-bottom:1px solid ${E.rule};">
+              <span style="display:inline-block;padding:5px 12px;border-radius:999px;background-color:rgba(158,247,0,0.1);border:1px solid rgba(158,247,0,0.2);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${E.accent};font-family:${E.font};margin-bottom:14px;">${eyebrow}</span>
+              <h1 style="margin:0;font-size:24px;font-weight:700;line-height:1.25;letter-spacing:-0.01em;color:${E.text};font-family:${E.font};">${headline}</h1>
             </td>
           </tr>
           <tr>
-            <td style="background-color:${E.card};padding:36px 36px 40px;border-radius:0 0 16px 16px;font-family:${E.font};">
+            <td style="background-color:${E.card};padding:36px 36px 40px;border-radius:0 0 20px 20px;font-family:${E.font};">
               ${input.bodyHtml}
             </td>
           </tr>
         </table>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
           <tr>
-            <td style="padding:24px 8px 0;text-align:center;">
-              <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${E.soft};font-family:${E.font};">PH Performance</p>
+            <td style="padding:28px 8px 8px;text-align:center;background-color:${E.outerBg};">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 14px;">
+                <tr>
+                  <td align="center" style="width:36px;height:36px;border-radius:999px;border:1.5px solid ${E.accent};font-size:12px;font-weight:800;color:${E.accent};letter-spacing:-0.02em;font-family:${E.font};line-height:34px;">PH</td>
+                </tr>
+              </table>
+              <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:${E.soft};font-family:${E.font};">PH Performance</p>
               <p style="margin:0;font-size:11px;color:${E.muted};line-height:1.65;font-family:${E.font};">© ${year} · Professional coaching &amp; training</p>
-              <p style="margin:14px 0 0;font-size:11px;color:${E.muted};line-height:1.65;font-family:${E.font};">This email was sent regarding your PH Performance account.<br/>If you did not expect it, you can ignore this message or contact your coach.</p>
+              <p style="margin:12px 0 0;font-size:11px;color:${E.soft};line-height:1.65;font-family:${E.font};">This email was sent regarding your PH Performance account.<br/>If you did not expect it, you can ignore this message or contact your coach.</p>
             </td>
           </tr>
         </table>
@@ -191,7 +199,32 @@ export function emailLayout(input: {
 }
 
 export function textP(html: string, marginBottom = "20px"): string {
-  return `<p style="margin:0 0 ${marginBottom};font-size:16px;line-height:1.65;color:${E.text};">${html}</p>`;
+  return `<p style="margin:0 0 ${marginBottom};font-size:15.5px;line-height:1.7;color:${E.text};font-family:${E.font};">${html}</p>`;
+}
+
+/** Highlighted card for displaying a code, password, or short value. */
+export function codeCard(label: string, value: string, opts: { mono?: boolean } = {}): string {
+  const mono = opts.mono !== false;
+  const valueFontFamily = mono ? "ui-monospace,Menlo,Consolas,monospace" : E.font;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td align="center" style="background-color:#161618;border-radius:14px;border:1px solid ${E.rule};padding:28px 24px;">
+      <p style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${E.soft};font-family:${E.font};">${escapeHtml(label)}</p>
+      <p style="margin:0;font-size:30px;font-weight:700;letter-spacing:0.18em;color:${E.accent};font-family:${valueFontFamily};line-height:1.25;">${escapeHtml(value)}</p>
+    </td>
+  </tr>
+</table>`;
+}
+
+/** Lime pill CTA button. */
+export function primaryButton(href: string, label: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
+  <tr>
+    <td style="border-radius:999px;background-color:${E.accent};">
+      <a href="${escapeAttr(href)}" style="display:inline-block;padding:14px 28px;font-family:${E.font};font-weight:700;font-size:14px;letter-spacing:0.02em;color:#0A0A0A;text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
+    </td>
+  </tr>
+</table>`;
 }
 
 export function labelRow(label: string, value: string): string {

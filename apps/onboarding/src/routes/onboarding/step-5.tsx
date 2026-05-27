@@ -115,14 +115,14 @@ const TIER_METADATA: Record<
 > = {
 	PHP: {
 		cardTitle: "PHP Program",
-		tierLine: "Restricted app access",
+		tierLine: "Structured monthly training",
 		icon: TrendUp,
 		order: 1,
 		features: [
+			"Structured monthly training programme",
+			"Age appropriate strength & conditioning",
+			"Warm ups, cool downs and recovery work",
 			"Restricted app access",
-			"Coach module access",
-			"Messaging features",
-			"Schedule & calendar",
 		],
 	},
 	PHP_Premium: {
@@ -131,12 +131,13 @@ const TIER_METADATA: Record<
 		icon: Trophy,
 		order: 2,
 		features: [
-			"Full app access",
-			"Full programs library",
-			"Messaging & scheduling",
-			"Nutrition logging",
-			"Video upload for coach response",
-			"Run tracking & physio referrals",
+			"Everything included in PHP Program",
+			"Extra support, education and accountability",
+			"Nutrition, wellbeing and recovery platform",
+			"Parent/player education resources",
+			"GPS running tracker and assigned runs",
+			"Progress tracking",
+			"More complete support around training and performance",
 		],
 	},
 	PHP_Premium_Plus: {
@@ -151,17 +152,45 @@ const TIER_METADATA: Record<
 	},
 	PHP_Pro: {
 		cardTitle: "PHP Pro",
-		tierLine: "Premium access + 1:1 sessions",
+		tierLine: "Highest level of individual support",
 		icon: Star,
 		order: 4,
 		features: [
-			"Same full app access as PHP Premium",
-			"Includes 1:1 in-person sessions",
+			"Our highest level of individual support",
+			"Fully personalised training programme",
+			"1:1 coaching, monitoring and progress tracking",
+			"Priority support and regular check-ins",
+			"Built for athletes who want a more individualised approach",
 		],
 	},
 };
 
 const PHP_TIERS = new Set(["PHP", "PHP_Premium", "PHP_Premium_Plus", "PHP_Pro"]);
+
+// Feature lists for custom (non-tier) plans, matched by substring of plan name.
+const CUSTOM_PLAN_FEATURES: Array<{ match: string; features: string[] }> = [
+	{
+		match: "Off-Season Plus",
+		features: [
+			"Everything included in the Off Season Programme",
+			"Access to in-person group training sessions",
+			"Extra coaching support and accountability",
+			"Built for players who want more structure and in-person support",
+		],
+	},
+	{
+		match: "Off-Season Programme",
+		features: [
+			"4-week off-season football programme",
+			"Strength, power, speed and conditioning focus",
+			"GPS running sessions included",
+			"Mobility and recovery support",
+			"Nutrition, wellbeing and recovery guidance",
+			"Progress tracking",
+			"Built to help players return stronger and fitter for pre-season",
+		],
+	},
+];
 
 function planCardTitle(plan: { tier: string | null | undefined; name?: string | null }) {
 	// Prefer the admin-set plan.name so renames in the admin portal flow through.
@@ -990,12 +1019,15 @@ function OnboardingStep5() {
 						};
 						const Icon = meta.icon;
 						const title = planCardTitle(plan);
-						// Prefer admin-curated features from the DB plan; fall back to the hardcoded
-						// per-tier defaults only if the admin hasn't set any.
+						// Prefer admin-curated features from the DB plan; fall back to name-matched
+						// custom plan features, then per-tier defaults, then generic fallback.
+						const customFeatures = CUSTOM_PLAN_FEATURES.find((c) =>
+							String(plan.name ?? "").includes(c.match),
+						)?.features;
 						const featureList =
 							Array.isArray(plan.features) && plan.features.length > 0
 								? plan.features
-								: (TIER_METADATA[plan.tier]?.features ?? meta.features);
+								: (customFeatures ?? TIER_METADATA[plan.tier]?.features ?? meta.features);
 
 						const selectPlan = () => {
 							setSelectedPlan(plan.id);

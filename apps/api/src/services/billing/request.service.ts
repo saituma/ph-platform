@@ -6,6 +6,8 @@ import {
   athleteTable,
   guardianTable,
   notificationTable,
+  programAssignmentTable,
+  programTable,
   subscriptionPlanTable,
   subscriptionRequestTable,
   subscriptionStatus,
@@ -876,6 +878,39 @@ export async function approveSubscriptionRequest(requestId: number) {
       await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.id, request.athleteId));
     } else {
       await tx.update(athleteTable).set(athletePayload).where(eq(athleteTable.id, request.athleteId));
+    }
+
+    // Auto-assign Off-Season Program for custom (tier-less) plans.
+    if (!request.planTier && request.athleteId) {
+      try {
+        const [offSeasonProgram] = await tx
+          .select({ id: programTable.id })
+          .from(programTable)
+          .where(eq(programTable.name, "Off-Season Program"))
+          .limit(1);
+        if (offSeasonProgram) {
+          const [existing] = await tx
+            .select({ id: programAssignmentTable.id })
+            .from(programAssignmentTable)
+            .where(
+              and(
+                eq(programAssignmentTable.athleteId, request.athleteId),
+                eq(programAssignmentTable.programId, offSeasonProgram.id),
+              ),
+            )
+            .limit(1);
+          if (!existing) {
+            await tx.insert(programAssignmentTable).values({
+              athleteId: request.athleteId,
+              programId: offSeasonProgram.id,
+              assignedBy: request.userId,
+              status: "active",
+            });
+          }
+        }
+      } catch (err) {
+        logger.warn({ err }, "[Billing] Off-Season Program auto-assign failed");
+      }
     }
 
     const updated = await tx

@@ -1,5 +1,5 @@
 import { createEmailIntent } from "../../services/outbox.service";
-import { emailLayout, escapeHtml, textP, E } from "./base.mailer";
+import { emailLayout, escapeHtml, textP, primaryButton, E } from "./base.mailer";
 import type { BillingReceiptEmailBlockInput } from "./billing-receipt-email";
 import { billingReceiptEmailBlock, greetingLine } from "./billing-receipt-email";
 import { logger } from "../logger";
@@ -41,17 +41,7 @@ export async function sendSubscriptionPendingUserEmail(input: {
               ? "Yearly (upfront)"
               : null;
     const receiptHtml = input.receipt ? billingReceiptEmailBlock(input.receipt) : "";
-    const invoiceBtnHtml = input.invoiceUrl
-      ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;">
-  <tr>
-    <td style="border-radius:10px;background:#16a34a;">
-      <a href="${escapeHtml(input.invoiceUrl)}" style="display:inline-block;padding:13px 26px;font-family:${E.font};font-weight:700;font-size:14px;color:#ffffff;text-decoration:none;border-radius:10px;">
-        View Invoice
-      </a>
-    </td>
-  </tr>
-</table>`
-      : "";
+    const invoiceBtnHtml = input.invoiceUrl ? primaryButton(input.invoiceUrl, "View Invoice") : "";
     const bodyHtml = `
 ${greetingLine(input.name, input.to)}
 ${textP(`We’ve successfully received your payment for <strong>${plan}</strong> <span style="color:${E.muted};">(${tier})</span>.`)}
@@ -128,7 +118,7 @@ export async function sendPlanExpiredEmail(input: { to: string; name: string; at
     const bodyHtml = `
 ${textP(`Hi ${name},`)}
 ${textP(`The paid plan period for <strong>${athlete}</strong> has ended, and we haven’t received a renewal payment yet.`)}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fafafa;border-radius:12px;border:1px solid ${E.rule};margin:0 0 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#161618;border-radius:12px;border:1px solid ${E.rule};margin:0 0 24px;">
   <tr>
     <td style="padding:18px 22px;font-size:14px;color:${E.text};line-height:1.65;font-family:${E.font};">
       <strong style="display:block;margin-bottom:6px;color:${E.muted};font-size:12px;letter-spacing:0.06em;text-transform:uppercase;">Your access now</strong>
@@ -202,15 +192,7 @@ ${greetingLine(input.name, input.to)}
 ${textP(`${inviter} has invited you to join the <strong>${plan}</strong> plan <span style="color:${E.muted};">(${tier})</span>.`)}
 ${amount ? textP(`Plan: <strong>${amount}</strong>.`) : ""}
 ${textP(`Click below to complete a quick onboarding form and pay — it takes about a minute.`)}
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
-  <tr>
-    <td style="border-radius:10px;background:#16a34a;">
-      <a href="${safeUrl}" style="display:inline-block;padding:14px 28px;font-family:${E.font};font-weight:700;font-size:15px;color:#ffffff;text-decoration:none;border-radius:10px;">
-        Complete onboarding & pay
-      </a>
-    </td>
-  </tr>
-</table>
+${primaryButton(input.checkoutUrl, "Complete onboarding & pay")}
 ${textP(`<span style="color:${E.muted};font-size:13px;">Or paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}
 ${
   input.loginCredentials
@@ -297,10 +279,10 @@ export async function sendTeamPlayerPaymentInviteEmail(input: {
 ${textP(`Your athlete account has also been created. Use the details below to sign in to the PH Performance app after completing payment.`)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
   <tr>
-    <td style="background:#f4f4f5;border-radius:12px;border:1px solid #e4e4e7;padding:20px 24px;">
-      <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;font-family:${E.font};">App login</p>
-      <div style="margin-bottom:4px;font-family:${E.font};font-size:14px;">Email: <strong>${escapeHtml(input.loginCredentials.email)}</strong></div>
-      <div style="font-family:${E.font};font-size:14px;">Temporary password: <strong style="font-family:ui-monospace,Menlo,Consolas,monospace;background:#fff;padding:2px 6px;border-radius:4px;border:1px solid #d4d4d8;">${escapeHtml(input.loginCredentials.temporaryPassword)}</strong></div>
+    <td style="background-color:#161618;border-radius:12px;border:1px solid ${E.rule};padding:20px 24px;">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${E.soft};font-family:${E.font};">App login</p>
+      <div style="margin-bottom:4px;font-family:${E.font};font-size:14px;color:${E.text};">Email: <strong>${escapeHtml(input.loginCredentials.email)}</strong></div>
+      <div style="font-family:${E.font};font-size:14px;color:${E.text};">Temporary password: <strong style="font-family:ui-monospace,Menlo,Consolas,monospace;background-color:${E.card};padding:2px 6px;border-radius:4px;border:1px solid ${E.rule};color:${E.accent};">${escapeHtml(input.loginCredentials.temporaryPassword)}</strong></div>
     </td>
   </tr>
 </table>`
@@ -310,15 +292,7 @@ ${textP(`Your athlete account has also been created. Use the details below to si
 ${textP(`Hi ${who},`)}
 ${textP(`You’ve been selected to complete your payment for <strong>${safeTeam}</strong> on the <strong>${safePlan}</strong> plan.`)}
 ${textP(`Use the secure Stripe checkout link below to complete payment.`)}
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
-  <tr>
-    <td style="border-radius:10px;background:#16a34a;">
-      <a href="${safeUrl}" style="display:inline-block;padding:14px 28px;font-family:${E.font};font-weight:700;font-size:15px;color:#ffffff;text-decoration:none;border-radius:10px;">
-        Open Stripe payment link
-      </a>
-    </td>
-  </tr>
-</table>
+${primaryButton(input.checkoutUrl, "Open Stripe payment link")}
 ${textP(`<span style="color:${E.muted};font-size:13px;">If the button does not open, paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></span>`, "0")}
 ${credentialsSection}`;
 

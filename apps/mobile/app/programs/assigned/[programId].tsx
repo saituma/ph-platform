@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, ChevronRight, Layers, Dumbbell } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, Layers, Dumbbell, Lock, CheckCircle } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
@@ -100,10 +101,17 @@ export default function AssignedProgramDetailScreen() {
                 (targetModule.sessions ?? []).map((session: any, idx: number) => {
                   const entering = reduceMotion ? undefined : FadeInDown.delay(Math.min(idx, 8) * 40).springify().damping(15);
                   const label = session.title || `Session ${session.sessionNumber ?? idx + 1}`;
+                  const isLocked = !!session.locked;
+                  const isCompleted = !!session.completed;
                   return (
                     <Animated.View key={session.id} entering={entering}>
                       <Pressable
                         onPress={() => {
+                          if (isLocked) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                            Alert.alert("Session Locked", "Complete the previous session to unlock this one.");
+                            return;
+                          }
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           router.push(`/programs/assigned-session/${session.id}?title=${encodeURIComponent(label)}&programId=${programIdNum}&moduleId=${targetModule.id}` as any);
                         }}
@@ -112,40 +120,55 @@ export default function AssignedProgramDetailScreen() {
                           borderRadius: 22,
                           marginBottom: 12,
                           overflow: "hidden",
-                          transform: [{ scale: pressed ? 0.97 : 1 }],
+                          opacity: isLocked ? 0.6 : pressed ? 0.9 : 1,
+                          transform: [{ scale: pressed && !isLocked ? 0.97 : 1 }],
                         })}
                       >
                         <View style={{ padding: 16, flexDirection: "row", alignItems: "center" }}>
                           <View style={{
                             width: 40, height: 40, borderRadius: 12,
-                            backgroundColor: p.accentSoft,
+                            backgroundColor: isCompleted ? p.accent : p.accentSoft,
                             alignItems: "center", justifyContent: "center", marginRight: 14,
                           }}>
-                            <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.accent }}>
-                              {session.sessionNumber ?? idx + 1}
-                            </Text>
+                            {isLocked ? (
+                              <Lock size={18} color={p.textSecondary} />
+                            ) : isCompleted ? (
+                              <CheckCircle size={18} color="#fff" />
+                            ) : (
+                              <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.accent }}>
+                                {session.sessionNumber ?? idx + 1}
+                              </Text>
+                            )}
                           </View>
                           <View style={{ flex: 1, gap: 3 }}>
-                            <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+                            <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: isLocked ? p.textSecondary : p.textPrimary }}>
                               {label}
                             </Text>
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                                <Dumbbell size={12} color={p.textSecondary} />
+                              {isLocked ? (
                                 <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                                  {session.exerciseCount} exercises
+                                  Complete previous session to unlock
                                 </Text>
-                              </View>
-                              {session.type ? (
-                                <View style={{
-                                  paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100,
-                                  backgroundColor: p.accentSoft,
-                                }}>
-                                  <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "capitalize" }}>
-                                    {session.type}
-                                  </Text>
-                                </View>
-                              ) : null}
+                              ) : (
+                                <>
+                                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                    <Dumbbell size={12} color={p.textSecondary} />
+                                    <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                                      {session.exerciseCount} exercises
+                                    </Text>
+                                  </View>
+                                  {session.type ? (
+                                    <View style={{
+                                      paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100,
+                                      backgroundColor: p.accentSoft,
+                                    }}>
+                                      <Text style={{ fontSize: 10, fontFamily: "Outfit-Regular", color: p.textSecondary, textTransform: "capitalize" }}>
+                                        {session.type}
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                </>
+                              )}
                             </View>
                           </View>
                           <View style={{
@@ -153,7 +176,11 @@ export default function AssignedProgramDetailScreen() {
                             backgroundColor: p.accentSoft,
                             alignItems: "center", justifyContent: "center",
                           }}>
-                            <ChevronRight size={14} color={p.textSecondary} />
+                            {isLocked ? (
+                              <Lock size={12} color={p.textSecondary} />
+                            ) : (
+                              <ChevronRight size={14} color={p.textSecondary} />
+                            )}
                           </View>
                         </View>
                       </Pressable>
@@ -170,12 +197,19 @@ export default function AssignedProgramDetailScreen() {
                 </Text>
               ) : null}
 
-              {modules.map((mod, modIdx) => {
+              {modules.map((mod: any, modIdx: number) => {
                 const entering = reduceMotion ? undefined : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
+                const isLocked = !!mod.locked;
+                const isCompleted = !!mod.completed;
                 return (
                   <Animated.View key={mod.id} entering={entering}>
                     <Pressable
                       onPress={() => {
+                        if (isLocked) {
+                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          Alert.alert("Module Locked", "Complete the previous module to unlock this one.");
+                          return;
+                        }
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push(`/programs/assigned/${programId}?moduleId=${mod.id}` as any);
                       }}
@@ -184,27 +218,42 @@ export default function AssignedProgramDetailScreen() {
                         borderRadius: 22,
                         marginBottom: 14,
                         overflow: "hidden",
-                        transform: [{ scale: pressed ? 0.97 : 1 }],
+                        opacity: isLocked ? 0.6 : pressed ? 0.9 : 1,
+                        transform: [{ scale: pressed && !isLocked ? 0.97 : 1 }],
                       })}
                     >
-                      <View style={{ height: 3, backgroundColor: p.accent, opacity: 0.6 }} />
+                      <View style={{ height: 3, backgroundColor: isCompleted ? p.accent : p.accent, opacity: isCompleted ? 1 : 0.6 }} />
                       <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
                         <View style={{
                           width: 44, height: 44, borderRadius: 14,
-                          backgroundColor: p.accentSoft,
+                          backgroundColor: isCompleted ? p.accent : p.accentSoft,
                           alignItems: "center", justifyContent: "center", marginRight: 14,
                         }}>
-                          <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>{mod.order}</Text>
+                          {isLocked ? (
+                            <Lock size={20} color={p.textSecondary} />
+                          ) : isCompleted ? (
+                            <CheckCircle size={20} color="#fff" />
+                          ) : (
+                            <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.accent }}>{mod.order}</Text>
+                          )}
                         </View>
                         <View style={{ flex: 1, gap: 4 }}>
-                          <Text style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: p.textPrimary, letterSpacing: -0.2 }}>
+                          <Text style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: isLocked ? p.textSecondary : p.textPrimary, letterSpacing: -0.2 }}>
                             {mod.title}
                           </Text>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Layers size={13} color={p.textSecondary} />
-                            <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                              {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
-                            </Text>
+                            {isLocked ? (
+                              <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                                Complete previous module to unlock
+                              </Text>
+                            ) : (
+                              <>
+                                <Layers size={13} color={p.textSecondary} />
+                                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                                  {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
+                                </Text>
+                              </>
+                            )}
                           </View>
                         </View>
                         <View style={{
@@ -212,7 +261,11 @@ export default function AssignedProgramDetailScreen() {
                           backgroundColor: p.accentSoft,
                           alignItems: "center", justifyContent: "center",
                         }}>
-                          <ChevronRight size={16} color={p.textSecondary} />
+                          {isLocked ? (
+                            <Lock size={14} color={p.textSecondary} />
+                          ) : (
+                            <ChevronRight size={16} color={p.textSecondary} />
+                          )}
                         </View>
                       </View>
                     </Pressable>

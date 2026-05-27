@@ -292,12 +292,30 @@ export async function getMyProgramFull(userId: number, programId: number) {
     sessionsByModule.set(s.moduleId!, list);
   }
 
+  const completionRows = await db
+    .select({ sessionId: programSessionCompletionTable.sessionId })
+    .from(programSessionCompletionTable)
+    .where(eq(programSessionCompletionTable.athleteId, athlete.id));
+  const completedSet = new Set(completionRows.map((r) => r.sessionId));
+
+  let priorModuleComplete = true;
+  const lockedModules = modules.map((m) => {
+    const moduleLocked = !priorModuleComplete;
+    let priorSessionComplete = true;
+    const moduleSessions = (sessionsByModule.get(m.id) ?? []).map((s) => {
+      const completed = completedSet.has(s.id);
+      const locked = moduleLocked || !priorSessionComplete;
+      if (!completed) priorSessionComplete = false;
+      return { ...s, completed, locked };
+    });
+    const moduleCompleted = moduleSessions.length > 0 && moduleSessions.every((s) => s.completed);
+    if (!moduleCompleted) priorModuleComplete = false;
+    return { ...m, completed: moduleCompleted, locked: moduleLocked, sessions: moduleSessions };
+  });
+
   return {
     ...program[0],
-    modules: modules.map((m) => ({
-      ...m,
-      sessions: sessionsByModule.get(m.id) ?? [],
-    })),
+    modules: lockedModules,
   };
 }
 
