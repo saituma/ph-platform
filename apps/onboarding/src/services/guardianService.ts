@@ -33,11 +33,13 @@ export type GuardianChild = {
 	id: number;
 	name: string;
 	email?: string | null;
-	birthDate?: string | null;
-	sport?: string | null;
-	programTier?: string | null;
+	age?: number | null;
+	athleteType?: string | null;
+	currentProgramTier?: string | null;
+	currentPlanId?: number | null;
+	planName?: string | null;
 	planExpiresAt?: string | null;
-	createdAt?: string | null;
+	performanceGoals?: string | null;
 };
 
 export type ChildCredentials = {

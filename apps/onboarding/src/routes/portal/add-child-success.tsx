@@ -31,7 +31,7 @@ function AddChildSuccessPage() {
 
 	useEffect(() => {
 		const params = new URLSearchParams(window.location.search);
-		const credentialsToken = params.get("credentials_token");
+		const credentialsToken = params.get("cred") || params.get("credentials_token");
 
 		if (!credentialsToken) {
 			setError("Missing credentials token. Please contact support if your payment was processed.");

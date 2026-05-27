@@ -15,6 +15,7 @@ import {
   teamTable,
   athleteTrainingSessionCompletionTable,
   trainingModuleSessionTable,
+  subscriptionPlanTable,
 } from "../db/schema";
 import { slugifySegment } from "../lib/slug";
 import { getUserById } from "./user.service";
@@ -550,6 +551,22 @@ export async function getOnboardingByUser(userId: number) {
         (decorated as any).planPaymentType = row.planPaymentType;
         (decorated as any).planCreatedAt = row.planCreatedAt;
         (decorated as any).trainingStats = stats[0] || { finishedSessions: 0, finishedModules: 0 };
+        // Attach the child's login email so the guardian dashboard can show it
+        const [childUser] = await db
+          .select({ email: userTable.email })
+          .from(userTable)
+          .where(eq(userTable.id, ensured.userId))
+          .limit(1);
+        if (childUser) (decorated as any).email = childUser.email;
+        // Attach plan name
+        if (ensured.currentPlanId) {
+          const [plan] = await db
+            .select({ name: subscriptionPlanTable.name })
+            .from(subscriptionPlanTable)
+            .where(eq(subscriptionPlanTable.id, ensured.currentPlanId))
+            .limit(1);
+          if (plan) (decorated as any).planName = plan.name;
+        }
       }
       return decorated;
     }),

@@ -185,7 +185,7 @@ router.get("/portal/guardian/children/credentials/:token", async (req: Request, 
   try {
     const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
     const { childEmail, tempPassword, childName, athleteId } = await verifyChildCredentialsToken(token);
-    return res.json({ childEmail, tempPassword, childName, athleteId });
+    return res.json({ email: childEmail, temporaryPassword: tempPassword, childName, athleteId });
   } catch {
     return res.status(401).json({ error: "Invalid or expired credentials token" });
   }

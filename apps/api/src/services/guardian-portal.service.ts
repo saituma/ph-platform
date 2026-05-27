@@ -165,20 +165,43 @@ export async function getGuardianChildren(userId: number): Promise<{ id: number 
       teamName: teamTable.name,
       currentProgramTier: athleteTable.currentProgramTier,
       currentPlanId: athleteTable.currentPlanId,
+      planExpiresAt: athleteTable.planExpiresAt,
       performanceGoals: athleteTable.performanceGoals,
+      userId: athleteTable.userId,
     })
     .from(athleteTable)
     .leftJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
     .where(inArray(athleteTable.id, [...athleteIdSet]));
+
+  const childUserIds = athletes.map((a) => a.userId);
+  const childUsers = childUserIds.length > 0
+    ? await db
+        .select({ id: userTable.id, email: userTable.email })
+        .from(userTable)
+        .where(inArray(userTable.id, childUserIds))
+    : [];
+  const userEmailMap = new Map(childUsers.map((u) => [u.id, u.email]));
+
+  const planIds = [...new Set(athletes.map((a) => a.currentPlanId).filter((id): id is number => id != null))];
+  const plans = planIds.length > 0
+    ? await db
+        .select({ id: subscriptionPlanTable.id, name: subscriptionPlanTable.name })
+        .from(subscriptionPlanTable)
+        .where(inArray(subscriptionPlanTable.id, planIds))
+    : [];
+  const planNameMap = new Map(plans.map((p) => [p.id, p.name]));
 
   const children = athletes.map((a) => ({
     id: a.id,
     name: a.name,
     age: a.age,
     athleteType: a.athleteType,
+    email: userEmailMap.get(a.userId) ?? null,
     team: a.teamName ? { name: a.teamName } : null,
     currentProgramTier: a.currentProgramTier ?? null,
     currentPlanId: a.currentPlanId ?? null,
+    planName: a.currentPlanId ? (planNameMap.get(a.currentPlanId) ?? null) : null,
+    planExpiresAt: a.planExpiresAt?.toISOString() ?? null,
     performanceGoals: a.performanceGoals ?? null,
   }));
 

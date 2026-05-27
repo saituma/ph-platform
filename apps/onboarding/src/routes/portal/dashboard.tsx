@@ -974,7 +974,7 @@ function AthleteDashboard({
 			</StaggerList>
 
 			{/* Guardian: My Children */}
-			{user.athleteType === "youth" && (
+			{(user.athleteType === "youth" || user.role === "guardian") && (
 				<motion.section
 					variants={fadeUp}
 					initial="hidden"
@@ -1009,10 +1009,15 @@ function AthleteDashboard({
 										</div>
 										<div className="min-w-0 flex-1">
 											<p className="text-sm font-medium truncate">{child.name || "Unnamed"}</p>
+											{child.email && (
+												<p className="font-mono text-[10px] text-foreground/30 truncate">{child.email}</p>
+											)}
 											<p className="font-mono text-[10px] text-foreground/40 uppercase tracking-wider">
-												{child.currentProgramTier
-													? child.currentProgramTier.replace(/_/g, " ")
-													: "No plan"}
+												{child.planName
+													? child.planName
+													: child.currentProgramTier
+														? child.currentProgramTier.replace(/_/g, " ")
+														: "No plan"}
 											</p>
 										</div>
 										{child.planExpiresAt && (

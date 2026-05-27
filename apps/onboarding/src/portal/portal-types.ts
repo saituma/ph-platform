@@ -23,8 +23,11 @@ export type PortalUser = {
 	allAthletes?: Array<{
 		id: number;
 		name: string | null;
+		email?: string | null;
 		athleteType?: string | null;
 		currentProgramTier?: string | null;
+		currentPlanId?: number | null;
+		planName?: string | null;
 		planExpiresAt?: string | null;
 	}>;
 	team?: {
