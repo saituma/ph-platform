@@ -61,7 +61,7 @@ export const guardianService = {
 	}) =>
 		apiRequest<{ checkoutUrl: string; sessionId?: string }>(
 			"/portal/guardian/children/checkout",
-			{ method: "POST", body: data },
+			{ method: "POST", body: { ...data, name: data.childName } },
 		),
 
 	getChildCredentials: (token: string) =>
