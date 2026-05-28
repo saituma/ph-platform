@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import {
   ChevronDown,
   Mail,
   MessageSquare,
+  Pencil,
   Phone as PhoneIcon,
   Plus,
   X,
@@ -358,6 +359,31 @@ function EnquiryCard({
   onStatusChange: (id: number, status: string) => void;
   onDelete: (id: number) => void;
 }) {
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [draftNotes, setDraftNotes] = useState(item.notes ?? "");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [updateEnquiry] = useUpdateEnquiryMutation();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (notesOpen) textareaRef.current?.focus();
+  }, [notesOpen]);
+
+  const handleSaveNotes = async () => {
+    setIsSavingNotes(true);
+    try {
+      await updateEnquiry({ id: item.id, status: item.status, notes: draftNotes }).unwrap();
+      setNotesOpen(false);
+    } finally {
+      setIsSavingNotes(false);
+    }
+  };
+
+  const handleCancelNotes = () => {
+    setDraftNotes(item.notes ?? "");
+    setNotesOpen(false);
+  };
+
   const timeAgo = formatDistanceToNow(new Date(item.createdAt), { addSuffix: false });
   const badgeColor = SERVICE_BADGE_COLORS[item.interestedIn] ?? "bg-zinc-500/20 text-zinc-400 border-zinc-500/30";
   const statusColor = STATUS_BADGE_COLORS[item.status] ?? STATUS_BADGE_COLORS.new;
@@ -516,6 +542,56 @@ function EnquiryCard({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Inline notes */}
+      <div className="mt-4 pt-3 border-t border-border">
+        {notesOpen ? (
+          <div className="space-y-2">
+            <textarea
+              ref={textareaRef}
+              value={draftNotes}
+              onChange={(e) => setDraftNotes(e.target.value)}
+              placeholder="Add a note about this enquiry..."
+              rows={2}
+              className="w-full rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#8aff00]/50 focus:outline-none resize-none"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelNotes}
+                className="px-3 py-1 rounded text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNotes}
+                disabled={isSavingNotes}
+                className="px-3 py-1 rounded bg-[#8aff00]/20 text-[#8aff00] text-xs font-semibold hover:bg-[#8aff00]/30 transition-colors disabled:opacity-50"
+              >
+                {isSavingNotes ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNotesOpen(true)}
+            className="flex items-start gap-2 w-full text-left group"
+          >
+            <Pencil className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground group-hover:text-[#8aff00] transition-colors" />
+            {item.notes ? (
+              <span className="text-xs text-foreground/70 line-clamp-2 group-hover:text-foreground transition-colors">
+                {item.notes}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground/50 italic group-hover:text-muted-foreground transition-colors">
+                Add a note...
+              </span>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
