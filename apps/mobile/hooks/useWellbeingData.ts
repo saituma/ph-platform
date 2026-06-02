@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/api";
 import { useSocket } from "@/context/SocketContext";
+import { useAppSelector } from "@/store/hooks";
 
 export type WellbeingLog = {
   id: number;
@@ -30,6 +31,7 @@ export function useWellbeingData(token: string | null) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { socket } = useSocket();
+  const myUserId = useAppSelector((s) => s.user.profile.id);
   const hasFetched = useRef(false);
 
   const loadLogs = useCallback(
@@ -96,14 +98,20 @@ export function useWellbeingData(token: string | null) {
 
   useEffect(() => {
     if (!socket || !token) return;
-    const refresh = () => loadLogs(true);
+    // Skip our own echo (saveLog already refetched); refresh for others' changes by actor.
+    const refresh = (payload?: { actorUserId?: number | string }) => {
+      if (payload?.actorUserId != null && myUserId != null && String(payload.actorUserId) === String(myUserId)) {
+        return;
+      }
+      void loadLogs(true);
+    };
     socket.on("wellbeing:log:updated", refresh);
     socket.on("wellbeing:log:deleted", refresh);
     return () => {
       socket.off("wellbeing:log:updated", refresh);
       socket.off("wellbeing:log:deleted", refresh);
     };
-  }, [socket, token, loadLogs]);
+  }, [socket, token, loadLogs, myUserId]);
 
   const todayLog = logs.find((l) => {
     const d = new Date();

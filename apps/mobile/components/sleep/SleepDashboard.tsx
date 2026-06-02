@@ -43,6 +43,8 @@ import { useRouter } from "expo-router";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
+import { InlineErrorBanner } from "@/components/ui/InlineErrorBanner";
+import { ReminderControl } from "@/components/wellness/ReminderControl";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { fonts } from "@/constants/theme";
@@ -448,7 +450,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
 
   const [filter, setFilter] = useState<TimeFilter>("month");
-  const { logs, todayLog, loading, refetch, saveLog } = useSleepData(filter);
+  const { logs, todayLog, loading, error, refetch, saveLog } = useSleepData(filter);
   const sheetRef = useRef<BottomSheetModal>(null);
 
   const heroBg = isDark ? "#000000" : p.pageBg;
@@ -538,6 +540,12 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
           <RefreshControl refreshing={false} onRefresh={refetch} tintColor={p.accent} />
         }
       >
+        {error && logs.length === 0 ? (
+          <View style={{ padding: 16 }}>
+            <InlineErrorBanner message={error} onRetry={() => void refetch()} retrying={loading} />
+          </View>
+        ) : null}
+
         {/* ── Hero Card: "You Slept for" ── */}
         <Animated.View
           entering={reduceMotion ? undefined : FadeInDown.duration(500).springify().damping(18)}
@@ -749,6 +757,11 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
               </View>
             )}
           </Animated.View>
+
+          {/* ── Daily reminder ── */}
+          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+            <ReminderControl kind="sleep" />
+          </View>
 
           {/* ── Tips Card ── */}
           <Animated.View

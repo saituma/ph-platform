@@ -49,6 +49,11 @@ export function MealFoodRow({ item }: MealFoodRowProps) {
           {item.calories} kcal
           {item.weightGrams > 0 ? `  ${item.weightGrams}${item.unit || "g"}` : ""}
         </Text>
+        {(item.protein ?? 0) > 0 || (item.carbs ?? 0) > 0 || (item.fat ?? 0) > 0 ? (
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 1 }}>
+            P {Math.round(item.protein ?? 0)}  ·  C {Math.round(item.carbs ?? 0)}  ·  F {Math.round(item.fat ?? 0)}
+          </Text>
+        ) : null}
       </View>
     </View>
   );

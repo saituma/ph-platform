@@ -13,6 +13,7 @@ import { CalorieRing } from "./CalorieRing";
 import { MealCard } from "./MealCard";
 import { MealDetailModal } from "./MealDetailModal";
 import { useNutritionDay } from "./useNutritionDay";
+import { InlineErrorBanner } from "@/components/ui/InlineErrorBanner";
 import type { MealItem, MealSlotName } from "./types";
 import type { CoachFeedbackEntry } from "./useNutritionDay";
 
@@ -64,7 +65,7 @@ export function NutritionDashboard() {
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const isToday = selectedDate === todayKey();
-  const { data, loading, coachHistory, historyLoading, refetch, optimisticUpdateMeal } = useNutritionDay(selectedDate);
+  const { data, loading, error, coachHistory, historyLoading, refetch, optimisticUpdateMeal } = useNutritionDay(selectedDate);
 
   const [activeMeal, setActiveMeal] = useState<MealSlotName | null>(null);
   const [showAllCoach, setShowAllCoach] = useState(false);
@@ -116,6 +117,9 @@ export function NutritionDashboard() {
         calories: i.calories,
         weightGrams: i.weightGrams,
         unit: i.unit,
+        protein: i.protein ?? 0,
+        carbs: i.carbs ?? 0,
+        fat: i.fat ?? 0,
       })),
     );
   };
@@ -163,6 +167,14 @@ export function NutritionDashboard() {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
         <ActivityIndicator size="large" color={p.accent} />
+      </View>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
+        <InlineErrorBanner message={error} onRetry={() => void refetch()} retrying={loading} />
       </View>
     );
   }
@@ -408,7 +420,7 @@ export function NutritionDashboard() {
               </View>
             </View>
 
-            {/* Macro breakdown card */}
+            {/* Macro breakdown card — eaten vs coach-set target, from logged foods */}
             <View style={{ borderRadius: 22, backgroundColor: p.inputBg, padding: 16, borderWidth: 1, borderColor: p.divider }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
@@ -417,32 +429,41 @@ export function NutritionDashboard() {
                 <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
                   Macros
                 </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginLeft: "auto" }}>
+                  {data?.hasMacroTargets ? "eaten / goal" : "eaten"}
+                </Text>
               </View>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 {[
-                  { label: "Carbs", g: data?.macros?.carbs?.grams ?? 0, color: p.accent },
-                  { label: "Protein", g: data?.macros?.protein?.grams ?? 0, color: p.success },
-                  { label: "Fats", g: data?.macros?.fats?.grams ?? 0, color: p.textSecondary },
-                ].map((m) => {
-                  const total = (data?.macros?.carbs?.grams ?? 0) + (data?.macros?.protein?.grams ?? 0) + (data?.macros?.fats?.grams ?? 0);
-                  const pct = total > 0 ? Math.round((m.g / total) * 100) : 0;
+                  { label: "Carbs", m: data?.macros?.carbs, color: p.accent },
+                  { label: "Protein", m: data?.macros?.protein, color: p.success },
+                  { label: "Fats", m: data?.macros?.fats, color: p.textSecondary },
+                ].map(({ label, m, color }) => {
+                  const eaten = m?.eaten ?? 0;
+                  const target = m?.target ?? 0;
+                  const pct = target > 0 ? Math.min(100, Math.round((eaten / target) * 100)) : 0;
                   return (
-                    <View key={m.label} style={{ flex: 1, alignItems: "center", gap: 6 }}>
-                      <View style={{ width: 44, height: 44, borderRadius: 100, borderWidth: 3, borderColor: m.color, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: m.color }}>
-                          {pct}%
+                    <View key={label} style={{ flex: 1, alignItems: "center", gap: 6 }}>
+                      <View style={{ width: 44, height: 44, borderRadius: 100, borderWidth: 3, borderColor: target > 0 ? color : p.divider, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: target > 0 ? color : p.textMuted }}>
+                          {target > 0 ? `${pct}%` : "—"}
                         </Text>
                       </View>
                       <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>
-                        {m.g}g
+                        {Math.round(eaten)}{target > 0 ? `/${target}` : ""}g
                       </Text>
                       <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textMuted }}>
-                        {m.label}
+                        {label}
                       </Text>
                     </View>
                   );
                 })}
               </View>
+              {!data?.hasMacroTargets ? (
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, textAlign: "center", marginTop: 12 }}>
+                  Your coach hasn't set macro goals yet — showing what you've logged.
+                </Text>
+              ) : null}
             </View>
           </View>
         )}

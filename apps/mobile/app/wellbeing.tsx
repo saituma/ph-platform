@@ -32,6 +32,10 @@ import { useRouter } from "expo-router";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
+import { InlineErrorBanner } from "@/components/ui/InlineErrorBanner";
+import { WellnessBarTrend } from "@/components/wellness/WellnessBarTrend";
+import { ReminderControl } from "@/components/wellness/ReminderControl";
+import { buildDaySeries, seriesAverage } from "@/components/wellness/buildDaySeries";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { useWellbeingData, type WellbeingLogInput } from "@/hooks/useWellbeingData";
@@ -226,7 +230,7 @@ export default function WellbeingScreen() {
       </View>
     );
   }
-  const { logs, todayLog, isLoading, isSaving, loadLogs, saveLog } = useWellbeingData(token);
+  const { logs, todayLog, isLoading, isSaving, error, loadLogs, saveLog } = useWellbeingData(token);
 
   const [mood, setMood] = useState(todayLog?.mood ?? 3);
   const [energy, setEnergy] = useState(todayLog?.energy ?? 3);
@@ -285,15 +289,21 @@ export default function WellbeingScreen() {
       energy,
       pain,
     };
-    const result = await saveLog(input);
-    if (result) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+    try {
+      const result = await saveLog(input);
+      if (result) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [mood, energy, pain, saveLog]);
 
-  const recentLogs = logs.slice(0, 7);
+  const recentLogs = [...logs]
+    .sort((a, b) => (b.dateKey ?? "").localeCompare(a.dateKey ?? ""))
+    .slice(0, 7);
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -341,6 +351,10 @@ export default function WellbeingScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {error && logs.length === 0 ? (
+          <InlineErrorBanner message={error} onRetry={() => loadLogs(true)} retrying={isLoading} />
+        ) : null}
+
         {/* Today's Check-in Card */}
         <Animated.View entering={FadeInDown.duration(400).springify()}>
           <View
@@ -486,6 +500,36 @@ export default function WellbeingScreen() {
             </Pressable>
           </View>
         </Animated.View>
+
+        {/* Daily reminder */}
+        <Animated.View entering={FadeInDown.delay(120).duration(400).springify()}>
+          <ReminderControl kind="wellbeing" />
+        </Animated.View>
+
+        {/* 7-day trends */}
+        {logs.length > 1 && (
+          <Animated.View entering={FadeInDown.delay(150).duration(400).springify()}>
+            <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 20, gap: 18 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.3 }}>
+                Last 7 days
+              </Text>
+              {metrics.map((m) => {
+                const points = buildDaySeries(logs, 7, (l) => l[m.key] ?? null);
+                const avg = seriesAverage(points);
+                return (
+                  <WellnessBarTrend
+                    key={m.key}
+                    title={m.label}
+                    points={points}
+                    max={5}
+                    color={m.color}
+                    summary={avg != null ? `${avg.toFixed(1)} avg` : undefined}
+                  />
+                );
+              })}
+            </View>
+          </Animated.View>
+        )}
 
         {/* Recent History */}
         {recentLogs.length > 0 && (

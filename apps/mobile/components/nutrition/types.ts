@@ -6,6 +6,10 @@ export type MealItem = {
   calories: number;
   weightGrams: number;
   unit: string;
+  /** Macros in grams. Optional so older logs (calories-only) still parse. */
+  protein?: number;
+  carbs?: number;
+  fat?: number;
 };
 
 export type MealSlotData = {
@@ -22,9 +26,12 @@ export type DailyNutrition = {
   eatenCalories: number;
   burnedCalories: number;
   meals: Record<MealSlotName, MealSlotData>;
+  /** Per-macro: `eaten` summed from logged foods, `target` from coach-set goals (0 = unset). */
   macros: {
-    carbs: { grams: number };
-    protein: { grams: number };
-    fats: { grams: number };
+    carbs: { eaten: number; target: number };
+    protein: { eaten: number; target: number };
+    fats: { eaten: number; target: number };
   };
+  /** True when a coach has set any macro target — drives the "no goals set" empty state. */
+  hasMacroTargets: boolean;
 };

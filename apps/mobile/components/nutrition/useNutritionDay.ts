@@ -30,6 +30,9 @@ function parseMealItems(raw: string | undefined | null): MealItem[] {
           calories: typeof item.calories === "number" ? item.calories : 0,
           weightGrams: typeof item.weightGrams === "number" ? item.weightGrams : 0,
           unit: typeof item.unit === "string" ? item.unit : "g",
+          protein: typeof item.protein === "number" ? item.protein : 0,
+          carbs: typeof item.carbs === "number" ? item.carbs : 0,
+          fat: typeof item.fat === "number" ? item.fat : 0,
         }));
     }
   } catch {}
@@ -45,6 +48,17 @@ function parseMealItems(raw: string | undefined | null): MealItem[] {
       weightGrams: 0,
       unit: "g",
     }));
+}
+
+function sumMacros(items: MealItem[]) {
+  return items.reduce(
+    (acc, i) => ({
+      protein: acc.protein + (i.protein ?? 0),
+      carbs: acc.carbs + (i.carbs ?? 0),
+      fats: acc.fats + (i.fat ?? 0),
+    }),
+    { protein: 0, carbs: 0, fats: 0 },
+  );
 }
 
 export type CoachFeedbackEntry = {
@@ -78,20 +92,17 @@ async function fireLocalNotification(title: string, body: string, data?: Record<
 
 export function useNutritionDay(dateKey?: string) {
   const { token } = useAppSelector((s) => s.user);
+  const myUserId = useAppSelector((s) => s.user.profile.id);
   const { actingUserId: athleteUserId } = useActingUser();
   const { socket } = useSocket();
   const today = dateKey || new Date().toISOString().slice(0, 10);
 
   const [data, setData] = useState<DailyNutrition | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [coachHistory, setCoachHistory] = useState<CoachFeedbackEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const initialLoadDone = useRef(false);
-  // Timestamp of the last local meal save. The server echoes our own save back over
-  // the socket (nutrition:log:updated → our own room); refetching on that echo races
-  // the write and wipes the optimistic meal. Skip the echo refetch for a short window.
-  const lastLocalLogAt = useRef(0);
-
   const fetchData = useCallback(async () => {
     if (!token) {
       setLoading(false);
@@ -102,6 +113,7 @@ export function useNutritionDay(dateKey?: string) {
       if (!initialLoadDone.current) {
         setLoading(true);
       }
+      setError(null);
 
       const [logRes, targetRes] = await Promise.all([
         apiRequest<{ logs: any[] }>(
@@ -142,14 +154,13 @@ export function useNutritionDay(dateKey?: string) {
         snack: buildSlot("snack", "Snack", snackRaw),
       };
 
-      const eatenCalories = Object.values(meals).reduce(
-        (sum, m) => sum + m.items.reduce((s, i) => s + i.calories, 0),
-        0,
-      );
+      const allItems = Object.values(meals).flatMap((m) => m.items);
+      const eatenCalories = allItems.reduce((s, i) => s + i.calories, 0);
+      const eaten = sumMacros(allItems);
 
-      const carbsG = typeof targets.carbs === "number" ? targets.carbs : 0;
-      const proteinG = typeof targets.protein === "number" ? targets.protein : 0;
-      const fatsG = typeof targets.fats === "number" ? targets.fats : 0;
+      const carbsTarget = typeof targets.carbs === "number" ? targets.carbs : 0;
+      const proteinTarget = typeof targets.protein === "number" ? targets.protein : 0;
+      const fatsTarget = typeof targets.fats === "number" ? targets.fats : 0;
 
       setData({
         dateKey: today,
@@ -158,13 +169,15 @@ export function useNutritionDay(dateKey?: string) {
         burnedCalories: 0,
         meals,
         macros: {
-          carbs: { grams: carbsG },
-          protein: { grams: proteinG },
-          fats: { grams: fatsG },
+          carbs: { eaten: eaten.carbs, target: carbsTarget },
+          protein: { eaten: eaten.protein, target: proteinTarget },
+          fats: { eaten: eaten.fats, target: fatsTarget },
         },
+        hasMacroTargets: carbsTarget > 0 || proteinTarget > 0 || fatsTarget > 0,
       });
-    } catch {
+    } catch (e) {
       if (!initialLoadDone.current) setData(null);
+      setError(e instanceof Error ? e.message : "Couldn't load your nutrition.");
     } finally {
       initialLoadDone.current = true;
       setLoading(false);
@@ -173,7 +186,6 @@ export function useNutritionDay(dateKey?: string) {
 
   const optimisticUpdateMeal = useCallback(
     (slot: MealSlotName, items: MealItem[]) => {
-      lastLocalLogAt.current = Date.now();
       setData((prev) => {
         const targetCalories = prev?.targetCalories ?? 2000;
         const emptySlot = (s: MealSlotName, label: string): MealSlotData => ({
@@ -185,7 +197,7 @@ export function useNutritionDay(dateKey?: string) {
         });
         // Build a base even when the day hasn't loaded yet, so a freshly logged
         // meal always shows immediately instead of being dropped.
-        const base = prev ?? {
+        const base: DailyNutrition = prev ?? {
           dateKey: today,
           targetCalories,
           eatenCalories: 0,
@@ -196,15 +208,28 @@ export function useNutritionDay(dateKey?: string) {
             dinner: emptySlot("dinner", "Dinner"),
             snack: emptySlot("snack", "Snack"),
           },
-          macros: { carbs: { grams: 0 }, protein: { grams: 0 }, fats: { grams: 0 } },
+          macros: {
+            carbs: { eaten: 0, target: 0 },
+            protein: { eaten: 0, target: 0 },
+            fats: { eaten: 0, target: 0 },
+          },
+          hasMacroTargets: false,
         };
         const slotData: MealSlotData = { ...base.meals[slot], items };
         const meals = { ...base.meals, [slot]: slotData };
-        const eatenCalories = Object.values(meals).reduce(
-          (sum, m) => sum + m.items.reduce((s, i) => s + i.calories, 0),
-          0,
-        );
-        return { ...base, meals, eatenCalories };
+        const allItems = Object.values(meals).flatMap((m) => m.items);
+        const eatenCalories = allItems.reduce((s, i) => s + i.calories, 0);
+        const eaten = sumMacros(allItems);
+        return {
+          ...base,
+          meals,
+          eatenCalories,
+          macros: {
+            carbs: { ...base.macros.carbs, eaten: eaten.carbs },
+            protein: { ...base.macros.protein, eaten: eaten.protein },
+            fats: { ...base.macros.fats, eaten: eaten.fats },
+          },
+        };
       });
     },
     [today],
@@ -291,10 +316,13 @@ export function useNutritionDay(dateKey?: string) {
   useEffect(() => {
     if (!socket) return;
 
-    const onLogUpdated = () => {
-      // Ignore the echo of our own just-saved meal (the optimistic update already
-      // shows it); only refetch for updates that happened elsewhere.
-      if (Date.now() - lastLocalLogAt.current < 5000) return;
+    const onLogUpdated = (payload?: { actorUserId?: number | string }) => {
+      // Ignore the echo of our own just-saved meal (the optimistic update is already
+      // authoritative). Skip by actor identity, not a fragile wall-clock window —
+      // updates made elsewhere (e.g. a coach) still refetch.
+      if (payload?.actorUserId != null && myUserId != null && String(payload.actorUserId) === String(myUserId)) {
+        return;
+      }
       void fetchData();
     };
 
@@ -317,11 +345,12 @@ export function useNutritionDay(dateKey?: string) {
       socket.off("nutrition:log:updated", onLogUpdated);
       socket.off("nutrition:feedback:updated", onFeedbackUpdated);
     };
-  }, [socket, fetchData, fetchCoachHistory]);
+  }, [socket, fetchData, fetchCoachHistory, myUserId]);
 
   return {
     data,
     loading,
+    error,
     coachHistory,
     historyLoading,
     refetch: fetchData,

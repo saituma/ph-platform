@@ -49,18 +49,30 @@ function daysAgoKey(n: number): string {
 
 export function useSleepData(range: "today" | "week" | "month" | "year" | "all" = "month") {
   const { token } = useAppSelector((s) => s.user);
+  const myUserId = useAppSelector((s) => s.user.profile.id);
   const { actingUserId } = useActingUser();
   const { socket } = useSocket();
 
   const [logs, setLogs] = useState<SleepLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
+      setError(null);
       const params = new URLSearchParams();
       params.set("userId", String(actingUserId || "me"));
-      params.set("limit", "90");
+      // Limit scales with the window. 200 is the server's max (sleep.controller clamps to 200);
+      // "Year"/"All" beyond that needs pagination — tracked separately.
+      const limitForRange: Record<typeof range, number> = {
+        today: 1,
+        week: 7,
+        month: 31,
+        year: 200,
+        all: 200,
+      };
+      params.set("limit", String(limitForRange[range] ?? 90));
 
       if (range === "today") {
         params.set("from", todayKey());
@@ -78,8 +90,8 @@ export function useSleepData(range: "today" | "week" | "month" | "year" | "all" 
         { token },
       );
       setLogs(res?.logs ?? []);
-    } catch {
-      setLogs([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't load your sleep data.");
     } finally {
       setLoading(false);
     }
@@ -91,7 +103,13 @@ export function useSleepData(range: "today" | "week" | "month" | "year" | "all" 
 
   useEffect(() => {
     if (!socket) return;
-    const onUpdate = () => void fetchData();
+    // Skip the echo of our own save (saveLog already merged it); refetch for changes
+    // made elsewhere (e.g. a coach) by actor identity.
+    const isSelf = (payload?: { actorUserId?: number | string }) =>
+      payload?.actorUserId != null && myUserId != null && String(payload.actorUserId) === String(myUserId);
+    const onUpdate = (payload?: { actorUserId?: number | string }) => {
+      if (!isSelf(payload)) void fetchData();
+    };
     const onDelete = () => void fetchData();
     socket.on("sleep:log:updated", onUpdate);
     socket.on("sleep:log:deleted", onDelete);
@@ -99,7 +117,7 @@ export function useSleepData(range: "today" | "week" | "month" | "year" | "all" 
       socket.off("sleep:log:updated", onUpdate);
       socket.off("sleep:log:deleted", onDelete);
     };
-  }, [socket, fetchData]);
+  }, [socket, fetchData, myUserId]);
 
   const saveLog = useCallback(
     async (input: SleepLogInput) => {
@@ -136,5 +154,5 @@ export function useSleepData(range: "today" | "week" | "month" | "year" | "all" 
 
   const todayLog = logs.find((l) => l.dateKey === todayKey()) ?? null;
 
-  return { logs, todayLog, loading, refetch: fetchData, saveLog, deleteLog };
+  return { logs, todayLog, loading, error, refetch: fetchData, saveLog, deleteLog };
 }

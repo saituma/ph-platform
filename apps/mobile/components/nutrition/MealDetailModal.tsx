@@ -38,42 +38,59 @@ export function MealDetailModal({
   const [draftCal, setDraftCal] = useState("");
   const [draftWeight, setDraftWeight] = useState("");
   const [draftUnit, setDraftUnit] = useState("g");
+  const [draftProtein, setDraftProtein] = useState("");
+  const [draftCarbs, setDraftCarbs] = useState("");
+  const [draftFat, setDraftFat] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+
+  const resetDraft = useCallback(() => {
+    setDraftName("");
+    setDraftCal("");
+    setDraftWeight("");
+    setDraftProtein("");
+    setDraftCarbs("");
+    setDraftFat("");
+  }, []);
 
   React.useEffect(() => {
     if (visible && slot) {
       setItems(slot.items.length ? [...slot.items] : []);
       setShowAddForm(slot.items.length === 0);
-      setDraftName("");
-      setDraftCal("");
-      setDraftWeight("");
       setDraftUnit("g");
+      resetDraft();
     }
-  }, [visible, slot]);
+  }, [visible, slot, resetDraft]);
 
   const addItem = useCallback(() => {
     const name = draftName.trim();
     if (!name) return;
-    const cal = Math.max(0, parseInt(draftCal, 10) || 0);
-    const weight = Math.max(0, parseInt(draftWeight, 10) || 0);
+    const num = (v: string) => Math.max(0, parseInt(v, 10) || 0);
+    const protein = num(draftProtein);
+    const carbs = num(draftCarbs);
+    const fat = num(draftFat);
+    // Calories default to the macro-derived value (4/4/9 kcal/g) when left blank.
+    const typedCal = num(draftCal);
+    const cal = typedCal > 0 ? typedCal : protein * 4 + carbs * 4 + fat * 9;
     setItems((prev) => [
       ...prev,
-      { id: genId(), name, calories: cal, weightGrams: weight, unit: draftUnit || "g" },
+      { id: genId(), name, calories: cal, weightGrams: num(draftWeight), unit: draftUnit || "g", protein, carbs, fat },
     ]);
-    setDraftName("");
-    setDraftCal("");
-    setDraftWeight("");
+    resetDraft();
     setShowAddForm(false);
-  }, [draftName, draftCal, draftWeight, draftUnit]);
+  }, [draftName, draftCal, draftWeight, draftUnit, draftProtein, draftCarbs, draftFat, resetDraft]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
-  const totalCalories = items.reduce((s, i) => s + i.calories, 0);
-  const estCarbs = Math.round(totalCalories * 0.45 / 4);
-  const estProtein = Math.round(totalCalories * 0.25 / 4);
-  const estFats = Math.round(totalCalories * 0.30 / 9);
+  const totals = items.reduce(
+    (acc, i) => ({
+      protein: acc.protein + (i.protein ?? 0),
+      carbs: acc.carbs + (i.carbs ?? 0),
+      fat: acc.fat + (i.fat ?? 0),
+    }),
+    { protein: 0, carbs: 0, fat: 0 },
+  );
 
   if (!slot) return null;
 
@@ -227,6 +244,33 @@ export function MealDetailModal({
                         }}
                       />
                     </View>
+                    {/* Per-food macros (grams). Calories auto-fill from these if left blank. */}
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      {[
+                        { value: draftProtein, set: setDraftProtein, label: "Protein g" },
+                        { value: draftCarbs, set: setDraftCarbs, label: "Carbs g" },
+                        { value: draftFat, set: setDraftFat, label: "Fat g" },
+                      ].map((f) => (
+                        <TextInput
+                          key={f.label}
+                          value={f.value}
+                          onChangeText={(v) => f.set(v.replace(/[^0-9]/g, ""))}
+                          placeholder={f.label}
+                          placeholderTextColor={p.textMuted}
+                          keyboardType="number-pad"
+                          style={{
+                            flex: 1,
+                            fontFamily: "Outfit-Regular",
+                            fontSize: 15,
+                            color: p.textPrimary,
+                            backgroundColor: p.inputBg,
+                            borderRadius: 14,
+                            paddingHorizontal: 14,
+                            paddingVertical: 12,
+                          }}
+                        />
+                      ))}
+                    </View>
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <Pressable
                         onPress={() => setShowAddForm(false)}
@@ -287,11 +331,11 @@ export function MealDetailModal({
                 {items.length > 0 ? (
                   <MacroBreakdownTable
                     rows={[
-                      { label: "Carbs", grams: estCarbs },
-                      { label: "Protein", grams: estProtein },
-                      { label: "Fats", grams: estFats },
+                      { label: "Carbs", grams: totals.carbs },
+                      { label: "Protein", grams: totals.protein },
+                      { label: "Fats", grams: totals.fat },
                     ]}
-                    totalGrams={estCarbs + estProtein + estFats}
+                    totalGrams={totals.carbs + totals.protein + totals.fat}
                   />
                 ) : null}
               </View>
