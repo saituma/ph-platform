@@ -198,8 +198,10 @@ export function useNutritionDay(dateKey?: string) {
       const fromKey = start.toISOString().slice(0, 10);
       const toKey = end.toISOString().slice(0, 10);
 
+      // hasFeedback=true makes the server return only logs that have coach feedback,
+      // instead of pulling the whole 30-day window and filtering on-device.
       const res = await apiRequest<{ logs: any[] }>(
-        `/nutrition/logs?userId=${athleteUserId || "me"}&from=${fromKey}&to=${toKey}&limit=100`,
+        `/nutrition/logs?userId=${athleteUserId || "me"}&from=${fromKey}&to=${toKey}&limit=60&hasFeedback=true`,
         { token, suppressLog: true },
       );
 

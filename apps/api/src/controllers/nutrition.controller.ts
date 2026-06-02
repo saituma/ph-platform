@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { and, eq, desc, gte, lte, or, ne, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -370,6 +370,18 @@ export async function listLogs(req: Request, res: Response) {
     const whereClauses = [eq(nutritionLogsTable.userId, targetUserId)];
     if (fromKey) whereClauses.push(gte(nutritionLogsTable.dateKey, fromKey));
     if (toKey) whereClauses.push(lte(nutritionLogsTable.dateKey, toKey));
+
+    // Coach-feedback view: return only logs that actually have feedback, so the
+    // client doesn't pull (and filter) a whole window of logs to find a few.
+    const hasFeedback = req.query.hasFeedback === "true" || req.query.hasFeedback === "1";
+    if (hasFeedback) {
+      whereClauses.push(
+        or(
+          and(isNotNull(nutritionLogsTable.coachFeedback), ne(nutritionLogsTable.coachFeedback, "")),
+          and(isNotNull(nutritionLogsTable.coachFeedbackMediaUrl), ne(nutritionLogsTable.coachFeedbackMediaUrl, "")),
+        )!,
+      );
+    }
 
     const logs = await db
       .select()

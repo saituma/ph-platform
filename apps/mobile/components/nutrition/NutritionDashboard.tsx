@@ -146,9 +146,12 @@ export function NutritionDashboard() {
           body,
         });
 
-        void refetch();
+        // On success the optimistic state already matches what we saved — no refetch,
+        // so the logged meal stays instant instead of waiting on a network round-trip.
       } catch {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Saving failed: reconcile the optimistic change back to server truth.
+        void refetch();
       }
     },
     [activeMeal, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, token],
