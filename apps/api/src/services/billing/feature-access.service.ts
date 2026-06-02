@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   getEffectivePlanFeatureSet,
   normalizeFeatureKeySet,
@@ -6,7 +6,14 @@ import {
   TIER_DEFAULT_FEATURES,
 } from "@ph/billing";
 import { db } from "../../db";
-import { athleteTable, guardianTable, subscriptionPlanTable } from "../../db/schema";
+import {
+  athleteTable,
+  guardianTable,
+  subscriptionPlanTable,
+  teamSubscriptionRequestTable,
+  teamTable,
+} from "../../db/schema";
+import { findManagedTeamIdForUser } from "../team-membership";
 
 type AccessPlan = {
   features?: unknown;
@@ -82,6 +89,45 @@ export async function getCurrentPlanFeaturesForUser(userId: number): Promise<Set
     paidPlan: await getPlanForId(planId),
     overrideTier,
   });
+}
+
+export async function getFeaturesForTeam(teamId: number): Promise<Set<FeatureKey>> {
+  const [team] = await db
+    .select({ id: teamTable.id, planId: teamTable.planId })
+    .from(teamTable)
+    .where(eq(teamTable.id, teamId))
+    .limit(1);
+
+  if (!team) return new Set<FeatureKey>();
+
+  if (team.planId) {
+    return resolveEffectiveAccessFeatures({
+      paidPlan: await getPlanForId(team.planId),
+    });
+  }
+
+  const [approvedRequest] = await db
+    .select({
+      planId: teamSubscriptionRequestTable.planId,
+      accessTierOverride: teamSubscriptionRequestTable.accessTierOverride,
+    })
+    .from(teamSubscriptionRequestTable)
+    .where(and(eq(teamSubscriptionRequestTable.teamId, team.id), eq(teamSubscriptionRequestTable.status, "approved")))
+    .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
+    .limit(1);
+
+  if (!approvedRequest) return new Set<FeatureKey>();
+
+  return resolveEffectiveAccessFeatures({
+    paidPlan: await getPlanForId(approvedRequest.planId),
+    overrideTier: approvedRequest.accessTierOverride,
+  });
+}
+
+export async function getCurrentPlanFeaturesForManagedTeam(userId: number): Promise<Set<FeatureKey>> {
+  const teamId = await findManagedTeamIdForUser(userId);
+  if (teamId == null) return new Set<FeatureKey>();
+  return getFeaturesForTeam(teamId);
 }
 
 export async function getFeaturesForAthlete(athleteId: number): Promise<Set<FeatureKey>> {

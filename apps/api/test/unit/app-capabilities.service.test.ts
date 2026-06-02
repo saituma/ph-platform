@@ -78,6 +78,24 @@ describe("buildAppCapabilities", () => {
     expect(manager.routeManagement).toBe(true);
     expect(manager.eventManagement).toBe(true);
     expect(manager.mobilePayments).toBe(false);
+    expect(manager.teamTracking).toBe(false);
+    expect(manager.runTracking).toBe(false);
+    expect(manager.socialTracking).toBe(false);
+  });
+
+  it("gates team manager running and team feed capabilities by the managed team tier", () => {
+    const manager = buildAppCapabilities({
+      role: "team_coach",
+      programTier: "PHP_Premium",
+      messagingAccessTiers,
+      planFeatures: featuresForTier("PHP_Premium"),
+      hasActivePlan: true,
+    });
+
+    expect(manager.teamManagement).toBe(true);
+    expect(manager.teamTracking).toBe(true);
+    expect(manager.runTracking).toBe(true);
+    expect(manager.socialTracking).toBe(true);
   });
 
   it("allows base plan access when tier is missing but user has an active plan", () => {

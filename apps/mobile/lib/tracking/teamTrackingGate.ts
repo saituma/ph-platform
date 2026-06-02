@@ -64,7 +64,7 @@ export function canAccessTrackingTab(input: {
   }
 
   if (input.appRole === "team_manager") {
-    return true;
+    return Boolean(input.capabilities?.teamTracking || input.capabilities?.runTracking || input.capabilities?.progressTracking);
   }
 
   if (shouldUseTeamTrackingFeatures(input)) {

@@ -73,8 +73,13 @@ describe("canAccessTrackingTab", () => {
     expect(canAccessTrackingTab({ appRole: "adult_athlete", authTeamMembership: null })).toBe(true);
   });
 
-  it("returns true for team managers", () => {
-    expect(canAccessTrackingTab({ appRole: "team_manager", authTeamMembership: null })).toBe(true);
+  it("requires tracking capabilities for team managers", () => {
+    expect(canAccessTrackingTab({ appRole: "team_manager", authTeamMembership: null })).toBe(false);
+    expect(canAccessTrackingTab({
+      appRole: "team_manager",
+      authTeamMembership: null,
+      capabilities: { runTracking: true } as any,
+    })).toBe(true);
   });
 
   it("returns true when runTracking capability exists", () => {

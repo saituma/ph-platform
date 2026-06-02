@@ -73,6 +73,44 @@ export function buildAppCapabilities(input: {
   } = input;
   const isAdmin = isPlatformAdmin(role);
   const isStaff = isTrainingStaff(role);
+  const has = (key: FeatureKey) => planFeatures != null && planFeatures.has(key);
+  const hasPlanFeatures = planFeatures != null && planFeatures.size > 0;
+  const hasAssignedAccess = hasPlanFeatures || hasActivePlan || Boolean(programTier);
+  const hasNutrition = has("nutrition_logging") || has("food_diaries") || has("submit_diary");
+  const hasParentContent = has("parent_platform") || has("parent_education");
+
+  if (role === "team_coach") {
+    return {
+      training: false,
+      schedule: true,
+      coachBooking: true,
+      messaging: true,
+      groupChat: true,
+      nutrition: hasNutrition,
+      nutritionReview: true,
+      parentContent: hasParentContent,
+      progressTracking: has("progress_tracking"),
+      wellbeing: hasAssignedAccess,
+      sleep: hasAssignedAccess,
+      teamTracking: has("run_tracking") || has("social_feed"),
+      socialTracking: has("social_feed"),
+      trainingQuestionnaire: has("progress_tracking"),
+      teamManagement: true,
+      athleteManagement: true,
+      planManagement: false,
+      routeManagement: true,
+      eventManagement: true,
+      adminMobile: true,
+      billingPortal: false,
+      mobilePayments: false,
+      semiPrivateBooking: has("semi_private"),
+      coachVideoUpload: has("video_upload"),
+      physioReferrals: has("physio_referrals"),
+      runTracking: has("run_tracking"),
+      achievements: has("achievements"),
+      referralRewards: has("referrals"),
+    };
+  }
 
   if (isStaff) {
     const canManageAllAthletes = isAdmin || role === "coach" || role === "program_coach";
@@ -107,12 +145,6 @@ export function buildAppCapabilities(input: {
       referralRewards: true,
     };
   }
-
-  const has = (key: FeatureKey) => planFeatures != null && planFeatures.has(key);
-  const hasPlanFeatures = planFeatures != null && planFeatures.size > 0;
-  const hasAssignedAccess = hasPlanFeatures || hasActivePlan || Boolean(programTier);
-  const hasNutrition = has("nutrition_logging") || has("food_diaries") || has("submit_diary");
-  const hasParentContent = has("parent_platform") || has("parent_education");
 
   const isAdult = role === "adult_athlete" || (role === "athlete" && athleteType === "adult");
   const isTeamAthlete = role === "team_athlete" || hasTeam;
