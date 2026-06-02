@@ -308,6 +308,8 @@ function MessagingPageInner() {
     "announcement" | "coach_group" | "team"
   >("coach_group");
   const [groupMemberQuery, setGroupMemberQuery] = useState("");
+  const [newMsgOpen, setNewMsgOpen] = useState(false);
+  const [newMsgQuery, setNewMsgQuery] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [manageGroupMembersOpen, setManageGroupMembersOpen] = useState(false);
   const [manageGroupId, setManageGroupId] = useState<number | null>(null);
@@ -1205,6 +1207,21 @@ function MessagingPageInner() {
       return name.includes(query) || email.includes(query);
     });
   }, [chatEligibleUsers, groupMemberQuery]);
+
+  // Recipients for starting a brand-new direct conversation — every messageable
+  // user (athletes incl. youth, guardians), not just those with an existing thread.
+  const newMessageRecipients = useMemo(() => {
+    const query = newMsgQuery.trim().toLowerCase();
+    const base = [...chatEligibleUsers].sort((a, b) =>
+      String(a.name ?? a.email ?? "").localeCompare(String(b.name ?? b.email ?? "")),
+    );
+    if (!query) return base;
+    return base.filter((user) => {
+      const name = String(user.name ?? "").toLowerCase();
+      const email = String(user.email ?? "").toLowerCase();
+      return name.includes(query) || email.includes(query);
+    });
+  }, [chatEligibleUsers, newMsgQuery]);
 
   const existingManageMemberIds = useMemo<number[]>(
     () =>
@@ -2518,6 +2535,10 @@ function MessagingPageInner() {
                 void openDirectThread(userId);
               }}
               onCreateGroup={() => setGroupModalOpen(true)}
+              onNewMessage={() => {
+                setNewMsgQuery("");
+                setNewMsgOpen(true);
+              }}
               formatTime={formatTime}
             />
             <Card>
@@ -2915,6 +2936,56 @@ function MessagingPageInner() {
                 ? "Deleting..."
                 : "Delete"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={newMsgOpen} onOpenChange={setNewMsgOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New message</DialogTitle>
+            <DialogDescription>
+              Start a direct conversation with any athlete (including youth) or parent.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Search by name or email..."
+              value={newMsgQuery}
+              onChange={(event) => setNewMsgQuery(event.target.value)}
+              autoFocus
+            />
+            <ScrollArea className="h-72 rounded-xl border border-border p-2">
+              <div className="space-y-1">
+                {newMessageRecipients.map((user) => {
+                  const label = user.name ?? user.email ?? `User ${user.id}`;
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => {
+                        setNewMsgOpen(false);
+                        setTab("inbox");
+                        void openDirectThread(user.id);
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left hover:bg-secondary/40"
+                    >
+                      <span className="min-w-0 truncate text-sm">{label}</span>
+                      {user.email ? (
+                        <span className="shrink-0 truncate text-xs text-muted-foreground">
+                          {user.email}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+                {!newMessageRecipients.length ? (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No people found.
+                  </p>
+                ) : null}
+              </div>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>

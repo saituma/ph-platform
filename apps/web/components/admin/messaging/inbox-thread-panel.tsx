@@ -25,6 +25,7 @@ type InboxThreadPanelProps = {
   highlightedUserId?: number | null;
   onOpenThread: (userId: number) => void;
   onCreateGroup: () => void;
+  onNewMessage: () => void;
   formatTime: (value?: string | null) => string;
 };
 
@@ -169,6 +170,7 @@ export function InboxThreadPanel({
   highlightedUserId = null,
   onOpenThread,
   onCreateGroup,
+  onNewMessage,
   formatTime,
 }: InboxThreadPanelProps) {
   const [query, setQuery] = useState("");
@@ -206,9 +208,14 @@ export function InboxThreadPanel({
               title="Inbox"
               description="Open a user thread to chat individually in a focused modal."
             />
-            <Button size="sm" variant="outline" onClick={onCreateGroup}>
-              Create group
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={onNewMessage}>
+                New message
+              </Button>
+              <Button size="sm" variant="outline" onClick={onCreateGroup}>
+                Create group
+              </Button>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
