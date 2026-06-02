@@ -7,7 +7,7 @@ import {
   sendMessage,
   getCoachUser,
   getLastAdminContact,
-  getTeamManagerForUser,
+  getTeamManagersForUser,
   isUserPremium,
   deleteDirectMessage,
 } from "../services/message.service";
@@ -306,37 +306,47 @@ export async function listInbox(req: Request, res: Response) {
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   );
 
-  // For non-staff users with no threads, inject a default "contact your coach" thread.
-  // Team athletes must see only their team manager — never a random platform admin.
-  if (!isTrainingStaff(role) && allThreads.length === 0) {
-    let defaultCoach;
-    if (role === "team_athlete") {
-      // Prefer strict team manager for team athletes, but never leave inbox empty
-      // if the team-manager link is missing/misconfigured.
-      defaultCoach =
-        (await getTeamManagerForUser(userId).catch(() => null)) ?? (await getCoachUser().catch(() => null));
-    } else {
-      defaultCoach = (await getLastAdminContact(userId).catch(() => null)) ?? (await getCoachUser().catch(() => null));
+  const makeContactThread = (coach: {
+    id: number;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    profilePicture?: string | null;
+  }) => ({
+    id: `direct:${coach.id}`,
+    type: "direct" as const,
+    peerUserId: coach.id,
+    name: publicDisplayName({ id: coach.id, name: coach.name ?? null, email: coach.email ?? null }),
+    role: coach.role ?? "Coach",
+    avatarUrl: coach.profilePicture ?? null,
+    preview: "Start a conversation",
+    unread: 0,
+    updatedAt: new Date(0).toISOString(),
+    lastSeenAt: null,
+  });
+
+  // Team athletes should always see every one of their team's managers (primary +
+  // co-managers) as a startable contact, even before any message is exchanged.
+  if (role === "team_athlete") {
+    const managers = await getTeamManagersForUser(userId).catch(() => []);
+    const existingPeerIds = new Set(
+      allThreads.filter((t) => t.type === "direct").map((t) => (t as { peerUserId: number }).peerUserId),
+    );
+    const managerThreads = managers.filter((m) => !existingPeerIds.has(m.id)).map(makeContactThread);
+    if (managerThreads.length) {
+      allThreads = [...allThreads, ...managerThreads].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+    } else if (allThreads.length === 0) {
+      const fallback = await getCoachUser().catch(() => null);
+      if (fallback) allThreads = [makeContactThread(fallback)];
     }
+  } else if (!isTrainingStaff(role) && allThreads.length === 0) {
+    // Other non-staff users with no threads: inject a default "contact your coach" thread.
+    const defaultCoach =
+      (await getLastAdminContact(userId).catch(() => null)) ?? (await getCoachUser().catch(() => null));
     if (defaultCoach) {
-      allThreads = [
-        {
-          id: `direct:${defaultCoach.id}`,
-          type: "direct" as const,
-          peerUserId: defaultCoach.id,
-          name: publicDisplayName({
-            id: defaultCoach.id,
-            name: defaultCoach.name ?? null,
-            email: defaultCoach.email ?? null,
-          }),
-          role: defaultCoach.role ?? "Coach",
-          avatarUrl: defaultCoach.profilePicture ?? null,
-          preview: "Start a conversation",
-          unread: 0,
-          updatedAt: new Date(0).toISOString(),
-          lastSeenAt: null,
-        },
-      ];
+      allThreads = [makeContactThread(defaultCoach)];
     }
   }
 

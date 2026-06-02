@@ -292,6 +292,30 @@ export const teamTable = pgTable(
   }),
 );
 
+export const teamManagerRole = pgEnum("team_manager_role", ["co_manager"]);
+
+/** Co-managers: operational managers of a team. The primary/billing owner stays teams.adminId; this table is queried in addition to it. */
+export const teamManagersTable = pgTable(
+  "team_managers",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    teamId: integer()
+      .notNull()
+      .references(() => teamTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    role: teamManagerRole("role").notNull().default("co_manager"),
+    createdBy: integer().references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    teamUserUnique: uniqueIndex("team_managers_team_user_unique").on(table.teamId, table.userId),
+    teamIdx: index("team_managers_team_id_idx").on(table.teamId),
+    userIdx: index("team_managers_user_id_idx").on(table.userId),
+  }),
+);
+
 export const teamPaymentConfigDraftTable = pgTable(
   "team_payment_config_drafts",
   {

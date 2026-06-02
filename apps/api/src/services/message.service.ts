@@ -8,6 +8,7 @@ import {
   messageReactionTable,
   messageReceiptTable,
   messageTable,
+  teamManagersTable,
   teamTable,
   userBlockTable,
   userTable,
@@ -151,6 +152,66 @@ export async function getTeamManagerForUser(userId: number) {
   return null;
 }
 
+/**
+ * All managers for the team the user belongs to (as athlete or guardian):
+ * the primary owner (`teams.adminId`) plus any co-managers (`team_managers`).
+ * Primary is returned first. Used so a team athlete can DM — and see in their
+ * inbox — every one of their team's managers, not only the primary.
+ */
+export async function getTeamManagersForUser(userId: number) {
+  let teamId: number | null = null;
+  let adminId: number | null = null;
+
+  const [direct] = await withTransientDbRetryConfigured(
+    "getTeamManagersForUser:athleteTeam",
+    () =>
+      db
+        .select({ teamId: athleteTable.teamId, adminId: teamTable.adminId })
+        .from(athleteTable)
+        .innerJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+        .where(eq(athleteTable.userId, userId))
+        .limit(1),
+    { maxAttempts: 2 },
+  );
+  teamId = direct?.teamId ?? null;
+  adminId = direct?.adminId ?? null;
+
+  if (teamId == null) {
+    const { guardianTable } = await import("../db/schema");
+    const [g] = await withTransientDbRetryConfigured(
+      "getTeamManagersForUser:guardianTeam",
+      () =>
+        db
+          .select({ teamId: athleteTable.teamId, adminId: teamTable.adminId })
+          .from(guardianTable)
+          .innerJoin(athleteTable, eq(guardianTable.id, athleteTable.guardianId))
+          .innerJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
+          .where(eq(guardianTable.userId, userId))
+          .limit(1),
+      { maxAttempts: 2 },
+    );
+    teamId = g?.teamId ?? null;
+    adminId = g?.adminId ?? null;
+  }
+
+  if (teamId == null) return [];
+
+  const coRows = await db
+    .select({ userId: teamManagersTable.userId })
+    .from(teamManagersTable)
+    .where(eq(teamManagersTable.teamId, teamId));
+
+  // Primary first, then co-managers, de-duplicated.
+  const orderedIds: number[] = [];
+  if (adminId) orderedIds.push(adminId);
+  for (const r of coRows) {
+    if (!orderedIds.includes(r.userId)) orderedIds.push(r.userId);
+  }
+
+  const managers = await Promise.all(orderedIds.map((id) => getCoachUserById(id).catch(() => null)));
+  return managers.filter((m): m is NonNullable<typeof m> => Boolean(m));
+}
+
 export async function getLastAdminContact(userId: number) {
   const adminIds = await getAdminCoachIds();
   // Exclude AI Coach from "last admin contact" — it has its own thread
@@ -194,16 +255,19 @@ export async function listThread(
     peerUserId?: number;
   },
 ) {
-  const [adminIdList, manager] = await Promise.all([getAdminCoachIds(), getTeamManagerForUser(userId)]);
+  const [adminIdList, managers] = await Promise.all([getAdminCoachIds(), getTeamManagersForUser(userId)]);
   const adminIds = [...adminIdList];
   const senderIsStaff = adminIds.includes(userId);
-  if (manager) {
-    adminIds.push(manager.id);
+  const managerIds = managers.map((m) => m.id);
+  for (const id of managerIds) {
+    if (!adminIds.includes(id)) adminIds.push(id);
   }
+  // Primary owner is first; kept for backward-compatible coach metadata.
+  const manager = managers[0] ?? null;
 
-  // Team athletes may only DM their own team manager — never platform admins or other staff.
+  // Team athletes may only DM their own team's managers — never platform admins or other staff.
   const isTeamAthleteUser = options?.userRole === "team_athlete";
-  const teamOnlyIds = isTeamAthleteUser ? (manager ? [manager.id] : []) : adminIds;
+  const teamOnlyIds = isTeamAthleteUser ? managerIds : adminIds;
 
   const targetPeerId =
     typeof options?.peerUserId === "number" && Number.isFinite(options.peerUserId)
@@ -396,10 +460,10 @@ export async function sendMessage(input: {
         throw new Error("AI_COACH_REQUIRES_PREMIUM");
       }
     } else if (adminIds.includes(resolvedReceiverId)) {
-      const myTeamManager = await getTeamManagerForUser(input.senderId);
-      const isMessagingMyTeamManager = myTeamManager && myTeamManager.id === resolvedReceiverId;
+      const myTeamManagers = await getTeamManagersForUser(input.senderId);
+      const isMessagingMyTeamManager = myTeamManagers.some((m) => m.id === resolvedReceiverId);
 
-      // Team athletes may only DM their own team manager.
+      // Team athletes may only DM their own team's managers (primary or co-managers).
       if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager) {
         throw new Error("MESSAGING_DISABLED_FOR_TIER");
       }

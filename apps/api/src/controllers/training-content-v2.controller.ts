@@ -48,6 +48,7 @@ import {
   updateTrainingSessionItem,
 } from "../services/training-content-v2.service";
 import { isTeamManagerRole } from "../lib/user-roles";
+import { findManagedTeamIdForUser } from "../services/team-membership";
 import { getAthleteForUser } from "../services/user.service";
 
 const audienceQuerySchema = z.object({
@@ -268,13 +269,17 @@ export async function getTrainingContentMobileWorkspaceHandler(req: Request, res
     const parsed = mobileAgeQuerySchema.safeParse(req.query);
     const athlete = req.user ? await getAthleteForUser(req.user.id) : null;
 
-    // Team coaches have no athlete profile. Look up their team directly.
+    // Team coaches have no athlete profile. Look up their team directly
+    // (primary owner via adminId, or co-manager via team_managers).
     if (!athlete && req.user && isTeamManagerRole(req.user.role)) {
-      const [team] = await db
-        .select({ name: teamTable.name, minAge: teamTable.minAge, maxAge: teamTable.maxAge })
-        .from(teamTable)
-        .where(eq(teamTable.adminId, req.user.id))
-        .limit(1);
+      const managedTeamId = await findManagedTeamIdForUser(req.user.id);
+      const [team] = managedTeamId
+        ? await db
+            .select({ name: teamTable.name, minAge: teamTable.minAge, maxAge: teamTable.maxAge })
+            .from(teamTable)
+            .where(eq(teamTable.id, managedTeamId))
+            .limit(1)
+        : [];
       if (team) {
         const age = parsed.success ? parsed.data.age : (team.minAge ?? 15);
         const workspace = await getTrainingContentMobileWorkspace({

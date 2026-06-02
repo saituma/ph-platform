@@ -19,6 +19,7 @@ import { normalizeStoredMediaUrl } from "../services/s3.service";
 import { createSocketToken, verifyAccessToken } from "../lib/jwt";
 import { getUserById, updateUserProfile } from "../services/user.service";
 import { getOnboardingByUser } from "../services/onboarding.service";
+import { findManagedTeamIdForUser } from "../services/team-membership";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 import { db } from "../db";
@@ -380,9 +381,10 @@ export async function getMe(req: Request, res: Response) {
     const athlete = athleteData as any;
     const isCoachRole = isTrainingStaff(fullUser.role);
 
-    const coachManagedTeam = isCoachRole
+    const coachManagedTeamId = isCoachRole ? await findManagedTeamIdForUser(fullUser.id) : null;
+    const coachManagedTeam = coachManagedTeamId
       ? await withTeamPlanTier(
-          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.adminId, fullUser.id)).limit(1))[0] ??
+          (await db.select(teamForMeSelect).from(teamTable).where(eq(teamTable.id, coachManagedTeamId)).limit(1))[0] ??
             null,
         )
       : null;

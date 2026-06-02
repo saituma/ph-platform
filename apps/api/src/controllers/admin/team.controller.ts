@@ -15,7 +15,8 @@ import {
 } from "../../services/admin/team.service";
 import { ProgramType, teamTable, athleteTable, guardianTable } from "../../db/schema";
 import { db } from "../../db";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+import { isTeamManager } from "../../services/team-membership";
 
 const teamDefaultsSchema = z.object({
   teamName: z.string().min(1),
@@ -52,13 +53,15 @@ async function canAccessTeam(req: Request, teamName: string) {
   const [team] = await db
     .select({ id: teamTable.id })
     .from(teamTable)
-    .where(and(eq(teamTable.name, teamName.trim()), eq(teamTable.adminId, managerId)))
+    .where(eq(teamTable.name, teamName.trim()))
     .limit(1);
-  return Boolean(team);
+  if (!team) return false;
+  // Primary owner (adminId) or operational co-manager (team_managers).
+  return isTeamManager(managerId, team.id);
 }
 
 export async function listTeamsAdminDetails(req: Request, res: Response) {
-  const teams = await listTeamsAdmin({ adminId: teamManagerScope(req) });
+  const teams = await listTeamsAdmin({ managerUserId: teamManagerScope(req) });
   return res.status(200).json({ teams });
 }
 

@@ -17,6 +17,8 @@ import {
 import { getStripeClient, getSuccessUrl, getCancelUrl, createTeamCheckoutSession } from "../billing/stripe.service";
 import { createTeamManagerUser } from "./user.service";
 import { createTeamRosterAthlete } from "../team-roster.service";
+import { getManagedTeamIds } from "../team-membership";
+import { listCoManagersForTeam } from "../team-managers.service";
 import { sendPlanInviteEmail, sendTeamPlayerPaymentInviteEmail } from "../../lib/mailer/billing.mailer";
 import { sendAdminWelcomeCredentialsEmail } from "../../lib/mailer/auth.mailer";
 import { teamPlayerPaymentInviteTable } from "../../db/schema";
@@ -718,9 +720,17 @@ export async function approveTeamSponsorRestAdmin(
   return { ok: true, teamId, status: "active", sponsoredRemaining: true };
 }
 
-export async function listTeamsAdmin(options?: { adminId?: number | null; limit?: number }) {
+export async function listTeamsAdmin(options?: {
+  adminId?: number | null;
+  managerUserId?: number | null;
+  limit?: number;
+}) {
   const filters: any[] = [];
-  if (typeof options?.adminId === "number") {
+  if (typeof options?.managerUserId === "number") {
+    // Scope to teams this user owns (adminId) OR co-manages (team_managers).
+    const ids = await getManagedTeamIds(options.managerUserId);
+    filters.push(ids.length ? inArray(teamTable.id, ids) : sql`false`);
+  } else if (typeof options?.adminId === "number") {
     filters.push(eq(teamTable.adminId, options.adminId));
   }
 
@@ -1017,6 +1027,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
     sponsoredPlanId: team.sponsoredPlanId,
     subscriptionStatus: team.subscriptionStatus ?? "pending_payment",
     manager,
+    coManagers: await listCoManagersForTeam(team.id),
     paymentQueue: await (async () => {
       const [request] = await db
         .select({

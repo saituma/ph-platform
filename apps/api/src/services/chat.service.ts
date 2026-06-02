@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { createPushIntent } from "./outbox.service";
+import { getManagedTeamIds } from "./team-membership";
 import { performance } from "node:perf_hooks";
 
 import { db } from "../db";
@@ -177,7 +178,7 @@ export async function addGroupMembers(groupId: number, memberIds: number[]) {
   return unique;
 }
 
-async function ensureManagedTeamInboxMemberships(userId: number) {
+export async function ensureManagedTeamInboxMemberships(userId: number) {
   const [user] = await db
     .select({ role: userTable.role })
     .from(userTable)
@@ -188,7 +189,10 @@ async function ensureManagedTeamInboxMemberships(userId: number) {
   const isTeamManagerRole = role === "team_coach" || role === "coach" || role === "program_coach";
   if (!isTeamManagerRole) return;
 
-  const managedTeams = await db.select({ name: teamTable.name }).from(teamTable).where(eq(teamTable.adminId, userId));
+  const managedTeamIds = await getManagedTeamIds(userId);
+  const managedTeams = managedTeamIds.length
+    ? await db.select({ name: teamTable.name }).from(teamTable).where(inArray(teamTable.id, managedTeamIds))
+    : [];
 
   const managedTeamNames = Array.from(
     new Set(managedTeams.map((team) => String(team.name ?? "").trim()).filter(Boolean)),

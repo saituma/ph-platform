@@ -17,6 +17,11 @@ import * as AdminProgramSessionCompletionController from "../controllers/admin/p
 import * as TrackingGoalsController from "../controllers/tracking-goals.controller";
 
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
+import {
+  addTeamManagerAdmin,
+  listTeamManagersAdmin,
+  removeTeamManagerAdmin,
+} from "../controllers/team-managers.controller";
 
 const router = Router();
 
@@ -41,6 +46,9 @@ router.get("/admin/teams/:teamName", AdminTeamController.getTeamAdminDetails);
 router.get("/admin/teams/:teamName/members/:athleteId", AdminTeamController.getTeamMemberAdminDetails);
 router.patch("/admin/teams/:teamName/members/:athleteId", AdminTeamController.updateTeamMemberAdminDetails);
 router.post("/admin/teams/:teamName/athletes/:athleteId/attach", AdminTeamController.attachAthleteToTeamAdminDetails);
+router.get("/admin/teams/:teamName/managers", listTeamManagersAdmin);
+router.post("/admin/teams/:teamName/managers", addTeamManagerAdmin);
+router.delete("/admin/teams/:teamName/managers/:userId", removeTeamManagerAdmin);
 router.post("/admin/teams/provision", AdminUserController.provisionTeamWithPlan); // Provisioning uses createGuardianWithOnboardingAdmin
 router.post("/admin/teams/defaults", AdminTeamController.saveTeamDefaultsAdmin);
 router.post("/admin/teams/:teamId/approve", AdminTeamController.approveTeamAdminDetails);

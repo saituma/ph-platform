@@ -12,6 +12,7 @@ import {
 } from "../db/schema";
 import { normalizeStoredMediaUrl } from "./s3.service";
 import { assertSocialEnabled, getPrivacySettings, getRunLikeSummary } from "./social-privacy.service";
+import { findManagedTeamIdForUser } from "./team-membership";
 import { getAthleteForUser } from "./user.service";
 
 export class SocialAccessError extends Error {
@@ -94,17 +95,14 @@ export async function assertGlobalSocialDeprecated(userId: number): Promise<void
 }
 
 export async function assertTeamMemberSocial(userId: number, role?: string | null): Promise<{ teamId: number }> {
-  // Team coaches and team managers are linked via teamTable.adminId, not the athlete table.
+  // Team coaches and team managers are linked via teamTable.adminId (primary) or
+  // team_managers (co-managers), not the athlete table.
   if (role === "team_coach" || role === "team_manager") {
-    const [coachTeam] = await db
-      .select({ id: teamTable.id })
-      .from(teamTable)
-      .where(eq(teamTable.adminId, userId))
-      .limit(1);
-    if (!coachTeam) {
+    const teamId = await findManagedTeamIdForUser(userId);
+    if (teamId == null) {
       throw new SocialAccessError("NOT_TEAM", "No team found for this coach");
     }
-    return { teamId: coachTeam.id };
+    return { teamId };
   }
 
   const athlete = await getAthleteForUser(userId);

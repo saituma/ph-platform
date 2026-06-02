@@ -1,1 +1,1 @@
-ALTER TABLE "athletes" ADD COLUMN "phone_number" varchar(50);
+ALTER TABLE "athletes" ADD COLUMN IF NOT EXISTS "phone_number" varchar(50);

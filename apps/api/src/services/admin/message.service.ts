@@ -1,8 +1,9 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { athleteTable, guardianTable, messageReceiptTable, messageTable, teamTable, userTable } from "../../db/schema";
+import { athleteTable, guardianTable, messageReceiptTable, messageTable, userTable } from "../../db/schema";
 import { getSocketServer } from "../../socket-hub";
 import { getAdminCoachIds, sendMessage } from "../message.service";
+import { getManagedTeamIds } from "../team-membership";
 import { attachDirectMessageReactions } from "../reaction.service";
 
 function asSafeLimit(value: unknown, fallback: number) {
@@ -89,11 +90,13 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
 
   let filteredOtherUserIds = rawOtherUserIds;
   if (callerUser?.role === "team_coach") {
-    const teamAthleteRows = await db
-      .select({ userId: athleteTable.userId })
-      .from(athleteTable)
-      .innerJoin(teamTable, eq(athleteTable.teamId, teamTable.id))
-      .where(eq(teamTable.adminId, coachId));
+    const managedTeamIds = await getManagedTeamIds(coachId);
+    const teamAthleteRows = managedTeamIds.length
+      ? await db
+          .select({ userId: athleteTable.userId })
+          .from(athleteTable)
+          .where(inArray(athleteTable.teamId, managedTeamIds))
+      : [];
     const teamAthleteIds = new Set(teamAthleteRows.map((r) => r.userId).filter((id): id is number => id != null));
     filteredOtherUserIds = rawOtherUserIds.filter((id) => teamAthleteIds.has(id));
   }

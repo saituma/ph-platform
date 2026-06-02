@@ -135,6 +135,7 @@ type TeamDetails = {
     }>;
   } | null;
   manager: { id: number; name: string | null; email: string; role: string | null } | null;
+  coManagers: Array<{ userId: number; name: string | null; email: string; role: string | null; createdAt: string | Date | null }>;
   summary: {
     memberCount: number;
     youthCount?: number;
@@ -308,6 +309,12 @@ export default function TeamDetailPage() {
   const [isOverridingTier, setIsOverridingTier] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
+  // Co-manager state
+  const [coManagerEmail, setCoManagerEmail] = useState("");
+  const [coManagerName, setCoManagerName] = useState("");
+  const [isAddingCoManager, setIsAddingCoManager] = useState(false);
+  const [coManagerCreds, setCoManagerCreds] = useState<{ email: string; temporaryPassword: string } | null>(null);
+
   // Quick Add state (uses team's plan automatically)
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [newAthleteName, setNewAthleteName] = useState("");
@@ -412,6 +419,58 @@ export default function TeamDetailPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddCoManager = async () => {
+    const email = coManagerEmail.trim();
+    if (!email) return;
+    setIsAddingCoManager(true);
+    setCoManagerCreds(null);
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(`/api/backend/admin/teams/${encodeURIComponent(teamName)}/managers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+        credentials: "include",
+        body: JSON.stringify({ email, name: coManagerName.trim() || undefined }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error ?? "Failed to add co-manager.");
+      if (payload?.created && payload?.temporaryPassword) {
+        setCoManagerCreds({ email: payload.email, temporaryPassword: payload.temporaryPassword });
+      }
+      setCoManagerEmail("");
+      setCoManagerName("");
+      toast.success("Co-manager added.");
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add co-manager.");
+    } finally {
+      setIsAddingCoManager(false);
+    }
+  };
+
+  const handleRemoveCoManager = async (userId: number) => {
+    try {
+      const csrfToken = getCsrfToken();
+      const res = await fetch(
+        `/api/backend/admin/teams/${encodeURIComponent(teamName)}/managers/${userId}`,
+        {
+          method: "DELETE",
+          // API guards mutating requests with a Content-Type: application/json check (415 otherwise).
+          headers: { "Content-Type": "application/json", ...(csrfToken ? { "x-csrf-token": csrfToken } : {}) },
+          credentials: "include",
+        },
+      );
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Failed to remove co-manager.");
+      }
+      toast.success("Co-manager removed.");
+      await loadDetails();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove co-manager.");
     }
   };
 
@@ -721,6 +780,87 @@ export default function TeamDetailPage() {
             </CardContent>
           </Card>
         ) : null}
+
+        <Card>
+          <CardHeader>
+            <SectionHeader
+              title="Co-Managers"
+              description="Additional managers with full operational access (roster, athletes, nutrition, chat). They cannot change billing or delete the team."
+            />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {details?.coManagers && details.coManagers.length > 0 ? (
+              <div className="space-y-2">
+                {details.coManagers.map((cm) => (
+                  <div
+                    key={cm.userId}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border p-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground">{cm.name || "—"}</p>
+                      <p className="truncate text-xs text-muted-foreground break-all">{cm.email}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveCoManager(cm.userId)}
+                      aria-label={`Remove ${cm.email}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No co-managers yet.</p>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <div>
+                <Label htmlFor="co-manager-email">Email</Label>
+                <Input
+                  id="co-manager-email"
+                  type="email"
+                  placeholder="coach@example.com"
+                  value={coManagerEmail}
+                  onChange={(e) => setCoManagerEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="co-manager-name">Name (optional)</Label>
+                <Input
+                  id="co-manager-name"
+                  placeholder="Jane Doe"
+                  value={coManagerName}
+                  onChange={(e) => setCoManagerName(e.target.value)}
+                />
+              </div>
+              <Button
+                onClick={handleAddCoManager}
+                disabled={isAddingCoManager || !coManagerEmail.trim()}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                {isAddingCoManager ? "Adding..." : "Add"}
+              </Button>
+            </div>
+
+            {coManagerCreds ? (
+              <div className="rounded-xl border border-border bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  New account created. Share these credentials securely — the password is shown only once.
+                </p>
+                <p className="mt-2 text-sm">
+                  <span className="text-muted-foreground">Login email: </span>
+                  <span className="font-semibold break-all">{coManagerCreds.email}</span>
+                </p>
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Temporary password: </span>
+                  <span className="font-mono font-semibold">{coManagerCreds.temporaryPassword}</span>
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

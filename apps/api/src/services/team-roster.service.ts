@@ -4,7 +4,15 @@ import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
 import { db } from "../db";
-import { athleteTable, guardianTable, legalAcceptanceTable, subscriptionPlanTable, teamTable, userTable } from "../db/schema";
+import {
+  athleteTable,
+  guardianTable,
+  legalAcceptanceTable,
+  subscriptionPlanTable,
+  teamManagersTable,
+  teamTable,
+  userTable,
+} from "../db/schema";
 import { slugifySegment } from "../lib/slug";
 import { getUserByEmail } from "./user.service";
 import { addTeamAthleteToTeamChat } from "./admin/team.service";
@@ -42,18 +50,87 @@ async function ensureTeamEmailSlugRow(team: typeof teamTable.$inferSelect) {
 
 type AuthUser = { id: number; role: string };
 
-export async function getManagedTeamForUser(user: AuthUser, teamIdQuery?: number | null) {
-  if (user.role === "team_coach" || user.role === "program_coach" || user.role === "coach") {
-    const rows = await db.select().from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1);
-    return rows[0] ?? null;
-  }
+const COACH_ROLES = new Set(["team_coach", "program_coach", "coach"]);
+
+export type ManagedTeam = {
+  team: typeof teamTable.$inferSelect;
+  /** adminId === user.id — the billing owner. Gates plan/Stripe/delete operations. */
+  isPrimary: boolean;
+  /** Has a team_managers row — operational co-manager. */
+  isCoManager: boolean;
+};
+
+/**
+ * Resolve a single team a user may manage, with privilege flags.
+ * A coach manages a team if they are its `adminId` (primary/billing owner) OR
+ * have a `team_managers` row (operational co-manager). Platform admins resolve
+ * any team by id and are treated as primary.
+ */
+export async function resolveManagedTeam(user: AuthUser, teamIdQuery?: number | null): Promise<ManagedTeam | null> {
   if (user.role === "admin" || user.role === "superAdmin") {
     const tid = teamIdQuery;
     if (!tid || !Number.isFinite(tid)) return null;
-    const rows = await db.select().from(teamTable).where(eq(teamTable.id, tid)).limit(1);
-    return rows[0] ?? null;
+    const [team] = await db.select().from(teamTable).where(eq(teamTable.id, tid)).limit(1);
+    return team ? { team, isPrimary: true, isCoManager: false } : null;
   }
-  return null;
+
+  if (!COACH_ROLES.has(user.role)) return null;
+
+  if (teamIdQuery && Number.isFinite(teamIdQuery)) {
+    const [primary] = await db
+      .select()
+      .from(teamTable)
+      .where(and(eq(teamTable.id, teamIdQuery), eq(teamTable.adminId, user.id)))
+      .limit(1);
+    if (primary) return { team: primary, isPrimary: true, isCoManager: false };
+
+    const [co] = await db
+      .select({ team: teamTable })
+      .from(teamManagersTable)
+      .innerJoin(teamTable, eq(teamManagersTable.teamId, teamTable.id))
+      .where(and(eq(teamManagersTable.teamId, teamIdQuery), eq(teamManagersTable.userId, user.id)))
+      .limit(1);
+    return co?.team ? { team: co.team, isPrimary: false, isCoManager: true } : null;
+  }
+
+  // No explicit team requested: prefer the primary team, fall back to first co-managed.
+  const [primary] = await db.select().from(teamTable).where(eq(teamTable.adminId, user.id)).limit(1);
+  if (primary) return { team: primary, isPrimary: true, isCoManager: false };
+
+  const [co] = await db
+    .select({ team: teamTable })
+    .from(teamManagersTable)
+    .innerJoin(teamTable, eq(teamManagersTable.teamId, teamTable.id))
+    .where(eq(teamManagersTable.userId, user.id))
+    .orderBy(asc(teamTable.id))
+    .limit(1);
+  return co?.team ? { team: co.team, isPrimary: false, isCoManager: true } : null;
+}
+
+export async function getManagedTeamForUser(user: AuthUser, teamIdQuery?: number | null) {
+  const resolved = await resolveManagedTeam(user, teamIdQuery);
+  return resolved?.team ?? null;
+}
+
+/** All teams a coach manages (primary + co-managed), for team switchers / listings. */
+export async function listManagedTeams(user: AuthUser): Promise<ManagedTeam[]> {
+  if (!COACH_ROLES.has(user.role)) return [];
+
+  const primaryTeams = await db.select().from(teamTable).where(eq(teamTable.adminId, user.id));
+  const coManagedRows = await db
+    .select({ team: teamTable })
+    .from(teamManagersTable)
+    .innerJoin(teamTable, eq(teamManagersTable.teamId, teamTable.id))
+    .where(eq(teamManagersTable.userId, user.id));
+
+  const seen = new Set(primaryTeams.map((t) => t.id));
+  const result: ManagedTeam[] = primaryTeams.map((team) => ({ team, isPrimary: true, isCoManager: false }));
+  for (const row of coManagedRows) {
+    if (seen.has(row.team.id)) continue;
+    seen.add(row.team.id);
+    result.push({ team: row.team, isPrimary: false, isCoManager: true });
+  }
+  return result.sort((a, b) => a.team.id - b.team.id);
 }
 
 export async function listTeamRosterForCoach(user: AuthUser, teamIdQuery?: number | null) {

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { TeamAthletesSection } from "@/components/portal/TeamAthletesSection";
+import { TeamManagersSection } from "@/components/portal/TeamManagersSection";
 import { isPortalTeamRosterManagerRole } from "@/lib/portal-roles";
 import { usePortal } from "@/portal/PortalContext";
 
@@ -48,7 +49,10 @@ function TeamPage() {
 					</Link>
 				</div>
 			) : (
-				<TeamAthletesSection showSectionTitle={false} />
+				<>
+					<TeamAthletesSection showSectionTitle={false} />
+					<TeamManagersSection />
+				</>
 			)}
 		</div>
 	);
