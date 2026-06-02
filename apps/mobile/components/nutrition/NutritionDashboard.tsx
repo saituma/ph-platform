@@ -146,11 +146,12 @@ export function NutritionDashboard() {
           body,
         });
 
-        // On success the optimistic state already matches what we saved — no refetch,
-        // so the logged meal stays instant instead of waiting on a network round-trip.
+        // Do NOT refetch here. The optimistic update already reflects exactly what we
+        // saved; an immediate refetch was racing the just-committed write and wiping
+        // the meal for ~1s. Focus/foreground refetch reconciles later, consistently.
       } catch {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        // Saving failed: reconcile the optimistic change back to server truth.
+        // Save failed → reconcile optimistic state back to server truth.
         void refetch();
       }
     },

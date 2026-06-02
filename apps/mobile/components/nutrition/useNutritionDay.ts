@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
 import { apiRequest } from "@/lib/api";
@@ -86,6 +87,10 @@ export function useNutritionDay(dateKey?: string) {
   const [coachHistory, setCoachHistory] = useState<CoachFeedbackEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const initialLoadDone = useRef(false);
+  // Timestamp of the last local meal save. The server echoes our own save back over
+  // the socket (nutrition:log:updated → our own room); refetching on that echo races
+  // the write and wipes the optimistic meal. Skip the echo refetch for a short window.
+  const lastLocalLogAt = useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!token) {
@@ -168,21 +173,41 @@ export function useNutritionDay(dateKey?: string) {
 
   const optimisticUpdateMeal = useCallback(
     (slot: MealSlotName, items: MealItem[]) => {
+      lastLocalLogAt.current = Date.now();
       setData((prev) => {
-        if (!prev) return prev;
-        const slotData: MealSlotData = {
-          ...prev.meals[slot],
-          items,
+        const targetCalories = prev?.targetCalories ?? 2000;
+        const emptySlot = (s: MealSlotName, label: string): MealSlotData => ({
+          slot: s,
+          label,
+          items: [],
+          recommendedMin: Math.round(targetCalories * SLOT_SPLITS[s].min),
+          recommendedMax: Math.round(targetCalories * SLOT_SPLITS[s].max),
+        });
+        // Build a base even when the day hasn't loaded yet, so a freshly logged
+        // meal always shows immediately instead of being dropped.
+        const base = prev ?? {
+          dateKey: today,
+          targetCalories,
+          eatenCalories: 0,
+          burnedCalories: 0,
+          meals: {
+            breakfast: emptySlot("breakfast", "Breakfast"),
+            lunch: emptySlot("lunch", "Lunch"),
+            dinner: emptySlot("dinner", "Dinner"),
+            snack: emptySlot("snack", "Snack"),
+          },
+          macros: { carbs: { grams: 0 }, protein: { grams: 0 }, fats: { grams: 0 } },
         };
-        const meals = { ...prev.meals, [slot]: slotData };
+        const slotData: MealSlotData = { ...base.meals[slot], items };
+        const meals = { ...base.meals, [slot]: slotData };
         const eatenCalories = Object.values(meals).reduce(
           (sum, m) => sum + m.items.reduce((s, i) => s + i.calories, 0),
           0,
         );
-        return { ...prev, meals, eatenCalories };
+        return { ...base, meals, eatenCalories };
       });
     },
-    [],
+    [today],
   );
 
   const fetchCoachHistory = useCallback(async () => {
@@ -236,24 +261,40 @@ export function useNutritionDay(dateKey?: string) {
   }, [token, athleteUserId]);
 
   useEffect(() => {
-    void fetchData();
     void fetchCoachHistory();
-  }, [fetchData, fetchCoachHistory]);
+  }, [fetchCoachHistory]);
+
+  // Refetch the day whenever the screen regains focus, so a meal logged elsewhere
+  // (or while the screen was backgrounded) shows up without restarting the app.
+  // Tab screens stay mounted, so a mount-only effect would otherwise serve stale data.
+  useFocusEffect(
+    useCallback(() => {
+      void fetchData();
+    }, [fetchData]),
+  );
 
   // Socket listeners + local push notification on feedback
   const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
+      const prev = appStateRef.current;
       appStateRef.current = state;
+      // Coming back from background → pull fresh data.
+      if (state === "active" && prev !== "active") {
+        void fetchData();
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [fetchData]);
 
   useEffect(() => {
     if (!socket) return;
 
     const onLogUpdated = () => {
+      // Ignore the echo of our own just-saved meal (the optimistic update already
+      // shows it); only refetch for updates that happened elsewhere.
+      if (Date.now() - lastLocalLogAt.current < 5000) return;
       void fetchData();
     };
 
