@@ -16,6 +16,7 @@ import {
   guardianFeedbackReplyTable,
   sessionTable,
   programSessionCompletionTable,
+  athleteTrainingSessionCompletionTable,
   athleteInjuryLogsTable,
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
@@ -362,6 +363,16 @@ export async function getGuardianChild(userId: number, athleteId: number): Promi
     completedSessions: completedMap.get(a.programId!) ?? 0,
   }));
 
+  // True "sessions done" total: programme-scoped completions PLUS team/standalone
+  // session completions (which aren't attached to an assigned programme and would
+  // otherwise be invisible to the parent).
+  const [looseRow] = await db
+    .select({ value: count() })
+    .from(athleteTrainingSessionCompletionTable)
+    .where(eq(athleteTrainingSessionCompletionTable.athleteId, athleteId));
+  const programCompleted = programs.reduce((s, p) => s + (p.completedSessions ?? 0), 0);
+  const totalSessionsCompleted = programCompleted + Number(looseRow?.value ?? 0);
+
   const logs = await db
     .select()
     .from(athleteTrainingSessionLogTable)
@@ -387,6 +398,7 @@ export async function getGuardianChild(userId: number, athleteId: number): Promi
     performanceGoals: athlete.performanceGoals ?? null,
     injuries: athlete.injuries ? String(athlete.injuries) : null,
     programs,
+    totalSessionsCompleted,
     recentSessions,
   };
 }

@@ -44,6 +44,7 @@ type AthleteDetail = {
 	performanceGoals?: string | null;
 	injuries?: string | null;
 	programs: Program[];
+	totalSessionsCompleted?: number;
 	recentSessions: SessionLog[];
 };
 
@@ -369,8 +370,10 @@ function ChildDetailPage() {
 	}
 
 	const totalSessions = child.programs.reduce((s, p) => s + p.totalSessions, 0);
-	const completedSessions = child.programs.reduce((s, p) => s + p.completedSessions, 0);
-	const progressPct = totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0;
+	const programCompletedSessions = child.programs.reduce((s, p) => s + p.completedSessions, 0);
+	// Real total includes sessions completed outside an assigned programme (team/standalone).
+	const completedSessions = child.totalSessionsCompleted ?? programCompletedSessions;
+	const progressPct = totalSessions > 0 ? Math.round((programCompletedSessions / totalSessions) * 100) : 0;
 
 	const statusIcon = (s: AttendanceSession["status"]) => {
 		if (s === "attended") return <CheckCircle2 size={14} className="text-primary flex-shrink-0" />;

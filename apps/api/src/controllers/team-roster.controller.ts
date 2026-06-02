@@ -97,6 +97,10 @@ const createBody = z.object({
   ),
   customPassword: optionalCoachSetPassword,
   isSponsored: z.coerce.boolean().optional().default(false),
+  guardianEmail: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.string().email().optional(),
+  ),
 });
 
 export async function postTeamRosterAthlete(req: Request, res: Response) {

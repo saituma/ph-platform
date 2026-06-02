@@ -4,7 +4,7 @@ import { and, asc, count, eq, ne, sql } from "drizzle-orm";
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
 import { db } from "../db";
-import { athleteTable, legalAcceptanceTable, subscriptionPlanTable, teamTable, userTable } from "../db/schema";
+import { athleteTable, guardianTable, legalAcceptanceTable, subscriptionPlanTable, teamTable, userTable } from "../db/schema";
 import { slugifySegment } from "../lib/slug";
 import { getUserByEmail } from "./user.service";
 import { addTeamAthleteToTeamChat } from "./admin/team.service";
@@ -213,6 +213,94 @@ export async function updateTeamEmailSlug(user: AuthUser, input: { teamId?: numb
   return { emailSlug: next };
 }
 
+/**
+ * Ensure a team athlete has a parent/guardian account linked to it so the parent
+ * can sign in to the parent portal and see their child. Team athletes are created
+ * with `guardianId = null`; this find-or-creates the guardian user (role "guardian")
+ * + guardian row and points `athlete.guardianId` at it.
+ *
+ * Idempotent: safe to re-run. Reuses an existing user with the same email (e.g. a
+ * parent who already self-registered) and sets a temporary password only when that
+ * account has none yet, so we never clobber a password the parent already set.
+ */
+export async function ensureGuardianForTeamAthlete(input: {
+  athleteId: number;
+  parentEmail: string;
+  parentName?: string | null;
+}): Promise<{
+  guardianUserId: number;
+  guardianId: number;
+  email: string;
+  temporaryPassword: string | null;
+  createdUser: boolean;
+}> {
+  const email = input.parentEmail.trim().toLowerCase();
+  if (!email) throw { status: 400, message: "Parent email is required." };
+
+  let temporaryPassword: string | null = null;
+  let createdUser = false;
+
+  const [existingUser] = await db
+    .select({ id: userTable.id, passwordHash: userTable.passwordHash })
+    .from(userTable)
+    .where(eq(userTable.email, email))
+    .limit(1);
+
+  let guardianUserId: number;
+  if (existingUser) {
+    guardianUserId = existingUser.id;
+    // Account exists but never finished signup (no password): give it a usable one.
+    if (!existingUser.passwordHash) {
+      temporaryPassword = generateProvisionPassword();
+      const { hash, salt } = hashProvisionPassword(temporaryPassword);
+      await db
+        .update(userTable)
+        .set({ passwordHash: hash, passwordSalt: salt, emailVerified: true, updatedAt: new Date() })
+        .where(eq(userTable.id, guardianUserId));
+    }
+  } else {
+    temporaryPassword = generateProvisionPassword();
+    const { hash, salt } = hashProvisionPassword(temporaryPassword);
+    const inserted = await db
+      .insert(userTable)
+      .values({
+        cognitoSub: `local:team-guardian:${crypto.randomUUID()}`,
+        name: input.parentName?.trim() || email.split("@")[0],
+        email,
+        role: "guardian",
+        passwordHash: hash,
+        passwordSalt: salt,
+        emailVerified: true,
+      })
+      .returning({ id: userTable.id });
+    guardianUserId = inserted[0]?.id as number;
+    if (!guardianUserId) throw new Error("Guardian user insert failed");
+    createdUser = true;
+  }
+
+  const [existingGuardian] = await db
+    .select({ id: guardianTable.id })
+    .from(guardianTable)
+    .where(eq(guardianTable.userId, guardianUserId))
+    .limit(1);
+
+  let guardianId: number;
+  if (existingGuardian) {
+    guardianId = existingGuardian.id;
+  } else {
+    const insertedGuardian = await db
+      .insert(guardianTable)
+      .values({ userId: guardianUserId, email, relationToAthlete: "Parent" })
+      .returning({ id: guardianTable.id });
+    guardianId = insertedGuardian[0]?.id as number;
+    if (!guardianId) throw new Error("Guardian record insert failed");
+  }
+
+  await db.update(athleteTable).set({ guardianId, updatedAt: new Date() }).where(eq(athleteTable.id, input.athleteId));
+
+  return { guardianUserId, guardianId, email, temporaryPassword, createdUser };
+}
+
 export async function createTeamRosterAthlete(
   user: AuthUser,
   input: {
@@ -224,6 +312,7 @@ export async function createTeamRosterAthlete(
     profilePicture?: string | null;
     customPassword?: string;
     isSponsored?: boolean;
+    guardianEmail?: string | null;
   },
 ) {
   const team = await getManagedTeamForUser(user, input.teamId ?? null);
@@ -367,12 +456,27 @@ export async function createTeamRosterAthlete(
     logger.warn({ err }, "[team-roster] addTeamAthleteToTeamChat failed");
   });
 
+  // Optionally provision a linked parent/guardian account so the parent can use the portal.
+  let guardian: Awaited<ReturnType<typeof ensureGuardianForTeamAthlete>> | null = null;
+  if (input.guardianEmail?.trim()) {
+    try {
+      guardian = await ensureGuardianForTeamAthlete({
+        athleteId,
+        parentEmail: input.guardianEmail,
+        parentName: displayName,
+      });
+    } catch (err) {
+      logger.warn({ err }, "[team-roster] ensureGuardianForTeamAthlete failed");
+    }
+  }
+
   return {
     athleteId,
     userId,
     email,
     temporaryPassword: tempPassword,
     teamSlug,
+    guardian,
   };
 }
 
