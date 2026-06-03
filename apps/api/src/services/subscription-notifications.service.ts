@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
@@ -15,7 +15,7 @@ import {
   sendSubscriptionPendingUserEmail,
 } from "../lib/mailer";
 import { getStripeClient } from "./billing/stripe.service";
-import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
+import { listPlatformAdminEmailRecipients } from "./platform-admin-recipients.service";
 
 /**
  * When a subscription request first enters pending_approval after payment, notify the payer and staff.
@@ -142,28 +142,18 @@ export async function notifySubscriptionEnteredPendingApproval(requestId: number
     data: { type: "payment", url: "/plans" },
   });
 
-  const staff = await db
-    .select({ email: userTable.email, name: userTable.name })
-    .from(userTable)
-    .where(
-      and(
-        eq(userTable.isDeleted, false),
-        eq(userTable.isBlocked, false),
-        inArray(userTable.role, ROLES_TRAINING_STAFF),
-        ne(userTable.email, ""),
-      ),
-    );
+  const platformAdmins = await listPlatformAdminEmailRecipients();
 
-  if (!staff.length) {
+  if (!platformAdmins.length) {
     logger.warn(
       { requestId },
-      `[Billing] notifySubscriptionEnteredPendingApproval: no staff users found for request #${requestId}. ` +
-        "Ensure at least one user with role admin/superAdmin/coach/team_coach/program_coach exists and is not deleted/blocked.",
+      `[Billing] notifySubscriptionEnteredPendingApproval: no platform admin users found for request #${requestId}. ` +
+        "Ensure at least one user with role admin or superAdmin exists and is not deleted/blocked.",
     );
   }
 
   const seen = new Set<string>();
-  for (const s of staff) {
+  for (const s of platformAdmins) {
     if (!s.email || seen.has(s.email)) continue;
     if (s.email === row.userEmail) continue;
     seen.add(s.email);

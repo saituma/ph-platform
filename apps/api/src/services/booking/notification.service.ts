@@ -13,6 +13,7 @@ import { env } from "../../config/env";
 import { sendBookingConfirmationEmail, sendBookingRequestAdminEmail } from "../../lib/mailer";
 import { createBookingActionToken } from "../../lib/booking-actions";
 import { ROLES_TRAINING_STAFF } from "../../lib/user-roles";
+import { listPlatformAdminEmailRecipients } from "../platform-admin-recipients.service";
 import { createPushIntent } from "../outbox.service";
 import { getSocketServer } from "../../socket-hub";
 
@@ -50,10 +51,7 @@ export async function notifyBookingRequested(input: {
     .where(eq(athleteTable.id, input.athleteId))
     .limit(1);
 
-  const adminUsers = await db
-    .select({ email: userTable.email })
-    .from(userTable)
-    .where(inArray(userTable.role, ROLES_TRAINING_STAFF));
+  const adminUsers = await listPlatformAdminEmailRecipients();
 
   for (const admin of adminUsers) {
     if (!admin.email) continue;

@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { env } from "../config/env";
 import { logger } from "../lib/logger";
@@ -12,7 +12,7 @@ import {
   sendSubscriptionPendingUserEmail,
 } from "../lib/mailer";
 import { getStripeClient } from "./billing/stripe.service";
-import { ROLES_TRAINING_STAFF } from "../lib/user-roles";
+import { listPlatformAdminEmailRecipients } from "./platform-admin-recipients.service";
 
 function formatStripeAmount(amountCents: number | null, currency: string | null) {
   if (amountCents == null) return null;
@@ -117,20 +117,10 @@ export async function notifyTeamSubscriptionEnteredPendingApproval(teamRequestId
     invoiceUrl,
   });
 
-  const staff = await db
-    .select({ email: userTable.email, name: userTable.name })
-    .from(userTable)
-    .where(
-      and(
-        eq(userTable.isDeleted, false),
-        eq(userTable.isBlocked, false),
-        inArray(userTable.role, ROLES_TRAINING_STAFF),
-        ne(userTable.email, ""),
-      ),
-    );
+  const platformAdmins = await listPlatformAdminEmailRecipients();
 
   const seen = new Set<string>();
-  for (const s of staff) {
+  for (const s of platformAdmins) {
     if (!s.email || seen.has(s.email)) continue;
     if (s.email === row.adminEmail) continue;
     seen.add(s.email);
