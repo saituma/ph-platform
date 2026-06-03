@@ -42,10 +42,12 @@ import betaTesterRoutes from "./beta-tester.routes";
 import foodDiaryRoutes from "./food-diary.routes";
 import usersRoutes from "./users.routes";
 import streakRoutes from "./streak.routes";
+import appVersionRoutes from "./app-version.routes";
 
 const router = Router();
 
 router.use(healthRoutes);
+router.use(appVersionRoutes);
 router.use(authRoutes);
 router.use(onboardingRoutes);
 router.use(programRoutes);

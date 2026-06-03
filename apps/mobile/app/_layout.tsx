@@ -39,6 +39,7 @@ import { AndroidBackToTabs } from "@/components/navigation/AndroidBackToTabs";
 import { runStartupSelfTest } from "@/lib/startupDiagnostics";
 import { useAppSelector } from "@/store/hooks";
 import { useOtaUpdater } from "@/hooks/useOtaUpdater";
+import { UpdateBanner } from "@/components/UpdateBanner";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { isSentryEnabled, Sentry } from "@/lib/sentry";
@@ -158,6 +159,7 @@ function RootLayout() {
       <SocketQueryBridge />
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <View style={Platform.isPad ? { flex: 1, maxWidth: 560, width: "100%", alignSelf: "center", overflow: "hidden" } : { flex: 1 }}>
+        <UpdateBanner />
         <AuthPersist />
         <StartupSplashController />
         <AndroidBackToTabs />

@@ -3,27 +3,26 @@ import { AppState, type AppStateStatus } from "react-native";
 import * as Updates from "expo-updates";
 
 /**
- * Checks for an OTA update every time the app comes to the foreground.
- * If an update is available it is fetched and the app reloads immediately.
+ * Keeps the OTA bundle fresh. On cold start an available update is fetched and applied
+ * seamlessly (before the user has engaged). While the app is already open we only fetch
+ * it and leave it pending, so `UpdateBanner` (via `useUpdates().isUpdatePending`) can offer
+ * a tap-to-apply instead of yanking the user out mid-action.
  * Skipped in dev mode and in Expo Go (where OTA does not apply).
  */
 export function useOtaUpdater() {
   const checking = useRef(false);
 
   useEffect(() => {
-    if (__DEV__ || Updates.isEmbeddedLaunch === false) {
-      // isEmbeddedLaunch === false means we're already running an OTA — still check for newer ones.
-    }
     if (__DEV__) return;
 
-    async function checkAndApply() {
+    async function checkAndApply(reloadIfFound: boolean) {
       if (checking.current) return;
       checking.current = true;
       try {
         const result = await Updates.checkForUpdateAsync();
         if (result.isAvailable) {
           await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
+          if (reloadIfFound) await Updates.reloadAsync();
         }
       } catch {
         // Non-fatal — default background check still runs.
@@ -32,12 +31,12 @@ export function useOtaUpdater() {
       }
     }
 
-    // Check on mount (cold start).
-    void checkAndApply();
+    // Cold start: apply immediately and seamlessly.
+    void checkAndApply(true);
 
-    // Re-check every time the app comes back to the foreground.
+    // Foreground while already running: fetch but leave pending for the banner.
     const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
-      if (state === "active") void checkAndApply();
+      if (state === "active") void checkAndApply(false);
     });
 
     return () => sub.remove();
