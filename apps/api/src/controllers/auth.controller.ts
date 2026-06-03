@@ -86,6 +86,21 @@ async function resolveTeamPlanTier(team: { id: number; planId: number | null }):
   tier: (typeof ProgramType.enumValues)[number] | null;
   source: "team_plan" | "approved_team_request" | "none";
 }> {
+  const [approvedRequest] = await db
+    .select({
+      tier: subscriptionPlanTable.tier,
+      accessTierOverride: teamSubscriptionRequestTable.accessTierOverride,
+    })
+    .from(teamSubscriptionRequestTable)
+    .innerJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
+    .where(and(eq(teamSubscriptionRequestTable.teamId, team.id), eq(teamSubscriptionRequestTable.status, "approved")))
+    .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
+    .limit(1);
+
+  if (approvedRequest?.accessTierOverride) {
+    return { tier: approvedRequest.accessTierOverride, source: "approved_team_request" };
+  }
+
   const planId = team.planId;
   if (planId && Number.isFinite(planId) && planId > 0) {
     const [row] = await db
@@ -96,15 +111,8 @@ async function resolveTeamPlanTier(team: { id: number; planId: number | null }):
     if (row?.tier) return { tier: row.tier, source: "team_plan" };
   }
 
-  const [fallback] = await db
-    .select({ tier: subscriptionPlanTable.tier })
-    .from(teamSubscriptionRequestTable)
-    .innerJoin(subscriptionPlanTable, eq(teamSubscriptionRequestTable.planId, subscriptionPlanTable.id))
-    .where(and(eq(teamSubscriptionRequestTable.teamId, team.id), eq(teamSubscriptionRequestTable.status, "approved")))
-    .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
-    .limit(1);
-  if (fallback?.tier) {
-    return { tier: fallback.tier, source: "approved_team_request" };
+  if (approvedRequest?.tier) {
+    return { tier: approvedRequest.tier, source: "approved_team_request" };
   }
   return { tier: null, source: "none" };
 }

@@ -100,12 +100,6 @@ export async function getFeaturesForTeam(teamId: number): Promise<Set<FeatureKey
 
   if (!team) return new Set<FeatureKey>();
 
-  if (team.planId) {
-    return resolveEffectiveAccessFeatures({
-      paidPlan: await getPlanForId(team.planId),
-    });
-  }
-
   const [approvedRequest] = await db
     .select({
       planId: teamSubscriptionRequestTable.planId,
@@ -116,11 +110,23 @@ export async function getFeaturesForTeam(teamId: number): Promise<Set<FeatureKey
     .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
     .limit(1);
 
+  if (approvedRequest?.accessTierOverride) {
+    return resolveEffectiveAccessFeatures({
+      paidPlan: await getPlanForId(team.planId ?? approvedRequest.planId),
+      overrideTier: approvedRequest.accessTierOverride,
+    });
+  }
+
+  if (team.planId) {
+    return resolveEffectiveAccessFeatures({
+      paidPlan: await getPlanForId(team.planId),
+    });
+  }
+
   if (!approvedRequest) return new Set<FeatureKey>();
 
   return resolveEffectiveAccessFeatures({
     paidPlan: await getPlanForId(approvedRequest.planId),
-    overrideTier: approvedRequest.accessTierOverride,
   });
 }
 

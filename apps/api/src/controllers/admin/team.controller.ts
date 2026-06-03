@@ -13,9 +13,9 @@ import {
   updateTeamMemberAdmin,
   attachAthleteToTeamAdmin,
 } from "../../services/admin/team.service";
-import { ProgramType, teamTable, athleteTable, guardianTable } from "../../db/schema";
+import { ProgramType, teamSubscriptionRequestTable, teamTable, athleteTable, guardianTable } from "../../db/schema";
 import { db } from "../../db";
-import { eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { isTeamManager } from "../../services/team-membership";
 
 const teamDefaultsSchema = z.object({
@@ -315,6 +315,20 @@ export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
     if (!teamRow) return res.status(404).json({ error: "Team not found." });
     if (req.user?.role !== "superAdmin" && req.user?.role !== "admin" && teamRow.adminId !== req.user?.id) {
       return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const [latestApprovedRequest] = await db
+      .select({ id: teamSubscriptionRequestTable.id })
+      .from(teamSubscriptionRequestTable)
+      .where(and(eq(teamSubscriptionRequestTable.teamId, teamId), eq(teamSubscriptionRequestTable.status, "approved")))
+      .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
+      .limit(1);
+
+    if (latestApprovedRequest) {
+      await db
+        .update(teamSubscriptionRequestTable)
+        .set({ accessTierOverride: parsed.data.accessTier, updatedAt: new Date() })
+        .where(eq(teamSubscriptionRequestTable.id, latestApprovedRequest.id));
     }
 
     const athletes = await db
