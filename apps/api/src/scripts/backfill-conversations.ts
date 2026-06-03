@@ -1,24 +1,21 @@
 import "dotenv/config";
 import { and, eq, inArray } from "drizzle-orm";
-import { db } from "../src/db";
+import { db } from "../db";
 import {
-  messageTable,
-  messageReceiptTable,
-  messageReactionTable,
-  conversationTable,
-  conversationMessageTable,
-  conversationReceiptTable,
   conversationMessageReactionTable,
-} from "../src/db/schema";
-import { getOrCreateDirectConversation, directKeyFor } from "../src/services/conversation.service";
+  conversationMessageTable,
+  conversationParticipantTable,
+  conversationReceiptTable,
+  conversationTable,
+  messageReactionTable,
+  messageReceiptTable,
+  messageTable,
+} from "../db/schema";
+import { directKeyFor, getOrCreateDirectConversation } from "../services/conversation.service";
 
 /**
  * One-time, idempotent backfill of the legacy 1:1 `messages` table into the conversation model.
  * Leaves `messages`/`message_receipts`/`message_reactions` intact (backout = revert the code).
- * Idempotency: each legacy message maps to a conversation_message whose clientMessageId is the
- * original one (if any) or `mig:<legacyId>`; the unique (conversationId, senderId, clientMessageId)
- * makes re-runs a no-op (already-migrated messages are skipped, and only freshly-inserted ones get
- * receipts/reactions copied).
  */
 async function main() {
   process.env.PH_API_SCRIPT ??= "1";
@@ -34,9 +31,13 @@ async function main() {
   const receipts = await db.select().from(messageReceiptTable).where(inArray(messageReceiptTable.messageId, oldIds));
   const reactions = await db.select().from(messageReactionTable).where(inArray(messageReactionTable.messageId, oldIds));
   const receiptsByOld = new Map<number, typeof receipts>();
-  for (const r of receipts) (receiptsByOld.get(r.messageId) ?? receiptsByOld.set(r.messageId, []).get(r.messageId)!).push(r);
+  for (const r of receipts) {
+    (receiptsByOld.get(r.messageId) ?? receiptsByOld.set(r.messageId, []).get(r.messageId)!).push(r);
+  }
   const reactionsByOld = new Map<number, typeof reactions>();
-  for (const r of reactions) (reactionsByOld.get(r.messageId) ?? reactionsByOld.set(r.messageId, []).get(r.messageId)!).push(r);
+  for (const r of reactions) {
+    (reactionsByOld.get(r.messageId) ?? reactionsByOld.set(r.messageId, []).get(r.messageId)!).push(r);
+  }
 
   const convByKey = new Map<string, number>();
   const convLatestAt = new Map<number, Date>();
@@ -51,6 +52,7 @@ async function main() {
       conversationId = await getOrCreateDirectConversation(m.senderId, m.receiverId);
       convByKey.set(key, conversationId);
     }
+
     const latest = convLatestAt.get(conversationId);
     if (!latest || m.createdAt > latest) convLatestAt.set(conversationId, m.createdAt);
 
@@ -67,6 +69,7 @@ async function main() {
       const previous = participantLastReadAt.get(lastReadKey);
       if (!previous || m.createdAt > previous) participantLastReadAt.set(lastReadKey, m.createdAt);
     }
+
     const senderLastReadKey = `${conversationId}:${m.senderId}`;
     const senderPrevious = participantLastReadAt.get(senderLastReadKey);
     if (!senderPrevious || m.createdAt > senderPrevious) participantLastReadAt.set(senderLastReadKey, m.createdAt);
@@ -98,7 +101,7 @@ async function main() {
     const newId = inserted[0]?.id;
     if (newId == null) {
       skipped++;
-      continue; // already migrated on a prior run
+      continue;
     }
 
     if (oldReceipts.length) {
@@ -153,9 +156,7 @@ async function main() {
       );
   }
 
-  console.log(
-    `Done. migrated=${migrated} skipped(already)=${skipped} conversations=${convByKey.size}.`,
-  );
+  console.log(`Done. migrated=${migrated} skipped(already)=${skipped} conversations=${convByKey.size}.`);
   process.exit(0);
 }
 
