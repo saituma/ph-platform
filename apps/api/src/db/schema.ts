@@ -1968,6 +1968,35 @@ export const wellbeingLogsTable = pgTable(
   }),
 );
 
+// Self-logged progress entries (strength lifts, body weight, body measurements).
+// Server-backed so they survive app reinstall; clientId makes writes idempotent.
+export const progressEntryTable = pgTable(
+  "progress_entries",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    clientId: varchar({ length: 64 }).notNull(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    type: varchar({ length: 16 }).notNull(), // 'strength' | 'body_weight' | 'measurement'
+    entryDate: varchar({ length: 10 }).notNull(), // 'YYYY-MM-DD'
+    exerciseName: varchar({ length: 120 }),
+    weightKg: doublePrecision(),
+    reps: integer(),
+    sets: integer(),
+    measureKind: varchar({ length: 16 }),
+    label: varchar({ length: 120 }),
+    valueCm: doublePrecision(),
+    notes: text().notNull().default(""),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    clientIdUserUnique: uniqueIndex("progress_entries_client_id_user_unique").on(table.clientId, table.userId),
+    userTypeIdx: index("progress_entries_user_type_idx").on(table.userId, table.type),
+  }),
+);
+
 export const socialPrivacySettingsTable = pgTable(
   "social_privacy_settings",
   {
@@ -2321,8 +2350,5 @@ export const launchPromoCodeTable = pgTable(
     redeemedAt: timestamp("redeemed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [
-    index("launch_promo_codes_campaign_idx").on(t.campaignId),
-    index("launch_promo_codes_email_idx").on(t.email),
-  ],
+  (t) => [index("launch_promo_codes_campaign_idx").on(t.campaignId), index("launch_promo_codes_email_idx").on(t.email)],
 );
