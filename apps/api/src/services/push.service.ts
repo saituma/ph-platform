@@ -213,9 +213,12 @@ export async function sendPushNotification(userId: number, title: string, body: 
         },
       });
       try {
-        // Include categoryIdentifier in data so expo-notifications on Android
-        // can attach Reply / Mark Read action buttons to the notification.
-        const fcmData = categoryId ? { ...dataForDevice, categoryIdentifier: categoryId } : dataForDevice;
+        // expo-notifications on Android reads the category for a *remote* push from
+        // data["categoryId"] (NotificationData.kt); "categoryIdentifier" is only read
+        // for local notifications. Send both so Reply / Mark Read buttons attach.
+        const fcmData = categoryId
+          ? { ...dataForDevice, categoryId, categoryIdentifier: categoryId }
+          : dataForDevice;
         await sendFcmPush({
           token: devicePushToken,
           title,
