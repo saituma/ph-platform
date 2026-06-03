@@ -56,21 +56,9 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Text } from "@/components/ScaledText";
 import { fonts } from "@/constants/theme";
 import {
-  initProgressDb,
-  insertStrength,
-  insertBodyWeight,
-  insertMeasurement,
-  listStrength,
-  listBodyWeights,
-  listMeasurements,
-  deleteStrength,
-  deleteBodyWeight,
-  deleteMeasurement,
-  type StrengthEntry,
-  type BodyWeightEntry,
-  type MeasurementEntry,
+  useProgressData,
   type MeasurementKind,
-} from "@/lib/sqliteProgress";
+} from "@/hooks/useProgressData";
 import {
   getProgressReminderPrefs,
   setProgressReminderPrefs,
@@ -419,22 +407,11 @@ export default function ProgressScreen() {
   const toast = useAppToast();
   const router = useRouter();
   const capabilities = useAppSelector((s) => s.user.capabilities);
-
-  if (capabilities?.progressTracking === false) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <BarChart3 size={32} color={p.textMuted} />
-        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
-          Not available on your plan
-        </Text>
-      </SafeAreaView>
-    );
-  }
+  const token = useAppSelector((s) => s.user.token);
+  const { strength, weights, measures, reload, addStrength, addBodyWeight, addMeasurement, remove } =
+    useProgressData(token);
 
   const [tab, setTab] = useState<Tab>("strength");
-  const [strength, setStrength] = useState<StrengthEntry[]>([]);
-  const [weights, setWeights] = useState<BodyWeightEntry[]>([]);
-  const [measures, setMeasures] = useState<MeasurementEntry[]>([]);
 
   const [reminderOn, setReminderOn] = useState(true);
   const [reminderTime, setReminderTime] = useState(new Date());
@@ -455,14 +432,10 @@ export default function ProgressScreen() {
   const [notes, setNotes] = useState("");
 
   const load = useCallback(() => {
-    initProgressDb();
-    setStrength(listStrength(40));
-    setWeights(listBodyWeights(60));
-    setMeasures(listMeasurements(40));
-  }, []);
+    void reload(true);
+  }, [reload]);
 
   useEffect(() => {
-    load();
     void (async () => {
       const prefs = await getProgressReminderPrefs();
       setReminderOn(prefs.enabled);
@@ -470,7 +443,7 @@ export default function ProgressScreen() {
       d.setHours(prefs.hour, prefs.minute, 0, 0);
       setReminderTime(d);
     })();
-  }, [load]);
+  }, []);
 
   // ── Computed stats ──
   const latestWeight = weights[0]?.weight_kg ?? 0;
@@ -518,54 +491,47 @@ export default function ProgressScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const saveEntry = () => {
-    try {
-      if (tab === "strength") {
-        const w = parseFloat(liftKg.replace(",", "."));
-        if (!exName.trim() || !isFinite(w)) {
-          toast.warning("Missing info", "Add exercise name and weight (kg).");
-          return;
-        }
-        insertStrength({
-          date_iso: dateIso,
-          exercise_name: exName,
-          weight_kg: w,
-          reps: reps.trim() ? parseInt(reps, 10) : null,
-          sets: sets.trim() ? parseInt(sets, 10) : null,
-          notes,
-        });
-      } else if (tab === "weight") {
-        const w = parseFloat(bwKg.replace(",", "."));
-        if (!isFinite(w)) {
-          toast.warning("Missing info", "Enter body weight in kg.");
-          return;
-        }
-        insertBodyWeight({ date_iso: dateIso, weight_kg: w, notes });
-      } else {
-        const cm = parseFloat(measCm.replace(",", "."));
-        if (!isFinite(cm)) {
-          toast.warning("Missing info", "Enter measurement in cm.");
-          return;
-        }
-        const preset = MEASURE_PRESETS.find((m) => m.kind === measKind);
-        const label =
-          measKind === "other" && measLabel.trim()
-            ? measLabel.trim()
-            : preset?.label ?? "Measurement";
-        insertMeasurement({
-          date_iso: dateIso,
-          kind: measKind,
-          label,
-          value_cm: cm,
-          notes,
-        });
+  const saveEntry = async () => {
+    let ok = false;
+    if (tab === "strength") {
+      const w = parseFloat(liftKg.replace(",", "."));
+      if (!exName.trim() || !isFinite(w)) {
+        toast.warning("Missing info", "Add exercise name and weight (kg).");
+        return;
       }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setModalOpen(false);
-      load();
-    } catch (e) {
-      toast.error("Could not save", e instanceof Error ? e.message : "Unknown error");
+      ok = await addStrength({
+        date_iso: dateIso,
+        exercise_name: exName,
+        weight_kg: w,
+        reps: reps.trim() ? parseInt(reps, 10) : null,
+        sets: sets.trim() ? parseInt(sets, 10) : null,
+        notes,
+      });
+    } else if (tab === "weight") {
+      const w = parseFloat(bwKg.replace(",", "."));
+      if (!isFinite(w)) {
+        toast.warning("Missing info", "Enter body weight in kg.");
+        return;
+      }
+      ok = await addBodyWeight({ date_iso: dateIso, weight_kg: w, notes });
+    } else {
+      const cm = parseFloat(measCm.replace(",", "."));
+      if (!isFinite(cm)) {
+        toast.warning("Missing info", "Enter measurement in cm.");
+        return;
+      }
+      const preset = MEASURE_PRESETS.find((m) => m.kind === measKind);
+      const label =
+        measKind === "other" && measLabel.trim() ? measLabel.trim() : preset?.label ?? "Measurement";
+      ok = await addMeasurement({ date_iso: dateIso, kind: measKind, label, value_cm: cm, notes });
     }
+
+    if (!ok) {
+      toast.error("Could not save", "Check your connection and try again.");
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setModalOpen(false);
   };
 
   const persistReminder = async (enabled: boolean, time?: Date) => {
@@ -606,6 +572,20 @@ export default function ProgressScreen() {
     transform: [{ scale: ctaScale.value }],
     opacity: ctaOpacity.value,
   }));
+
+  // Gate AFTER all hooks so the hook count never changes between renders.
+  // capabilities hydrates async (getMe); an early return placed among the hooks
+  // above flips the hook count and throws "rendered fewer hooks", freezing the screen.
+  if (capabilities?.progressTracking === false) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <BarChart3 size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -839,7 +819,7 @@ export default function ProgressScreen() {
                     onPress={() => {
                       Alert.alert("Delete entry?", undefined, [
                         { text: "Cancel", style: "cancel" },
-                        { text: "Delete", style: "destructive", onPress: () => { deleteStrength(entry.id); load(); } },
+                        { text: "Delete", style: "destructive", onPress: () => remove(entry.id) },
                       ]);
                     }}
                   >
@@ -869,7 +849,7 @@ export default function ProgressScreen() {
                     onPress={() => {
                       Alert.alert("Delete entry?", undefined, [
                         { text: "Cancel", style: "cancel" },
-                        { text: "Delete", style: "destructive", onPress: () => { deleteBodyWeight(entry.id); load(); } },
+                        { text: "Delete", style: "destructive", onPress: () => remove(entry.id) },
                       ]);
                     }}
                   >
@@ -899,7 +879,7 @@ export default function ProgressScreen() {
                     onPress={() => {
                       Alert.alert("Delete entry?", undefined, [
                         { text: "Cancel", style: "cancel" },
-                        { text: "Delete", style: "destructive", onPress: () => { deleteMeasurement(entry.id); load(); } },
+                        { text: "Delete", style: "destructive", onPress: () => remove(entry.id) },
                       ]);
                     }}
                   >
@@ -971,13 +951,11 @@ export default function ProgressScreen() {
       </ScrollView>
 
       {/* ── Floating add button ── */}
-      <ScalePressable onPress={openAdd} activeScale={0.92}>
-        <View
+      <View style={{ position: "absolute", left: 20, right: 20, bottom: insets.bottom + 16 }}>
+        <ScalePressable
+          onPress={openAdd}
+          activeScale={0.92}
           style={{
-            position: "absolute",
-            left: 20,
-            right: 20,
-            bottom: insets.bottom + 16,
             height: 54,
             borderRadius: 100,
             backgroundColor: isDark ? "#1E4A12" : accentRing,
@@ -994,8 +972,8 @@ export default function ProgressScreen() {
         >
           <Plus size={22} color="#FFF" />
           <Text style={{ fontFamily: fonts.labelBold, fontSize: 16, color: "#FFF" }}>Add entry</Text>
-        </View>
-      </ScalePressable>
+        </ScalePressable>
+      </View>
 
       {/* ── Entry sheet ── */}
       <AdaptiveSheet

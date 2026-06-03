@@ -67,7 +67,7 @@ export function NutritionDashboard() {
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const isToday = selectedDate === todayKey();
-  const { data, loading, error, coachHistory, historyLoading, refetch, refetchCoachHistory, optimisticUpdateMeal } = useNutritionDay(selectedDate);
+  const { data, loading, error, coachHistory, historyLoading, recentLogs, recentLogsLoading, refetch, refetchCoachHistory, refetchRecentLogs, optimisticUpdateMeal } = useNutritionDay(selectedDate);
 
   const [activeMeal, setActiveMeal] = useState<MealSlotName | null>(null);
   const [showAllCoach, setShowAllCoach] = useState(false);
@@ -117,11 +117,11 @@ export function NutritionDashboard() {
     try {
       setRefreshing(true);
       clearApiCache();
-      await Promise.all([refetch(), refetchCoachHistory()]);
+      await Promise.all([refetch(), refetchCoachHistory(), refetchRecentLogs()]);
     } finally {
       setRefreshing(false);
     }
-  }, [refetch, refetchCoachHistory, refreshing]);
+  }, [refetch, refetchCoachHistory, refetchRecentLogs, refreshing]);
 
   const serializeMealItems = (items: MealItem[]): string => {
     if (items.length === 0) return "";
@@ -170,6 +170,8 @@ export function NutritionDashboard() {
         setActiveMeal(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success(`${mealLabel} saved`, `${items.length} item${items.length === 1 ? "" : "s"} logged.`);
+        // Surface the day in "Recent logs" — summary list, not the day view, so no race.
+        void refetchRecentLogs();
 
         // Do NOT refetch here. The optimistic update already reflects exactly what we
         // saved; an immediate refetch was racing the just-committed write and wiping
@@ -184,7 +186,7 @@ export function NutritionDashboard() {
         setSavingMeal(false);
       }
     },
-    [activeMeal, activeSlotData?.label, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, savingMeal, token, toast],
+    [activeMeal, activeSlotData?.label, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, refetchRecentLogs, savingMeal, token, toast],
   );
 
 
@@ -526,6 +528,89 @@ export function NutritionDashboard() {
             <MealCard slot={meals.dinner} onPressAdd={isToday ? () => setActiveMeal("dinner") : undefined} />
           </View>
         </View>
+
+        {/* ── Your Recent Logs ── */}
+        {(recentLogsLoading || recentLogs.length > 0) && (
+          <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  backgroundColor: p.accentSoft,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Calendar size={18} color={p.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary }}>
+                  Your recent logs
+                </Text>
+                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+                  Days you've logged meals — tap to view
+                </Text>
+              </View>
+            </View>
+
+            {recentLogsLoading && recentLogs.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: 24 }}>
+                <ActivityIndicator size="small" color={p.accent} />
+              </View>
+            ) : (
+              <View style={{ borderRadius: 22, backgroundColor: p.cardSage, overflow: "hidden" }}>
+                {recentLogs.slice(0, 12).map((entry, idx) => {
+                  const active = entry.dateKey === selectedDate;
+                  return (
+                    <Pressable
+                      key={entry.logId}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedDate(entry.dateKey);
+                      }}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingHorizontal: 16,
+                        paddingVertical: 14,
+                        backgroundColor: active ? p.accentSoft : pressed ? p.inputBg : "transparent",
+                        borderTopWidth: idx === 0 ? 0 : 1,
+                        borderTopColor: p.divider,
+                      })}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+                          {formatDateNav(entry.dateKey)}
+                        </Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 2 }}>
+                          {entry.summary}
+                        </Text>
+                      </View>
+                      {entry.hasFeedback ? (
+                        <View
+                          style={{
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            borderRadius: 100,
+                            backgroundColor: p.successSoft,
+                          }}
+                        >
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.success }}>
+                            Coach replied
+                          </Text>
+                        </View>
+                      ) : null}
+                      <ChevronRight size={18} color={p.textMuted} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* ── Coach Response Section ── */}
         <View style={{ paddingHorizontal: 20 }}>

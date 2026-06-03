@@ -1,10 +1,10 @@
-import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { CHAT_ACTION_MARK_READ_ID, CHAT_ACTION_REPLY_ID } from "@/lib/localNotifications";
+import { getNotifications } from "@/lib/notifications";
 
 export const BACKGROUND_NOTIFICATION_TASK = "ph-chat-reply-background";
 
@@ -108,7 +108,8 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
 
 export async function registerBackgroundNotificationTask(): Promise<void> {
   if (Platform.OS === "web") return;
-  if (typeof Notifications.registerTaskAsync !== "function") return;
+  const Notifications = (await getNotifications()) as { registerTaskAsync?: (name: string) => Promise<void> } | null;
+  if (typeof Notifications?.registerTaskAsync !== "function") return;
   try {
     await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
   } catch {

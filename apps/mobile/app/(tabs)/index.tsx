@@ -321,7 +321,13 @@ const HomeScreen = memo(function HomeScreen() {
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const programTier = useAppSelector((s) => s.user.programTier);
   const hasTeam = appRole === "team" || appRole === "adult_athlete_team" || appRole === "youth_athlete_team_guardian";
-  const showTracking = hasTeam || appRole === "adult_athlete" || appRole === "coach" || capabilities?.runTracking === true;
+  // Match the tab gate (filterTabsByCapabilities): tracking is shown only when the
+  // user actually has a tracking capability. Otherwise a basic-plan adult sees a home
+  // card that opens a Tracking screen with no tab and mostly-locked content.
+  const canTrack = Boolean(
+    capabilities?.progressTracking || capabilities?.teamTracking || capabilities?.runTracking,
+  );
+  const showTracking = hasTeam || appRole === "coach" || canTrack;
 
   const greeting = useMemo(() => getGreeting(), []);
   const motivation = useMemo(() => getDailyMotivation(), []);
@@ -393,9 +399,10 @@ const HomeScreen = memo(function HomeScreen() {
   }, [queryClient, reloadHomeContent]);
 
   const navigateToTracking = useCallback(() => {
+    if (!showTracking) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push("/(tabs)/tracking" as any);
-  }, [router]);
+  }, [router, showTracking]);
 
   const navigateToProgress = useCallback(() => {
     if (capabilities?.progressTracking === false) return;
@@ -404,9 +411,10 @@ const HomeScreen = memo(function HomeScreen() {
   }, [router, capabilities]);
 
   const navigateToTracking2 = useCallback(() => {
+    if (!showTracking) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/(tabs)/tracking" as any);
-  }, [router]);
+  }, [router, showTracking]);
 
   const navigateToSchedule = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

@@ -214,22 +214,6 @@ export default function WellbeingScreen() {
   const token = useAppSelector((s) => s.user.token);
   const capabilities = useAppSelector((s) => s.user.capabilities);
 
-  if (capabilities?.wellbeing === false) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <ArrowLeft
-          size={20}
-          color={p.textMuted}
-          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
-          onPress={() => router.back()}
-        />
-        <AlertTriangle size={32} color={p.textMuted} />
-        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
-          Not available on your plan
-        </Text>
-      </View>
-    );
-  }
   const { logs, todayLog, isLoading, isSaving, error, loadLogs, saveLog } = useWellbeingData(token);
 
   const [mood, setMood] = useState(todayLog?.mood ?? 3);
@@ -304,6 +288,25 @@ export default function WellbeingScreen() {
   const recentLogs = [...logs]
     .sort((a, b) => (b.dateKey ?? "").localeCompare(a.dateKey ?? ""))
     .slice(0, 7);
+
+  // Gate AFTER all hooks (incl. useWellbeingData) so the hook count is stable across
+  // the async capabilities hydration — otherwise React throws "rendered fewer hooks".
+  if (capabilities?.wellbeing === false) {
+    return (
+      <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <ArrowLeft
+          size={20}
+          color={p.textMuted}
+          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
+          onPress={() => router.back()}
+        />
+        <AlertTriangle size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

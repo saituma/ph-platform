@@ -79,6 +79,35 @@ export type CoachFeedbackEntry = {
   updatedAt: string;
 };
 
+export type RecentLogEntry = {
+  logId: number;
+  dateKey: string;
+  summary: string;
+  hasFeedback: boolean;
+};
+
+const MEAL_SUMMARY_FIELDS: { key: string; label: string }[] = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" },
+  { key: "snacks", label: "Snacks" },
+  { key: "snacksMorning", label: "Snacks" },
+  { key: "snacksAfternoon", label: "Snacks" },
+  { key: "snacksEvening", label: "Snacks" },
+];
+
+function summarizeLog(log: any): string {
+  const present = new Set<string>();
+  for (const { key, label } of MEAL_SUMMARY_FIELDS) {
+    const value = log?.[key];
+    if (typeof value === "string" && value.trim() && value.trim().toLowerCase() !== "yes") {
+      present.add(label);
+    }
+  }
+  const labels = Array.from(present);
+  return labels.length ? labels.join(" · ") : "Logged";
+}
+
 async function fireLocalNotification(title: string, body: string, data?: Record<string, string>) {
   try {
     const { getNotifications } = await import("@/lib/notifications");
@@ -113,6 +142,8 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [coachHistory, setCoachHistory] = useState<CoachFeedbackEntry[]>([]);
+  const [recentLogs, setRecentLogs] = useState<RecentLogEntry[]>([]);
+  const [recentLogsLoading, setRecentLogsLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);
   const initialLoadDone = useRef(false);
   const fetchData = useCallback(async () => {
@@ -304,9 +335,51 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
     }
   }, [token, athleteUserId]);
 
+  // The athlete's own logged days (regardless of coach feedback), so they can see
+  // and jump to past entries instead of being stuck on an empty "Today".
+  const fetchRecentLogs = useCallback(async () => {
+    if (!token) {
+      setRecentLogsLoading(false);
+      return;
+    }
+    try {
+      setRecentLogsLoading(true);
+      const end = new Date();
+      const start = new Date(end);
+      start.setDate(start.getDate() - 30);
+      const fromKey = start.toISOString().slice(0, 10);
+      const toKey = end.toISOString().slice(0, 10);
+
+      const res = await apiRequest<{ logs: any[] }>(
+        `/nutrition/logs?userId=${athleteUserId || "me"}&from=${fromKey}&to=${toKey}&limit=60`,
+        { token, suppressLog: true, forceRefresh: true },
+      );
+
+      const entries = (res.logs ?? [])
+        .filter((log: any) => typeof log?.dateKey === "string")
+        .sort((a: any, b: any) => String(b.dateKey).localeCompare(String(a.dateKey)))
+        .map((log: any) => ({
+          logId: log.id,
+          dateKey: log.dateKey as string,
+          summary: summarizeLog(log),
+          hasFeedback: Boolean(
+            (typeof log.coachFeedback === "string" && log.coachFeedback.trim()) ||
+              (typeof log.coachFeedbackMediaUrl === "string" && log.coachFeedbackMediaUrl.trim()),
+          ),
+        }));
+
+      setRecentLogs(entries);
+    } catch {
+      setRecentLogs([]);
+    } finally {
+      setRecentLogsLoading(false);
+    }
+  }, [token, athleteUserId]);
+
   useEffect(() => {
     void fetchCoachHistory();
-  }, [fetchCoachHistory]);
+    void fetchRecentLogs();
+  }, [fetchCoachHistory, fetchRecentLogs]);
 
   // Refetch the day whenever the screen regains focus, so a meal logged elsewhere
   // (or while the screen was backgrounded) shows up without restarting the app.
@@ -314,7 +387,8 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   useFocusEffect(
     useCallback(() => {
       void fetchData();
-    }, [fetchData]),
+      void fetchRecentLogs();
+    }, [fetchData, fetchRecentLogs]),
   );
 
   // Socket listeners + local push notification on feedback
@@ -372,8 +446,11 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
     error,
     coachHistory,
     historyLoading,
+    recentLogs,
+    recentLogsLoading,
     refetch: fetchData,
     refetchCoachHistory: fetchCoachHistory,
+    refetchRecentLogs: fetchRecentLogs,
     optimisticUpdateMeal,
   };
 }
