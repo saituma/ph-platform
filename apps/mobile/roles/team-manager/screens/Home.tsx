@@ -392,20 +392,14 @@ export default function TeamManagerHomeScreen() {
                   icon={BarChart3}
                   label="Stats"
                   accent={p.danger}
-                  onPress={() =>
-                    router.push("/(tabs)/tracking/social" as any)
-                  }
+                  onPress={() => router.push("/team-manager/leaderboard" as any)}
                 />
                 <ActionRow
                   icon={Settings}
                   label="Team Settings"
                   accent={p.textMuted}
                   isLast
-                  onPress={() =>
-                    router.push(
-                      "/(tabs)/tracking/team-settings" as any,
-                    )
-                  }
+                  onPress={() => router.push("/team-manager/settings" as any)}
                 />
               </View>
             </View>
@@ -644,7 +638,7 @@ function LeaderboardPreview({
           Top Performers
         </Text>
         <Pressable
-          onPress={() => router.push("/(tabs)/tracking/social" as any)}
+          onPress={() => router.push("/team-manager/leaderboard" as any)}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <Text

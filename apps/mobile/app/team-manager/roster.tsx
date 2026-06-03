@@ -10,12 +10,10 @@ import {
 import { router } from "expo-router";
 import {
   Users,
-  UserPlus,
   ChevronRight,
   Search,
   XCircle,
   AlertCircle,
-  Plus,
 } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -157,10 +155,6 @@ export default function TeamManagerRosterScreen() {
 
   const isInitialLoading = loading && !data;
 
-  const goAddAthlete = useCallback(() => {
-    router.push("/team-manager/add-athlete" as any);
-  }, []);
-
   if (!isTeamManager) {
     return <ReplaceOnce href="/(tabs)" />;
   }
@@ -204,28 +198,6 @@ export default function TeamManagerRosterScreen() {
                 Roster
               </Text>
             </View>
-
-            {/* Add athlete button in header */}
-            <Pressable
-              onPress={goAddAthlete}
-              accessibilityLabel="Add athlete"
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 6,
-                paddingHorizontal: 14,
-                paddingVertical: 9,
-                borderRadius: 100,
-                backgroundColor: p.accent,
-                opacity: pressed ? 0.82 : 1,
-                transform: [{ scale: pressed ? 0.95 : 1 }],
-              })}
-            >
-              <UserPlus size={16} color={p.buttonPrimaryText} />
-              <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
-                Add Athlete
-              </Text>
-            </Pressable>
           </View>
 
           <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", lineHeight: 20, color: p.textSecondary }}>
@@ -355,29 +327,8 @@ export default function TeamManagerRosterScreen() {
               >
                 {search
                   ? "Try a different name"
-                  : "Add your first athlete to get started."}
+                  : "Athletes will appear here once they join your team."}
               </Text>
-              {!search && (
-                <Pressable
-                  onPress={goAddAthlete}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 7,
-                    marginTop: 18,
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    borderRadius: 100,
-                    backgroundColor: p.accent,
-                    opacity: pressed ? 0.82 : 1,
-                  })}
-                >
-                  <UserPlus size={16} color={p.buttonPrimaryText} />
-                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
-                    Add First Athlete
-                  </Text>
-                </Pressable>
-              )}
             </View>
           ) : (
             <>
@@ -402,27 +353,6 @@ export default function TeamManagerRosterScreen() {
         </View>
       </ThemedScrollView>
       </KeyboardAvoidingView>
-
-      {/* ── Floating Add Button ── */}
-      <Pressable
-        onPress={goAddAthlete}
-        accessibilityLabel="Add athlete"
-        style={({ pressed }) => ({
-          position: "absolute",
-          right: 20,
-          bottom: insets.bottom + 82,
-          width: 58,
-          height: 58,
-          borderRadius: 29,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: p.accent,
-          opacity: pressed ? 0.85 : 1,
-          transform: [{ scale: pressed ? 0.94 : 1 }],
-        })}
-      >
-        <Plus size={28} color={p.buttonPrimaryText} />
-      </Pressable>
     </View>
   );
 }

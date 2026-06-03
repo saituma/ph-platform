@@ -3,7 +3,6 @@ import { Animated, Image, Pressable, RefreshControl, ScrollView, View } from "re
 import { router } from "expo-router";
 import {
   Users,
-  UserPlus,
   Megaphone,
   Calendar,
   Trophy,
@@ -150,34 +149,8 @@ export default function TeamManagerManageScreen() {
               )}
             </View>
 
-            {/* ── Add Athlete CTA ── */}
+            {/* ── Roster CTA ── */}
             <View style={{ flexDirection: "row", gap: 10 }}>
-              <Pressable
-                onPress={() => router.push("/team-manager/add-athlete" as any)}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 7,
-                  backgroundColor: p.accent,
-                  paddingHorizontal: 18,
-                  paddingVertical: 11,
-                  borderRadius: 100,
-                  opacity: pressed ? 0.82 : 1,
-                  transform: [{ scale: pressed ? 0.96 : 1 }],
-                })}
-              >
-                <UserPlus size={15} color={p.buttonPrimaryText} />
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontFamily: "Outfit-Bold",
-                    color: p.buttonPrimaryText,
-                  }}
-                >
-                  Add Athlete
-                </Text>
-              </Pressable>
-
               <Pressable
                 onPress={() => router.push("/team-manager/roster")}
                 style={({ pressed }) => ({
@@ -356,13 +329,6 @@ export default function TeamManagerManageScreen() {
                   accent={p.accent}
                   isFirst
                   onPress={() => router.push("/team-manager/roster")}
-                />
-                <ManageRow
-                  icon={UserPlus}
-                  label="Add Athlete"
-                  subtitle="Invite a new athlete to your team"
-                  accent={p.info}
-                  onPress={() => router.push("/team-manager/add-athlete" as any)}
                 />
                 <ManageRow
                   icon={Megaphone}

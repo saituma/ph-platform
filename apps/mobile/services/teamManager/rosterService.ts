@@ -68,34 +68,6 @@ export type AthleteDetailResponse = {
   growthNotes?: string | null;
 };
 
-export type CreateAthleteInput = {
-  name: string;
-  username: string;
-  age: number;
-  teamId?: number;
-  birthDate?: string | null;
-  customPassword?: string;
-};
-
-export type CreateAthleteResult = {
-  athleteId: number;
-  userId: number;
-  email: string;
-  temporaryPassword: string;
-  teamSlug: string;
-};
-
-export async function createAthlete(
-  token: string,
-  data: CreateAthleteInput,
-): Promise<CreateAthleteResult> {
-  return apiRequest<CreateAthleteResult>("/team/roster/athletes", {
-    method: "POST",
-    token,
-    body: data,
-  });
-}
-
 export async function fetchRoster(token: string, forceRefresh = false): Promise<RosterResponse> {
   return apiRequest<RosterResponse>("/team/roster", {
     token,
