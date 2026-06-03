@@ -28,9 +28,16 @@ import {
   teamPostCommentsCreate,
   teamPostCommentDelete,
 } from "../controllers/social-posts.controller";
+import {
+  teamSocialSettingsGet,
+  teamSocialSettingsUpdate,
+} from "../controllers/team-social-settings.controller";
 
 const router = Router();
 // ... (rest of imports or code if needed, but I will target the block)
+
+router.get("/teams/social/settings", requireAuth, requireFeature("social_feed"), teamSocialSettingsGet);
+router.patch("/teams/social/settings", requireAuth, requireFeature("social_feed"), teamSocialSettingsUpdate);
 
 router.get("/teams/social/leaderboard", requireAuth, requireFeature("social_feed"), teamLeaderboard);
 router.get("/teams/social/directory", requireAuth, requireFeature("social_feed"), teamDirectory);

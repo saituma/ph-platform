@@ -52,7 +52,7 @@ export async function teamPostsList(req: Request, res: Response) {
 export async function teamPostsCreate(req: Request, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
   try {
-    await assertTeamMemberSocial(req.user.id, req.user.role);
+    const { teamId } = await assertTeamMemberSocial(req.user.id, req.user.role);
     const parsed = createPostSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid payload", details: parsed.error.flatten() });
@@ -60,6 +60,7 @@ export async function teamPostsCreate(req: Request, res: Response) {
     const item = await createSocialPost({
       userId: req.user.id,
       ...parsed.data,
+      teamId,
     });
     return res.status(200).json({ item });
   } catch (err) {

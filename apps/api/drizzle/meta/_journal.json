@@ -1184,6 +1184,13 @@
       "when": 1780100000000,
       "tag": "0168_team_access_tier_override",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1780200000000,
+      "tag": "0169_team_social",
+      "breakpoints": true
     }
   ]
 }

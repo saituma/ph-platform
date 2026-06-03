@@ -24,11 +24,11 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import {
-  fetchPrivacySettings,
-  updatePrivacySettings,
-  type PrivacySettings,
-  DEFAULT_PRIVACY_SETTINGS,
-} from "@/services/tracking/socialService";
+  fetchTeamSocialSettings,
+  updateTeamSocialSettings,
+  type TeamSocialSettings,
+  DEFAULT_TEAM_SOCIAL_SETTINGS,
+} from "@/services/team/teamSocialSettings";
 
 export default function TeamSettingsScreen() {
   const p = useAdminPastel();
@@ -37,15 +37,15 @@ export default function TeamSettingsScreen() {
   const isTeamManager = appRole === "team_manager";
   const canManageTeamTracking = Boolean(capabilities?.teamTracking);
 
-  const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
+  const [settings, setSettings] = useState<TeamSocialSettings>(DEFAULT_TEAM_SOCIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !isTeamManager) return;
     try {
-      const res = await fetchPrivacySettings(token);
-      setSettings(res.settings ?? DEFAULT_PRIVACY_SETTINGS);
+      const res = await fetchTeamSocialSettings(token);
+      setSettings(res.settings ?? DEFAULT_TEAM_SOCIAL_SETTINGS);
     } catch {
       // silent
     } finally {
@@ -60,13 +60,13 @@ export default function TeamSettingsScreen() {
   );
 
   const toggleSetting = useCallback(
-    async (key: keyof PrivacySettings, value: boolean) => {
+    async (key: keyof TeamSocialSettings, value: boolean) => {
       if (!token || !isTeamManager) return;
       setSaving(key);
       const prev = { ...settings };
       setSettings((s) => ({ ...s, [key]: value }));
       try {
-        const res = await updatePrivacySettings(token, { [key]: value });
+        const res = await updateTeamSocialSettings(token, { [key]: value });
         if (res.settings) setSettings(res.settings);
       } catch {
         setSettings(prev);
@@ -78,7 +78,7 @@ export default function TeamSettingsScreen() {
   );
 
   const TOGGLES: {
-    key: keyof PrivacySettings;
+    key: keyof TeamSocialSettings;
     icon: React.ComponentType<{ size: number; color: string }>;
     label: string;
     subtitle: string;

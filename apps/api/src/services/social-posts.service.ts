@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   socialPostTable,
@@ -18,6 +18,7 @@ export async function createSocialPost(input: {
   mediaUrl?: string;
   mediaType?: string;
   visibility?: string;
+  teamId?: number | null;
 }) {
   const inserted = await db
     .insert(socialPostTable)
@@ -27,6 +28,7 @@ export async function createSocialPost(input: {
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,
       visibility: input.visibility ?? "public",
+      teamId: input.teamId ?? null,
     })
     .returning({ id: socialPostTable.id });
 
@@ -99,8 +101,23 @@ export async function listSocialPosts(input: {
   const limit = Math.min(50, input.limit || 20);
   const cursor = input.cursor;
 
-  const scopeFilter =
-    input.teamId != null ? eq(athleteTable.teamId, input.teamId) : eq(athleteTable.athleteType, "adult");
+  const cursorFilter = cursor ? lt(socialPostTable.id, cursor) : sql`true`;
+  // Team feed: scope by the post's stamped team OR the author's athlete team (covers posts created
+  // before team_id existed) and don't require the author to be an athlete with social opted-in — so
+  // a team manager's posts appear. Adults feed keeps the per-author athlete + opt-in gate.
+  const where =
+    input.teamId != null
+      ? and(
+          or(eq(socialPostTable.teamId, input.teamId), eq(athleteTable.teamId, input.teamId)),
+          eq(socialPostTable.visibility, "public"),
+          cursorFilter,
+        )
+      : and(
+          eq(athleteTable.athleteType, "adult"),
+          eq(socialPostTable.visibility, "public"),
+          eq(socialPrivacySettingsTable.socialEnabled, true),
+          cursorFilter,
+        );
 
   const rows = await db
     .select({
@@ -115,16 +132,9 @@ export async function listSocialPosts(input: {
     })
     .from(socialPostTable)
     .innerJoin(userTable, eq(userTable.id, socialPostTable.userId))
-    .innerJoin(athleteTable, eq(athleteTable.userId, socialPostTable.userId))
-    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, socialPostTable.userId))
-    .where(
-      and(
-        scopeFilter,
-        eq(socialPostTable.visibility, "public"),
-        eq(socialPrivacySettingsTable.socialEnabled, true),
-        cursor ? lt(socialPostTable.id, cursor) : sql`true`,
-      ),
-    )
+    .leftJoin(athleteTable, eq(athleteTable.userId, socialPostTable.userId))
+    .leftJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, socialPostTable.userId))
+    .where(where)
     .orderBy(desc(socialPostTable.id))
     .limit(limit + 1);
 

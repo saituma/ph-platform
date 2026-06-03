@@ -1910,12 +1910,36 @@ export const socialPostTable = pgTable(
     mediaUrl: varchar("media_url", { length: 500 }),
     mediaType: varchar("media_type", { length: 20 }), // 'image', 'video'
     visibility: varchar("visibility", { length: 20 }).notNull().default("public"), // 'public' | 'private'
+    /** Team the post belongs to. Stamped for team posts so non-athlete authors (managers) appear in the feed. */
+    teamId: integer("team_id").references(() => teamTable.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
     userIdx: index("social_posts_user_idx").on(table.userId),
     createdAtIdx: index("social_posts_created_at_idx").on(table.createdAt),
+    teamIdx: index("social_posts_team_idx").on(table.teamId),
+  }),
+);
+
+/** Team-level social policy set by the team manager — applies to all team athletes. */
+export const teamSocialSettingsTable = pgTable(
+  "team_social_settings",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teamTable.id, { onDelete: "cascade" }),
+    socialEnabled: boolean("social_enabled").notNull().default(false),
+    shareRunsPublicly: boolean("share_runs_publicly").notNull().default(false),
+    allowComments: boolean("allow_comments").notNull().default(true),
+    showInLeaderboard: boolean("show_in_leaderboard").notNull().default(true),
+    showInDirectory: boolean("show_in_directory").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    teamUnique: uniqueIndex("team_social_settings_team_unique").on(table.teamId),
   }),
 );
 
