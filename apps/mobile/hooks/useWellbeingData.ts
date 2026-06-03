@@ -25,7 +25,7 @@ export type WellbeingLogInput = {
   notes?: string | null;
 };
 
-export function useWellbeingData(token: string | null) {
+export function useWellbeingData(token: string | null, athleteUserIdOverride?: number | null) {
   const [logs, setLogs] = useState<WellbeingLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +41,9 @@ export function useWellbeingData(token: string | null) {
       setError(null);
       try {
         const res = await apiRequest<{ logs?: WellbeingLog[] }>(
-          "/wellbeing/logs",
+          athleteUserIdOverride != null
+            ? `/wellbeing/logs?userId=${athleteUserIdOverride}`
+            : "/wellbeing/logs",
           { token, forceRefresh: force },
         );
         setLogs(res.logs ?? []);
@@ -51,7 +53,7 @@ export function useWellbeingData(token: string | null) {
         setIsLoading(false);
       }
     },
-    [token],
+    [token, athleteUserIdOverride],
   );
 
   const saveLog = useCallback(

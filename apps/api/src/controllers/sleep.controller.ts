@@ -5,6 +5,7 @@ import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { db } from "../db";
 import { sleepLogsTable, athleteTable, guardianTable } from "../db/schema";
 import { isTrainingStaff } from "../lib/user-roles";
+import { canManageAthleteUser } from "../services/team-membership";
 import { getSocketServer } from "../socket-hub";
 
 const sleepLogSchema = z.object({
@@ -85,6 +86,14 @@ export async function listSleepLogs(req: Request, res: Response) {
       } else {
         return res.status(403).json({ error: "Forbidden" });
       }
+    }
+    // Team managers may only view athletes on a team they manage.
+    if (
+      targetUserId !== req.user.id &&
+      req.user.role === "team_coach" &&
+      !(await canManageAthleteUser(req.user.id, targetUserId))
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     const limitRaw = req.query.limit ? Number(req.query.limit) : 50;

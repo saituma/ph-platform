@@ -14,6 +14,7 @@ import {
 } from "../db/schema";
 import { createPushIntent } from "../services/outbox.service";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
+import { canManageAthleteUser } from "../services/team-membership";
 import { getSocketServer } from "../socket-hub";
 
 const targetSchema = z.object({
@@ -200,6 +201,14 @@ export async function getTargets(req: Request, res: Response) {
   if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
     return res.status(403).json({ error: "Forbidden" });
   }
+  // Team managers may only view athletes on a team they manage.
+  if (
+    targetUserId !== req.user.id &&
+    req.user.role === "team_coach" &&
+    !(await canManageAthleteUser(req.user.id, targetUserId))
+  ) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
 
   const [targets] = await db
     .select()
@@ -219,6 +228,14 @@ export async function getNutritionOnboardingProfile(req: Request, res: Response)
   }
 
   if (targetUserId !== req.user.id && !isTrainingStaff(req.user.role)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  // Team managers may only view athletes on a team they manage.
+  if (
+    targetUserId !== req.user.id &&
+    req.user.role === "team_coach" &&
+    !(await canManageAthleteUser(req.user.id, targetUserId))
+  ) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -357,6 +374,14 @@ export async function listLogs(req: Request, res: Response) {
       } else {
         return res.status(403).json({ error: "Forbidden" });
       }
+    }
+    // Team managers may only view athletes on a team they manage.
+    if (
+      targetUserId !== req.user.id &&
+      req.user.role === "team_coach" &&
+      !(await canManageAthleteUser(req.user.id, targetUserId))
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     const limitRaw = req.query.limit ? Number(req.query.limit) : 50;

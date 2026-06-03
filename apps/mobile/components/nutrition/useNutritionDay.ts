@@ -90,10 +90,12 @@ async function fireLocalNotification(title: string, body: string, data?: Record<
   } catch {}
 }
 
-export function useNutritionDay(dateKey?: string) {
+export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number | null) {
   const { token } = useAppSelector((s) => s.user);
   const myUserId = useAppSelector((s) => s.user.profile.id);
-  const { actingUserId: athleteUserId } = useActingUser();
+  const { actingUserId } = useActingUser();
+  // Explicit override (e.g. a manager viewing one of their athletes) wins over the acting user.
+  const athleteUserId = athleteUserIdOverride ?? actingUserId;
   const { socket } = useSocket();
   const today = dateKey || new Date().toISOString().slice(0, 10);
 

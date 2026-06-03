@@ -20,6 +20,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Skeleton } from "@/components/Skeleton";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
+import { AthleteHealthDetail } from "@/components/teamManager/AthleteHealthDetail";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import {
   fetchAthleteDetail,
@@ -477,6 +478,9 @@ export default function AthleteDetailScreen() {
                 )}
               </Pressable>
             </View>
+
+            {/* Health detail — read-only nutrition / sleep / wellbeing for this athlete */}
+            {athlete?.userId ? <AthleteHealthDetail athleteUserId={athlete.userId} /> : null}
 
             {/* Danger zone card */}
             <View

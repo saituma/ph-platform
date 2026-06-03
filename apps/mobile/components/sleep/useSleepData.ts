@@ -47,10 +47,15 @@ function daysAgoKey(n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function useSleepData(range: "today" | "week" | "month" | "year" | "all" = "month") {
+export function useSleepData(
+  range: "today" | "week" | "month" | "year" | "all" = "month",
+  athleteUserIdOverride?: number | null,
+) {
   const { token } = useAppSelector((s) => s.user);
   const myUserId = useAppSelector((s) => s.user.profile.id);
-  const { actingUserId } = useActingUser();
+  const { actingUserId: rawActingUserId } = useActingUser();
+  // Explicit override (e.g. a manager viewing one of their athletes) wins over the acting user.
+  const actingUserId = athleteUserIdOverride ?? rawActingUserId;
   const { socket } = useSocket();
 
   const [logs, setLogs] = useState<SleepLog[]>([]);
