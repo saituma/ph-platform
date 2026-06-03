@@ -3,6 +3,12 @@ import { Router } from "express";
 import {
   getTeamRoster,
   getTeamRosterAthlete,
+  getTeamRosterAthleteAchievements,
+  getTeamRosterAthleteAttendance,
+  getTeamRosterAthleteInjuries,
+  getTeamRosterAthleteProgress,
+  getTeamRosterAthleteRuns,
+  getTeamRosterAthleteTraining,
   patchTeamRosterAthleteHandler,
   patchTeamRosterEmailSlug,
   postTeamRosterAthlete,
@@ -32,6 +38,44 @@ router.post(
   requireAuth,
   requireRole(["coach", "team_coach", "admin", "superAdmin"]),
   postTeamRosterAthleteResetPassword,
+);
+
+const readManagerRoles = ["coach", "team_coach", "admin", "superAdmin"] as const;
+router.get(
+  "/team/roster/athletes/:athleteId/runs",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteRuns,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/progress",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteProgress,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/attendance",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteAttendance,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/training",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteTraining,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/achievements",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteAchievements,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/injuries",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteInjuries,
 );
 router.post("/team/roster/athletes", requireAuth, requireRole(["coach", "admin", "superAdmin"]), postTeamRosterAthlete);
 router.patch(

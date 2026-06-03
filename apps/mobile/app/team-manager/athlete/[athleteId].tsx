@@ -479,8 +479,10 @@ export default function AthleteDetailScreen() {
               </Pressable>
             </View>
 
-            {/* Health detail — read-only nutrition / sleep / wellbeing for this athlete */}
-            {athlete?.userId ? <AthleteHealthDetail athleteUserId={athlete.userId} /> : null}
+            {/* Full read-only detail — training, attendance, logs & history for this athlete */}
+            {athleteId && athlete?.userId ? (
+              <AthleteHealthDetail athleteId={athleteId} athleteUserId={athlete.userId} />
+            ) : null}
 
             {/* Danger zone card */}
             <View
