@@ -6,7 +6,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
-import { getNotifications } from "@/lib/notifications";
 import { messagesApi } from "@/lib/apiClient/messages";
 import { subscribeMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
 import { parseReplyPrefix } from "@/lib/messages/reply";
@@ -24,7 +23,6 @@ import { useThreadsQuery } from "./messages/useThreadsQuery";
 import {
   getMessagesRolePrefix,
   messagesTabHref,
-  messagesThreadHref,
 } from "@/lib/messages/roleMessageRoutes";
 import type { TypingStatus } from "@/types/messages";
 import type { PendingAttachment } from "@/types/admin-messages";
@@ -836,40 +834,10 @@ export function useMessagesController(options?: {
     markGroupThreadRead,
   ]);
 
-  useEffect(() => {
-    let subscription: { remove: () => void } | null = null;
-    getNotifications().then((Notifications) => {
-      if (
-        !Notifications ||
-        typeof Notifications.addNotificationResponseReceivedListener !==
-          "function"
-      )
-        return;
-      subscription = Notifications.addNotificationResponseReceivedListener(
-        (response) => {
-          const actionId = response.actionIdentifier;
-          if (actionId !== "expo.modules.notifications.actions.DEFAULT") {
-            return;
-          }
-          const data = response.notification.request.content.data as
-            | { threadId?: string }
-            | undefined;
-          const threadId = data?.threadId;
-          if (!threadId) return;
-          const thread = threads.find((item) => item.id === threadId);
-          if (thread) {
-            openThread(thread);
-            return;
-          }
-          routerRef.current.push(messagesThreadHref(rolePrefix, threadId));
-        },
-      );
-    });
-
-    return () => {
-      subscription?.remove();
-    };
-  }, [markDirectThreadReadById, openThread, threads, rolePrefix]);
+  // Notification-tap routing is owned globally by usePushNotificationResponses
+  // (mounted once in the tab layout, with a handled-ref guard). A second listener
+  // here re-fired per inbox/thread mount and push-stacked duplicate thread routes,
+  // which made Back bounce between copies forever — so it lives in exactly one place.
 
   useEffect(() => {
     if (Platform.OS !== "android" || !currentThreadId) return;
