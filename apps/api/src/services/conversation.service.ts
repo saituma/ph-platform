@@ -21,6 +21,7 @@ import { runBestEffortBackgroundTask } from "../lib/background-task";
 import { isSharedInboxViewer } from "../lib/messaging-access";
 import { getAdminCoachIds, getTeamManagersForUser } from "./message.service";
 import { publicDisplayName } from "../lib/display-name";
+import { getManagedTeamIds } from "./team-membership";
 
 const log = createLogger({ component: "conversation-service" });
 
@@ -260,6 +261,46 @@ async function attachConversationReactions<T extends { id: number }>(rows: T[]):
 
 type ReactionSummary = { emoji: string; count: number; userIds: number[] };
 
+async function peerBlockedByCurrentManagerScope(viewerId: number, peerUserId: number): Promise<boolean> {
+  const managedTeamIds = await getManagedTeamIds(viewerId);
+  if (!managedTeamIds.length) return false;
+
+  const [viewer] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, viewerId)).limit(1);
+  if (await isSharedInboxViewer(viewerId, viewer?.role ?? null)) return false;
+
+  const [peerAthlete] = await db
+    .select({ teamId: athleteTable.teamId })
+    .from(athleteTable)
+    .where(eq(athleteTable.userId, peerUserId))
+    .limit(1);
+  if (!peerAthlete) return false;
+  return peerAthlete.teamId == null || !managedTeamIds.includes(peerAthlete.teamId);
+}
+
+async function filterPeersForCurrentManagerScope<T extends { peerUserId: number }>(
+  viewerId: number,
+  rows: T[],
+): Promise<T[]> {
+  const managedTeamIds = await getManagedTeamIds(viewerId);
+  if (!managedTeamIds.length || !rows.length) return rows;
+
+  const [viewer] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, viewerId)).limit(1);
+  if (await isSharedInboxViewer(viewerId, viewer?.role ?? null)) return rows;
+
+  const peerIds = Array.from(new Set(rows.map((row) => row.peerUserId)));
+  const athleteRows = await db
+    .select({ userId: athleteTable.userId, teamId: athleteTable.teamId })
+    .from(athleteTable)
+    .where(inArray(athleteTable.userId, peerIds));
+  const athleteTeamByUserId = new Map(athleteRows.map((row) => [row.userId, row.teamId]));
+
+  return rows.filter((row) => {
+    if (!athleteTeamByUserId.has(row.peerUserId)) return true;
+    const teamId = athleteTeamByUserId.get(row.peerUserId);
+    return teamId != null && managedTeamIds.includes(teamId);
+  });
+}
+
 function safeLimit(value: unknown, fallback: number, max = 200) {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -304,6 +345,10 @@ export async function sendDirectMessage(input: {
 
   if (await hasUserBlockBetween(input.senderId, input.receiverId)) {
     throw new Error("USER_BLOCKED");
+  }
+
+  if (await peerBlockedByCurrentManagerScope(input.senderId, input.receiverId)) {
+    throw new Error("MESSAGING_DISABLED_FOR_TIER");
   }
 
   const adminIds = await getAdminCoachIds();
@@ -505,7 +550,7 @@ export async function listConversationThreadsForUser(userId: number, limit = 200
     .groupBy(conversationMessageTable.conversationId);
   const unreadByConversation = new Map<number, number>(unreadRows.map((r) => [r.conversationId, Number(r.unread)]));
 
-  return rows
+  const shaped = rows
     .filter((r) => Number.isFinite(r.peerUserId) && r.peerUserId > 0)
     .map((r) => {
       const last = lastByConversation.get(r.conversationId);
@@ -520,6 +565,7 @@ export async function listConversationThreadsForUser(userId: number, limit = 200
         updatedAt: (last?.createdAt ?? r.updatedAt).toISOString(),
       };
     });
+  return filterPeersForCurrentManagerScope(userId, shaped);
 }
 
 /** Messages of the direct conversation (userId, peerUserId), oldest→newest, with receipt + reaction data. */
@@ -529,6 +575,9 @@ export async function listConversationMessagesForPair(
   options?: { limit?: number; cursorId?: number },
 ) {
   if (await hasUserBlockBetween(userId, peerUserId)) {
+    return { messages: [], hasMore: false, nextCursor: null as number | null };
+  }
+  if (await peerBlockedByCurrentManagerScope(userId, peerUserId)) {
     return { messages: [], hasMore: false, nextCursor: null as number | null };
   }
   const key = directKeyFor(userId, peerUserId);
@@ -1063,13 +1112,20 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
     byConversation.set(row.conversationId, current);
   }
 
-  const entries = [...byConversation.entries()]
+  let entries = [...byConversation.entries()]
     .map(([conversationId, info]) => ({
       conversationId,
       updatedAt: info.updatedAt,
       userId: info.participantIds.find((id) => !visibleAdminIds.includes(id) && id !== coachId) ?? info.participantIds.find((id) => id !== coachId) ?? null,
     }))
     .filter((entry): entry is { conversationId: number; updatedAt: Date; userId: number } => entry.userId != null);
+  if (!sharedViewer) {
+    const filtered = await filterPeersForCurrentManagerScope(
+      coachId,
+      entries.map((entry) => ({ ...entry, peerUserId: entry.userId })),
+    );
+    entries = filtered.map(({ peerUserId: _peerUserId, ...entry }) => entry);
+  }
   if (!entries.length) return [];
 
   const conversationIds = entries.map((entry) => entry.conversationId);
