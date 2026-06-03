@@ -7,6 +7,7 @@ import { z } from "zod";
 import { env } from "./config/env";
 import { getDbOutageRemainingMs, isLikelyDatabaseConnectivityFailure } from "./lib/db-connectivity";
 import { createLogger } from "./lib/logger";
+import { isSharedInboxViewer } from "./lib/messaging-access";
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
@@ -420,7 +421,9 @@ export function initSocket(server: HttpServer) {
       log.info({ userId, socketId: socket.id, transport: transport.name }, "Socket transport upgraded");
     });
     socket.join(`user:${userId}`);
-    if (["admin", "coach", "superAdmin"].includes(socket.data.role as string)) {
+    // Shared-inbox oversight room. Membership-based (see isSharedInboxViewer) so a team
+    // manager is never in the global DM broadcast, regardless of their role string.
+    if (await isSharedInboxViewer(userId, socket.data.role as string | null)) {
       socket.join("admin:all");
     }
 

@@ -4,6 +4,7 @@ import { athleteTable, guardianTable, messageReceiptTable, messageTable, userTab
 import { getSocketServer } from "../../socket-hub";
 import { getAdminCoachIds, sendMessage } from "../message.service";
 import { getManagedTeamIds } from "../team-membership";
+import { isSharedInboxViewer } from "../../lib/messaging-access";
 import { attachDirectMessageReactions } from "../reaction.service";
 
 function asSafeLimit(value: unknown, fallback: number) {
@@ -26,15 +27,17 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
 
-  // Team managers should see their own athlete DMs, not a shared mailbox for
-  // every primary/co-manager/admin. Platform admins keep the shared inbox.
+  // Team managers see only their own athlete DMs, not a shared mailbox for every
+  // primary/co-manager/admin. Membership-based (isSharedInboxViewer) so this holds
+  // regardless of the manager's role string. Platform oversight staff keep the shared inbox.
   const [callerUser] = await db
     .select({ role: userTable.role })
     .from(userTable)
     .where(eq(userTable.id, coachId))
     .limit(1);
-  const isTeamCoach = callerUser?.role === "team_coach";
-  const visibleAdminIds = isTeamCoach ? [coachId] : adminIds;
+  const sharedViewer = await isSharedInboxViewer(coachId, callerUser?.role ?? null);
+  const isTeamManager = !sharedViewer;
+  const visibleAdminIds = sharedViewer ? adminIds : [coachId];
   const adminSet = new Set(visibleAdminIds);
 
   const athleteRows = await db
@@ -99,7 +102,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   if (!rawOtherUserIds.length) return [];
 
   let filteredOtherUserIds = rawOtherUserIds;
-  if (isTeamCoach) {
+  if (isTeamManager) {
     const managedTeamIds = await getManagedTeamIds(coachId);
     const teamAthleteRows = managedTeamIds.length
       ? await db
@@ -150,7 +153,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     // Platform admin inboxes historically collapse youth-athlete threads into
     // the guardian row. Team managers, however, are messaging team athletes
     // directly; collapsing here makes replies go to the guardian/co-manager id.
-    const otherId = isTeamCoach ? rawOtherId : athleteToGuardian.get(rawOtherId) ?? rawOtherId;
+    const otherId = isTeamManager ? rawOtherId : athleteToGuardian.get(rawOtherId) ?? rawOtherId;
     const latest = latestByRawUserId.get(rawOtherId);
     const preview = latest?.content ?? "Start the conversation";
     const latestAt = latest?.createdAt ?? stat.latestAt;
@@ -265,7 +268,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     const programTier = tierMap.get(id) ?? null;
     return {
       userId: id,
-      name: (isTeamCoach ? athleteName : guardianName) ?? user?.name ?? user?.email ?? "Unknown",
+      name: (isTeamManager ? athleteName : guardianName) ?? user?.name ?? user?.email ?? "Unknown",
       preview: info.preview,
       time: info.latestAt,
       unread: info.unread,
@@ -293,7 +296,7 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number, o
     .from(userTable)
     .where(eq(userTable.id, coachId))
     .limit(1);
-  const visibleAdminIds = callerUser?.role === "team_coach" ? [coachId] : adminIds;
+  const visibleAdminIds = (await isSharedInboxViewer(coachId, callerUser?.role ?? null)) ? adminIds : [coachId];
   const [guardian] = await db
     .select({ id: guardianTable.id })
     .from(guardianTable)
@@ -389,7 +392,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
     .from(userTable)
     .where(eq(userTable.id, coachId))
     .limit(1);
-  const visibleAdminIds = callerUser?.role === "team_coach" ? [coachId] : adminIds;
+  const visibleAdminIds = (await isSharedInboxViewer(coachId, callerUser?.role ?? null)) ? adminIds : [coachId];
 
   const otherUserIds = await resolveGuardianThreadUsers(userId);
   const readAt = new Date();
