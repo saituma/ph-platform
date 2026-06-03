@@ -28,6 +28,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 /** Registers expo-task-manager background location task at startup (before any screen). */
 import "@/lib/backgroundTask";
+/** Defines the headless chat-reply task so notification Reply/Mark Read works while the app is killed. */
+import "@/lib/backgroundNotificationTask";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Compose } from "@/lib/compose";

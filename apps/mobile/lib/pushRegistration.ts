@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api";
+import { registerBackgroundNotificationTask } from "@/lib/backgroundNotificationTask";
 import { setupNotificationChannels } from "@/lib/notificationSetup";
 import type { AppDispatch } from "@/store";
 import { setPushRegistration } from "@/store/slices";
@@ -117,6 +118,7 @@ export async function registerDevicePushToken({
 
   try {
     await setupNotificationChannels();
+    void registerBackgroundNotificationTask();
     const existingPermission = await Notifications.getPermissionsAsync();
     let permissionStatus = existingPermission.status;
 
