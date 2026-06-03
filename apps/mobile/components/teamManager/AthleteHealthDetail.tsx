@@ -5,21 +5,28 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSelector } from "@/store/hooks";
 import { useNutritionDay } from "@/components/nutrition/useNutritionDay";
 import { useSleepData } from "@/components/sleep/useSleepData";
-import { useWellbeingData } from "@/hooks/useWellbeingData";
 import {
   fetchAthleteAchievements,
   fetchAthleteAttendance,
+  fetchAthleteBookings,
+  fetchAthleteEngagement,
   fetchAthleteInjuries,
+  fetchAthleteNutritionCompliance,
   fetchAthleteProgress,
   fetchAthleteRuns,
   fetchAthleteTraining,
+  fetchAthleteWellbeing,
   type HistoryRange,
   type ManagerAchievements,
   type ManagerAttendance,
+  type ManagerBooking,
+  type ManagerEngagement,
   type ManagerInjury,
+  type ManagerNutritionCompliance,
   type ManagerProgressEntry,
   type ManagerRun,
   type ManagerTraining,
+  type ManagerWellbeing,
 } from "@/services/teamManager/athleteDataService";
 
 /**
@@ -38,15 +45,17 @@ export function AthleteHealthDetail({ athleteId, athleteUserId }: { athleteId: n
   return (
     <View style={{ gap: 14 }}>
       <RangeToggle range={range} onChange={setRange} />
+      <EngagementSection athleteId={athleteId} range={range} />
       <TrainingSection athleteId={athleteId} range={range} />
       <AchievementsSection athleteId={athleteId} />
       <AttendanceSection athleteId={athleteId} range={range} />
+      <BookingsSection athleteId={athleteId} range={range} />
       <RunsSection athleteId={athleteId} range={range} />
       <ProgressSection athleteId={athleteId} range={range} />
-      <InjuriesSection athleteId={athleteId} range={range} />
-      {showNutrition ? <NutritionSection athleteUserId={athleteUserId} /> : null}
+      {showNutrition ? <NutritionSection athleteId={athleteId} athleteUserId={athleteUserId} range={range} /> : null}
       {showSleep ? <SleepSection athleteUserId={athleteUserId} range={range} /> : null}
-      {showWellbeing ? <WellbeingSection athleteUserId={athleteUserId} range={range} /> : null}
+      {showWellbeing ? <WellbeingSection athleteId={athleteId} range={range} /> : null}
+      <InjuriesSection athleteId={athleteId} range={range} />
     </View>
   );
 }
@@ -172,12 +181,64 @@ function sleepRangeFor(range: HistoryRange): "week" | "month" | "all" {
   return range === "7d" ? "week" : range === "30d" ? "month" : "all";
 }
 
-function cutoffKey(range: HistoryRange): string | null {
-  if (range === "all") return null;
-  const days = range === "7d" ? 7 : 30;
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function EngagementSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
+  const { token } = useAppSelector((s) => s.user);
+  const { data, loading } = useAsyncData<ManagerEngagement>(
+    () => (token ? fetchAthleteEngagement(token, athleteId, range) : null),
+    [token, athleteId, range],
+  );
+  const rangeLabel = range === "7d" ? "last 7 days" : range === "30d" ? "last 30 days" : "all time";
+  return (
+    <SectionCard title="Engagement" subtitle={rangeLabel}>
+      {loading ? (
+        <Loading />
+      ) : data ? (
+        <View style={{ gap: 10 }}>
+          <StatRow label="Last active" value={data.lastActiveAt ? fmtDate(data.lastActiveAt) : "—"} />
+          <StatRow label="Sessions completed" value={`${data.counts.sessionsCompleted}`} />
+          <StatRow label="Runs" value={`${data.counts.runs}`} />
+          <StatRow label="Wellbeing check-ins" value={`${data.counts.wellbeingLogs}`} />
+          <StatRow label="Sleep logs" value={`${data.counts.sleepLogs}`} />
+          <StatRow label="Nutrition days logged" value={`${data.counts.nutritionDays}`} />
+          <StatRow label="Progress entries" value={`${data.counts.progressEntries}`} />
+          <StatRow
+            label="Attendance"
+            value={data.attendance.pct != null ? `${data.attendance.pct}% (${data.attendance.present}/${data.attendance.total})` : "—"}
+          />
+        </View>
+      ) : (
+        <Empty label="No engagement data." />
+      )}
+    </SectionCard>
+  );
+}
+
+function BookingsSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
+  const { token } = useAppSelector((s) => s.user);
+  const { data, loading } = useAsyncData<{ bookings: ManagerBooking[] }>(
+    () => (token ? fetchAthleteBookings(token, athleteId, range) : null),
+    [token, athleteId, range],
+  );
+  const bookings = data?.bookings ?? [];
+  return (
+    <SectionCard title="Session bookings" subtitle={bookings.length ? `${bookings.length} bookings` : undefined}>
+      {loading ? (
+        <Loading />
+      ) : bookings.length ? (
+        <View style={{ gap: 8 }}>
+          {bookings.slice(0, 20).map((b) => (
+            <StatRow
+              key={b.id}
+              label={`${(b.type ?? "session").replace(/_/g, " ")} · ${fmtDate(b.startsAt)}`}
+              value={b.status ?? "—"}
+            />
+          ))}
+        </View>
+      ) : (
+        <Empty label="No bookings." />
+      )}
+    </SectionCard>
+  );
 }
 
 function TrainingSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
@@ -362,22 +423,54 @@ function InjuriesSection({ athleteId, range }: { athleteId: number; range: Histo
   );
 }
 
-function NutritionSection({ athleteUserId }: { athleteUserId: number }) {
-  const { data, loading } = useNutritionDay(undefined, athleteUserId);
+function NutritionSection({
+  athleteId,
+  athleteUserId,
+  range,
+}: {
+  athleteId: number;
+  athleteUserId: number;
+  range: HistoryRange;
+}) {
+  const { token } = useAppSelector((s) => s.user);
+  const { data: today, loading: todayLoading } = useNutritionDay(undefined, athleteUserId);
+  const { data: compliance, loading: complianceLoading } = useAsyncData<ManagerNutritionCompliance>(
+    () => (token ? fetchAthleteNutritionCompliance(token, athleteId, range) : null),
+    [token, athleteId, range],
+  );
   return (
-    <SectionCard title="Nutrition · Today">
-      {loading ? (
+    <SectionCard
+      title="Nutrition"
+      subtitle={
+        compliance
+          ? compliance.compliancePct != null
+            ? `${compliance.compliancePct}% logged · ${compliance.daysLogged}/${compliance.daysInRange} days`
+            : `${compliance.daysLogged} days logged`
+          : undefined
+      }
+    >
+      {complianceLoading ? (
         <Loading />
-      ) : data ? (
+      ) : compliance ? (
         <View style={{ gap: 10 }}>
-          <StatRow label="Calories" value={`${data.eatenCalories} / ${data.targetCalories} kcal`} />
-          {Object.values(data.meals).map((m) => (
-            <StatRow
-              key={m.label}
-              label={m.label}
-              value={m.items.length ? `${m.items.reduce((s, i) => s + i.calories, 0)} kcal` : "—"}
-            />
-          ))}
+          <StatRow label="Days logged" value={`${compliance.daysLogged}${compliance.daysInRange ? ` / ${compliance.daysInRange}` : ""}`} />
+          {compliance.targetCalories != null ? (
+            <StatRow label="Daily target" value={`${compliance.targetCalories} kcal`} />
+          ) : null}
+          {today ? (
+            <>
+              <StatRow label="Today" value={`${today.eatenCalories} / ${today.targetCalories} kcal`} />
+              {Object.values(today.meals).map((m) => (
+                <StatRow
+                  key={m.label}
+                  label={m.label}
+                  value={m.items.length ? `${m.items.reduce((s, i) => s + i.calories, 0)} kcal` : "—"}
+                />
+              ))}
+            </>
+          ) : todayLoading ? (
+            <Loading />
+          ) : null}
         </View>
       ) : (
         <Empty label="No nutrition logged." />
@@ -409,18 +502,20 @@ function SleepSection({ athleteUserId, range }: { athleteUserId: number; range: 
   );
 }
 
-function WellbeingSection({ athleteUserId, range }: { athleteUserId: number; range: HistoryRange }) {
+function WellbeingSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { logs, isLoading } = useWellbeingData(token, athleteUserId);
-  const cutoff = cutoffKey(range);
-  const filtered = cutoff ? logs.filter((l) => l.dateKey >= cutoff) : logs;
+  const { data, loading } = useAsyncData<{ logs: ManagerWellbeing[] }>(
+    () => (token ? fetchAthleteWellbeing(token, athleteId, range) : null),
+    [token, athleteId, range],
+  );
+  const logs = data?.logs ?? [];
   return (
-    <SectionCard title="Wellbeing">
-      {isLoading ? (
+    <SectionCard title="Wellbeing" subtitle={logs.length ? `${logs.length} submissions` : undefined}>
+      {loading ? (
         <Loading />
-      ) : filtered.length ? (
+      ) : logs.length ? (
         <View style={{ gap: 8 }}>
-          {filtered.slice(0, 30).map((l) => (
+          {logs.slice(0, 60).map((l) => (
             <StatRow key={l.id} label={l.dateKey} value={`Mood ${l.mood} · Energy ${l.energy} · Pain ${l.pain}`} />
           ))}
         </View>

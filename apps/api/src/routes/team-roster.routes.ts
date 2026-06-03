@@ -5,10 +5,14 @@ import {
   getTeamRosterAthlete,
   getTeamRosterAthleteAchievements,
   getTeamRosterAthleteAttendance,
+  getTeamRosterAthleteBookings,
+  getTeamRosterAthleteEngagement,
   getTeamRosterAthleteInjuries,
+  getTeamRosterAthleteNutrition,
   getTeamRosterAthleteProgress,
   getTeamRosterAthleteRuns,
   getTeamRosterAthleteTraining,
+  getTeamRosterAthleteWellbeing,
   patchTeamRosterAthleteHandler,
   patchTeamRosterEmailSlug,
   postTeamRosterAthlete,
@@ -76,6 +80,30 @@ router.get(
   requireAuth,
   requireRole([...readManagerRoles]),
   getTeamRosterAthleteInjuries,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/wellbeing",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteWellbeing,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/bookings",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteBookings,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/nutrition",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteNutrition,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/engagement",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteEngagement,
 );
 router.post("/team/roster/athletes", requireAuth, requireRole(["coach", "admin", "superAdmin"]), postTeamRosterAthlete);
 router.patch(

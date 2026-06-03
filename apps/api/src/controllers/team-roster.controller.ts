@@ -18,10 +18,14 @@ import {
 import {
   getManagedAthleteAchievements,
   getManagedAthleteAttendance,
+  getManagedAthleteBookings,
+  getManagedAthleteEngagement,
   getManagedAthleteInjuries,
+  getManagedAthleteNutrition,
   getManagedAthleteProgress,
   getManagedAthleteRuns,
   getManagedAthleteTraining,
+  getManagedAthleteWellbeing,
 } from "../services/team-roster-athlete-data.service";
 
 const teamIdQuery = z.coerce.number().int().positive().optional();
@@ -42,7 +46,13 @@ function resolveWindow(req: Request) {
   const range = rangeQuery.parse(req.query.range ?? "30d");
   const cfg = RANGE_CONFIG[range];
   const from = cfg.days == null ? null : new Date(Date.now() - cfg.days * 24 * 60 * 60 * 1000);
-  return { athleteId, teamId: teamId ?? null, range, win: { teamId: teamId ?? null, from, to: null, limit: cfg.limit } };
+  return {
+    athleteId,
+    teamId: teamId ?? null,
+    range,
+    rangeDays: cfg.days,
+    win: { teamId: teamId ?? null, from, to: null, limit: cfg.limit },
+  };
 }
 
 function handleAthleteDataError(error: unknown, res: Response, label: string) {
@@ -118,6 +128,50 @@ export async function getTeamRosterAthleteInjuries(req: Request, res: Response) 
     return res.status(200).json({ injuries: data });
   } catch (error) {
     return handleAthleteDataError(error, res, "getTeamRosterAthleteInjuries");
+  }
+}
+
+export async function getTeamRosterAthleteWellbeing(req: Request, res: Response) {
+  try {
+    const { athleteId, win } = resolveWindow(req);
+    const data = await getManagedAthleteWellbeing(req.user!, athleteId, win);
+    if (!data) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json({ logs: data });
+  } catch (error) {
+    return handleAthleteDataError(error, res, "getTeamRosterAthleteWellbeing");
+  }
+}
+
+export async function getTeamRosterAthleteBookings(req: Request, res: Response) {
+  try {
+    const { athleteId, win } = resolveWindow(req);
+    const data = await getManagedAthleteBookings(req.user!, athleteId, win);
+    if (!data) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json({ bookings: data });
+  } catch (error) {
+    return handleAthleteDataError(error, res, "getTeamRosterAthleteBookings");
+  }
+}
+
+export async function getTeamRosterAthleteNutrition(req: Request, res: Response) {
+  try {
+    const { athleteId, rangeDays, win } = resolveWindow(req);
+    const data = await getManagedAthleteNutrition(req.user!, athleteId, { ...win, rangeDays });
+    if (!data) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json(data);
+  } catch (error) {
+    return handleAthleteDataError(error, res, "getTeamRosterAthleteNutrition");
+  }
+}
+
+export async function getTeamRosterAthleteEngagement(req: Request, res: Response) {
+  try {
+    const { athleteId, rangeDays, win } = resolveWindow(req);
+    const data = await getManagedAthleteEngagement(req.user!, athleteId, { ...win, rangeDays });
+    if (!data) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json(data);
+  } catch (error) {
+    return handleAthleteDataError(error, res, "getTeamRosterAthleteEngagement");
   }
 }
 

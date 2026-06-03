@@ -88,6 +88,48 @@ export type ManagerInjury = {
   createdAt: string;
 };
 
+export type ManagerWellbeing = {
+  id: number;
+  dateKey: string;
+  mood: number;
+  energy: number;
+  pain: number;
+  notes: string | null;
+  coachFeedback: string | null;
+};
+
+export type ManagerBooking = {
+  id: number;
+  type: string | null;
+  status: string | null;
+  startsAt: string;
+  endTime: string | null;
+  location: string | null;
+  notes: string | null;
+};
+
+export type ManagerNutritionCompliance = {
+  targetCalories: number | null;
+  daysLogged: number;
+  daysInRange: number | null;
+  compliancePct: number | null;
+  loggedDates: string[];
+};
+
+export type ManagerEngagement = {
+  rangeDays: number | null;
+  lastActiveAt: string | null;
+  counts: {
+    runs: number;
+    sleepLogs: number;
+    wellbeingLogs: number;
+    nutritionDays: number;
+    progressEntries: number;
+    sessionsCompleted: number;
+  };
+  attendance: { present: number; total: number; pct: number | null };
+};
+
 function base(athleteId: number, suffix: string, range?: HistoryRange) {
   const q = range ? `?range=${range}` : "";
   return `/team/roster/athletes/${athleteId}/${suffix}${q}`;
@@ -123,6 +165,38 @@ export function fetchAthleteAchievements(token: string, athleteId: number, force
 
 export function fetchAthleteInjuries(token: string, athleteId: number, range: HistoryRange, force = false) {
   return apiRequest<{ injuries: ManagerInjury[] }>(base(athleteId, "injuries", range), {
+    token,
+    forceRefresh: force,
+    skipCache: force,
+  });
+}
+
+export function fetchAthleteWellbeing(token: string, athleteId: number, range: HistoryRange, force = false) {
+  return apiRequest<{ logs: ManagerWellbeing[] }>(base(athleteId, "wellbeing", range), {
+    token,
+    forceRefresh: force,
+    skipCache: force,
+  });
+}
+
+export function fetchAthleteBookings(token: string, athleteId: number, range: HistoryRange, force = false) {
+  return apiRequest<{ bookings: ManagerBooking[] }>(base(athleteId, "bookings", range), {
+    token,
+    forceRefresh: force,
+    skipCache: force,
+  });
+}
+
+export function fetchAthleteNutritionCompliance(token: string, athleteId: number, range: HistoryRange, force = false) {
+  return apiRequest<ManagerNutritionCompliance>(base(athleteId, "nutrition", range), {
+    token,
+    forceRefresh: force,
+    skipCache: force,
+  });
+}
+
+export function fetchAthleteEngagement(token: string, athleteId: number, range: HistoryRange, force = false) {
+  return apiRequest<ManagerEngagement>(base(athleteId, "engagement", range), {
     token,
     forceRefresh: force,
     skipCache: force,

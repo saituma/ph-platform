@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -7,6 +7,9 @@ import {
   athleteTrainingSessionCompletionTable,
   athleteTrainingSessionWorkoutLogTable,
   athleteTable,
+  bookingTable,
+  nutritionLogsTable,
+  nutritionTargetsTable,
   programAssignmentTable,
   programSessionCompletionTable,
   programTable,
@@ -15,7 +18,9 @@ import {
   scheduledSessionTable,
   sessionAttendanceTable,
   sessionTable,
+  sleepLogsTable,
   trainingModuleSessionTable,
+  wellbeingLogsTable,
 } from "../db/schema";
 import { ACHIEVEMENT_DEFINITIONS, getAthleteTrainingStats } from "./achievement.service";
 import { getManagedTeamForUser } from "./team-roster.service";
@@ -270,4 +275,203 @@ export async function getManagedAthleteInjuries(user: AuthUser, athleteId: numbe
     .where(and(...conds))
     .orderBy(desc(athleteInjuryLogsTable.occurredAt))
     .limit(win.limit);
+}
+
+export async function getManagedAthleteWellbeing(user: AuthUser, athleteId: number, win: AthleteDataWindow) {
+  const athlete = await resolveManagedAthlete(user, athleteId, win.teamId);
+  if (!athlete) return null;
+
+  const conds = [eq(wellbeingLogsTable.userId, athlete.userId)];
+  if (win.from) conds.push(gte(wellbeingLogsTable.dateKey, ymd(win.from)));
+  if (win.to) conds.push(lte(wellbeingLogsTable.dateKey, ymd(win.to)));
+
+  return db
+    .select({
+      id: wellbeingLogsTable.id,
+      dateKey: wellbeingLogsTable.dateKey,
+      mood: wellbeingLogsTable.mood,
+      energy: wellbeingLogsTable.energy,
+      pain: wellbeingLogsTable.pain,
+      notes: wellbeingLogsTable.notes,
+      coachFeedback: wellbeingLogsTable.coachFeedback,
+    })
+    .from(wellbeingLogsTable)
+    .where(and(...conds))
+    .orderBy(desc(wellbeingLogsTable.dateKey))
+    .limit(win.limit);
+}
+
+export async function getManagedAthleteBookings(user: AuthUser, athleteId: number, win: AthleteDataWindow) {
+  const athlete = await resolveManagedAthlete(user, athleteId, win.teamId);
+  if (!athlete) return null;
+
+  const conds = [eq(bookingTable.athleteId, athlete.id)];
+  if (win.from) conds.push(gte(bookingTable.startsAt, win.from));
+  if (win.to) conds.push(lte(bookingTable.startsAt, win.to));
+
+  return db
+    .select({
+      id: bookingTable.id,
+      type: bookingTable.type,
+      status: bookingTable.status,
+      startsAt: bookingTable.startsAt,
+      endTime: bookingTable.endTime,
+      location: bookingTable.location,
+      notes: bookingTable.notes,
+    })
+    .from(bookingTable)
+    .where(and(...conds))
+    .orderBy(desc(bookingTable.startsAt))
+    .limit(win.limit);
+}
+
+/** Logging compliance — nutrition intake is free-text, so we measure days logged, not calories. */
+export async function getManagedAthleteNutrition(
+  user: AuthUser,
+  athleteId: number,
+  win: AthleteDataWindow & { rangeDays: number | null },
+) {
+  const athlete = await resolveManagedAthlete(user, athleteId, win.teamId);
+  if (!athlete) return null;
+
+  const conds = [eq(nutritionLogsTable.userId, athlete.userId)];
+  if (win.from) conds.push(gte(nutritionLogsTable.dateKey, ymd(win.from)));
+  if (win.to) conds.push(lte(nutritionLogsTable.dateKey, ymd(win.to)));
+
+  const dayRows = await db
+    .selectDistinct({ dateKey: nutritionLogsTable.dateKey })
+    .from(nutritionLogsTable)
+    .where(and(...conds))
+    .orderBy(desc(nutritionLogsTable.dateKey))
+    .limit(win.limit);
+
+  const [target] = await db
+    .select({ calories: nutritionTargetsTable.calories })
+    .from(nutritionTargetsTable)
+    .where(eq(nutritionTargetsTable.userId, athlete.userId))
+    .limit(1);
+
+  const daysLogged = dayRows.length;
+  const daysInRange = win.rangeDays;
+  return {
+    targetCalories: target?.calories ?? null,
+    daysLogged,
+    daysInRange,
+    compliancePct: daysInRange && daysInRange > 0 ? Math.round((Math.min(daysLogged, daysInRange) / daysInRange) * 100) : null,
+    loggedDates: dayRows.map((d) => d.dateKey),
+  };
+}
+
+export async function getManagedAthleteEngagement(
+  user: AuthUser,
+  athleteId: number,
+  win: AthleteDataWindow & { rangeDays: number | null },
+) {
+  const athlete = await resolveManagedAthlete(user, athleteId, win.teamId);
+  if (!athlete) return null;
+
+  const fromTs = win.from ?? null;
+  const fromKey = win.from ? ymd(win.from) : null;
+
+  async function tsCount(table: any, col: any, idCol: any, id: number) {
+    const conds = [eq(idCol, id)];
+    if (fromTs) conds.push(gte(col, fromTs));
+    const [r] = await db.select({ c: count() }).from(table).where(and(...conds));
+    return Number(r?.c ?? 0);
+  }
+  async function keyCount(table: any, dateCol: any, idCol: any, id: number) {
+    const conds = [eq(idCol, id)];
+    if (fromKey) conds.push(gte(dateCol, fromKey));
+    const [r] = await db.select({ c: count() }).from(table).where(and(...conds));
+    return Number(r?.c ?? 0);
+  }
+
+  const [runs, sleepLogs, wellbeingLogs, progressEntries, moduleSessions, programSessions] = await Promise.all([
+    tsCount(runLogTable, runLogTable.date, runLogTable.userId, athlete.userId),
+    keyCount(sleepLogsTable, sleepLogsTable.dateKey, sleepLogsTable.userId, athlete.userId),
+    keyCount(wellbeingLogsTable, wellbeingLogsTable.dateKey, wellbeingLogsTable.userId, athlete.userId),
+    keyCount(progressEntryTable, progressEntryTable.entryDate, progressEntryTable.userId, athlete.userId),
+    tsCount(
+      athleteTrainingSessionCompletionTable,
+      athleteTrainingSessionCompletionTable.completedAt,
+      athleteTrainingSessionCompletionTable.athleteId,
+      athlete.id,
+    ),
+    tsCount(
+      programSessionCompletionTable,
+      programSessionCompletionTable.completedAt,
+      programSessionCompletionTable.athleteId,
+      athlete.id,
+    ),
+  ]);
+
+  const nutritionDayRows = await db
+    .selectDistinct({ dateKey: nutritionLogsTable.dateKey })
+    .from(nutritionLogsTable)
+    .where(
+      and(
+        eq(nutritionLogsTable.userId, athlete.userId),
+        ...(fromKey ? [gte(nutritionLogsTable.dateKey, fromKey)] : []),
+      ),
+    );
+  const nutritionDays = nutritionDayRows.length;
+
+  const attendanceConds = [eq(sessionAttendanceTable.userId, athlete.userId)];
+  if (fromTs) attendanceConds.push(gte(scheduledSessionTable.startsAt, fromTs));
+  const [attTotals] = await db
+    .select({
+      total: count(),
+      present: sql<number>`count(*) filter (where ${sessionAttendanceTable.status} = 'present' or ${sessionAttendanceTable.checkInAt} is not null)::int`,
+    })
+    .from(sessionAttendanceTable)
+    .innerJoin(scheduledSessionTable, eq(scheduledSessionTable.id, sessionAttendanceTable.scheduledSessionId))
+    .where(and(...attendanceConds));
+  const attTotal = Number(attTotals?.total ?? 0);
+  const attPresent = Number(attTotals?.present ?? 0);
+
+  // Most recent activity timestamp across every source.
+  const [lastRun] = await db
+    .select({ d: sql<string | null>`max(${runLogTable.date})` })
+    .from(runLogTable)
+    .where(eq(runLogTable.userId, athlete.userId));
+  const [lastSession] = await db
+    .select({ d: sql<string | null>`max(${athleteTrainingSessionCompletionTable.completedAt})` })
+    .from(athleteTrainingSessionCompletionTable)
+    .where(eq(athleteTrainingSessionCompletionTable.athleteId, athlete.id));
+  const [lastKey] = await db
+    .select({
+      d: sql<string | null>`greatest(
+        (select max(${sleepLogsTable.dateKey}) from ${sleepLogsTable} where ${sleepLogsTable.userId} = ${athlete.userId}),
+        (select max(${wellbeingLogsTable.dateKey}) from ${wellbeingLogsTable} where ${wellbeingLogsTable.userId} = ${athlete.userId}),
+        (select max(${nutritionLogsTable.dateKey}) from ${nutritionLogsTable} where ${nutritionLogsTable.userId} = ${athlete.userId}),
+        (select max(${progressEntryTable.entryDate}) from ${progressEntryTable} where ${progressEntryTable.userId} = ${athlete.userId})
+      )`,
+    })
+    .from(sql`(select 1) as _`);
+
+  const candidates: number[] = [];
+  for (const v of [lastRun?.d, lastSession?.d, lastKey?.d]) {
+    if (!v) continue;
+    const t = new Date(v).getTime();
+    if (!Number.isNaN(t)) candidates.push(t);
+  }
+  const lastActiveAt = candidates.length ? new Date(Math.max(...candidates)).toISOString() : null;
+
+  return {
+    rangeDays: win.rangeDays,
+    lastActiveAt,
+    counts: {
+      runs,
+      sleepLogs,
+      wellbeingLogs,
+      nutritionDays,
+      progressEntries,
+      sessionsCompleted: moduleSessions + programSessions,
+    },
+    attendance: {
+      present: attPresent,
+      total: attTotal,
+      pct: attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : null,
+    },
+  };
 }
