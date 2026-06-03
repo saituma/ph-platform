@@ -3,8 +3,9 @@ import { z } from "zod";
 import { desc, eq, like } from "drizzle-orm";
 
 import { db } from "../db";
-import { messageTable, userTable } from "../db/schema";
-import { getCoachUser, sendMessage } from "../services/message.service";
+import { conversationMessageTable, userTable } from "../db/schema";
+import { getCoachUser } from "../services/message.service";
+import { sendDirectMessage } from "../services/conversation.service";
 
 const feedbackSchema = z.object({
   category: z.string().trim().min(1).max(80),
@@ -24,7 +25,7 @@ export async function submitAppFeedback(req: Request, res: Response) {
 
   const content = `[App feedback — ${parsed.data.category}]\n\n${parsed.data.message}`;
 
-  await sendMessage({
+  await sendDirectMessage({
     senderId: req.user!.id,
     receiverId: coach.id,
     content,
@@ -38,17 +39,17 @@ export async function submitAppFeedback(req: Request, res: Response) {
 export async function listAppFeedbackAdmin(_req: Request, res: Response) {
   const rows = await db
     .select({
-      id: messageTable.id,
-      senderId: messageTable.senderId,
-      content: messageTable.content,
-      createdAt: messageTable.createdAt,
+      id: conversationMessageTable.id,
+      senderId: conversationMessageTable.senderId,
+      content: conversationMessageTable.content,
+      createdAt: conversationMessageTable.createdAt,
       senderName: userTable.name,
       senderEmail: userTable.email,
     })
-    .from(messageTable)
-    .innerJoin(userTable, eq(userTable.id, messageTable.senderId))
-    .where(like(messageTable.content, "[App feedback%"))
-    .orderBy(desc(messageTable.createdAt))
+    .from(conversationMessageTable)
+    .innerJoin(userTable, eq(userTable.id, conversationMessageTable.senderId))
+    .where(like(conversationMessageTable.content, "[App feedback%"))
+    .orderBy(desc(conversationMessageTable.createdAt))
     .limit(500);
 
   const items = rows.map((row) => {

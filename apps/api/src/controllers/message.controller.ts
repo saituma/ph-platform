@@ -2,24 +2,31 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import {
-  listThread,
-  markThreadRead,
-  sendMessage,
   getCoachUser,
   getLastAdminContact,
   getTeamManagersForUser,
   isUserPremium,
-  deleteDirectMessage,
 } from "../services/message.service";
 import { listGroupsForUser } from "../services/chat.service";
-import { listMessageThreadsAdmin } from "../services/admin/message.service";
 import { db } from "../db";
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { auditLogsTable, messageTable, userTable } from "../db/schema";
-import { toggleDirectMessageReaction } from "../services/reaction.service";
+import { and, eq, inArray } from "drizzle-orm";
+import { auditLogsTable, userTable } from "../db/schema";
 import { publicDisplayName } from "../lib/display-name";
 import { isTrainingStaff } from "../lib/user-roles";
 import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
+import {
+  canAccessConversationMessage,
+  deleteConversationMessage,
+  getConversationMessageForForward,
+  listConversationMessagesForUser,
+  listConversationThreadsAdmin,
+  listConversationThreadsForUser,
+  markConversationRead,
+  pinConversationMessage,
+  searchConversationMessages,
+  sendDirectMessage,
+  toggleConversationReaction,
+} from "../services/conversation.service";
 
 const sendSchema = z
   .object({
@@ -118,16 +125,16 @@ export async function listInbox(req: Request, res: Response) {
     includeAdminThreads === "true" ||
     (includeAdminThreads == null && isTrainingStaff(role));
 
-  const [threadPage, groups, adminThreads] = await Promise.all([
-    listThread(userId, { limit: pageLimit, userRole: role ?? undefined }),
+  const [conversationThreads, groups, adminThreads] = await Promise.all([
+    listConversationThreadsForUser(userId, pageLimit),
     listGroupsForUser(userId, { limit: Math.min(100, pageLimit) }),
-    shouldIncludeAdminThreads ? listMessageThreadsAdmin(userId, { limit: pageLimit }) : Promise.resolve([]),
+    shouldIncludeAdminThreads ? listConversationThreadsAdmin(userId, { limit: pageLimit }) : Promise.resolve([]),
   ]);
 
   const peerIds = Array.from(
     new Set(
-      (threadPage.messages ?? [])
-        .map((message) => (message.senderId === userId ? Number(message.receiverId) : Number(message.senderId)))
+      (conversationThreads ?? [])
+        .map((thread) => Number(thread.peerUserId))
         .filter((id) => Number.isFinite(id) && id > 0 && id !== userId),
     ),
   );
@@ -162,27 +169,17 @@ export async function listInbox(req: Request, res: Response) {
     }
   >();
 
-  for (const message of threadPage.messages ?? []) {
-    const senderId = Number(message.senderId);
-    const receiverId = Number(message.receiverId);
-    const peerUserId = senderId === userId ? receiverId : senderId;
+  for (const thread of conversationThreads ?? []) {
+    const peerUserId = Number(thread.peerUserId);
     if (!Number.isFinite(peerUserId) || peerUserId <= 0 || peerUserId === userId) continue;
     const existing = directByPeer.get(peerUserId);
-    const messageTime = toIsoTime(message.createdAt);
+    const messageTime = toIsoTime(thread.updatedAt);
     const peer = peerById.get(peerUserId);
     const defaultName = publicDisplayName({
       id: peerUserId,
       name: peer?.name ?? null,
       email: peer?.email ?? null,
     });
-    const myReadAt =
-      message.myReadAt instanceof Date
-        ? message.myReadAt
-        : message.myReadAt
-          ? new Date(message.myReadAt)
-          : null;
-    const isReadForUser = myReadAt != null && !Number.isNaN(myReadAt.getTime());
-    const unreadDelta = senderId === peerUserId && !isReadForUser && message.read === false ? 1 : 0;
 
     if (!existing) {
       directByPeer.set(peerUserId, {
@@ -190,18 +187,18 @@ export async function listInbox(req: Request, res: Response) {
         name: defaultName,
         role: String(peer?.role ?? "Member"),
         avatarUrl: peer?.profilePicture ?? null,
-        preview: stripReplyPrefix(message.content) || "Start a conversation",
-        unread: unreadDelta,
+        preview: stripReplyPrefix(thread.preview) || "Start a conversation",
+        unread: Number(thread.unread ?? 0) || 0,
         updatedAt: messageTime,
         lastSeenAt: peer?.lastSeenAt ? peer.lastSeenAt.toISOString() : null,
       });
       continue;
     }
 
-    existing.unread += unreadDelta;
+    existing.unread += Number(thread.unread ?? 0) || 0;
     if (new Date(messageTime).getTime() > new Date(existing.updatedAt).getTime()) {
       existing.updatedAt = messageTime;
-      existing.preview = stripReplyPrefix(message.content) || existing.preview;
+      existing.preview = stripReplyPrefix(thread.preview) || existing.preview;
     }
   }
 
@@ -363,12 +360,10 @@ export async function listInbox(req: Request, res: Response) {
 export async function listMessages(req: Request, res: Response) {
   const userId = req.user!.id;
   const role = req.user?.role ?? null;
-  const { includeVideoResponses, limit, cursor, peerUserId } = listMessagesQuerySchema.parse(req.query ?? {});
+  const { limit, cursor, peerUserId } = listMessagesQuerySchema.parse(req.query ?? {});
 
-  const [threadPage, lastCoach, premium] = await Promise.all([
-    listThread(userId, {
-      userRole: role ?? undefined,
-      includeVideoResponses: includeVideoResponses === "1" || includeVideoResponses === "true",
+  const [threadPage, lastCoach, premium, managers] = await Promise.all([
+    listConversationMessagesForUser(userId, {
       limit,
       cursorId: cursor,
       peerUserId,
@@ -376,9 +371,10 @@ export async function listMessages(req: Request, res: Response) {
     // Team athletes only contact their team manager — skip the broad admin search.
     role === "team_athlete" ? Promise.resolve(null) : getLastAdminContact(userId),
     isUserPremium(userId),
+    role === "team_athlete" ? getTeamManagersForUser(userId) : Promise.resolve([]),
   ]);
 
-  const manager = threadPage.teamManager;
+  const manager = managers[0] ?? null;
   // Team athletes prefer their team manager, but still need a safe fallback
   // to avoid a blank messaging surface when manager linkage is missing.
   const coach =
@@ -387,8 +383,6 @@ export async function listMessages(req: Request, res: Response) {
   const coachesMap = new Map<number, any>();
   if (coach) coachesMap.set(coach.id, coach);
   if (manager && manager.id !== coach?.id) coachesMap.set(manager.id, manager);
-
-  const AI_COACH_EMAIL = "ai-coach@football-performance.ai";
 
   const peerIds = Array.from(
     new Set(
@@ -411,7 +405,6 @@ export async function listMessages(req: Request, res: Response) {
       .where(and(inArray(userTable.id, peerIds), eq(userTable.isDeleted, false), eq(userTable.isBlocked, false)));
 
     for (const peer of peerUsers) {
-      if (peer.email === AI_COACH_EMAIL) continue;
       if (!coachesMap.has(peer.id)) {
         coachesMap.set(peer.id, {
           id: peer.id,
@@ -477,7 +470,7 @@ export async function sendMessageToCoach(req: Request, res: Response) {
 
   try {
     logRealtimeLatency(trace, "http.direct.before_service", { senderId: userId, receiverId });
-    const message = await sendMessage({
+    const message = await sendDirectMessage({
       senderId: userId,
       receiverId: receiverId,
       senderRole: req.user?.role ?? null,
@@ -497,9 +490,6 @@ export async function sendMessageToCoach(req: Request, res: Response) {
     if (msg === "MESSAGING_DISABLED_FOR_TIER") {
       return res.status(403).json({ error: "Messaging is not enabled for your plan." });
     }
-    if (msg === "AI_COACH_REQUIRES_PREMIUM") {
-      return res.status(403).json({ error: "AI coach chat requires PHP Premium." });
-    }
     if (msg === "USER_BLOCKED") {
       return res.status(403).json({ error: "Messaging is blocked for this conversation." });
     }
@@ -510,7 +500,7 @@ export async function sendMessageToCoach(req: Request, res: Response) {
 export async function markRead(req: Request, res: Response) {
   const userId = req.user!.id;
   const peerUserId = z.coerce.number().int().positive().optional().parse(req.body?.peerUserId);
-  const count = await markThreadRead(userId, peerUserId);
+  const count = await markConversationRead(userId, peerUserId);
   return res.status(200).json({ updated: count });
 }
 
@@ -519,8 +509,10 @@ export async function toggleReaction(req: Request, res: Response) {
   const { emoji } = reactionSchema.parse(req.body);
   const actingUserId = req.user!.id;
   try {
-    const result = await toggleDirectMessageReaction({ messageId, userId: actingUserId, emoji });
-    return res.status(200).json(result);
+    const actorIsStaff = isTrainingStaff(req.user?.role ?? null);
+    const reactions = await toggleConversationReaction({ messageId, userId: actingUserId, emoji, actorIsStaff });
+    if (!reactions) return res.status(404).json({ error: "Message not found" });
+    return res.status(200).json({ reactions });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed";
     if (message === "Forbidden") {
@@ -537,8 +529,9 @@ export async function deleteMessage(req: Request, res: Response) {
   const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
   const actingUserId = req.user!.id;
   try {
-    const result = await deleteDirectMessage({ messageId, userId: actingUserId });
-    return res.status(200).json(result);
+    const deleted = await deleteConversationMessage(actingUserId, messageId);
+    if (!deleted) return res.status(404).json({ error: "Message not found" });
+    return res.status(200).json({ deleted: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed";
     if (message === "Forbidden") {
@@ -561,30 +554,7 @@ const searchMessagesQuerySchema = z.object({
 export async function searchMessages(req: Request, res: Response) {
   const userId = req.user!.id;
   const { q, threadId } = searchMessagesQuerySchema.parse(req.query ?? {});
-  const escaped = q.replace(/[%_\\]/g, "\\$&");
-
-  const participantFilter = or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId));
-
-  const threadFilter = threadId
-    ? or(
-        and(eq(messageTable.senderId, userId), eq(messageTable.receiverId, threadId)),
-        and(eq(messageTable.senderId, threadId), eq(messageTable.receiverId, userId)),
-      )
-    : undefined;
-
-  const results = await db
-    .select({
-      id: messageTable.id,
-      content: messageTable.content,
-      senderId: messageTable.senderId,
-      receiverId: messageTable.receiverId,
-      createdAt: messageTable.createdAt,
-      contentType: messageTable.contentType,
-    })
-    .from(messageTable)
-    .where(and(ilike(messageTable.content, `%${escaped}%`), participantFilter, threadFilter))
-    .orderBy(desc(messageTable.createdAt))
-    .limit(50);
+  const results = await searchConversationMessages({ userId, q, peerUserId: threadId });
 
   return res.status(200).json({ results });
 }
@@ -595,32 +565,19 @@ export async function pinMessage(req: Request, res: Response) {
   const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
   const userId = req.user!.id;
 
-  const [msg] = await db
-    .select({
-      id: messageTable.id,
-      senderId: messageTable.senderId,
-      receiverId: messageTable.receiverId,
-      pinnedAt: messageTable.pinnedAt,
-    })
-    .from(messageTable)
-    .where(eq(messageTable.id, messageId))
-    .limit(1);
-
-  if (!msg) {
-    return res.status(404).json({ error: "Message not found" });
+  try {
+    const pinned = await pinConversationMessage({ userId, messageId });
+    if (pinned == null) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+    return res.status(200).json({ pinned });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Forbidden") {
+      return res.status(403).json({ error: message });
+    }
+    throw error;
   }
-
-  if (msg.senderId !== userId && msg.receiverId !== userId) {
-    return res.status(403).json({ error: "Forbidden" });
-  }
-
-  const nowPinned = msg.pinnedAt === null;
-  await db
-    .update(messageTable)
-    .set({ pinnedAt: nowPinned ? new Date() : null })
-    .where(eq(messageTable.id, messageId));
-
-  return res.status(200).json({ pinned: nowPinned });
 }
 
 // ── Report DM Message ──────────────────────────────────────────────────
@@ -638,22 +595,14 @@ export async function reportMessage(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
-  const [msg] = await db
-    .select({ id: messageTable.id, senderId: messageTable.senderId, receiverId: messageTable.receiverId })
-    .from(messageTable)
-    .where(
-      and(eq(messageTable.id, messageId), or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId))),
-    )
-    .limit(1);
-
-  if (!msg) {
+  if (!(await canAccessConversationMessage(userId, messageId))) {
     return res.status(404).json({ error: "Message not found" });
   }
 
   await db.insert(auditLogsTable).values({
     performedBy: userId,
     action: `dm_message_reported:${parsed.data.reason}`,
-    targetTable: "messages",
+    targetTable: "conversation_messages",
     targetId: messageId,
   });
 
@@ -672,20 +621,7 @@ export async function forwardMessage(req: Request, res: Response) {
   const { messageId, targetThreadId } = forwardMessageSchema.parse(req.body);
 
   // Fetch original message — user must be a participant
-  const [original] = await db
-    .select({
-      id: messageTable.id,
-      content: messageTable.content,
-      contentType: messageTable.contentType,
-      mediaUrl: messageTable.mediaUrl,
-      senderId: messageTable.senderId,
-      receiverId: messageTable.receiverId,
-    })
-    .from(messageTable)
-    .where(
-      and(eq(messageTable.id, messageId), or(eq(messageTable.senderId, userId), eq(messageTable.receiverId, userId))),
-    )
-    .limit(1);
+  const original = await getConversationMessageForForward(userId, messageId);
 
   if (!original) {
     return res.status(404).json({ error: "Message not found" });
@@ -720,9 +656,9 @@ export async function forwardMessage(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid target thread ID" });
   }
 
-  let newMessage: Awaited<ReturnType<typeof sendMessage>>;
+  let newMessage: Awaited<ReturnType<typeof sendDirectMessage>>;
   try {
-    newMessage = await sendMessage({
+    newMessage = await sendDirectMessage({
       senderId: userId,
       receiverId,
       content: forwardedContent,

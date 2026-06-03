@@ -6,7 +6,8 @@ import {
   betaTesterTable,
   bookingTable,
   contentTable,
-  messageTable,
+  conversationMessageTable,
+  conversationReceiptTable,
   physioRefferalsTable,
   programTable,
   userTable,
@@ -149,8 +150,15 @@ export async function getDashboardMetrics(coachId: number) {
 
   const [unreadCountRow] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(messageTable)
-    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.read, false)));
+    .from(conversationReceiptTable)
+    .innerJoin(conversationMessageTable, eq(conversationMessageTable.id, conversationReceiptTable.messageId))
+    .where(
+      and(
+        eq(conversationReceiptTable.userId, coachId),
+        sql`${conversationReceiptTable.readAt} is null`,
+        sql`${conversationMessageTable.senderId} <> ${coachId}`,
+      ),
+    );
   const unreadMessages = Number(unreadCountRow?.count ?? 0);
 
   const [bookingsTodayRow] = await db
@@ -175,15 +183,22 @@ export async function getDashboardMetrics(coachId: number) {
 
   const unreadMessagesList = await db
     .select({
-      id: messageTable.id,
-      createdAt: messageTable.createdAt,
+      id: conversationMessageTable.id,
+      createdAt: conversationMessageTable.createdAt,
       senderName: userTable.name,
-      content: messageTable.content,
+      content: conversationMessageTable.content,
     })
-    .from(messageTable)
-    .leftJoin(userTable, eq(messageTable.senderId, userTable.id))
-    .where(and(eq(messageTable.receiverId, coachId), eq(messageTable.read, false)))
-    .orderBy(desc(messageTable.createdAt))
+    .from(conversationReceiptTable)
+    .innerJoin(conversationMessageTable, eq(conversationMessageTable.id, conversationReceiptTable.messageId))
+    .leftJoin(userTable, eq(conversationMessageTable.senderId, userTable.id))
+    .where(
+      and(
+        eq(conversationReceiptTable.userId, coachId),
+        sql`${conversationReceiptTable.readAt} is null`,
+        sql`${conversationMessageTable.senderId} <> ${coachId}`,
+      ),
+    )
+    .orderBy(desc(conversationMessageTable.createdAt))
     .limit(2);
 
   const pendingOnboardings = await db
@@ -277,11 +292,11 @@ export async function getDashboardMetrics(coachId: number) {
 
   const messagesWeek = await db
     .select({
-      createdAt: messageTable.createdAt,
-      senderId: messageTable.senderId,
+      createdAt: conversationMessageTable.createdAt,
+      senderId: conversationMessageTable.senderId,
     })
-    .from(messageTable)
-    .where(gte(messageTable.createdAt, startWeek))
+    .from(conversationMessageTable)
+    .where(gte(conversationMessageTable.createdAt, startWeek))
     .limit(5000); // dashboard chart: 5k messages/week is well above any real load
 
   const bookingsWeek = await db

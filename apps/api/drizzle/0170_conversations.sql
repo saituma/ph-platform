@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS "conversation_messages" (
   "content" varchar(500) NOT NULL,
   "contentType" "message_type" NOT NULL DEFAULT 'text',
   "mediaUrl" varchar(500),
+  "videoUploadId" integer,
   "clientMessageId" varchar(96),
   "pinnedAt" timestamp,
   "createdAt" timestamp NOT NULL DEFAULT now(),

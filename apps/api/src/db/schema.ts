@@ -1179,6 +1179,7 @@ export const conversationMessageTable = pgTable(
     content: varchar({ length: 500 }).notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
+    videoUploadId: integer(),
     clientMessageId: varchar({ length: 96 }),
     pinnedAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),

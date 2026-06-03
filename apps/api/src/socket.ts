@@ -11,7 +11,11 @@ import { isSharedInboxViewer } from "./lib/messaging-access";
 import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
-import { sendMessage, markMessageDelivered, markThreadRead } from "./services/message.service";
+import {
+  markConversationMessageDelivered,
+  markConversationRead,
+  sendDirectMessage,
+} from "./services/conversation.service";
 import { setSocketServer } from "./socket-hub";
 import { db } from "./db";
 import { userTable } from "./db/schema";
@@ -537,7 +541,7 @@ export function initSocket(server: HttpServer) {
 
       try {
         logRealtimeLatency(trace, "socket.message.before_service", { senderId, receiverId: data.toUserId });
-        const saved = await sendMessage({
+        const saved = await sendDirectMessage({
           senderId,
           receiverId: data.toUserId,
           content: content || "Attachment",
@@ -558,17 +562,15 @@ export function initSocket(server: HttpServer) {
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
-        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "AI_COACH_REQUIRES_PREMIUM" || msg === "USER_BLOCKED") {
+        if (msg === "MESSAGING_DISABLED_FOR_TIER" || msg === "USER_BLOCKED") {
           socket.emit("error:blocked", {
             event: "message:send",
             clientId: data.clientId,
             code: msg,
             message:
-              msg === "AI_COACH_REQUIRES_PREMIUM"
-                ? "AI Coach requires a premium plan"
-                : msg === "USER_BLOCKED"
-                  ? "Messaging is blocked for this conversation"
-                  : "Messaging is not available for your current plan",
+              msg === "USER_BLOCKED"
+                ? "Messaging is blocked for this conversation"
+                : "Messaging is not available for your current plan",
           });
           return;
         }
@@ -623,11 +625,11 @@ export function initSocket(server: HttpServer) {
     });
 
     guarded("message:delivered", messageDeliveredSchema, async ({ messageId }) => {
-      await markMessageDelivered(messageId, userId);
+      await markConversationMessageDelivered(messageId, userId);
     });
 
     guarded("message:read", messageReadSchema, async ({ peerUserId }) => {
-      await markThreadRead(userId, peerUserId);
+      await markConversationRead(userId, peerUserId);
     });
 
     guarded("typing:start", typingSchema, async (data) => {
