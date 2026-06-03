@@ -1,5 +1,6 @@
 import Stripe from "stripe";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
@@ -386,10 +387,12 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
     })
     .where(eq(teamTable.id, request.teamId));
 
-  // Grant tier + expiry to every athlete on this team who hasn't been
-  // explicitly overridden by an admin (currentProgramTier IS NULL).
-  // Athletes with a tier already set keep it — this preserves admin overrides
-  // (e.g. team paid PHP but admin set specific athletes to PHP_Premium).
+  // Grant tier + expiry to athletes on this team who haven't been explicitly
+  // overridden by an admin (currentProgramTier IS NULL). On coach_pays_all the
+  // whole roster is granted; on per-player modes only athletes who paid their
+  // own invite (or are coach-covered) are. Athletes with a tier already set
+  // keep it — this preserves admin overrides (e.g. team paid PHP but admin set
+  // specific athletes to PHP_Premium).
   if (request.planId != null) {
     const [plan] = await db
       .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
@@ -401,23 +404,59 @@ export async function approveTeamSubscriptionRequest(requestId: number) {
       // Falls back to plan.tier, then PHP_Pro for tier-less plans.
       const effectiveTier = request.accessTierOverride ?? plan.tier ?? "PHP_Pro";
 
-      // Find athletes that will be granted tier so we can mirror to their
-      // guardians (parent_platform access is gated on guardian's tier).
-      const athletesAboutToGrant = await db
-        .select({ id: athleteTable.id, guardianId: athleteTable.guardianId })
-        .from(athleteTable)
-        .where(and(eq(athleteTable.teamId, request.teamId), isNull(athleteTable.currentProgramTier)));
-
-      await db
-        .update(athleteTable)
-        .set({
-          currentProgramTier: effectiveTier,
-          currentPlanId: plan.id,
-          planExpiresAt: expiresAt,
-          updatedAt: new Date(),
+      // Candidate athletes (no admin tier override) plus the emails we match
+      // invites against — a youth athlete's invite is addressed to the guardian.
+      const guardianUser = alias(userTable, "guardian_user");
+      const candidates = await db
+        .select({
+          id: athleteTable.id,
+          guardianId: athleteTable.guardianId,
+          userEmail: userTable.email,
+          guardianEmail: guardianUser.email,
         })
+        .from(athleteTable)
+        .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+        .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId))
+        .leftJoin(guardianUser, eq(guardianUser.id, guardianTable.userId))
         .where(and(eq(athleteTable.teamId, request.teamId), isNull(athleteTable.currentProgramTier)));
 
+      // On per-player modes, only athletes who settled their own invite earn
+      // access. An athlete with no invite at all is coach-covered (per-player
+      // selected) and stays eligible; one with an unpaid/expired invite does not.
+      let athletesAboutToGrant = candidates;
+      if (request.paymentMode === "per_player_all" || request.paymentMode === "per_player_selected") {
+        const unpaidInvites = await db
+          .select({ email: teamPlayerPaymentInviteTable.playerEmail })
+          .from(teamPlayerPaymentInviteTable)
+          .where(
+            and(
+              eq(teamPlayerPaymentInviteTable.requestId, request.id),
+              ne(teamPlayerPaymentInviteTable.status, "paid"),
+            ),
+          );
+        const blocked = new Set(unpaidInvites.map((i) => i.email.trim().toLowerCase()));
+        athletesAboutToGrant = candidates.filter((a) => {
+          const userEmail = a.userEmail?.trim().toLowerCase();
+          const guardianEmail = a.guardianEmail?.trim().toLowerCase();
+          return !(userEmail && blocked.has(userEmail)) && !(guardianEmail && blocked.has(guardianEmail));
+        });
+      }
+
+      const athleteIds = athletesAboutToGrant.map((a) => a.id);
+      if (athleteIds.length > 0) {
+        await db
+          .update(athleteTable)
+          .set({
+            currentProgramTier: effectiveTier,
+            currentPlanId: plan.id,
+            planExpiresAt: expiresAt,
+            updatedAt: new Date(),
+          })
+          .where(inArray(athleteTable.id, athleteIds));
+      }
+
+      // Mirror tier to granted athletes' guardians (parent_platform access is
+      // gated on the guardian's tier).
       const guardianIds = athletesAboutToGrant.map((a) => a.guardianId).filter((id): id is number => id != null);
       if (guardianIds.length > 0) {
         await db
@@ -622,6 +661,69 @@ export async function listPlayerPaymentInvites(requestId: number) {
   });
 }
 
+// When a player pays after the team request is already approved (team active),
+// approval already ran and granted the then-paid roster, so this straggler must
+// be granted individually — reconcile only moves request/team status, never the
+// athlete row. No-op while the request is still pending: the eventual approval
+// grants the full paid roster.
+async function grantTeamAccessForPaidInvite(invite: { requestId: number; teamId: number; playerEmail: string }) {
+  const [request] = await db
+    .select({
+      status: teamSubscriptionRequestTable.status,
+      planId: teamSubscriptionRequestTable.planId,
+      accessTierOverride: teamSubscriptionRequestTable.accessTierOverride,
+    })
+    .from(teamSubscriptionRequestTable)
+    .where(eq(teamSubscriptionRequestTable.id, invite.requestId))
+    .limit(1);
+  if (!request || request.status !== "approved" || request.planId == null) return;
+
+  const [plan] = await db
+    .select({ tier: subscriptionPlanTable.tier, id: subscriptionPlanTable.id })
+    .from(subscriptionPlanTable)
+    .where(eq(subscriptionPlanTable.id, request.planId))
+    .limit(1);
+  if (!plan) return;
+  const effectiveTier = request.accessTierOverride ?? plan.tier ?? "PHP_Pro";
+
+  const [team] = await db
+    .select({ planExpiresAt: teamTable.planExpiresAt })
+    .from(teamTable)
+    .where(eq(teamTable.id, invite.teamId))
+    .limit(1);
+  const expiresAt = team?.planExpiresAt ?? null;
+
+  const email = invite.playerEmail.trim().toLowerCase();
+  const guardianUser = alias(userTable, "guardian_user");
+  const candidates = await db
+    .select({
+      id: athleteTable.id,
+      guardianId: athleteTable.guardianId,
+      userEmail: userTable.email,
+      guardianEmail: guardianUser.email,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+    .leftJoin(guardianTable, eq(guardianTable.id, athleteTable.guardianId))
+    .leftJoin(guardianUser, eq(guardianUser.id, guardianTable.userId))
+    .where(and(eq(athleteTable.teamId, invite.teamId), isNull(athleteTable.currentProgramTier)));
+  const athlete = candidates.find(
+    (a) => a.userEmail?.trim().toLowerCase() === email || a.guardianEmail?.trim().toLowerCase() === email,
+  );
+  if (!athlete) return;
+
+  await db
+    .update(athleteTable)
+    .set({ currentProgramTier: effectiveTier, currentPlanId: plan.id, planExpiresAt: expiresAt, updatedAt: new Date() })
+    .where(eq(athleteTable.id, athlete.id));
+  if (athlete.guardianId != null) {
+    await db
+      .update(guardianTable)
+      .set({ currentProgramTier: effectiveTier, currentPlanId: plan.id, updatedAt: new Date() })
+      .where(eq(guardianTable.id, athlete.guardianId));
+  }
+}
+
 export async function updateTeamPlayerInvitePaymentFromStripeSession(
   session: Stripe.Checkout.Session,
   paymentStatus: string,
@@ -672,6 +774,9 @@ export async function updateTeamPlayerInvitePaymentFromStripeSession(
     .returning();
 
   await reconcileTeamRequestPayments(invite.requestId);
+  if (finalInviteStatus === "paid") {
+    await grantTeamAccessForPaidInvite(invite);
+  }
   return updatedInvite ?? null;
 }
 
