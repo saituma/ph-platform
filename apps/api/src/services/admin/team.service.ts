@@ -787,7 +787,7 @@ export async function listTeamsAdmin(options?: {
     const teams = await baseQuery();
     const withQueue = await Promise.all(
       teams.map(async (team) => {
-        const [request] = await db
+        const requests = await db
           .select({
             id: teamSubscriptionRequestTable.id,
             status: teamSubscriptionRequestTable.status,
@@ -797,8 +797,13 @@ export async function listTeamsAdmin(options?: {
           })
           .from(teamSubscriptionRequestTable)
           .where(eq(teamSubscriptionRequestTable.teamId, team.id))
-          .orderBy(desc(teamSubscriptionRequestTable.createdAt))
-          .limit(1);
+          .orderBy(desc(teamSubscriptionRequestTable.createdAt));
+        // Prefer the request matching the team's configured payment mode; a stale
+        // duplicate in another mode must not mask the real payment status.
+        const request =
+          requests.find((r) => team.paymentMode != null && r.paymentMode === team.paymentMode) ??
+          requests[0] ??
+          null;
 
         if (!request) return { ...team, paymentQueue: null };
 
@@ -918,6 +923,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
       sponsoredPlayerCount: teamTable.sponsoredPlayerCount,
       sponsoredPlanId: teamTable.sponsoredPlanId,
       subscriptionStatus: teamTable.subscriptionStatus,
+      paymentMode: teamTable.paymentMode,
       createdAt: teamTable.createdAt,
       updatedAt: teamTable.updatedAt,
     })
@@ -1029,7 +1035,7 @@ export async function getTeamDetailsAdmin(teamName: string) {
     manager,
     coManagers: await listCoManagersForTeam(team.id),
     paymentQueue: await (async () => {
-      const [request] = await db
+      const requests = await db
         .select({
           id: teamSubscriptionRequestTable.id,
           status: teamSubscriptionRequestTable.status,
@@ -1046,8 +1052,12 @@ export async function getTeamDetailsAdmin(teamName: string) {
         })
         .from(teamSubscriptionRequestTable)
         .where(eq(teamSubscriptionRequestTable.teamId, team.id))
-        .orderBy(desc(teamSubscriptionRequestTable.createdAt))
-        .limit(1);
+        .orderBy(desc(teamSubscriptionRequestTable.createdAt));
+      // Prefer the request matching the team's configured payment mode — a stale
+      // duplicate left in another mode must not hide the real per-player invites.
+      // Fall back to the newest request when nothing matches.
+      const request =
+        requests.find((r) => team.paymentMode != null && r.paymentMode === team.paymentMode) ?? requests[0] ?? null;
       if (!request) return null;
 
       const invites = await db
