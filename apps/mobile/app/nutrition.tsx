@@ -1,5 +1,5 @@
 import { NutritionDashboard } from "@/components/nutrition/NutritionDashboard";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
@@ -37,7 +37,7 @@ const MEAL_ROWS: { slot: MealSlot; label: string }[] = [
 type AllPrefs = Record<MealSlot, MealReminderPrefs>;
 
 function MealRemindersCard() {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const { isDark } = useAppTheme();
   const toast = useAppToast();
   const [prefs, setPrefs] = useState<AllPrefs>({
@@ -231,7 +231,7 @@ function MealRemindersCard() {
 export default function NutritionScreen() {
   const insets = useAppSafeAreaInsets();
   const router = useRouter();
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const { capabilities } = useAppSelector((state) => state.user);
   const canLog = Boolean(capabilities?.nutrition);
 
@@ -265,7 +265,7 @@ export default function NutritionScreen() {
               borderRadius: 100,
               paddingHorizontal: 32,
               paddingVertical: 14,
-              backgroundColor: p.accent,
+              backgroundColor: p.buttonPrimary,
               opacity: pressed ? 0.85 : 1,
             })}
           >

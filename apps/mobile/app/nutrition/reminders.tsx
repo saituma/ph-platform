@@ -4,7 +4,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Bell, Clock, Moon, Sun, Sunrise } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -34,7 +34,7 @@ const MEAL_ROWS: { slot: MealSlot; label: string }[] = [
 type AllPrefs = Record<MealSlot, MealReminderPrefs>;
 
 export default function MealRemindersScreen() {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const { isDark } = useAppTheme();
   const router = useRouter();
   const toast = useAppToast();

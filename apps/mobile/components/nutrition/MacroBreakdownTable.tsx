@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 
 type MacroRow = {
   label: string;
@@ -14,7 +14,7 @@ type MacroBreakdownTableProps = {
 };
 
 export function MacroBreakdownTable({ rows, totalGrams }: MacroBreakdownTableProps) {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
 
   return (
     <View style={{ borderRadius: 22, backgroundColor: p.cardSage, padding: 16 }}>

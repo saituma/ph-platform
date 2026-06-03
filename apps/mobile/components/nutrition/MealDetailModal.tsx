@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { ArrowLeft, Plus, Trash2, ChevronsRight } from "lucide-react-native";
 import { Text, TextInput } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import { MealFoodRow } from "./MealFoodRow";
 import { MacroBreakdownTable } from "./MacroBreakdownTable";
 import type { MealItem, MealSlotData } from "./types";
@@ -20,6 +20,10 @@ type MealDetailModalProps = {
   onClose: () => void;
   onConfirm: (items: MealItem[]) => void;
 };
+
+/** Per-item calorie ceiling. Generous (a huge single meal is ~3-4k kcal), but bounded so a
+ * mistyped value gets an inline message instead of silently failing to save. */
+const MAX_ITEM_KCAL = 50000;
 
 let _nextId = 1;
 function genId() {
@@ -32,7 +36,7 @@ export function MealDetailModal({
   onClose,
   onConfirm,
 }: MealDetailModalProps) {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const [items, setItems] = useState<MealItem[]>([]);
   const [draftName, setDraftName] = useState("");
   const [draftCal, setDraftCal] = useState("");
@@ -42,6 +46,7 @@ export function MealDetailModal({
   const [draftCarbs, setDraftCarbs] = useState("");
   const [draftFat, setDraftFat] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [itemError, setItemError] = useState<string | null>(null);
 
   const resetDraft = useCallback(() => {
     setDraftName("");
@@ -50,6 +55,7 @@ export function MealDetailModal({
     setDraftProtein("");
     setDraftCarbs("");
     setDraftFat("");
+    setItemError(null);
   }, []);
 
   React.useEffect(() => {
@@ -71,6 +77,12 @@ export function MealDetailModal({
     // Calories default to the macro-derived value (4/4/9 kcal/g) when left blank.
     const typedCal = num(draftCal);
     const cal = typedCal > 0 ? typedCal : protein * 4 + carbs * 4 + fat * 9;
+    // Sane upper bound — keeps a fat-fingered value from quietly failing to save later.
+    if (cal > MAX_ITEM_KCAL) {
+      setItemError(`Max ${MAX_ITEM_KCAL.toLocaleString()} kcal per item`);
+      return;
+    }
+    setItemError(null);
     setItems((prev) => [
       ...prev,
       { id: genId(), name, calories: cal, weightGrams: num(draftWeight), unit: draftUnit || "g", protein, carbs, fat },
@@ -195,7 +207,10 @@ export function MealDetailModal({
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <TextInput
                         value={draftCal}
-                        onChangeText={(v) => setDraftCal(v.replace(/[^0-9]/g, ""))}
+                        onChangeText={(v) => {
+                          setDraftCal(v.replace(/[^0-9]/g, ""));
+                          if (itemError) setItemError(null);
+                        }}
                         placeholder="Calories"
                         placeholderTextColor={p.textMuted}
                         keyboardType="number-pad"
@@ -271,6 +286,11 @@ export function MealDetailModal({
                         />
                       ))}
                     </View>
+                    {itemError ? (
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.danger }}>
+                        {itemError}
+                      </Text>
+                    ) : null}
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <Pressable
                         onPress={() => setShowAddForm(false)}
@@ -294,7 +314,7 @@ export function MealDetailModal({
                           flex: 1,
                           height: 44,
                           borderRadius: 100,
-                          backgroundColor: p.accent,
+                          backgroundColor: p.buttonPrimary,
                           alignItems: "center",
                           justifyContent: "center",
                           opacity: pressed ? 0.85 : 1,
@@ -349,7 +369,7 @@ export function MealDetailModal({
               style={({ pressed }) => ({
                 height: 56,
                 borderRadius: 100,
-                backgroundColor: p.accent,
+                backgroundColor: p.buttonPrimary,
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "center",

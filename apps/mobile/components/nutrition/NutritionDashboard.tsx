@@ -2,10 +2,11 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, LayoutAnimation, Pressable, ScrollView, View } from "react-native";
 import { Bell, Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Flame, MessageSquare, Play, Target, TrendingUp, Utensils } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppSelector } from "@/store/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
 import { apiRequest } from "@/lib/api";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -56,8 +57,9 @@ function formatDateNav(dateKey: string): string {
 }
 
 export function NutritionDashboard() {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const router = useRouter();
+  const toast = useAppToast();
   const profile = useAppSelector((s) => s.user.profile);
   const { token } = useAppSelector((s) => s.user);
   const { actingUserId } = useActingUser();
@@ -155,11 +157,13 @@ export function NutritionDashboard() {
         // the meal for ~1s. Focus/foreground refetch reconciles later, consistently.
       } catch {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        // Save failed → reconcile optimistic state back to server truth.
+        // Surface the failure instead of letting the optimistic item silently vanish.
+        toast.error("Couldn't save meal", "Check your connection and add it again.");
+        // Reconcile optimistic state back to server truth.
         void refetch();
       }
     },
-    [activeMeal, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, token],
+    [activeMeal, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, token, toast],
   );
 
 
@@ -279,7 +283,7 @@ export function NutritionDashboard() {
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 100,
-                backgroundColor: isToday ? p.accent : p.cardWhite,
+                backgroundColor: isToday ? p.buttonPrimary : p.cardWhite,
                 opacity: pressed ? 0.85 : 1,
               })}
             >
@@ -631,7 +635,7 @@ function CoachFeedbackCard({
   onPress,
 }: {
   entry: CoachFeedbackEntry;
-  p: ReturnType<typeof useAdminPastel>;
+  p: ReturnType<typeof useNutritionTheme>;
   onPress: () => void;
 }) {
   const hasMedia = Boolean(entry.coachFeedbackMediaUrl);

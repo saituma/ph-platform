@@ -2,7 +2,7 @@ import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import { Text } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { apiRequest } from "@/lib/api";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -20,7 +20,7 @@ function parseSlot(value: unknown) {
 
 export default function NutritionLogDetailScreen() {
   const router = useRouter();
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const { dateKey, userId } = useLocalSearchParams<{
     dateKey: string;
     userId?: string;
@@ -178,7 +178,7 @@ export default function NutritionLogDetailScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => router.replace("/nutrition" as any)}
-              style={{ borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
+              style={{ borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.buttonPrimary }}
             >
               <Text
                 style={{ fontSize: 14, fontFamily: "Outfit-Bold", textAlign: "center", color: p.buttonPrimaryText }}

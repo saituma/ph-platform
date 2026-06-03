@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import type { MealSlotData } from "./types";
 
 type MealCardProps = {
@@ -11,7 +11,7 @@ type MealCardProps = {
 };
 
 export function MealCard({ slot, onPressAdd }: MealCardProps) {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const totalEaten = slot.items.reduce((sum, item) => sum + item.calories, 0);
   const hasItems = slot.items.length > 0;
 

@@ -2,7 +2,7 @@ import React from "react";
 import { View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 
 type CalorieRingProps = {
   size: number;
@@ -19,7 +19,7 @@ export function CalorieRing({
   totalKcal,
   dateLabel,
 }: CalorieRingProps) {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clampedProgress = Math.min(1, Math.max(0, progress));

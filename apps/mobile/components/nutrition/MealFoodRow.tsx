@@ -1,7 +1,7 @@
 import React from "react";
 import { View } from "react-native";
 import { Text } from "@/components/ScaledText";
-import { useAdminPastel } from "@/components/admin/AdminUI";
+import { useNutritionTheme } from "@/components/nutrition/theme";
 import type { MealItem } from "./types";
 
 type MealFoodRowProps = {
@@ -9,7 +9,7 @@ type MealFoodRowProps = {
 };
 
 export function MealFoodRow({ item }: MealFoodRowProps) {
-  const p = useAdminPastel();
+  const p = useNutritionTheme();
 
   return (
     <View
