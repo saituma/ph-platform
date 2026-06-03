@@ -16,7 +16,6 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  Zap,
 } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -27,6 +26,7 @@ import {
   type SocialLeaderboardItem,
 } from "@/services/tracking/socialService";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
+import { ErrorRetry } from "../components/ErrorRetry";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerHomeScreen
@@ -35,12 +35,13 @@ import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterS
 export default function TeamManagerHomeScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const { authTeamMembership, token, appRole } =
+  const { authTeamMembership, token, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
   const [roster, setRoster] = useState<RosterResponse | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -74,18 +75,16 @@ export default function TeamManagerHomeScreen() {
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     if (!token) return;
-    try {
-      const [rosterRes, leaderboardRes] = await Promise.allSettled([
-        fetchRoster(token, forceRefresh),
-        fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
-      ]);
-      if (rosterRes.status === "fulfilled") setRoster(rosterRes.value ?? null);
-      if (leaderboardRes.status === "fulfilled") setLeaderboard(leaderboardRes.value?.items ?? []);
-    } catch {
-      // silent
-    } finally {
-      setLoaded(true);
-    }
+    const [rosterRes, leaderboardRes] = await Promise.allSettled([
+      fetchRoster(token, forceRefresh),
+      fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
+    ]);
+    const rosterOk = rosterRes.status === "fulfilled";
+    if (rosterOk) setRoster(rosterRes.value ?? null);
+    if (leaderboardRes.status === "fulfilled") setLeaderboard(leaderboardRes.value?.items ?? []);
+    // Roster is the core team data; if it fails we have nothing trustworthy to show.
+    setError(!rosterOk);
+    setLoaded(true);
   }, [token]);
 
   useEffect(() => {
@@ -112,6 +111,8 @@ export default function TeamManagerHomeScreen() {
 
   const participationPct =
     memberCount > 0 ? Math.min((activeCount / memberCount) * 100, 100) : 0;
+  // A failed load with no cached roster — show a retry affordance, never misleading zeros.
+  const errEmpty = loaded && error && members.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -154,6 +155,7 @@ export default function TeamManagerHomeScreen() {
             </Text>
 
             {/* Badges */}
+            {!errEmpty && (
             <View
               style={{
                 flexDirection: "row",
@@ -217,9 +219,12 @@ export default function TeamManagerHomeScreen() {
                 </View>
               )}
             </View>
+            )}
 
             {/* KM stat or skeleton */}
-            {loaded ? (
+            {!loaded ? (
+              <HeroSkeleton />
+            ) : errEmpty ? null : (
               <View>
                 <View
                   style={{
@@ -293,8 +298,6 @@ export default function TeamManagerHomeScreen() {
                   </View>
                 )}
               </View>
-            ) : (
-              <HeroSkeleton />
             )}
           </View>
 
@@ -322,34 +325,48 @@ export default function TeamManagerHomeScreen() {
               }}
             />
 
-            {/* Compact stats strip */}
-            <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  borderRadius: 22,
-                  backgroundColor: p.cardSage,
-                  overflow: "hidden",
-                }}
-              >
-                <StatPill label="Athletes" value={memberCount} />
-                <View style={{ width: 1, backgroundColor: p.divider }} />
-                <StatPill label="Youth" value={youthCount} />
-                <View style={{ width: 1, backgroundColor: p.divider }} />
-                <StatPill label="Adults" value={adultCount} />
-              </View>
-            </View>
-
-            {/* Leaderboard preview */}
-            {loaded && leaderboard.length > 0 && (
+            {errEmpty ? (
               <View style={{ marginBottom: 28 }}>
-                <LeaderboardPreview leaderboard={leaderboard} />
+                <ErrorRetry
+                  title="Couldn't load your team"
+                  onRetry={() => {
+                    setLoaded(false);
+                    void fetchData(true);
+                  }}
+                />
               </View>
-            )}
-            {!loaded && (
-              <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
-                <SkeletonBlock height={110} borderRadius={22} />
-              </View>
+            ) : (
+              <>
+                {/* Compact stats strip */}
+                <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      borderRadius: 22,
+                      backgroundColor: p.cardSage,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <StatPill label="Athletes" value={memberCount} />
+                    <View style={{ width: 1, backgroundColor: p.divider }} />
+                    <StatPill label="Youth" value={youthCount} />
+                    <View style={{ width: 1, backgroundColor: p.divider }} />
+                    <StatPill label="Adults" value={adultCount} />
+                  </View>
+                </View>
+
+                {/* Leaderboard preview */}
+                {loaded && leaderboard.length > 0 && (
+                  <View style={{ marginBottom: 28 }}>
+                    <LeaderboardPreview leaderboard={leaderboard} />
+                  </View>
+                )}
+                {!loaded && (
+                  <View style={{ paddingHorizontal: 20, marginBottom: 28 }}>
+                    <SkeletonBlock height={110} borderRadius={22} />
+                  </View>
+                )}
+              </>
             )}
 
             {/* Actions list */}
@@ -388,19 +405,23 @@ export default function TeamManagerHomeScreen() {
                   accent={p.info}
                   onPress={() => router.push("/(tabs)/schedule")}
                 />
-                <ActionRow
-                  icon={BarChart3}
-                  label="Stats"
-                  accent={p.danger}
-                  onPress={() => router.push("/team-manager/leaderboard" as any)}
-                />
-                <ActionRow
-                  icon={Settings}
-                  label="Team Settings"
-                  accent={p.textMuted}
-                  isLast
-                  onPress={() => router.push("/team-manager/settings" as any)}
-                />
+                {capabilities?.teamTracking && (
+                  <ActionRow
+                    icon={BarChart3}
+                    label="Stats"
+                    accent={p.danger}
+                    onPress={() => router.push("/team-manager/leaderboard" as any)}
+                  />
+                )}
+                {capabilities?.teamTracking && (
+                  <ActionRow
+                    icon={Settings}
+                    label="Team Settings"
+                    accent={p.textMuted}
+                    isLast
+                    onPress={() => router.push("/team-manager/settings" as any)}
+                  />
+                )}
               </View>
             </View>
           </View>
@@ -438,6 +459,23 @@ function SectionLabel({ label }: { label: string }) {
 // SkeletonBlock
 // ─────────────────────────────────────────────────────────────────────────────
 
+function useShimmer(outputRange: [number, number]) {
+  const shimmer = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmer]);
+
+  return shimmer.interpolate({ inputRange: [0, 1], outputRange });
+}
+
 function SkeletonBlock({
   height,
   borderRadius = 16,
@@ -448,31 +486,7 @@ function SkeletonBlock({
   style?: object;
 }) {
   const p = useAdminPastel();
-  const shimmer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shimmer]);
-
-  const opacity = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.35, 0.65],
-  });
+  const opacity = useShimmer([0.35, 0.65]);
 
   return (
     <Animated.View
@@ -495,31 +509,7 @@ function SkeletonBlock({
 
 function HeroSkeleton() {
   const p = useAdminPastel();
-  const shimmer = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmer, {
-          toValue: 0,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shimmer]);
-
-  const opacity = shimmer.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.2, 0.45],
-  });
+  const opacity = useShimmer([0.2, 0.45]);
 
   return (
     <View style={{ gap: 10 }}>

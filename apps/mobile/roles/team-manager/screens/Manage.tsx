@@ -17,6 +17,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterService";
+import { ErrorRetry } from "../components/ErrorRetry";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TeamManagerManageScreen
@@ -25,10 +26,11 @@ import { fetchRoster, type RosterResponse } from "@/services/teamManager/rosterS
 export default function TeamManagerManageScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const { authTeamMembership, appRole, token } = useAppSelector((s) => s.user);
+  const { authTeamMembership, appRole, token, capabilities } = useAppSelector((s) => s.user);
 
   const [roster, setRoster] = useState<RosterResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -53,8 +55,9 @@ export default function TeamManagerManageScreen() {
     try {
       const res = await fetchRoster(token, forceRefresh);
       setRoster(res ?? null);
+      setError(false);
     } catch {
-      // silent
+      setError(true);
     }
   }, [token]);
 
@@ -270,6 +273,13 @@ export default function TeamManagerManageScreen() {
                   ))}
                 </ScrollView>
               </View>
+            ) : error ? (
+              <View style={{ marginBottom: 28 }}>
+                <ErrorRetry
+                  title="Couldn't load your roster"
+                  onRetry={() => loadRoster(true)}
+                />
+              </View>
             ) : (
               /* Empty state */
               <View
@@ -376,25 +386,27 @@ export default function TeamManagerManageScreen() {
             </View>
 
             {/* ── Settings section ──────────────────────── */}
-            <View style={{ paddingHorizontal: 20 }}>
-              <SectionLabel label="Settings" />
-              <View
-                style={{
-                  borderRadius: 22,
-                  backgroundColor: p.cardWhite,
-                  overflow: "hidden",
-                }}
-              >
-                <ManageRow
-                  icon={ShieldCheck}
-                  label="Privacy & Visibility"
-                  subtitle="Control who can see team activity"
-                  accent={p.info}
-                  isFirst
-                  onPress={() => router.push("/team-manager/settings" as any)}
-                />
+            {capabilities?.teamTracking && (
+              <View style={{ paddingHorizontal: 20 }}>
+                <SectionLabel label="Settings" />
+                <View
+                  style={{
+                    borderRadius: 22,
+                    backgroundColor: p.cardWhite,
+                    overflow: "hidden",
+                  }}
+                >
+                  <ManageRow
+                    icon={ShieldCheck}
+                    label="Privacy & Visibility"
+                    subtitle="Control who can see team activity"
+                    accent={p.info}
+                    isFirst
+                    onPress={() => router.push("/team-manager/settings" as any)}
+                  />
+                </View>
               </View>
-            </View>
+            )}
 
           </View>
         </Animated.View>

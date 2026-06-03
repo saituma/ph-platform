@@ -283,6 +283,9 @@ export const teamTable = pgTable(
     sponsoredPlayerCount: integer("sponsored_player_count").notNull().default(0),
     sponsoredPlanId: integer("sponsored_plan_id").references(() => subscriptionPlanTable.id),
     paymentMode: teamPaymentMode("payment_mode").notNull().default("coach_pays_all"),
+    /** Admin-set tier override — source of truth for the team's effective access tier (managers + athletes),
+     * independent of plan or an approved subscription request. */
+    accessTierOverride: ProgramType("access_tier_override"),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

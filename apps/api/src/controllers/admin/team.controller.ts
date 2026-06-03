@@ -13,10 +13,18 @@ import {
   updateTeamMemberAdmin,
   attachAthleteToTeamAdmin,
 } from "../../services/admin/team.service";
-import { ProgramType, teamSubscriptionRequestTable, teamTable, athleteTable, guardianTable } from "../../db/schema";
+import {
+  ProgramType,
+  teamSubscriptionRequestTable,
+  teamTable,
+  teamManagersTable,
+  athleteTable,
+  guardianTable,
+} from "../../db/schema";
 import { db } from "../../db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { isTeamManager } from "../../services/team-membership";
+import { cache, cacheKeys } from "../../lib/cache";
 
 const teamDefaultsSchema = z.object({
   teamName: z.string().min(1),
@@ -299,6 +307,35 @@ export async function approveTeamSponsorRestAdminDetails(req: Request, res: Resp
   }
 }
 
+/** Clear cached `/auth/me` profiles for everyone whose effective tier changes with a team override:
+ * the primary owner, co-managers, the team's athletes, and their guardians. */
+async function invalidateTeamProfiles(
+  teamId: number,
+  adminId: number | null,
+  athletes: { userId: number | null; guardianId: number | null }[],
+): Promise<void> {
+  const userIds = new Set<number>();
+  if (adminId != null) userIds.add(adminId);
+  for (const a of athletes) if (a.userId != null) userIds.add(a.userId);
+
+  const coManagers = await db
+    .select({ userId: teamManagersTable.userId })
+    .from(teamManagersTable)
+    .where(eq(teamManagersTable.teamId, teamId));
+  for (const m of coManagers) userIds.add(m.userId);
+
+  const guardianIds = athletes.map((a) => a.guardianId).filter((id): id is number => id != null);
+  if (guardianIds.length > 0) {
+    const guardians = await db
+      .select({ userId: guardianTable.userId })
+      .from(guardianTable)
+      .where(inArray(guardianTable.id, guardianIds));
+    for (const g of guardians) if (g.userId != null) userIds.add(g.userId);
+  }
+
+  await Promise.all([...userIds].map((uid) => cache.del(cacheKeys.userProfile(uid))));
+}
+
 export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
   const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
   const parsed = z.object({
@@ -317,6 +354,14 @@ export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
+    // Durable team-level override — the source of truth read first by both manager capabilities
+    // (resolveTeamPlanTier) and API feature-gating (getFeaturesForTeam), regardless of whether an
+    // approved subscription request or any athletes exist.
+    await db
+      .update(teamTable)
+      .set({ accessTierOverride: parsed.data.accessTier, updatedAt: new Date() })
+      .where(eq(teamTable.id, teamId));
+
     const [latestApprovedRequest] = await db
       .select({ id: teamSubscriptionRequestTable.id })
       .from(teamSubscriptionRequestTable)
@@ -332,24 +377,27 @@ export async function overrideTeamAccessTierAdmin(req: Request, res: Response) {
     }
 
     const athletes = await db
-      .select({ id: athleteTable.id, guardianId: athleteTable.guardianId })
+      .select({ userId: athleteTable.userId, guardianId: athleteTable.guardianId })
       .from(athleteTable)
       .where(eq(athleteTable.teamId, teamId));
 
-    if (athletes.length === 0) return res.status(200).json({ ok: true, updated: 0 });
-
-    await db
-      .update(athleteTable)
-      .set({ currentProgramTier: parsed.data.accessTier, updatedAt: new Date() })
-      .where(eq(athleteTable.teamId, teamId));
-
-    const guardianIds = athletes.map((a) => a.guardianId).filter((id): id is number => id != null);
-    if (guardianIds.length > 0) {
+    if (athletes.length > 0) {
       await db
-        .update(guardianTable)
+        .update(athleteTable)
         .set({ currentProgramTier: parsed.data.accessTier, updatedAt: new Date() })
-        .where(inArray(guardianTable.id, guardianIds));
+        .where(eq(athleteTable.teamId, teamId));
+
+      const guardianIds = athletes.map((a) => a.guardianId).filter((id): id is number => id != null);
+      if (guardianIds.length > 0) {
+        await db
+          .update(guardianTable)
+          .set({ currentProgramTier: parsed.data.accessTier, updatedAt: new Date() })
+          .where(inArray(guardianTable.id, guardianIds));
+      }
     }
+
+    // Bust cached /auth/me so the new tier reflects immediately instead of after the 60s TTL.
+    await invalidateTeamProfiles(teamId, teamRow.adminId, athletes);
 
     logger.info({ teamId, accessTier: parsed.data.accessTier, count: athletes.length }, "[admin] team access tier overridden");
     return res.status(200).json({ ok: true, updated: athletes.length });

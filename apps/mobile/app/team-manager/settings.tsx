@@ -33,8 +33,9 @@ import {
 export default function TeamSettingsScreen() {
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const { token, appRole } = useAppSelector((s) => s.user);
+  const { token, appRole, capabilities } = useAppSelector((s) => s.user);
   const isTeamManager = appRole === "team_manager";
+  const canManageTeamTracking = Boolean(capabilities?.teamTracking);
 
   const [settings, setSettings] = useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -120,7 +121,7 @@ export default function TeamSettingsScreen() {
     },
   ];
 
-  if (!isTeamManager) {
+  if (!isTeamManager || !canManageTeamTracking) {
     return <ReplaceOnce href="/(tabs)" />;
   }
 

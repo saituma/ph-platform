@@ -91,9 +91,20 @@ export async function getCurrentPlanFeaturesForUser(userId: number): Promise<Set
   });
 }
 
+/** The team's effective tier when every athlete shares one — mirrors resolveTeamPlanTier in
+ * auth.controller so API feature-gating agrees with the manager's UI capabilities. */
+async function uniformAthleteTierForTeam(teamId: number): Promise<string | null> {
+  const rows = await db
+    .select({ tier: athleteTable.currentProgramTier })
+    .from(athleteTable)
+    .where(eq(athleteTable.teamId, teamId));
+  const tiers = Array.from(new Set(rows.map((row) => row.tier).filter(Boolean)));
+  return tiers.length === 1 ? (tiers[0] as string) : null;
+}
+
 export async function getFeaturesForTeam(teamId: number): Promise<Set<FeatureKey>> {
   const [team] = await db
-    .select({ id: teamTable.id, planId: teamTable.planId })
+    .select({ id: teamTable.id, planId: teamTable.planId, accessTierOverride: teamTable.accessTierOverride })
     .from(teamTable)
     .where(eq(teamTable.id, teamId))
     .limit(1);
@@ -110,10 +121,14 @@ export async function getFeaturesForTeam(teamId: number): Promise<Set<FeatureKey
     .orderBy(desc(teamSubscriptionRequestTable.updatedAt), desc(teamSubscriptionRequestTable.id))
     .limit(1);
 
-  if (approvedRequest?.accessTierOverride) {
+  // Override precedence (must match resolveTeamPlanTier): durable team override →
+  // approved-request override → uniform athlete tier. Then fall back to the team plan.
+  const overrideTier =
+    team.accessTierOverride ?? approvedRequest?.accessTierOverride ?? (await uniformAthleteTierForTeam(team.id));
+  if (overrideTier) {
     return resolveEffectiveAccessFeatures({
-      paidPlan: await getPlanForId(team.planId ?? approvedRequest.planId),
-      overrideTier: approvedRequest.accessTierOverride,
+      paidPlan: await getPlanForId(team.planId ?? approvedRequest?.planId),
+      overrideTier,
     });
   }
 

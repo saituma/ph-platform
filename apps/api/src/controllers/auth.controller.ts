@@ -23,7 +23,7 @@ import { findManagedTeamIdForUser } from "../services/team-membership";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 import { db } from "../db";
-import { ProgramType, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
+import { ProgramType, athleteTable, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
 import { env } from "../config/env";
@@ -41,13 +41,14 @@ type TeamForMeRow = {
   planId: number | null;
   subscriptionStatus: string | null;
   planExpiresAt: Date | null;
+  accessTierOverride: (typeof ProgramType.enumValues)[number] | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 type TeamForMe = TeamForMeRow & {
   planTier: (typeof ProgramType.enumValues)[number] | null;
-  planTierSource: "team_plan" | "approved_team_request" | "none";
+  planTierSource: "team_plan" | "approved_team_request" | "team_athlete_tier" | "team_override" | "none";
 };
 
 const teamForMeSelect = {
@@ -60,6 +61,7 @@ const teamForMeSelect = {
   planId: teamTable.planId,
   subscriptionStatus: teamTable.subscriptionStatus,
   planExpiresAt: teamTable.planExpiresAt,
+  accessTierOverride: teamTable.accessTierOverride,
   createdAt: teamTable.createdAt,
   updatedAt: teamTable.updatedAt,
 } as const;
@@ -82,10 +84,19 @@ async function resolveAthleteTeamForMe(
   return row ?? null;
 }
 
-async function resolveTeamPlanTier(team: { id: number; planId: number | null }): Promise<{
+async function resolveTeamPlanTier(team: {
+  id: number;
+  planId: number | null;
+  accessTierOverride?: (typeof ProgramType.enumValues)[number] | null;
+}): Promise<{
   tier: (typeof ProgramType.enumValues)[number] | null;
-  source: "team_plan" | "approved_team_request" | "none";
+  source: "team_plan" | "approved_team_request" | "team_athlete_tier" | "team_override" | "none";
 }> {
+  // Durable admin override wins over everything else.
+  if (team.accessTierOverride) {
+    return { tier: team.accessTierOverride, source: "team_override" };
+  }
+
   const [approvedRequest] = await db
     .select({
       tier: subscriptionPlanTable.tier,
@@ -99,6 +110,18 @@ async function resolveTeamPlanTier(team: { id: number; planId: number | null }):
 
   if (approvedRequest?.accessTierOverride) {
     return { tier: approvedRequest.accessTierOverride, source: "approved_team_request" };
+  }
+
+  const teamAthleteTiers = await db
+    .select({ tier: athleteTable.currentProgramTier })
+    .from(athleteTable)
+    .where(eq(athleteTable.teamId, team.id));
+  const uniformAthleteTiers = Array.from(new Set(teamAthleteTiers.map((row) => row.tier).filter(Boolean)));
+  if (uniformAthleteTiers.length === 1) {
+    return {
+      tier: uniformAthleteTiers[0] as (typeof ProgramType.enumValues)[number],
+      source: "team_athlete_tier",
+    };
   }
 
   const planId = team.planId;
