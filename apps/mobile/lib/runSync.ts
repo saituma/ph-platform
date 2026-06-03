@@ -26,6 +26,7 @@ type ServerRun = {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  sport: string | null;
 };
 
 /**
@@ -39,9 +40,7 @@ export async function pushRunsToCloud(): Promise<void> {
     const userId = store.getState().user.profile.id ?? null;
 
     initSQLiteRuns();
-    const unsynced = getUnsyncedRuns(userId).filter(
-      (r) => r.effort_level !== EFFORT_PENDING_FEEDBACK,
-    );
+    const unsynced = getUnsyncedRuns(userId);
     if (!unsynced.length) return;
 
     // Batch into chunks of 50 (API limit)
@@ -61,7 +60,9 @@ export async function pushRunsToCloud(): Promise<void> {
         calories: r.calories || null,
         coordinates: safeJsonParse(r.coordinates),
         effortLevel:
-          r.effort_level != null && r.effort_level >= 0 ? r.effort_level : null,
+          r.effort_level != null && r.effort_level !== EFFORT_PENDING_FEEDBACK && r.effort_level >= 0
+            ? r.effort_level
+            : null,
         feelTags: safeJsonParse(r.feel_tags),
         notes: r.notes || null,
         sport: r.sport || null,
@@ -120,6 +121,7 @@ export async function pullRunsFromCloud(): Promise<void> {
           effort_level: run.effortLevel,
           feel_tags: run.feelTags ? JSON.stringify(run.feelTags) : null,
           notes: run.notes,
+          sport: run.sport,
         });
       }
     }

@@ -240,11 +240,12 @@ export function upsertRunFromServer(run: {
   feel_tags: string | null;
   notes: string | null;
   user_id?: string | null;
+  sport?: string | null;
 }) {
   ensureInitialized();
   db.runSync(
-    `INSERT OR IGNORE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.date,
@@ -259,6 +260,7 @@ export function upsertRunFromServer(run: {
       run.notes ?? "",
       new Date().toISOString(),
       run.user_id ?? null,
+      run.sport ?? null,
     ],
   );
 }

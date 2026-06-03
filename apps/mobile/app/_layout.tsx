@@ -21,7 +21,7 @@ import React, {
 } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SystemBars } from "react-native-edge-to-edge";
-import { Platform, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -43,6 +43,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 import * as SplashScreen from "expo-splash-screen";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { isSentryEnabled, Sentry } from "@/lib/sentry";
+import { syncRuns } from "@/lib/runSync";
 
 // Ensure cold start lands in the main tab shell (Home), not a deep stack route.
 export const unstable_settings = {
@@ -117,6 +118,26 @@ function SocketQueryBridge() {
   return null;
 }
 
+function RunSyncBridge() {
+  const token = useAppSelector((state) => state.user.token);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+
+  useEffect(() => {
+    if (!token || !isAuthenticated) return;
+    void syncRuns();
+
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void syncRuns();
+      }
+    });
+
+    return () => sub.remove();
+  }, [isAuthenticated, token]);
+
+  return null;
+}
+
 function RootLayout() {
   useOtaUpdater();
 
@@ -157,6 +178,7 @@ function RootLayout() {
     >
       <RootErrorBoundary>
       <SocketQueryBridge />
+      <RunSyncBridge />
       <View style={{ flex: 1, backgroundColor: "#000" }}>
         <View style={Platform.isPad ? { flex: 1, maxWidth: 560, width: "100%", alignSelf: "center", overflow: "hidden" } : { flex: 1 }}>
         <UpdateBanner />
