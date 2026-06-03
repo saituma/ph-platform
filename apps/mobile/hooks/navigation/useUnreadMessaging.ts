@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { runWhenIdle } from "@/lib/scheduling/idle";
 import { useSocket } from "@/context/SocketContext";
-import { subscribeMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
+import {
+  isMessagingThreadLocallyRead,
+  subscribeMessagingUnreadChanged,
+} from "@/lib/messages/unreadEvents";
 
 /**
  * Drives the messaging tab badge.
@@ -44,10 +47,13 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
         forceRefresh: true,
         suppressStatusCodes: [401, 403],
       });
-      const unread = (inbox.threads ?? []).reduce(
-        (sum, thread) => sum + (Number(thread?.unread) || 0),
-        0,
-      );
+      const unread = (inbox.threads ?? []).reduce((sum, thread) => {
+        const threadId =
+          thread?.id ??
+          (thread?.type === "group" ? `group:${thread?.groupId}` : thread?.peerUserId);
+        if (isMessagingThreadLocallyRead(threadId)) return sum;
+        return sum + (Number(thread?.unread) || 0);
+      }, 0);
       setUnreadCount(unread);
     } catch {
       try {
@@ -58,7 +64,10 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
         });
         const unread =
           data.messages?.filter(
-            (message) => !message.read && String(message.senderId) !== String(userId),
+            (message) =>
+              !message.read &&
+              String(message.senderId) !== String(userId) &&
+              !isMessagingThreadLocallyRead(message.senderId),
           ).length ?? 0;
         setUnreadCount(unread);
       } catch {
@@ -99,7 +108,11 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
 
   useEffect(() => {
     if (!token || !enabled || !userId) return;
-    return subscribeMessagingUnreadChanged(() => {
+    return subscribeMessagingUnreadChanged((event) => {
+      const cleared = Math.max(0, Number(event.unreadCleared ?? 0) || 0);
+      if (cleared > 0) {
+        setUnreadCount((count) => Math.max(0, count - cleared));
+      }
       void syncUnread();
     });
   }, [enabled, syncUnread, token, userId]);

@@ -9,6 +9,7 @@ export async function fetchInbox(token: string, actingHeaders?: Record<string, s
   return apiRequest<InboxResponse>("/messages/inbox", {
     token,
     headers: actingHeaders,
+    forceRefresh: true,
     suppressStatusCodes: [401, 403],
   });
 }
@@ -33,6 +34,7 @@ export async function fetchGroupMessages(token: string, groupId: number, actingH
   return apiRequest<GroupMessagesResponse>(`/chat/groups/${groupId}/messages`, {
     token,
     headers: actingHeaders,
+    forceRefresh: true,
   });
 }
 

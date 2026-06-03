@@ -17,7 +17,10 @@ import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
 import { clearApiCache } from "@/lib/api";
 import { messagesApi } from "@/lib/apiClient/messages";
-import { emitMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
+import {
+  emitMessagingUnreadChanged,
+  isMessagingThreadLocallyRead,
+} from "@/lib/messages/unreadEvents";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
@@ -48,6 +51,7 @@ interface ChatActionsParams {
   socket: Socket | null;
   /** Triggers a TanStack Query refetch of the thread list — dedup and caching handled by TQ. */
   refetchThreads: () => Promise<unknown>;
+  getThreadUnread?: (threadId: string) => number;
   setThreads: React.Dispatch<React.SetStateAction<MessageThread[]>>;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -65,6 +69,7 @@ export function useChatActions({
   programTier,
   socket,
   refetchThreads,
+  getThreadUnread,
   setThreads,
   setMessages,
   setIsLoading,
@@ -132,7 +137,11 @@ export function useChatActions({
               time,
               pinned: false,
               premium: false,
-              unread: Number(thread.unread ?? 0) || 0,
+              unread: isMessagingThreadLocallyRead(
+                thread.id || `group:${String(thread.groupId ?? "").trim()}`,
+              )
+                ? 0
+                : Number(thread.unread ?? 0) || 0,
               lastSeen: "Active",
               responseTime: "Group updates",
               updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
@@ -153,7 +162,9 @@ export function useChatActions({
             time,
             pinned: false,
             premium: isPremium,
-            unread: Number(thread.unread ?? 0) || 0,
+            unread: isMessagingThreadLocallyRead(directId)
+              ? 0
+              : Number(thread.unread ?? 0) || 0,
             lastSeen: thread.lastSeenAt ? formatLastSeenStatic(thread.lastSeenAt) : "Active",
             responseTime: isPremium
               ? "Priority response window"
@@ -213,7 +224,8 @@ export function useChatActions({
         const existing = directFallbackByPeer.get(peerId);
         const isReadForUser = Boolean(msg.myReadAt);
         const isIncomingUnread = senderId === peerId && !isReadForUser && msg.read === false;
-        const unreadDelta = isIncomingUnread ? 1 : 0;
+        const unreadDelta =
+          isIncomingUnread && !isMessagingThreadLocallyRead(peerId) ? 1 : 0;
         if (!existing) {
           const coach = (coaches ?? []).find((c) => String(c.id) === peerId);
           directFallbackByPeer.set(peerId, {
@@ -507,13 +519,16 @@ export function useChatActions({
           ),
         );
         clearApiCache();
-        emitMessagingUnreadChanged();
+        emitMessagingUnreadChanged({
+          threadId: id,
+          unreadCleared: getThreadUnread?.(id) ?? 1,
+        });
         void refetchThreads();
       } catch (error) {
         console.warn("Failed to mark messages read", error);
       }
     },
-    [actingHeaders, refetchThreads, token, setThreads, setMessages],
+    [actingHeaders, getThreadUnread, refetchThreads, token, setThreads, setMessages],
   );
 
   const markGroupThreadRead = useCallback(
@@ -529,13 +544,16 @@ export function useChatActions({
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
         );
         clearApiCache();
-        emitMessagingUnreadChanged();
+        emitMessagingUnreadChanged({
+          threadId: id,
+          unreadCleared: getThreadUnread?.(id) ?? 1,
+        });
         void refetchThreads();
       } catch (error) {
         console.warn("Failed to mark group read", error);
       }
     },
-    [actingHeaders, refetchThreads, token, setThreads],
+    [actingHeaders, getThreadUnread, refetchThreads, token, setThreads],
   );
 
   const handleDeleteMessage = useCallback(

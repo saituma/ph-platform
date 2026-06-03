@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import {
+  isMessagingThreadLocallyRead,
+  subscribeMessagingUnreadChanged,
+} from "@/lib/messages/unreadEvents";
 import { runWhenIdle } from "@/lib/scheduling/idle";
 import { useSocket } from "@/context/SocketContext";
 import { useAppSelector } from "@/store/hooks";
@@ -42,12 +46,18 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
 
       const dmUnread =
         (threadsRes?.threads ?? []).reduce(
-          (sum, t) => sum + (Number(t?.unread) || 0),
+          (sum, t) =>
+            isMessagingThreadLocallyRead(t?.id ?? t?.userId)
+              ? sum
+              : sum + (Number(t?.unread) || 0),
           0,
         ) ?? 0;
       const groupUnread =
         (groupsRes?.groups ?? []).reduce(
-          (sum, g) => sum + (Number(g?.unreadCount) || 0),
+          (sum, g) =>
+            isMessagingThreadLocallyRead(`group:${g?.id}`)
+              ? sum
+              : sum + (Number(g?.unreadCount) || 0),
           0,
         ) ?? 0;
       setUnreadCount(Math.max(0, dmUnread + groupUnread));
@@ -78,6 +88,17 @@ export function useCoachUnreadMessaging(token: string | null, enabled: boolean) 
       clearInterval(timer);
       task?.cancel?.();
     };
+  }, [enabled, syncAdminUnread, token]);
+
+  useEffect(() => {
+    if (!token || !enabled) return;
+    return subscribeMessagingUnreadChanged((event) => {
+      const cleared = Math.max(0, Number(event.unreadCleared ?? 0) || 0);
+      if (cleared > 0) {
+        setUnreadCount((count) => Math.max(0, count - cleared));
+      }
+      void syncAdminUnread();
+    });
   }, [enabled, syncAdminUnread, token]);
 
   // Real-time updates via socket events.

@@ -8,6 +8,7 @@ import { useSocket } from "@/context/SocketContext";
 import { useMessagesRealtime } from "@/hooks/useMessagesRealtime";
 import { getNotifications } from "@/lib/notifications";
 import { messagesApi } from "@/lib/apiClient/messages";
+import { subscribeMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { resolveMediaType } from "@/lib/messages/mediaType";
 import { mapApiDirectMessageToChatMessage } from "@/lib/messages/mappers/messageMapper";
@@ -149,6 +150,14 @@ export function useMessagesController(options?: {
     handleAttachFile,
   } = useChatAttachments(token, actingHeaders);
 
+  const getThreadUnread = useCallback(
+    (id: string) => {
+      const thread = threads.find((item) => item.id === id);
+      return Math.max(0, Number(thread?.unread ?? 0) || 0);
+    },
+    [threads],
+  );
+
   const {
     loadMessages,
     applyFetchedData,
@@ -167,6 +176,7 @@ export function useMessagesController(options?: {
     programTier,
     socket,
     refetchThreads: threadsQuery.refetch,
+    getThreadUnread,
     setThreads,
     setMessages,
     setIsLoading,
@@ -190,7 +200,9 @@ export function useMessagesController(options?: {
     });
   }, [threads]);
 
-  const currentThreadId = currentThread?.id;
+  const routeThreadId =
+    typeof threadId === "string" && threadId.trim() ? threadId.trim() : null;
+  const currentThreadId = currentThread?.id ?? routeThreadId;
 
   // When TanStack Query delivers fresh thread/message data, process it into state.
   // TQ owns the fetch (dedup, cache, stale-while-revalidate); this owns the mapping.
@@ -202,6 +214,17 @@ export function useMessagesController(options?: {
       threadsQuery.data.groups,
     );
   }, [enabled, threadsQuery.data, applyFetchedData]);
+
+  useEffect(() => {
+    return subscribeMessagingUnreadChanged((event) => {
+      if (!event.threadId) return;
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === event.threadId ? { ...thread, unread: 0 } : thread,
+        ),
+      );
+    });
+  }, [setThreads]);
 
   useEffect(() => {
     setReplyTarget(null);

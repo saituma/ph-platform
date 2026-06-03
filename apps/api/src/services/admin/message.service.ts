@@ -25,7 +25,17 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
-  const adminSet = new Set(adminIds);
+
+  // Team managers should see their own athlete DMs, not a shared mailbox for
+  // every primary/co-manager/admin. Platform admins keep the shared inbox.
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
+  const isTeamCoach = callerUser?.role === "team_coach";
+  const visibleAdminIds = isTeamCoach ? [coachId] : adminIds;
+  const adminSet = new Set(visibleAdminIds);
 
   const athleteRows = await db
     .select({
@@ -42,7 +52,7 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     }
   }
 
-  const adminIdList = joinNumbers(adminIds);
+  const adminIdList = joinNumbers(visibleAdminIds);
   const rawThreadStatsResult = await db.execute(sql`
     select
       t.other_id as "rawOtherId",
@@ -88,16 +98,8 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   const rawOtherUserIds = rawThreadStats.map((row) => Number(row.rawOtherId)).filter((id) => Number.isFinite(id));
   if (!rawOtherUserIds.length) return [];
 
-  // Team coaches (team managers) must only see messages from their own team athletes.
-  // Platform admins/coaches see all threads as before.
-  const [callerUser] = await db
-    .select({ role: userTable.role })
-    .from(userTable)
-    .where(eq(userTable.id, coachId))
-    .limit(1);
-
   let filteredOtherUserIds = rawOtherUserIds;
-  if (callerUser?.role === "team_coach") {
+  if (isTeamCoach) {
     const managedTeamIds = await getManagedTeamIds(coachId);
     const teamAthleteRows = managedTeamIds.length
       ? await db
@@ -121,8 +123,8 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     .from(messageTable)
     .where(
       or(
-        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, filteredOtherUserIds)),
-        and(inArray(messageTable.senderId, filteredOtherUserIds), inArray(messageTable.receiverId, adminIds)),
+        and(inArray(messageTable.senderId, visibleAdminIds), inArray(messageTable.receiverId, filteredOtherUserIds)),
+        and(inArray(messageTable.senderId, filteredOtherUserIds), inArray(messageTable.receiverId, visibleAdminIds)),
       ),
     )
     .orderBy(desc(messageTable.createdAt))
@@ -145,7 +147,10 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     const rawOtherId = Number(stat.rawOtherId);
     if (!Number.isFinite(rawOtherId)) continue;
     if (!filteredOtherSet.has(rawOtherId)) continue;
-    const otherId = athleteToGuardian.get(rawOtherId) ?? rawOtherId;
+    // Platform admin inboxes historically collapse youth-athlete threads into
+    // the guardian row. Team managers, however, are messaging team athletes
+    // directly; collapsing here makes replies go to the guardian/co-manager id.
+    const otherId = isTeamCoach ? rawOtherId : athleteToGuardian.get(rawOtherId) ?? rawOtherId;
     const latest = latestByRawUserId.get(rawOtherId);
     const preview = latest?.content ?? "Start the conversation";
     const latestAt = latest?.createdAt ?? stat.latestAt;
@@ -171,15 +176,23 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
   const usersArr = userIds.length ? await db.select().from(userTable).where(inArray(userTable.id, userIds)) : [];
   const usersById = new Map(usersArr.map((u) => [u.id, u]));
 
+  const athleteNameByUserId = new Map<number, string>();
   const guardianNameByAthleteUserId = new Map<number, string>();
   if (userIds.length) {
     const athleteRows = await db
       .select({
         athleteUserId: athleteTable.userId,
+        athleteName: athleteTable.name,
         guardianId: athleteTable.guardianId,
       })
       .from(athleteTable)
       .where(inArray(athleteTable.userId, userIds));
+
+    for (const row of athleteRows) {
+      if (row.athleteName) {
+        athleteNameByUserId.set(row.athleteUserId, row.athleteName);
+      }
+    }
 
     const guardianIds = Array.from(
       new Set(athleteRows.map((row) => row.guardianId).filter((id): id is number => id != null)),
@@ -248,10 +261,11 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
     const info = threads.get(id)!;
     const user = usersById.get(id);
     const guardianName = guardianNameByAthleteUserId.get(id);
+    const athleteName = athleteNameByUserId.get(id);
     const programTier = tierMap.get(id) ?? null;
     return {
       userId: id,
-      name: guardianName ?? user?.name ?? user?.email ?? "Unknown",
+      name: (isTeamCoach ? athleteName : guardianName) ?? user?.name ?? user?.email ?? "Unknown",
       preview: info.preview,
       time: info.latestAt,
       unread: info.unread,
@@ -274,6 +288,12 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number, o
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return [];
   if (!adminIds.includes(coachId)) return [];
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
+  const visibleAdminIds = callerUser?.role === "team_coach" ? [coachId] : adminIds;
   const [guardian] = await db
     .select({ id: guardianTable.id })
     .from(guardianTable)
@@ -300,8 +320,8 @@ export async function listThreadMessagesAdmin(coachId: number, userId: number, o
     .from(messageTable)
     .where(
       or(
-        and(inArray(messageTable.senderId, adminIds), inArray(messageTable.receiverId, otherUserIds)),
-        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, adminIds)),
+        and(inArray(messageTable.senderId, visibleAdminIds), inArray(messageTable.receiverId, otherUserIds)),
+        and(inArray(messageTable.senderId, otherUserIds), inArray(messageTable.receiverId, visibleAdminIds)),
       ),
     )
     .orderBy(messageTable.createdAt)
@@ -364,6 +384,12 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.length) return 0;
   if (!adminIds.includes(coachId)) return 0;
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
+  const visibleAdminIds = callerUser?.role === "team_coach" ? [coachId] : adminIds;
 
   const otherUserIds = await resolveGuardianThreadUsers(userId);
   const readAt = new Date();
@@ -378,7 +404,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
           db
             .select({ id: messageTable.id })
             .from(messageTable)
-            .where(and(inArray(messageTable.receiverId, adminIds), inArray(messageTable.senderId, otherUserIds))),
+            .where(and(inArray(messageTable.receiverId, visibleAdminIds), inArray(messageTable.senderId, otherUserIds))),
         ),
       ),
     );
@@ -387,7 +413,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
     .set({ read: true })
     .where(
       and(
-        inArray(messageTable.receiverId, adminIds),
+        inArray(messageTable.receiverId, visibleAdminIds),
         inArray(messageTable.senderId, otherUserIds),
         eq(messageTable.read, false),
       ),
