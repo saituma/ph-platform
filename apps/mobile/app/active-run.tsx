@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Pressable, ActivityIndicator, BackHandler, Alert } from "react-native";
 import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
-import { EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveRunRecord } from "@/lib/sqliteRuns";
+import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveActiveRunDraft, saveRunRecord } from "@/lib/sqliteRuns";
 import { estimateCalories } from "@/lib/tracking/runUtils";
 import { pushRunsToCloud } from "@/lib/runSync";
 import {
@@ -75,6 +75,11 @@ export default function ActiveRunScreen() {
   const stopRun = useRunStore((s) => s.stopRun);
   const resetRun = useRunStore((s) => s.resetRun);
   const setDestination = useRunStore((s) => s.setDestination);
+  const currentRunId = useRunStore((s) => s.currentRunId);
+  const liveDistanceMeters = useRunStore((s) => s.distanceMeters);
+  const liveElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
+  const liveCoordinates = useRunStore((s) => s.coordinates);
+  const lastDraftSavedSecondsRef = React.useRef(-1);
 
   const [bgLocationAllowed, setBgLocationAllowed] = useState(true);
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
@@ -133,6 +138,19 @@ export default function ActiveRunScreen() {
     [status],
   );
 
+  const discardActiveRun = useCallback(() => {
+    const runId = useRunStore.getState().currentRunId;
+    if (runId) {
+      try {
+        initSQLiteRuns();
+        deleteRunRecord(runId);
+      } catch (e) {
+        console.warn("[active-run] failed to delete active draft", e);
+      }
+    }
+    resetRun();
+  }, [resetRun]);
+
   useEffect(() => {
     requestAnimationFrame(() => setIsTabBarVisible(false));
     return () => {
@@ -154,7 +172,7 @@ export default function ActiveRunScreen() {
               text: "Leave anyway",
               style: "destructive",
               onPress: () => {
-                resetRun();
+                discardActiveRun();
                 router.replace("/(tabs)/tracking" as any);
               },
             },
@@ -165,7 +183,7 @@ export default function ActiveRunScreen() {
       return false;
     });
     return () => sub.remove();
-  }, [status, resetRun, router]);
+  }, [status, discardActiveRun, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -204,6 +222,42 @@ export default function ActiveRunScreen() {
     }, 15000);
     return () => clearInterval(interval);
   }, [status]);
+
+  useEffect(() => {
+    if (status !== "running" && status !== "paused") return;
+    if (!currentRunId) return;
+    if (liveElapsedSeconds <= 0 && liveDistanceMeters <= 0) return;
+    if (liveElapsedSeconds === lastDraftSavedSecondsRef.current) return;
+    lastDraftSavedSecondsRef.current = liveElapsedSeconds;
+
+    const distanceKm = liveDistanceMeters / 1000;
+    const avg_speed =
+      distanceKm > 0 && liveElapsedSeconds > 0
+        ? distanceKm / (liveElapsedSeconds / 3600)
+        : 0;
+    const avg_pace =
+      distanceKm > 0 && liveElapsedSeconds > 0
+        ? liveElapsedSeconds / 60 / distanceKm
+        : 0;
+
+    try {
+      initSQLiteRuns();
+      saveActiveRunDraft({
+        id: currentRunId,
+        date: new Date().toISOString(),
+        distance_meters: liveDistanceMeters,
+        duration_seconds: liveElapsedSeconds,
+        avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
+        avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
+        calories: estimateCalories(liveDistanceMeters),
+        coordinates: JSON.stringify(liveCoordinates ?? []),
+        user_id: userId,
+        sport: selectedSport,
+      });
+    } catch (e) {
+      console.warn("[active-run] failed to save active draft", e);
+    }
+  }, [status, currentRunId, liveElapsedSeconds, liveDistanceMeters, liveCoordinates, selectedSport, userId]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
@@ -378,6 +432,7 @@ export default function ActiveRunScreen() {
     }
     if (status === "idle") {
       hasStartedRef.current = true;
+      lastDraftSavedSecondsRef.current = -1;
       startRun();
       if (audioCuesEnabled) announceRunStarted();
       return;
@@ -646,6 +701,7 @@ export default function ActiveRunScreen() {
           setSelectedSport(sport);
           setStartSheetOpen(false);
           hasStartedRef.current = true;
+          lastDraftSavedSecondsRef.current = -1;
           startRun();
           if (audioCuesEnabled) announceRunStarted();
         }}

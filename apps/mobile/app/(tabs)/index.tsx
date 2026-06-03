@@ -312,6 +312,8 @@ const HomeScreen = memo(function HomeScreen() {
   const statsQuery = useWeeklyStats(userId);
   const watchHistory = useWatchHistoryStore((s) => s.history);
   const runStatus = useRunStore((s) => s.status);
+  const liveRunDistanceMeters = useRunStore((s) => s.distanceMeters);
+  const liveRunElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
   const isRunActive = runStatus === "running" || runStatus === "paused";
   const isLoading = statsQuery.isLoading || !bootstrapReady;
   const homeContentLoading = !homeContent;
@@ -460,9 +462,14 @@ const HomeScreen = memo(function HomeScreen() {
     );
   }
 
-  const totalDist = stats?.totalDistance ?? 0;
-  const totalTime = stats?.totalTime ?? 0;
-  const numRuns = stats?.numRuns ?? 0;
+  const liveDistance = isRunActive ? liveRunDistanceMeters : 0;
+  const liveTime = isRunActive ? liveRunElapsedSeconds : 0;
+  const draftDistance = stats?.draftDistance ?? 0;
+  const draftTime = stats?.draftTime ?? 0;
+  const draftRuns = stats?.draftRuns ?? 0;
+  const totalDist = (stats?.totalDistance ?? 0) - draftDistance + Math.max(draftDistance, liveDistance);
+  const totalTime = (stats?.totalTime ?? 0) - draftTime + Math.max(draftTime, liveTime);
+  const numRuns = (stats?.numRuns ?? 0) - draftRuns + Math.max(draftRuns, isRunActive && liveTime > 0 ? 1 : 0);
   const accentLime = t.accent;
 
   const heroGradientMid = isDark ? "rgba(0,0,0,0.6)" : "rgba(244,250,242,0.6)";
