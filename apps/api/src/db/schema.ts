@@ -1123,6 +1123,120 @@ export const chatGroupMessageReceiptTable = pgTable(
   }),
 );
 
+// ─── Conversation model (direct messages as participant-based conversations) ───
+// Mirrors the chat_group_* tables. A direct conversation has exactly two participants;
+// read state lives solely in conversation_receipts (no `read` boolean dual-write).
+
+export const conversationTable = pgTable(
+  "conversations",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    kind: varchar({ length: 20 }).notNull().default("direct"),
+    /** Canonical `"${min(a,b)}:${max(a,b)}"` of the two user ids — race-safe find-or-create for a direct pair. */
+    directKey: varchar({ length: 40 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    directKeyUnique: uniqueIndex("conversations_direct_key_unique").on(table.directKey),
+    updatedAtIdx: index("conversations_updated_at_idx").on(table.updatedAt),
+  }),
+);
+
+export const conversationParticipantTable = pgTable(
+  "conversation_participants",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    conversationId: integer()
+      .notNull()
+      .references(() => conversationTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    lastReadAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueParticipant: uniqueIndex("conversation_participants_conversation_user_unique").on(
+      table.conversationId,
+      table.userId,
+    ),
+    conversationIdx: index("conversation_participants_conversation_idx").on(table.conversationId),
+    userIdx: index("conversation_participants_user_idx").on(table.userId),
+  }),
+);
+
+export const conversationMessageTable = pgTable(
+  "conversation_messages",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    conversationId: integer()
+      .notNull()
+      .references(() => conversationTable.id, { onDelete: "cascade" }),
+    senderId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    content: varchar({ length: 500 }).notNull(),
+    contentType: messageType().default("text").notNull(),
+    mediaUrl: varchar({ length: 500 }),
+    clientMessageId: varchar({ length: 96 }),
+    pinnedAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    conversationIdx: index("conversation_messages_conversation_idx").on(table.conversationId),
+    conversationCreatedAtIdx: index("conversation_messages_conversation_created_at_idx").on(
+      table.conversationId,
+      table.createdAt,
+    ),
+    conversationSenderClientUnique: uniqueIndex("conversation_messages_conversation_sender_client_unique").on(
+      table.conversationId,
+      table.senderId,
+      table.clientMessageId,
+    ),
+  }),
+);
+
+export const conversationReceiptTable = pgTable(
+  "conversation_receipts",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer()
+      .notNull()
+      .references(() => conversationMessageTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    deliveredAt: timestamp().notNull().defaultNow(),
+    readAt: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageUserUnique: uniqueIndex("conversation_receipts_message_user_unique").on(table.messageId, table.userId),
+    messageReadIdx: index("conversation_receipts_message_read_idx").on(table.messageId, table.readAt),
+    userReadIdx: index("conversation_receipts_user_read_idx").on(table.userId, table.readAt),
+  }),
+);
+
+export const conversationMessageReactionTable = pgTable(
+  "conversation_message_reactions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    messageId: integer()
+      .notNull()
+      .references(() => conversationMessageTable.id, { onDelete: "cascade" }),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    emoji: varchar({ length: 16 }).notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    messageIdx: index("conversation_message_reactions_message_idx").on(table.messageId),
+  }),
+);
+
 export const referralGroupTable = pgTable("referral_groups", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
   name: varchar({ length: 255 }).notNull(),
