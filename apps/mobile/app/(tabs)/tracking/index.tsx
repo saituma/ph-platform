@@ -199,7 +199,7 @@ export default function TrackingHomeScreen() {
       setWeeklyStats(getWeeklySummaries(new Date(), userId));
     } catch {
       setRuns([]);
-      setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0 });
+      setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0, draftDistance: 0, draftTime: 0, draftRuns: 0 });
     }
   }, [userId]);
 
@@ -209,7 +209,25 @@ export default function TrackingHomeScreen() {
     return () => cancelAnimationFrame(task);
   }, [reload]);
 
-  const weeklyTime = formatHoursMinutes(weeklyStats.totalTime);
+  const runStatus = useRunStore((s) => s.status);
+  const liveRunDistanceMeters = useRunStore((s) => s.distanceMeters);
+  const liveRunElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
+  const isRunActive = runStatus === "running" || runStatus === "paused";
+  const liveDistance = isRunActive ? liveRunDistanceMeters : 0;
+  const liveTime = isRunActive ? liveRunElapsedSeconds : 0;
+  const draftDistance = weeklyStats.draftDistance ?? 0;
+  const draftTime = weeklyStats.draftTime ?? 0;
+  const draftRuns = weeklyStats.draftRuns ?? 0;
+  const displayWeeklyStats = {
+    totalDistance: weeklyStats.totalDistance - draftDistance + Math.max(draftDistance, liveDistance),
+    totalTime: weeklyStats.totalTime - draftTime + Math.max(draftTime, liveTime),
+    numRuns: weeklyStats.numRuns - draftRuns + Math.max(draftRuns, isRunActive && liveTime > 0 ? 1 : 0),
+  };
+  const weeklyTime = formatHoursMinutes(displayWeeklyStats.totalTime);
+  const weeklyTimeLabel =
+    displayWeeklyStats.totalTime > 0 && displayWeeklyStats.totalTime < 60
+      ? `${Math.floor(displayWeeklyStats.totalTime)}s`
+      : `${weeklyTime.h}h ${weeklyTime.m}m`;
   const formatKm = (meters: number) => (meters / 1000).toFixed(1);
 
   const last12WeeksKm = useMemo(() => {
@@ -273,16 +291,15 @@ export default function TrackingHomeScreen() {
   const hasCategorized = categorizedRuns.length > 1 || (categorizedRuns.length === 1 && categorizedRuns[0]!.label !== "Foot Sports");
 
   const latestRun = runs[0] ?? null;
-  const weeklyRunCountLabel = `${weeklyStats.numRuns} ${weeklyStats.numRuns === 1 ? "run" : "runs"} this week`;
+  const weeklyRunCountLabel = `${displayWeeklyStats.numRuns} ${displayWeeklyStats.numRuns === 1 ? "run" : "runs"} this week`;
   const averageRunDistanceKm =
-    weeklyStats.numRuns > 0
-      ? (weeklyStats.totalDistance / weeklyStats.numRuns / 1000).toFixed(1)
+    displayWeeklyStats.numRuns > 0
+      ? (displayWeeklyStats.totalDistance / displayWeeklyStats.numRuns / 1000).toFixed(1)
       : "0.0";
   const lastRunLabel = latestRun
     ? `Last ${new Date(latestRun.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
     : "No runs yet";
 
-  const runStatus = useRunStore((s) => s.status);
   const [refreshing, setRefreshing] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
@@ -435,7 +452,7 @@ export default function TrackingHomeScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Route size={14} color={p.accent} />
                     <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {(weeklyStats.totalDistance / 1000).toFixed(1)}
+                      {(displayWeeklyStats.totalDistance / 1000).toFixed(1)}
                     </Text>
                     <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>km</Text>
                   </View>
@@ -444,7 +461,7 @@ export default function TrackingHomeScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Timer size={14} color={p.accent} />
                     <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {weeklyTime.h}h {weeklyTime.m}m
+                      {weeklyTimeLabel}
                     </Text>
                   </View>
                 </BlurView>
@@ -452,7 +469,7 @@ export default function TrackingHomeScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Zap size={14} color={p.accent} />
                     <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {weeklyStats.numRuns}
+                      {displayWeeklyStats.numRuns}
                     </Text>
                   </View>
                 </BlurView>
@@ -659,7 +676,7 @@ export default function TrackingHomeScreen() {
 
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
               <AnimatedStat
-                value={weeklyStats.totalDistance / 1000}
+                value={displayWeeklyStats.totalDistance / 1000}
                 decimals={1}
                 style={{
                   fontFamily: "Outfit-Bold",
@@ -706,7 +723,7 @@ export default function TrackingHomeScreen() {
               </View>
               <View style={{ gap: 2, marginTop: 8 }}>
                 <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_PEACH_TEXT, letterSpacing: -1 }}>
-                  {weeklyTime.h}h {weeklyTime.m}m
+                  {weeklyTimeLabel}
                 </Text>
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_PEACH_TEXT, opacity: 0.6 }}>
                   Time
@@ -760,7 +777,7 @@ export default function TrackingHomeScreen() {
               </View>
               <View style={{ gap: 2 }}>
                 <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: PASTEL_SKY_TEXT, letterSpacing: -0.5 }}>
-                  {weeklyStats.numRuns > 0 ? "Active" : "Ready"}
+                  {displayWeeklyStats.numRuns > 0 ? "Active" : "Ready"}
                 </Text>
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_SKY_TEXT, opacity: 0.6 }}>
                   Status
@@ -782,7 +799,7 @@ export default function TrackingHomeScreen() {
               }}
             >
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 32, color: PASTEL_ROSE_TEXT, letterSpacing: -1 }}>
-                {weeklyStats.numRuns}
+                {displayWeeklyStats.numRuns}
               </Text>
               <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_ROSE_TEXT, opacity: 0.6 }}>
                 runs
