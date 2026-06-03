@@ -482,7 +482,9 @@ export async function getMe(req: Request, res: Response) {
       equipmentAccess: athlete?.equipmentAccess ?? null,
       growthNotes: athlete?.growthNotes ?? null,
       injuries: athlete?.injuries ?? null,
-      onboardingCompleted: athlete?.onboardingCompleted ?? false,
+      // Coaches/admins never go through athlete onboarding — report null (not false) so the
+      // app treats them as complete instead of forcing the onboarding website.
+      onboardingCompleted: isCoachRole ? null : (athlete?.onboardingCompleted ?? false),
       trainingStats: athlete?.trainingStats ?? null,
       allAthletes: athlete?.allAthletes
         ? (athlete.allAthletes as any[]).map(({ allAthletes: _, ...a }) => a)
