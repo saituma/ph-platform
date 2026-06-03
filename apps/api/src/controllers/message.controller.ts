@@ -175,7 +175,14 @@ export async function listInbox(req: Request, res: Response) {
       name: peer?.name ?? null,
       email: peer?.email ?? null,
     });
-    const unreadDelta = senderId === peerUserId && message.read === false ? 1 : 0;
+    const myReadAt =
+      message.myReadAt instanceof Date
+        ? message.myReadAt
+        : message.myReadAt
+          ? new Date(message.myReadAt)
+          : null;
+    const isReadForUser = myReadAt != null && !Number.isNaN(myReadAt.getTime());
+    const unreadDelta = senderId === peerUserId && !isReadForUser && message.read === false ? 1 : 0;
 
     if (!existing) {
       directByPeer.set(peerUserId, {

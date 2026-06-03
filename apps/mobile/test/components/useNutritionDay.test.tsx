@@ -47,6 +47,12 @@ function Harness() {
   return <Text testID="bf-count">{String(count)}</Text>;
 }
 
+function BreakfastHarness() {
+  const { data } = useNutritionDay(TODAY);
+  const count = data?.meals?.breakfast?.items?.length ?? -1;
+  return <Text testID="bf-count">{String(count)}</Text>;
+}
+
 describe("useNutritionDay — logged meal must not vanish", () => {
   beforeEach(() => {
     Object.keys(mockSocketHandlers).forEach((k) => delete mockSocketHandlers[k]);
@@ -77,11 +83,32 @@ describe("useNutritionDay — logged meal must not vanish", () => {
 
     // server echoes our own save back to our socket room
     await act(async () => {
-      mockSocketHandlers["nutrition:log:updated"]?.();
+      mockSocketHandlers["nutrition:log:updated"]?.({ actorUserId: 1 });
     });
 
     // The echo must be ignored (no refetch) so the meal stays visible.
     expect(mockApiRequest.mock.calls.length).toBe(callsBeforeEcho);
     expect(screen.getByTestId("bf-count").props.children).toBe("1");
+  });
+
+  it("rebuilds the day from all same-date rows when the first row is empty", async () => {
+    const breakfast = JSON.stringify([
+      { id: "b1", name: "Oats", calories: 260, weightGrams: 80, unit: "g" },
+    ]);
+    mockApiRequest.mockImplementation((url: string) => {
+      if (url.includes("/nutrition/targets")) return Promise.resolve({ targets: { calories: 2000 } });
+      if (url.includes("hasFeedback")) return Promise.resolve({ logs: [] });
+      return Promise.resolve({
+        logs: [
+          { id: 11, dateKey: TODAY, mealType: "daily", breakfast: null },
+          { id: 10, dateKey: TODAY, mealType: "breakfast", breakfast },
+        ],
+      });
+    });
+
+    render(<BreakfastHarness />);
+
+    await waitFor(() => expect(screen.getByTestId("bf-count").props.children).toBe("1"));
+    expect(mockApiRequest.mock.calls.some(([url, options]) => url.includes("/nutrition/logs") && options?.forceRefresh === true)).toBe(true);
   });
 });

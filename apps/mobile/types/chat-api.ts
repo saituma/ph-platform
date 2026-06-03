@@ -13,6 +13,7 @@ export type ApiChatMessage = {
   mediaUrl?: string;
   videoUploadId?: number;
   read: boolean;
+  myReadAt?: string | null;
   createdAt: string;
   reactions?: ApiChatReaction[];
   // Present for group chat endpoints (`/chat/groups/:id/messages`).

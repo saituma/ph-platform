@@ -192,4 +192,40 @@ describe("lib/api - apiRequest", () => {
     await apiRequest("path", { forceRefresh: true }); // Call directly to verify it triggers fetch
     expect(global.fetch).toHaveBeenCalled();
   });
+
+  test("TC-API021: forceRefresh ignores stale in-flight GETs", async () => {
+    let resolveFirst: (value: any) => void = () => {};
+    const first = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    (global.fetch as jest.Mock)
+      .mockReturnValueOnce(first)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: jest.fn().mockResolvedValue(JSON.stringify({ v: "fresh" })),
+      });
+
+    const staleRequest = apiRequest("nutrition/logs");
+    const fresh = await apiRequest("nutrition/logs", { forceRefresh: true });
+    expect(fresh).toEqual({ v: "fresh" });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+
+    clearApiCache();
+    resolveFirst({
+      ok: true,
+      status: 200,
+      text: jest.fn().mockResolvedValue(JSON.stringify({ v: "stale" })),
+    });
+    await expect(staleRequest).resolves.toEqual({ v: "stale" });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: jest.fn().mockResolvedValue(JSON.stringify({ v: "latest" })),
+    });
+    const latest = await apiRequest("nutrition/logs");
+    expect(latest).toEqual({ v: "latest" });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
 });

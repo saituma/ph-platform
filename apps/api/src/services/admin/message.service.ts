@@ -61,8 +61,16 @@ export async function listMessageThreadsAdmin(coachId: number, options?: { q?: s
       select
         ${messageTable.senderId} as other_id,
         ${messageTable.createdAt} as created_at,
-        case when ${messageTable.read} = false then 1 else 0 end as unread
+        case
+          when ${messageTable.read} = false
+            and (${messageReceiptTable.readAt} is null)
+          then 1
+          else 0
+        end as unread
       from ${messageTable}
+      left join ${messageReceiptTable}
+        on ${messageReceiptTable.messageId} = ${messageTable.id}
+        and ${messageReceiptTable.userId} = ${coachId}
       where
         ${messageTable.receiverId} in (${adminIdList})
         and ${messageTable.senderId} not in (${adminIdList})
@@ -359,7 +367,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
 
   const otherUserIds = await resolveGuardianThreadUsers(userId);
   const readAt = new Date();
-  await db
+  const receiptResult = await db
     .update(messageReceiptTable)
     .set({ readAt })
     .where(
@@ -385,8 +393,10 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
       ),
     );
 
+  const receiptUpdated = receiptResult.rowCount ?? 0;
   const updated = result.rowCount ?? 0;
-  if (updated > 0) {
+  const totalUpdated = Math.max(updated, receiptUpdated);
+  if (totalUpdated > 0) {
     const io = getSocketServer();
     if (io) {
       const payload = {
@@ -394,7 +404,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
         readerUserId: coachId,
         peerUserIds: otherUserIds,
         readAt: readAt.toISOString(),
-        updated,
+        updated: totalUpdated,
       };
       io.to(`user:${coachId}`).emit("message:read", payload);
       for (const peerId of otherUserIds) {
@@ -403,7 +413,7 @@ export async function markThreadReadAdmin(coachId: number, userId: number) {
       io.to("admin:all").emit("message:read", payload);
     }
   }
-  return updated;
+  return totalUpdated;
 }
 
 export async function sendMessageAdmin(input: {

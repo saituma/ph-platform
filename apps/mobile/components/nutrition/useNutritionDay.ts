@@ -61,6 +61,16 @@ function sumMacros(items: MealItem[]) {
   );
 }
 
+function firstFilledText(logs: any[], key: string): string | null {
+  for (const log of logs) {
+    const value = log?.[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
 export type CoachFeedbackEntry = {
   logId: number;
   dateKey: string;
@@ -92,7 +102,7 @@ async function fireLocalNotification(title: string, body: string, data?: Record<
 
 export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number | null) {
   const { token } = useAppSelector((s) => s.user);
-  const myUserId = useAppSelector((s) => s.user.profile.id);
+  const myUserId = useAppSelector((s) => s.user.profile?.id ?? null);
   const { actingUserId } = useActingUser();
   // Explicit override (e.g. a manager viewing one of their athletes) wins over the acting user.
   const athleteUserId = athleteUserIdOverride ?? actingUserId;
@@ -120,7 +130,7 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
       const [logRes, targetRes] = await Promise.all([
         apiRequest<{ logs: any[] }>(
           `/nutrition/logs?userId=${athleteUserId || "me"}&from=${today}&to=${today}&limit=5`,
-          { token, suppressLog: true },
+          { token, suppressLog: true, forceRefresh: true },
         ),
         apiRequest<{ targets: any }>(
           `/nutrition/targets/${athleteUserId || "me"}`,
@@ -128,7 +138,7 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
         ).catch(() => ({ targets: null })),
       ]);
 
-      const log = (logRes.logs ?? []).find((l: any) => l.dateKey === today) ?? null;
+      const dayLogs = (logRes.logs ?? []).filter((l: any) => l?.dateKey === today);
       const targets = targetRes.targets ?? {};
 
       const targetCalories =
@@ -147,12 +157,19 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
         };
       };
 
-      const snackRaw = log?.snacksMorning || log?.snacksAfternoon || log?.snacksEvening || log?.snacks || null;
+      const breakfastRaw = firstFilledText(dayLogs, "breakfast");
+      const lunchRaw = firstFilledText(dayLogs, "lunch");
+      const dinnerRaw = firstFilledText(dayLogs, "dinner");
+      const snackRaw =
+        firstFilledText(dayLogs, "snacksMorning") ||
+        firstFilledText(dayLogs, "snacksAfternoon") ||
+        firstFilledText(dayLogs, "snacksEvening") ||
+        firstFilledText(dayLogs, "snacks");
 
       const meals = {
-        breakfast: buildSlot("breakfast", "Breakfast", log?.breakfast),
-        lunch: buildSlot("lunch", "Lunch", log?.lunch),
-        dinner: buildSlot("dinner", "Dinner", log?.dinner),
+        breakfast: buildSlot("breakfast", "Breakfast", breakfastRaw),
+        lunch: buildSlot("lunch", "Lunch", lunchRaw),
+        dinner: buildSlot("dinner", "Dinner", dinnerRaw),
         snack: buildSlot("snack", "Snack", snackRaw),
       };
 

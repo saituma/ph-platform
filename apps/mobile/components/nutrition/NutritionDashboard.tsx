@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, LayoutAnimation, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, LayoutAnimation, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { Bell, Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, Flame, MessageSquare, Play, Target, TrendingUp, Utensils } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppSelector } from "@/store/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, clearApiCache } from "@/lib/api";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -67,11 +67,13 @@ export function NutritionDashboard() {
 
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const isToday = selectedDate === todayKey();
-  const { data, loading, error, coachHistory, historyLoading, refetch, optimisticUpdateMeal } = useNutritionDay(selectedDate);
+  const { data, loading, error, coachHistory, historyLoading, refetch, refetchCoachHistory, optimisticUpdateMeal } = useNutritionDay(selectedDate);
 
   const [activeMeal, setActiveMeal] = useState<MealSlotName | null>(null);
   const [showAllCoach, setShowAllCoach] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [savingMeal, setSavingMeal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const toggleStats = useCallback(() => {
     LayoutAnimation.configureNext({
@@ -110,6 +112,17 @@ export function NutritionDashboard() {
 
   const activeSlotData = activeMeal && data ? data.meals[activeMeal] : null;
 
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    try {
+      setRefreshing(true);
+      clearApiCache();
+      await Promise.all([refetch(), refetchCoachHistory()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch, refetchCoachHistory, refreshing]);
+
   const serializeMealItems = (items: MealItem[]): string => {
     if (items.length === 0) return "";
     return JSON.stringify(
@@ -128,12 +141,15 @@ export function NutritionDashboard() {
 
   const handleConfirmMeal = useCallback(
     async (items: MealItem[]) => {
-      if (!token || !activeMeal) return;
+      if (!token || !activeMeal || savingMeal) return;
+      const mealLabel = activeSlotData?.label ?? "Meal";
       try {
+        setSavingMeal(true);
         const serialized = serializeMealItems(items);
         const body: Record<string, any> = {
           athleteId: athleteUserId || undefined,
           dateKey: data?.dateKey ?? new Date().toISOString().slice(0, 10),
+          mealType: "daily",
         };
 
         if (activeMeal === "snack") {
@@ -143,8 +159,6 @@ export function NutritionDashboard() {
         }
 
         optimisticUpdateMeal(activeMeal, items);
-        setActiveMeal(null);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
         await apiRequest("/nutrition/logs", {
           method: "POST",
@@ -152,18 +166,25 @@ export function NutritionDashboard() {
           body,
         });
 
+        clearApiCache();
+        setActiveMeal(null);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        toast.success(`${mealLabel} saved`, `${items.length} item${items.length === 1 ? "" : "s"} logged.`);
+
         // Do NOT refetch here. The optimistic update already reflects exactly what we
         // saved; an immediate refetch was racing the just-committed write and wiping
         // the meal for ~1s. Focus/foreground refetch reconciles later, consistently.
-      } catch {
+      } catch (e) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         // Surface the failure instead of letting the optimistic item silently vanish.
-        toast.error("Couldn't save meal", "Check your connection and add it again.");
+        toast.error("Couldn't save meal", e instanceof Error ? e.message : "Check your connection and add it again.");
         // Reconcile optimistic state back to server truth.
         void refetch();
+      } finally {
+        setSavingMeal(false);
       }
     },
-    [activeMeal, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, token, toast],
+    [activeMeal, activeSlotData?.label, athleteUserId, data?.dateKey, optimisticUpdateMeal, refetch, savingMeal, token, toast],
   );
 
 
@@ -204,6 +225,14 @@ export function NutritionDashboard() {
         style={{ flex: 1, backgroundColor: p.pageBg }}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={p.accent}
+            colors={[p.accent]}
+          />
+        }
       >
         {/* Hero section */}
         <View
@@ -624,6 +653,7 @@ export function NutritionDashboard() {
         slot={activeSlotData}
         onClose={() => setActiveMeal(null)}
         onConfirm={handleConfirmMeal}
+        saving={savingMeal}
       />
     </>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { runWhenIdle } from "@/lib/scheduling/idle";
 import { useSocket } from "@/context/SocketContext";
+import { subscribeMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
 
 /**
  * Drives the messaging tab badge.
@@ -17,9 +18,10 @@ import { useSocket } from "@/context/SocketContext";
  *   via the API — but this hook still showed the stale count for up to 30s
  *   until the next poll. With socket subscriptions the badge updates in real time.
  */
-export function useUnreadMessaging(token: string | null, enabled: boolean, userId: string | null) {
+export function useUnreadMessaging(token: string | null, enabled: boolean, userId: string | number | null) {
   const [unreadCount, setUnreadCount] = useState(0);
   const inFlightRef = useRef(false);
+  const queuedSyncRef = useRef(false);
   const { socket } = useSocket();
 
   const syncUnread = useCallback(async () => {
@@ -28,21 +30,46 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
       return;
     }
     // Single-flight: drop overlapping calls so a flurry of socket events doesn't
-    // hammer the API.
-    if (inFlightRef.current) return;
+    // hammer the API, but remember that a newer sync is needed after this one.
+    if (inFlightRef.current) {
+      queuedSyncRef.current = true;
+      return;
+    }
     inFlightRef.current = true;
 
     try {
-      const data = await apiRequest<{ messages: any[] }>("/messages", { token });
-      const unread =
-        data.messages?.filter(
-          (message) => !message.read && String(message.senderId) !== String(userId),
-        ).length ?? 0;
+      queuedSyncRef.current = false;
+      const inbox = await apiRequest<{ threads?: any[] }>("/messages/inbox", {
+        token,
+        forceRefresh: true,
+        suppressStatusCodes: [401, 403],
+      });
+      const unread = (inbox.threads ?? []).reduce(
+        (sum, thread) => sum + (Number(thread?.unread) || 0),
+        0,
+      );
       setUnreadCount(unread);
     } catch {
-      setUnreadCount(0);
+      try {
+        const data = await apiRequest<{ messages: any[] }>("/messages", {
+          token,
+          forceRefresh: true,
+          suppressStatusCodes: [401, 403],
+        });
+        const unread =
+          data.messages?.filter(
+            (message) => !message.read && String(message.senderId) !== String(userId),
+          ).length ?? 0;
+        setUnreadCount(unread);
+      } catch {
+        setUnreadCount(0);
+      }
     } finally {
       inFlightRef.current = false;
+      if (queuedSyncRef.current) {
+        queuedSyncRef.current = false;
+        void syncUnread();
+      }
     }
   }, [enabled, userId, token]);
 
@@ -69,6 +96,13 @@ export function useUnreadMessaging(token: string | null, enabled: boolean, userI
       task?.cancel?.();
     };
   }, [enabled, syncUnread, token]);
+
+  useEffect(() => {
+    if (!token || !enabled || !userId) return;
+    return subscribeMessagingUnreadChanged(() => {
+      void syncUnread();
+    });
+  }, [enabled, syncUnread, token, userId]);
 
   // Real-time: react to the same socket events the chat screen listens to.
   useEffect(() => {

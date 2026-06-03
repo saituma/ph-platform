@@ -15,7 +15,9 @@ function formatLastSeenStatic(isoString: string): string {
 
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
+import { clearApiCache } from "@/lib/api";
 import { messagesApi } from "@/lib/apiClient/messages";
+import { emitMessagingUnreadChanged } from "@/lib/messages/unreadEvents";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
@@ -209,7 +211,8 @@ export function useChatActions({
         const ts = new Date(msg.createdAt ?? 0).getTime();
         const preview = String(msg.content ?? "").trim() || "No messages yet";
         const existing = directFallbackByPeer.get(peerId);
-        const isIncomingUnread = senderId === peerId && msg.read === false;
+        const isReadForUser = Boolean(msg.myReadAt);
+        const isIncomingUnread = senderId === peerId && !isReadForUser && msg.read === false;
         const unreadDelta = isIncomingUnread ? 1 : 0;
         if (!existing) {
           const coach = (coaches ?? []).find((c) => String(c.id) === peerId);
@@ -503,11 +506,14 @@ export function useChatActions({
               : msg,
           ),
         );
+        clearApiCache();
+        emitMessagingUnreadChanged();
+        void refetchThreads();
       } catch (error) {
         console.warn("Failed to mark messages read", error);
       }
     },
-    [actingHeaders, token, setThreads, setMessages],
+    [actingHeaders, refetchThreads, token, setThreads, setMessages],
   );
 
   const markGroupThreadRead = useCallback(
@@ -522,11 +528,14 @@ export function useChatActions({
         setThreads((prev) =>
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
         );
+        clearApiCache();
+        emitMessagingUnreadChanged();
+        void refetchThreads();
       } catch (error) {
         console.warn("Failed to mark group read", error);
       }
     },
-    [actingHeaders, token, setThreads],
+    [actingHeaders, refetchThreads, token, setThreads],
   );
 
   const handleDeleteMessage = useCallback(

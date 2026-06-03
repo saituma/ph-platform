@@ -836,7 +836,7 @@ export async function markThreadRead(userId: number, peerUserId?: number) {
   const senderFilter = peerUserId ? [peerUserId] : adminIds;
 
   const readAt = new Date();
-  await db
+  const receiptResult = await db
     .update(messageReceiptTable)
     .set({ readAt })
     .where(
@@ -856,8 +856,10 @@ export async function markThreadRead(userId: number, peerUserId?: number) {
     .update(messageTable)
     .set({ read: true })
     .where(and(eq(messageTable.receiverId, userId), inArray(messageTable.senderId, senderFilter)));
+  const receiptUpdated = receiptResult.rowCount ?? 0;
   const updated = result.rowCount ?? 0;
-  if (updated > 0) {
+  const totalUpdated = Math.max(updated, receiptUpdated);
+  if (totalUpdated > 0) {
     const io = getSocketServer();
     if (io) {
       const payload = {
@@ -865,7 +867,7 @@ export async function markThreadRead(userId: number, peerUserId?: number) {
         readerUserId: userId,
         peerUserIds: senderFilter,
         readAt: readAt.toISOString(),
-        updated,
+        updated: totalUpdated,
       };
       io.to(`user:${userId}`).emit("message:read", payload);
       for (const peerId of senderFilter) {
@@ -874,7 +876,7 @@ export async function markThreadRead(userId: number, peerUserId?: number) {
       io.to("admin:all").emit("message:read", payload);
     }
   }
-  return updated;
+  return totalUpdated;
 }
 
 export async function deleteDirectMessage(input: { messageId: number; userId: number }) {

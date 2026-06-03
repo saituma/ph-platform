@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -18,7 +19,8 @@ type MealDetailModalProps = {
   visible: boolean;
   slot: MealSlotData | null;
   onClose: () => void;
-  onConfirm: (items: MealItem[]) => void;
+  onConfirm: (items: MealItem[]) => void | Promise<void>;
+  saving?: boolean;
 };
 
 /** Per-item calorie ceiling. Generous (a huge single meal is ~3-4k kcal), but bounded so a
@@ -30,11 +32,48 @@ function genId() {
   return `item_${Date.now()}_${_nextId++}`;
 }
 
+type DraftMealItemInput = {
+  name: string;
+  calories: string;
+  weight: string;
+  unit: string;
+  protein: string;
+  carbs: string;
+  fat: string;
+};
+
+function nutritionNumber(value: string): number {
+  return Math.max(0, Number.parseInt(value, 10) || 0);
+}
+
+export function buildDraftMealItem(draft: DraftMealItemInput): MealItem | null {
+  const name = draft.name.trim();
+  if (!name) return null;
+
+  const protein = nutritionNumber(draft.protein);
+  const carbs = nutritionNumber(draft.carbs);
+  const fat = nutritionNumber(draft.fat);
+  const typedCal = nutritionNumber(draft.calories);
+  const calories = typedCal > 0 ? typedCal : protein * 4 + carbs * 4 + fat * 9;
+
+  return {
+    id: genId(),
+    name,
+    calories,
+    weightGrams: nutritionNumber(draft.weight),
+    unit: draft.unit.trim() || "g",
+    protein,
+    carbs,
+    fat,
+  };
+}
+
 export function MealDetailModal({
   visible,
   slot,
   onClose,
   onConfirm,
+  saving = false,
 }: MealDetailModalProps) {
   const p = useNutritionTheme();
   const [items, setItems] = useState<MealItem[]>([]);
@@ -67,29 +106,53 @@ export function MealDetailModal({
     }
   }, [visible, slot, resetDraft]);
 
-  const addItem = useCallback(() => {
-    const name = draftName.trim();
-    if (!name) return;
-    const num = (v: string) => Math.max(0, parseInt(v, 10) || 0);
-    const protein = num(draftProtein);
-    const carbs = num(draftCarbs);
-    const fat = num(draftFat);
-    // Calories default to the macro-derived value (4/4/9 kcal/g) when left blank.
-    const typedCal = num(draftCal);
-    const cal = typedCal > 0 ? typedCal : protein * 4 + carbs * 4 + fat * 9;
-    // Sane upper bound — keeps a fat-fingered value from quietly failing to save later.
-    if (cal > MAX_ITEM_KCAL) {
+  const draftItem = useCallback(() => {
+    const item = buildDraftMealItem({
+      name: draftName,
+      calories: draftCal,
+      weight: draftWeight,
+      unit: draftUnit,
+      protein: draftProtein,
+      carbs: draftCarbs,
+      fat: draftFat,
+    });
+    if (!item) return null;
+    // Sane upper bound keeps a fat-fingered value from quietly failing to save later.
+    if (item.calories > MAX_ITEM_KCAL) {
       setItemError(`Max ${MAX_ITEM_KCAL.toLocaleString()} kcal per item`);
+      return null;
+    }
+    return item;
+  }, [draftName, draftCal, draftWeight, draftUnit, draftProtein, draftCarbs, draftFat]);
+
+  const addItem = useCallback(() => {
+    const item = draftItem();
+    if (!item) {
+      if (!draftName.trim()) setItemError("Enter a food name first.");
       return;
     }
     setItemError(null);
-    setItems((prev) => [
-      ...prev,
-      { id: genId(), name, calories: cal, weightGrams: num(draftWeight), unit: draftUnit || "g", protein, carbs, fat },
-    ]);
+    setItems((prev) => [...prev, item]);
     resetDraft();
-    setShowAddForm(false);
-  }, [draftName, draftCal, draftWeight, draftUnit, draftProtein, draftCarbs, draftFat, resetDraft]);
+    setShowAddForm(true);
+  }, [draftItem, draftName, resetDraft]);
+
+  const saveMeal = useCallback(() => {
+    if (saving) return;
+
+    const pendingDraft = draftItem();
+    if (draftName.trim() && !pendingDraft) return;
+
+    const nextItems = pendingDraft ? [...items, pendingDraft] : items;
+    if (nextItems.length === 0) {
+      setShowAddForm(true);
+      setItemError("Add at least one food item before saving.");
+      return;
+    }
+
+    setItemError(null);
+    void onConfirm(nextItems);
+  }, [draftItem, draftName, items, onConfirm, saving]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -130,7 +193,8 @@ export function MealDetailModal({
             }}
           >
             <Pressable
-              onPress={onClose}
+              onPress={saving ? undefined : onClose}
+              disabled={saving}
               style={({ pressed }) => ({
                 width: 40,
                 height: 40,
@@ -293,7 +357,11 @@ export function MealDetailModal({
                     ) : null}
                     <View style={{ flexDirection: "row", gap: 10 }}>
                       <Pressable
-                        onPress={() => setShowAddForm(false)}
+                        onPress={() => {
+                          setItemError(null);
+                          setShowAddForm(false);
+                        }}
+                        disabled={saving}
                         style={({ pressed }) => ({
                           flex: 1,
                           height: 44,
@@ -310,6 +378,7 @@ export function MealDetailModal({
                       </Pressable>
                       <Pressable
                         onPress={addItem}
+                        disabled={saving}
                         style={({ pressed }) => ({
                           flex: 1,
                           height: 44,
@@ -365,7 +434,8 @@ export function MealDetailModal({
           {/* Confirm button */}
           <View style={{ paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 36 : 24, paddingTop: 12 }}>
             <Pressable
-              onPress={() => onConfirm(items)}
+              onPress={saveMeal}
+              disabled={saving}
               style={({ pressed }) => ({
                 height: 56,
                 borderRadius: 100,
@@ -374,14 +444,18 @@ export function MealDetailModal({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                opacity: pressed ? 0.85 : 1,
+                opacity: saving ? 0.72 : pressed ? 0.85 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
             >
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.buttonPrimaryText }}>
-                Confirm
+                {saving ? "Saving meal" : "Save meal"}
               </Text>
-              <ChevronsRight size={20} color={p.buttonPrimaryText} />
+              {saving ? (
+                <ActivityIndicator size="small" color={p.buttonPrimaryText} />
+              ) : (
+                <ChevronsRight size={20} color={p.buttonPrimaryText} />
+              )}
             </Pressable>
           </View>
         </KeyboardAvoidingView>

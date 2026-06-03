@@ -7,7 +7,7 @@ import {
   hydrateCache,
   getCachedData,
   setCachedData,
-  clearApiCache,
+  clearApiCache as clearMemoryApiCache,
 } from "./api/cache";
 import { isTransportFailure, extractErrorMessage } from "./api/errorUtils";
 import {
@@ -16,13 +16,18 @@ import {
   clearCredentials,
 } from "./auth/session";
 
-export { clearApiCache };
-
 /* ------------------------------------------------------------------ */
 /*  In-flight request deduplication for GET requests                   */
 /* ------------------------------------------------------------------ */
 const inflightRequests = new Map<string, Promise<any>>();
 const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
+let cacheGeneration = 0;
+
+export function clearApiCache() {
+  cacheGeneration += 1;
+  inflightRequests.clear();
+  clearMemoryApiCache();
+}
 
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -148,12 +153,13 @@ export async function apiRequest<T>(
   }
 
   /* ---- GET request deduplication ---- */
-  if (method === "GET") {
+  if (method === "GET" && !options.forceRefresh) {
     const existing = inflightRequests.get(cacheKey);
     if (existing) return existing as Promise<T>;
   }
 
   const executeRequest = async (): Promise<T> => {
+  const requestCacheGeneration = cacheGeneration;
 
   const performRequest = async (authToken?: string | null) => {
     let res: Response;
@@ -289,7 +295,7 @@ export async function apiRequest<T>(
     throw new Error("Invalid response from server");
   }
 
-  const shouldWriteCache = method === "GET" && !options.skipCache;
+  const shouldWriteCache = method === "GET" && !options.skipCache && requestCacheGeneration === cacheGeneration;
   if (shouldWriteCache) {
     setCachedData(cacheKey, payload);
   }

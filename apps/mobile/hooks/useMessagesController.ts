@@ -178,6 +178,7 @@ export function useMessagesController(options?: {
   const draftConsumedRef = useRef<string | null>(null);
   const lastLoadedGroupThreadRef = useRef<string | null>(null);
   const lastFocusRefetchAtRef = useRef(0);
+  const lastMarkedReadThreadRef = useRef<string | null>(null);
 
   const sortedThreads = useMemo(() => {
     return [...threads].sort((a, b) => {
@@ -190,7 +191,6 @@ export function useMessagesController(options?: {
   }, [threads]);
 
   const currentThreadId = currentThread?.id;
-  const currentThreadUnread = currentThread?.unread ?? 0;
 
   // When TanStack Query delivers fresh thread/message data, process it into state.
   // TQ owns the fetch (dedup, cache, stale-while-revalidate); this owns the mapping.
@@ -800,7 +800,8 @@ export function useMessagesController(options?: {
 
   useEffect(() => {
     if (!currentThreadId) return;
-    if (currentThreadUnread === 0) return;
+    if (lastMarkedReadThreadRef.current === currentThreadId) return;
+    lastMarkedReadThreadRef.current = currentThreadId;
     if (currentThreadId.startsWith("group:")) {
       markGroupThreadRead(currentThreadId);
       return;
@@ -808,7 +809,6 @@ export function useMessagesController(options?: {
     markDirectThreadReadById(currentThreadId);
   }, [
     currentThreadId,
-    currentThreadUnread,
     markDirectThreadReadById,
     markGroupThreadRead,
   ]);
