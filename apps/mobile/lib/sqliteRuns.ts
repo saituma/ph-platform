@@ -255,6 +255,18 @@ export function getPersonalBests(userId?: string | null): PersonalBests {
 // Cloud sync helpers
 // ──────────────────────────────────────────────
 
+/**
+ * Reassign orphaned local runs to the logged-in user. A run saved before the
+ * profile id was loaded gets stamped user_id = NULL and is otherwise never
+ * picked up by the uploader (which filters on the current user_id), so it
+ * strands locally forever. Claim those rows on sync so they push.
+ */
+export function adoptOrphanRuns(userId: string): number {
+  ensureInitialized();
+  const res = db.runSync("UPDATE runs SET user_id = ? WHERE user_id IS NULL", [userId]);
+  return res.changes ?? 0;
+}
+
 export function getUnsyncedRuns(userId?: string | null): RunRecord[] {
   ensureInitialized();
   if (userId) {

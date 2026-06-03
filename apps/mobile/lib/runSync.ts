@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api";
 import { store } from "@/store";
 import {
+  adoptOrphanRuns,
   getUnsyncedRuns,
   markRunsSynced,
   upsertRunFromServer,
@@ -40,6 +41,7 @@ export async function pushRunsToCloud(): Promise<void> {
     const userId = store.getState().user.profile.id ?? null;
 
     initSQLiteRuns();
+    if (userId) adoptOrphanRuns(userId);
     const unsynced = getUnsyncedRuns(userId);
     if (!unsynced.length) return;
 
