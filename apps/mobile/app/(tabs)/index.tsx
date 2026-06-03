@@ -111,8 +111,10 @@ function formatKm(m: number): string {
 }
 
 function formatTime(sec: number): string {
-  const hrs = sec / 3600;
-  return hrs >= 1 ? `${hrs.toFixed(1)}h` : `${Math.round(sec / 60)}m`;
+  const seconds = Number.isFinite(sec) && sec > 0 ? Math.floor(sec) : 0;
+  if (seconds < 60) return `${seconds}s`;
+  const hrs = seconds / 3600;
+  return hrs >= 1 ? `${hrs.toFixed(1)}h` : `${Math.round(seconds / 60)}m`;
 }
 
 function formatCompact(n: number): string {
@@ -377,8 +379,8 @@ const HomeScreen = memo(function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      queryClient.prefetchQuery({ queryKey: queryKeys.home.weeklyStats(userId ?? 0), queryFn: () => getWeeklySummaries(new Date(), userId) });
-    }, [queryClient, userId]),
+      void statsQuery.refetch();
+    }, [statsQuery.refetch]),
   );
 
   const handleRefresh = useCallback(async () => {
