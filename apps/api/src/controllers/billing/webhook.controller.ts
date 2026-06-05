@@ -43,7 +43,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       planId: subscriptionRequestTable.planId,
     })
     .from(subscriptionRequestTable)
-    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(subscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(subscriptionRequestTable.createdAt))
     .limit(1);
 
@@ -70,7 +70,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const [teamReq] = await db
     .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
     .from(teamSubscriptionRequestTable)
-    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(teamSubscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(teamSubscriptionRequestTable.createdAt))
     .limit(1);
 
@@ -141,7 +141,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const [req] = await db
     .select({ id: subscriptionRequestTable.id, athleteId: subscriptionRequestTable.athleteId })
     .from(subscriptionRequestTable)
-    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(subscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(subscriptionRequestTable.createdAt))
     .limit(1);
 
@@ -164,7 +164,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const [teamReq] = await db
     .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
     .from(teamSubscriptionRequestTable)
-    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(teamSubscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(teamSubscriptionRequestTable.createdAt))
     .limit(1);
 
@@ -212,7 +212,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       athleteId: subscriptionRequestTable.athleteId,
     })
     .from(subscriptionRequestTable)
-    .where(eq(subscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(subscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(subscriptionRequestTable.createdAt))
     .limit(1);
 
@@ -251,7 +251,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   const [teamReq] = await db
     .select({ id: teamSubscriptionRequestTable.id, teamId: teamSubscriptionRequestTable.teamId })
     .from(teamSubscriptionRequestTable)
-    .where(eq(teamSubscriptionRequestTable.stripeSessionId, subscriptionId))
+    .where(eq(teamSubscriptionRequestTable.stripeSubscriptionId, subscriptionId))
     .orderBy(desc(teamSubscriptionRequestTable.createdAt))
     .limit(1);
 

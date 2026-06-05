@@ -581,6 +581,7 @@ export async function updateRequestFromStripeSession(session: Stripe.Checkout.Se
   const amountCents = typeof session.amount_total === "number" ? session.amount_total : null;
   const currency = typeof session.currency === "string" ? session.currency : null;
   const stripePaymentIntentId = checkoutSessionPaymentIntentId(session);
+  const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : null;
   const receiptPublicId = request.receiptPublicId?.trim() || newReceiptPublicId();
 
   const updated = await db
@@ -591,6 +592,7 @@ export async function updateRequestFromStripeSession(session: Stripe.Checkout.Se
       paymentAmountCents: amountCents ?? request.paymentAmountCents,
       paymentCurrency: currency ?? request.paymentCurrency,
       stripePaymentIntentId: stripePaymentIntentId ?? request.stripePaymentIntentId,
+      stripeSubscriptionId: stripeSubscriptionId ?? request.stripeSubscriptionId,
       receiptPublicId,
       updatedAt: new Date(),
     })

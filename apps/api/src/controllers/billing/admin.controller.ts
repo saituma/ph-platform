@@ -584,6 +584,80 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
   }
 }
 
+export async function listStripePaymentStatusAdmin(_req: Request, res: Response) {
+  try {
+    const stripe = getStripeClient();
+
+    const [subsResult, dbRequests] = await Promise.all([
+      stripe.subscriptions.list({
+        limit: 100,
+        status: "all",
+        expand: ["data.customer", "data.default_payment_method", "data.latest_invoice.payment_intent"],
+      }),
+      db
+        .select({
+          stripeSubscriptionId: subscriptionRequestTable.stripeSubscriptionId,
+          athleteId: subscriptionRequestTable.athleteId,
+        })
+        .from(subscriptionRequestTable)
+        .where(eq(subscriptionRequestTable.paymentStatus, "paid")),
+    ]);
+
+    const subToAthlete = new Map(dbRequests.map((r) => [r.stripeSubscriptionId, r.athleteId]));
+
+    const rows = await Promise.all(
+      subsResult.data.map(async (sub) => {
+        const customer = sub.customer as Stripe.Customer;
+        const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
+        const card = pm?.card ?? null;
+        const invoice = sub.latest_invoice as Stripe.Invoice | null;
+        const pi = invoice?.payment_intent as Stripe.PaymentIntent | null;
+        const lastError = pi?.last_payment_error ?? null;
+
+        let nextRetryAt: string | null = null;
+        if (sub.status === "past_due" && invoice?.id) {
+          try {
+            const full = await stripe.invoices.retrieve(invoice.id);
+            nextRetryAt = full.next_payment_attempt
+              ? new Date(full.next_payment_attempt * 1000).toISOString()
+              : null;
+          } catch {}
+        }
+
+        return {
+          subscriptionId: sub.id,
+          status: sub.status,
+          customerId: customer?.id ?? null,
+          customerEmail: customer?.email ?? null,
+          customerName: customer?.name ?? null,
+          amountCents: sub.items.data.reduce((s, i) => s + (i.price?.unit_amount ?? 0), 0),
+          currency: sub.currency,
+          billingCycleAnchor: new Date(sub.billing_cycle_anchor * 1000).toISOString(),
+          card: card
+            ? {
+                brand: card.brand,
+                last4: card.last4,
+                expMonth: card.exp_month,
+                expYear: card.exp_year,
+                funding: card.funding,
+              }
+            : null,
+          failureCode: lastError?.code ?? null,
+          failureDeclineCode: (lastError as any)?.decline_code ?? null,
+          failureMessage: lastError?.message ?? null,
+          nextRetryAt,
+          athleteId: subToAthlete.get(sub.id) ?? null,
+        };
+      }),
+    );
+
+    return res.status(200).json({ subscriptions: rows });
+  } catch (error: any) {
+    logger.warn({ err: error }, "[Billing] listStripePaymentStatusAdmin failed");
+    return res.status(500).json({ error: error?.message || "Failed to fetch Stripe payment status." });
+  }
+}
+
 export async function sponsorTeamPlayerInviteAdmin(req: Request, res: Response) {
   const requestId = z.coerce.number().int().min(1).parse(req.params.requestId);
   const inviteId = z.coerce.number().int().min(1).parse(req.params.inviteId);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, CreditCard, ShieldCheck, Ticket, Users } from "lucide-react";
+import { ArrowRight, CreditCard, ShieldCheck, Ticket, Users, Activity } from "lucide-react";
 
 import { AdminShell } from "../../components/admin/shell";
 import {
@@ -105,6 +105,15 @@ export default function BillingOverviewPage() {
         "Generate one-time promo codes for existing clients. Each email gets a unique code they enter at checkout.",
       href: "/billing/launch-promo",
       icon: Ticket,
+      badge: null,
+      badgeDetail: null,
+    },
+    {
+      title: "Payment Status",
+      description:
+        "Live Stripe subscription status for all paying users — card details, failure reasons, and retry dates.",
+      href: "/billing/subscriptions",
+      icon: Activity,
       badge: null,
       badgeDetail: null,
     },

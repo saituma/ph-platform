@@ -43,6 +43,7 @@ import {
   getLaunchPromoCodesAdmin,
   deleteLaunchPromoCampaignAdmin,
   sendPromoCodeToEmailAdmin,
+  listStripePaymentStatusAdmin,
 } from "../controllers/billing";
 
 const router = Router();
@@ -195,6 +196,13 @@ router.post(
   requireAuth,
   requireRole(["admin", "superAdmin"]),
   sendPromoCodeToEmailAdmin,
+);
+
+router.get(
+  "/admin/stripe/payment-status",
+  requireAuth,
+  requireRole(["admin", "superAdmin"]),
+  listStripePaymentStatusAdmin,
 );
 
 export default router;

@@ -1488,6 +1488,7 @@ export const subscriptionRequestTable = pgTable(
     /** monthly | six_months | yearly — how the athlete chose to pay (Stripe lookup + checkout mode). */
     planBillingCycle: varchar({ length: 20 }),
     stripeSessionId: varchar({ length: 255 }),
+    stripeSubscriptionId: varchar({ length: 255 }),
     stripePaymentIntentId: varchar({ length: 255 }),
     paymentAmountCents: integer(),
     paymentCurrency: varchar({ length: 10 }),
