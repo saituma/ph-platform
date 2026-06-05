@@ -14,61 +14,49 @@ import { Input } from "../../components/ui/input";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Skeleton } from "../../components/ui/skeleton";
 
-type PlanTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";
-
-type AdminSubscriptionPlan = {
-  id: number;
-  name: string;
-  tier: PlanTier;
-  displayPrice?: string | null;
-  monthlyPrice?: string | null;
-  billingInterval?: string | null;
-  isActive?: boolean;
+type StripeSub = {
+  subscriptionId: string;
+  status: string;
+  customerEmail: string | null;
+  customerName: string | null;
+  amountCents: number;
+  currency: string;
+  billingCycleAnchor: string;
+  card: { brand: string; last4: string; expMonth: number; expYear: number } | null;
+  failureCode: string | null;
+  failureDeclineCode: string | null;
+  nextRetryAt: string | null;
 };
 
-type AdminSubscriptionRequest = {
-  requestId: number;
-  status?: string | null;
-  paymentStatus?: string | null;
-  displayPrice?: string | null;
-  billingInterval?: string | null;
-  planTier?: PlanTier | null;
-  createdAt?: string | null;
-};
-
-function parseMoneyAmount(input?: string | null) {
-  const raw = String(input ?? "").trim();
-  if (!raw) return 0;
-  const normalized = raw.replace(/,/g, "");
-  const match = normalized.match(/-?\d+(\.\d+)?/);
-  if (!match) return 0;
-  const value = Number.parseFloat(match[0]);
-  return Number.isFinite(value) ? value : 0;
-}
-
-function formatMoney(value: number) {
+function formatMoney(cents: number, currency = "gbp") {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
-    currency: "GBP",
+    currency: currency.toUpperCase(),
     maximumFractionDigits: 2,
-  }).format(value);
+  }).format(cents / 100);
 }
 
-function startsWithMonthlyInterval(interval?: string | null) {
-  const normalized = String(interval ?? "").trim().toLowerCase();
-  return normalized === "monthly" || normalized.endsWith("_months");
-}
-
-/** A single metric display card using CardFrame */
 function MetricCard({
   label,
   value,
+  sub,
   loading,
+  accent,
 }: {
   label: string;
   value: string;
+  sub?: string;
   loading?: boolean;
+  accent?: "green" | "red" | "amber";
 }) {
+  const accentClass = accent === "green"
+    ? "text-green-600"
+    : accent === "red"
+    ? "text-red-600"
+    : accent === "amber"
+    ? "text-amber-600"
+    : "text-foreground";
+
   return (
     <CardFrame>
       <CardFrameHeader>
@@ -76,9 +64,10 @@ function MetricCard({
         {loading ? (
           <Skeleton className="mt-1 h-8 w-28 rounded-md" />
         ) : (
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
-            {value}
-          </p>
+          <>
+            <p className={`mt-1 text-2xl font-semibold tabular-nums ${accentClass}`}>{value}</p>
+            {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+          </>
         )}
       </CardFrameHeader>
     </CardFrame>
@@ -87,8 +76,9 @@ function MetricCard({
 
 export default function StatsPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [plans, setPlans] = useState<AdminSubscriptionPlan[]>([]);
-  const [requests, setRequests] = useState<AdminSubscriptionRequest[]>([]);
+  const [subs, setSubs] = useState<StripeSub[]>([]);
+  const [planCount, setPlanCount] = useState(0);
+  const [activePlanCount, setActivePlanCount] = useState(0);
 
   const [newAthletesPerMonth, setNewAthletesPerMonth] = useState("10");
   const [averageMonthlyPrice, setAverageMonthlyPrice] = useState("79");
@@ -99,201 +89,170 @@ export default function StatsPage() {
     async function load() {
       setIsLoading(true);
       try {
-        const [plansRes, requestsRes] = await Promise.all([
-          fetch("/api/backend/admin/subscription-plans").then((res) => res.json()),
-          fetch("/api/backend/admin/subscription-requests").then((res) => res.json()),
+        const [stripeRes, plansRes] = await Promise.all([
+          fetch("/api/backend/admin/stripe/payment-status").then((r) => r.json()),
+          fetch("/api/backend/admin/subscription-plans").then((r) => r.json()),
         ]);
         if (!mounted) return;
-        setPlans(Array.isArray(plansRes?.plans) ? plansRes.plans : []);
-        setRequests(Array.isArray(requestsRes?.requests) ? requestsRes.requests : []);
-      } catch (err) {
+        setSubs(Array.isArray(stripeRes?.subscriptions) ? stripeRes.subscriptions : []);
+        const plans = Array.isArray(plansRes?.plans) ? plansRes.plans : [];
+        setPlanCount(plans.length);
+        setActivePlanCount(plans.filter((p: { isActive?: boolean }) => p.isActive).length);
+      } catch {
         if (!mounted) return;
-        console.error("Failed to load stats data:", err);
-        setPlans([]);
-        setRequests([]);
+        setSubs([]);
       } finally {
         if (mounted) setIsLoading(false);
       }
     }
     void load();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  const approvedRequests = useMemo(
-    () => requests.filter((request) => String(request.status ?? "").toLowerCase() === "approved"),
-    [requests]
-  );
+  const active = useMemo(() => subs.filter((s) => s.status === "active"), [subs]);
+  const pastDue = useMemo(() => subs.filter((s) => s.status === "past_due"), [subs]);
+  const cancelled = useMemo(() => subs.filter((s) => s.status === "canceled"), [subs]);
 
-  const paidRequests = useMemo(() => {
-    const paidStatuses = new Set(["paid", "succeeded", "no_payment_required"]);
-    return requests.filter((request) => paidStatuses.has(String(request.paymentStatus ?? "").toLowerCase()));
-  }, [requests]);
+  const mrr = useMemo(() => active.reduce((s, r) => s + r.amountCents, 0), [active]);
+  const pastDueValue = useMemo(() => pastDue.reduce((s, r) => s + r.amountCents, 0), [pastDue]);
+  const arr = mrr * 12;
 
-  const approvedRevenueTotal = useMemo(
-    () => approvedRequests.reduce((sum, request) => sum + parseMoneyAmount(request.displayPrice), 0),
-    [approvedRequests]
-  );
-
-  const monthlyRecurringEstimate = useMemo(() => {
-    return approvedRequests.reduce((sum, request) => {
-      const amount = parseMoneyAmount(request.displayPrice);
-      if (amount <= 0) return sum;
-      if (startsWithMonthlyInterval(request.billingInterval)) return sum + amount;
-      return sum;
-    }, 0);
-  }, [approvedRequests]);
-
-  const potentialRevenue = useMemo(() => {
-    return requests
-      .filter((request) => String(request.status ?? "").toLowerCase() === "pending_approval")
-      .reduce((sum, request) => sum + parseMoneyAmount(request.displayPrice), 0);
-  }, [requests]);
-
-  const revenueByTier = useMemo(() => {
+  // Group active subs by amount band as a proxy for tier
+  const revenueByBand = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
-    for (const request of approvedRequests) {
-      const key = request.planTier ?? "Unknown";
-      const current = map.get(key) ?? { count: 0, total: 0 };
-      current.count += 1;
-      current.total += parseMoneyAmount(request.displayPrice);
-      map.set(key, current);
+    for (const s of active) {
+      const amt = s.amountCents;
+      const label =
+        amt >= 17000 ? "Team (£178/mo)" :
+        amt >= 9800 && amt < 17000 ? "Individual Pro (£99/mo)" :
+        amt >= 6500 && amt < 9800 ? "Individual (£69.99/mo)" :
+        amt >= 3400 && amt < 6500 ? "Team Player (£34.99/mo)" :
+        amt >= 3000 && amt < 3400 ? "Team Player (£32/mo)" :
+        `Other (${formatMoney(amt)})`;
+      const cur = map.get(label) ?? { count: 0, total: 0 };
+      cur.count += 1;
+      cur.total += amt;
+      map.set(label, cur);
     }
     return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
-  }, [approvedRequests]);
+  }, [active]);
 
   const calculator = useMemo(() => {
     const athletes = Number.parseFloat(newAthletesPerMonth);
     const monthlyPrice = Number.parseFloat(averageMonthlyPrice);
     const commitmentMonths = Number.parseFloat(averageCommitmentMonths);
-
-    const safeAthletes = Number.isFinite(athletes) && athletes > 0 ? athletes : 0;
-    const safePrice = Number.isFinite(monthlyPrice) && monthlyPrice > 0 ? monthlyPrice : 0;
-    const safeCommitment = Number.isFinite(commitmentMonths) && commitmentMonths > 0 ? commitmentMonths : 0;
-
-    const projectedMonthly = safeAthletes * safePrice;
-    const projectedCommitmentValue = projectedMonthly * safeCommitment;
-    const projectedYearly = projectedMonthly * 12;
-
-    return { projectedMonthly, projectedCommitmentValue, projectedYearly };
-  }, [averageCommitmentMonths, averageMonthlyPrice, newAthletesPerMonth]);
+    const sa = Number.isFinite(athletes) && athletes > 0 ? athletes : 0;
+    const sp = Number.isFinite(monthlyPrice) && monthlyPrice > 0 ? monthlyPrice : 0;
+    const sc = Number.isFinite(commitmentMonths) && commitmentMonths > 0 ? commitmentMonths : 0;
+    return {
+      projectedMonthly: sa * sp,
+      projectedYearly: sa * sp * 12,
+      projectedCommitmentValue: sa * sp * sc,
+    };
+  }, [newAthletesPerMonth, averageMonthlyPrice, averageCommitmentMonths]);
 
   return (
-    <AdminShell title="Stats" subtitle="Revenue view and income calculator for admin decisions.">
+    <AdminShell title="Stats" subtitle="Live revenue metrics pulled directly from Stripe.">
       <div className="space-y-8">
-        {/* Revenue Snapshot */}
+
+        {/* Primary metrics */}
         <section className="space-y-4">
           <SectionHeader
             title="Revenue Snapshot"
-            description={
-              isLoading
-                ? "Loading billing metrics…"
-                : "Live metrics from subscription requests and approvals."
-            }
+            description={isLoading ? "Loading from Stripe…" : `${active.length + pastDue.length + cancelled.length} total subscriptions tracked`}
           />
-
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Approved Revenue (Total)" value={formatMoney(approvedRevenueTotal)} loading={isLoading} />
-            <MetricCard label="MRR Estimate" value={formatMoney(monthlyRecurringEstimate)} loading={isLoading} />
-            <MetricCard label="Paid Requests" value={String(paidRequests.length)} loading={isLoading} />
-            <MetricCard label="Pending Approval Value" value={formatMoney(potentialRevenue)} loading={isLoading} />
+            <MetricCard label="MRR (Active)" value={isLoading ? "—" : formatMoney(mrr)} sub={`${active.length} active subs`} loading={isLoading} accent="green" />
+            <MetricCard label="ARR" value={isLoading ? "—" : formatMoney(arr)} loading={isLoading} />
+            <MetricCard label="Past Due" value={isLoading ? "—" : formatMoney(pastDueValue)} sub={`${pastDue.length} subscription${pastDue.length !== 1 ? "s" : ""}`} loading={isLoading} accent={pastDue.length > 0 ? "red" : undefined} />
+            <MetricCard label="Cancelled" value={isLoading ? "—" : String(cancelled.length)} loading={isLoading} />
           </div>
         </section>
 
-        {/* Calculator + Revenue by Tier */}
+        {/* Past due detail */}
+        {!isLoading && pastDue.length > 0 && (
+          <section className="space-y-3">
+            <SectionHeader title="Past Due" description="These subscriptions failed to renew today — at risk of churning." />
+            <div className="rounded-xl border divide-y overflow-hidden">
+              {pastDue.map((s) => (
+                <div key={s.subscriptionId} className="flex items-center justify-between px-4 py-3 bg-red-50/40 dark:bg-red-950/10">
+                  <div>
+                    <p className="text-sm font-medium">{s.customerName || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{s.customerEmail}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums">{formatMoney(s.amountCents)}/mo</p>
+                    {s.nextRetryAt && (
+                      <p className="text-xs text-amber-600">Retry {new Date(s.nextRetryAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Calculator + Revenue by tier */}
         <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-          {/* Income Calculator */}
           <CardFrame>
             <CardFrameHeader>
               <CardFrameTitle>Income Calculator</CardFrameTitle>
-              <CardFrameDescription>
-                Estimate revenue from new athlete signups.
-              </CardFrameDescription>
+              <CardFrameDescription>Estimate revenue from new athlete signups.</CardFrameDescription>
             </CardFrameHeader>
-
             <div className="px-6 pb-6 space-y-5">
               <div className="grid gap-4 sm:grid-cols-3">
                 <Field>
                   <FieldLabel htmlFor="newAthletes">New Athletes / Month</FieldLabel>
-                  <Input
-                    id="newAthletes"
-                    type="number"
-                    value={newAthletesPerMonth}
-                    onChange={(event) => setNewAthletesPerMonth(event.target.value)}
-                  />
+                  <Input id="newAthletes" type="number" value={newAthletesPerMonth} onChange={(e) => setNewAthletesPerMonth(e.target.value)} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="avgPrice">Avg Monthly Price</FieldLabel>
-                  <Input
-                    id="avgPrice"
-                    type="number"
-                    value={averageMonthlyPrice}
-                    onChange={(event) => setAverageMonthlyPrice(event.target.value)}
-                  />
+                  <Input id="avgPrice" type="number" value={averageMonthlyPrice} onChange={(e) => setAverageMonthlyPrice(e.target.value)} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="avgCommitment">Avg Commitment (Months)</FieldLabel>
-                  <Input
-                    id="avgCommitment"
-                    type="number"
-                    value={averageCommitmentMonths}
-                    onChange={(event) => setAverageCommitmentMonths(event.target.value)}
-                  />
+                  <Input id="avgCommitment" type="number" value={averageCommitmentMonths} onChange={(e) => setAverageCommitmentMonths(e.target.value)} />
                 </Field>
               </div>
-
               <div className="grid gap-4 sm:grid-cols-3">
-                <CardFrame>
-                  <CardFrameHeader>
-                    <CardFrameDescription>Projected Monthly</CardFrameDescription>
-                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                      {formatMoney(calculator.projectedMonthly)}
-                    </p>
-                  </CardFrameHeader>
-                </CardFrame>
-                <CardFrame>
-                  <CardFrameHeader>
-                    <CardFrameDescription>Projected 12-Month</CardFrameDescription>
-                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                      {formatMoney(calculator.projectedYearly)}
-                    </p>
-                  </CardFrameHeader>
-                </CardFrame>
-                <CardFrame>
-                  <CardFrameHeader>
-                    <CardFrameDescription>Commitment Contract Value</CardFrameDescription>
-                    <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-                      {formatMoney(calculator.projectedCommitmentValue)}
-                    </p>
-                  </CardFrameHeader>
-                </CardFrame>
+                {[
+                  { label: "Projected Monthly", value: calculator.projectedMonthly * 100 },
+                  { label: "Projected 12-Month", value: calculator.projectedYearly * 100 },
+                  { label: "Commitment Contract Value", value: calculator.projectedCommitmentValue * 100 },
+                ].map(({ label, value }) => (
+                  <CardFrame key={label}>
+                    <CardFrameHeader>
+                      <CardFrameDescription>{label}</CardFrameDescription>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{formatMoney(value)}</p>
+                    </CardFrameHeader>
+                  </CardFrame>
+                ))}
               </div>
             </div>
           </CardFrame>
 
-          {/* Revenue by Tier */}
           <CardFrame>
             <CardFrameHeader>
               <CardFrameTitle>Revenue by Tier</CardFrameTitle>
-              <CardFrameDescription>Approved subscriptions grouped by plan tier.</CardFrameDescription>
+              <CardFrameDescription>Active subscriptions grouped by price band.</CardFrameDescription>
             </CardFrameHeader>
-
             <div className="px-6 pb-6 space-y-3">
-              {!revenueByTier.length ? (
-                <p className="text-sm text-muted-foreground">No approved revenue yet.</p>
+              {isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)
+              ) : revenueByBand.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No active revenue.</p>
               ) : (
-                revenueByTier.map(([tier, summary]) => (
-                  <CardFrame key={tier}>
+                revenueByBand.map(([label, { count, total }]) => (
+                  <CardFrame key={label}>
                     <CardFrameHeader>
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-foreground">{tier}</p>
-                          <CardFrameDescription>{summary.count} approved request{summary.count !== 1 ? "s" : ""}</CardFrameDescription>
+                          <p className="text-sm font-semibold text-foreground">{label}</p>
+                          <CardFrameDescription>{count} subscriber{count !== 1 ? "s" : ""}</CardFrameDescription>
                         </div>
-                        <p className="text-sm font-semibold tabular-nums text-foreground">
-                          {formatMoney(summary.total)}
-                        </p>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold tabular-nums">{formatMoney(total)}/mo</p>
+                        </div>
                       </div>
                     </CardFrameHeader>
                   </CardFrame>
@@ -303,32 +262,17 @@ export default function StatsPage() {
           </CardFrame>
         </div>
 
-        {/* Plan Coverage */}
+        {/* Plan coverage */}
         <section className="space-y-4">
           <SectionHeader title="Plan Coverage" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard label="Total Plans" value={String(plans.length)} loading={isLoading} />
-            <MetricCard
-              label="Active Plans"
-              value={String(plans.filter((plan) => plan.isActive).length)}
-              loading={isLoading}
-            />
-            <MetricCard
-              label="Approved Requests"
-              value={String(approvedRequests.length)}
-              loading={isLoading}
-            />
-            <MetricCard
-              label="Pending Approvals"
-              value={String(
-                requests.filter(
-                  (request) => String(request.status ?? "").toLowerCase() === "pending_approval"
-                ).length
-              )}
-              loading={isLoading}
-            />
+            <MetricCard label="Total Plans" value={String(planCount)} loading={isLoading} />
+            <MetricCard label="Active Plans" value={String(activePlanCount)} loading={isLoading} />
+            <MetricCard label="Active Subs" value={String(active.length)} loading={isLoading} accent="green" />
+            <MetricCard label="Past Due Subs" value={String(pastDue.length)} loading={isLoading} accent={pastDue.length > 0 ? "red" : undefined} />
           </div>
         </section>
+
       </div>
     </AdminShell>
   );
