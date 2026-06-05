@@ -584,6 +584,14 @@ export async function resendTeamPlayerInviteAdmin(req: Request, res: Response) {
   }
 }
 
+const TEST_EMAILS = new Set([
+  "dawit@test.com",
+  "dawit.dev.g@gmail.com",
+  "dawit.dev.h@gmail.com",
+  "dawitworkujima@gmail.com",
+  "dawitanother@gmail.com",
+]);
+
 export async function listStripePaymentStatusAdmin(_req: Request, res: Response) {
   try {
     const stripe = getStripeClient();
@@ -606,7 +614,12 @@ export async function listStripePaymentStatusAdmin(_req: Request, res: Response)
     const subToAthlete = new Map(dbRequests.map((r) => [r.stripeSubscriptionId, r.athleteId]));
 
     const rows = await Promise.all(
-      subsResult.data.map(async (sub) => {
+      subsResult.data
+        .filter((sub) => {
+          const email = ((sub.customer as any)?.email ?? "").toLowerCase();
+          return !TEST_EMAILS.has(email);
+        })
+        .map(async (sub) => {
         const customer = sub.customer as Stripe.Customer;
         const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
         const card = pm?.card ?? null;
