@@ -24,6 +24,8 @@ type ApprovalRequest = {
   requestId: number;
   userName?: string | null;
   userEmail?: string | null;
+  athleteId?: number | null;
+  athleteName?: string | null;
   planName?: string | null;
   displayPrice?: string | null;
   billingInterval?: string | null;
@@ -290,7 +292,7 @@ export function PendingApprovalsManager() {
     const score = (s: string | null | undefined) => rank[String(s ?? "").toLowerCase()] ?? 0;
     const best = new Map<string, (typeof requests)[number]>();
     for (const r of requests) {
-      const key = `${(r as any).userId ?? "?"}::${(r as any).planId ?? "?"}`;
+      const key = `${(r as any).athleteId ?? (r as any).userId ?? "?"}::${(r as any).planId ?? "?"}`;
       const cur = best.get(key);
       if (!cur || score(r.status) > score(cur.status)) best.set(key, r);
     }
@@ -389,10 +391,16 @@ export function PendingApprovalsManager() {
                       {filteredRequests.map((request) => (
                         <TableRow key={request.requestId}>
                           <TableCell>
-                            <div className="font-medium">{request.userName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {request.userEmail?.endsWith("@athlete.local") ? "" : request.userEmail}
-                            </div>
+                            <div className="font-medium">{request.athleteName ?? request.userName}</div>
+                            {request.athleteName && request.userName ? (
+                              <div className="text-xs text-muted-foreground">
+                                Guardian: {request.userName}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">
+                                {request.userEmail?.endsWith("@athlete.local") ? "" : request.userEmail}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div className="font-medium">{request.planName}</div>

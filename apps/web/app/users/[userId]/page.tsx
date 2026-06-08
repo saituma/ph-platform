@@ -127,6 +127,7 @@ type AdminUserRow = {
 
 type BillingRequest = {
   userId?: number;
+  athleteId?: number | null;
   planName?: string | null;
   planTier?: string | null;
   displayPrice?: string | null;
@@ -411,7 +412,10 @@ export default function UserDetailPage() {
         const requests: BillingRequest[] = Array.isArray(payload?.requests)
           ? payload.requests
           : [];
-        const match = requests.find((r) => r.userId === userId);
+        const numericAthleteId = athleteId ? Number(athleteId) : null;
+        const match =
+          requests.find((r) => r.userId === userId) ??
+          (numericAthleteId ? requests.find((r) => r.athleteId === numericAthleteId) : undefined);
         setBillingStatus(
           match
             ? {
@@ -432,7 +436,7 @@ export default function UserDetailPage() {
     return () => {
       active = false;
     };
-  }, [userId, isValidId]);
+  }, [userId, isValidId, athleteId]);
 
   const handleDelete = useCallback(async () => {
     if (
