@@ -67,7 +67,8 @@ export async function teamRuns(req: Request, res: Response) {
       sort,
       teamId,
       viewerUserId: req.user.id,
-    } as any);
+      bypassPrivacy: true,
+    });
     return res.status(200).json(out);
   } catch (err) {
     return handleSocialError(res, err);

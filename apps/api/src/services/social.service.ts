@@ -318,6 +318,11 @@ export async function listPublicRuns(input: {
   teamId?: number | null;
   /** When set, each feed item includes `likeCount` and `userLiked` for this viewer. */
   viewerUserId?: number;
+  /**
+   * When true (team manager/coach view), skip social privacy filters.
+   * Coaches should see all their athletes' runs regardless of shareRunsPublicly.
+   */
+  bypassPrivacy?: boolean;
 }) {
   const limit = Number.isFinite(input.limit) && input.limit > 0 ? Math.min(50, Math.floor(input.limit)) : 20;
   const cursor =
@@ -353,7 +358,7 @@ export async function listPublicRuns(input: {
                 ? asc(runLogTable.date)
                 : desc(runLogTable.date);
 
-  const rows = await db
+  const baseQuery = db
     .select({
       runLogId: runLogTable.id,
       userId: runLogTable.userId,
@@ -368,18 +373,29 @@ export async function listPublicRuns(input: {
     })
     .from(runLogTable)
     .innerJoin(userTable, eq(userTable.id, runLogTable.userId))
-    .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId))
-    .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
-    .where(
-      and(
-        scopeFilter,
-        eq(runLogTable.visibility, "public"),
-        eq(socialPrivacySettingsTable.socialEnabled, true),
-        eq(socialPrivacySettingsTable.shareRunsPublicly, true),
-        since ? gte(runLogTable.date, since) : sql`true`,
-        cursor != null ? lt(runLogTable.id, cursor) : sql`true`,
-      ),
-    )
+    .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId));
+
+  const rows = await (input.bypassPrivacy
+    ? baseQuery.where(
+        and(
+          scopeFilter,
+          since ? gte(runLogTable.date, since) : sql`true`,
+          cursor != null ? lt(runLogTable.id, cursor) : sql`true`,
+        ),
+      )
+    : baseQuery
+        .innerJoin(socialPrivacySettingsTable, eq(socialPrivacySettingsTable.userId, runLogTable.userId))
+        .where(
+          and(
+            scopeFilter,
+            eq(runLogTable.visibility, "public"),
+            eq(socialPrivacySettingsTable.socialEnabled, true),
+            eq(socialPrivacySettingsTable.shareRunsPublicly, true),
+            since ? gte(runLogTable.date, since) : sql`true`,
+            cursor != null ? lt(runLogTable.id, cursor) : sql`true`,
+          ),
+        )
+  )
     .orderBy(sortOrderBy, desc(runLogTable.id))
     .limit(limit + 1);
 

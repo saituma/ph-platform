@@ -85,9 +85,14 @@ export async function sendFcmPush(input: SendFcmPushInput) {
   // action buttons (Reply/Mark Read via categoryIdentifier), and the PendingIntent
   // that lets getLastNotificationResponseAsync() work on cold start.
   // A top-level notification field bypasses expo-notifications when the app is killed.
+  // expo-notifications renders a data-only message from these keys: `title` and
+  // `message` (the displayed body). It treats `body` as the custom data payload, NOT
+  // as text — so the message text MUST go in `message` or the notification shows blank.
+  // (See expo-notifications RemoteNotificationContent: text = notification?.body ?: data.message.)
   const messageData: Record<string, string> = {
     ...input.data,
     title: input.title,
+    message: input.body,
     body: input.body,
   };
   if (input.android?.channelId) {
