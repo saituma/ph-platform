@@ -9,6 +9,7 @@ import {
   guardianTable,
   userTable,
   teamTable,
+  teamManagersTable,
   ProgramType,
   AthleteType,
   PlanPaymentType,
@@ -414,6 +415,10 @@ export async function softDeleteUser(userId: number) {
       }
       const athleteRows = Array.from(athleteMap.values());
       const athleteIds = athleteRows.map((row) => row.id);
+
+      // Remove from team co-manager list and orphan any team where this user is the primary admin
+      await tx.delete(teamManagersTable).where(eq(teamManagersTable.userId, userId));
+      await tx.update(teamTable).set({ adminId: null, updatedAt: now }).where(eq(teamTable.adminId, userId));
 
       if (athleteIds.length) {
         await tx
