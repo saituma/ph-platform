@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeInDown, useReducedMotion } from "react-native-reanimated";
 import { Dumbbell, Plus, Trash2, Video, Film, X } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system";
 
 import { Text } from "@/components/ScaledText";
@@ -72,10 +73,10 @@ export default function AdminSessionDetailScreen() {
   const [videoProgress, setVideoProgress] = useState(0);
 
   const handlePickVideo = useCallback(async (useCamera: boolean) => {
-    const permission = useCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    const granted = useCamera
+      ? (await ImagePicker.requestCameraPermissionsAsync()).granted
+      : await requestMediaLibraryPermission();
+    if (!granted) {
       Alert.alert("Permission needed", useCamera ? "Camera access is required to record video." : "Photo library access is required to pick a video.");
       return;
     }

@@ -4,6 +4,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text, TextInput } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -78,8 +79,7 @@ export default function SubmitTestimonialScreen() {
   };
 
   const handlePickPhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!await requestMediaLibraryPermission()) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       quality: 0.9,

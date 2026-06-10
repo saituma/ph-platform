@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system/legacy";
 import {
   useAdminPastel,
@@ -270,9 +271,7 @@ export default function AdminVideosScreen() {
         return;
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) return;
+      if (!await requestMediaLibraryPermission()) return;
 
       const result = await ImagePicker.launchImageLibraryAsync(
         VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION,

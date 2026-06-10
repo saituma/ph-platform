@@ -30,6 +30,7 @@ import { useAppSelector } from "@/store/hooks";
 import type { PendingAttachment } from "@/types/admin-messages";
 import type { AdminUser } from "@/types/admin";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BackHandler, Modal, Platform, Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
@@ -257,12 +258,12 @@ export default function AdminNutritionScreen() {
 
   const pickResponseVideo = useCallback(
     async (source: "camera" | "library") => {
-      const permission =
+      const granted =
         source === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
+          ? (await ImagePicker.requestCameraPermissionsAsync()).granted
+          : await requestMediaLibraryPermission();
 
-      if (!permission.granted) return;
+      if (!granted) return;
 
       const result =
         source === "camera"

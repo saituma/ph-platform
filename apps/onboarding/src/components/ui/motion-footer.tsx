@@ -1,10 +1,10 @@
 import * as React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { AndroidDownloadModal } from "../AndroidDownloadModal";
+
 
 if (typeof window !== "undefined") {
 	gsap.registerPlugin(ScrollTrigger);
@@ -228,7 +228,7 @@ export function CinematicFooter() {
 	const giantTextRef = useRef<HTMLDivElement>(null);
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	const linksRef = useRef<HTMLDivElement>(null);
-	const [androidModalOpen, setAndroidModalOpen] = useState(false);
+
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -342,9 +342,10 @@ export function CinematicFooter() {
 								</MagneticButton>
 
 								<MagneticButton
-									as="button"
-									type="button"
-									onClick={() => setAndroidModalOpen(true)}
+									as="a"
+									href="https://play.google.com/store/apps/details?id=com.phperformance.uk"
+									target="_blank"
+									rel="noopener noreferrer"
 									className="footer-glass-pill px-10 py-5 rounded-full text-white font-bold text-sm md:text-base flex items-center gap-3 group no-underline"
 								>
 									<svg
@@ -440,12 +441,6 @@ export function CinematicFooter() {
 					</div>
 				</footer>
 			</div>
-			{androidModalOpen && (
-				<AndroidDownloadModal
-					onClose={() => setAndroidModalOpen(false)}
-					apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk"
-				/>
-			)}
 		</>
 	);
 }

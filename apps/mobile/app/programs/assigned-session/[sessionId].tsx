@@ -30,6 +30,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import Animated, { FadeIn, FadeInDown, ZoomIn, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system/legacy";
 import { LinearGradient } from "expo-linear-gradient";
 import { BuiltinCamera } from "@/components/media/BuiltinCamera";
@@ -185,8 +186,7 @@ export default function AssignedSessionDetailScreen() {
         return;
       }
       try {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
+        if (!await requestMediaLibraryPermission()) {
           Alert.alert("Permission needed", "Please allow access to your video library.");
           return;
         }

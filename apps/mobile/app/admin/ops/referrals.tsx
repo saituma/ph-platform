@@ -51,6 +51,7 @@ import {
   PenLine,
 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
@@ -162,11 +163,11 @@ export default function AdminOpsReferralsScreen() {
   };
 
   const pickImage = async (source: "camera" | "library") => {
-    const permission = source === "camera"
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const granted = source === "camera"
+      ? (await ImagePicker.requestCameraPermissionsAsync()).granted
+      : await requestMediaLibraryPermission();
 
-    if (!permission.granted) return;
+    if (!granted) return;
 
     const result = source === "camera"
       ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true })

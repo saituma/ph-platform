@@ -16,7 +16,7 @@ import VaporizeTextCycle, { Tag } from "@/components/ui/vapour-text-effect";
 import { CinematicFooter } from "@/components/ui/motion-footer";
 import { buildOgMeta } from "../lib/seo";
 import { WaitlistModal } from "../components/WaitlistModal";
-import { AndroidDownloadModal } from "../components/AndroidDownloadModal";
+
 import { getTokenStatus } from "@/lib/client-storage";
 import { CountdownTimer } from "@/components/CountdownTimer";
 
@@ -180,7 +180,7 @@ const APP_FEATURES_RIGHT = [
 
 function LandingPage() {
     const [waitlistOpen, setWaitlistOpen] = useState(false);
-    const [androidModalOpen, setAndroidModalOpen] = useState(false);
+
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     useEffect(() => {
@@ -191,7 +191,7 @@ function LandingPage() {
         <div className="relative min-h-dvh bg-[#0a0a0a] text-white overflow-x-hidden landing-page">
         <AnimatePresence>
             {waitlistOpen && <WaitlistModal onClose={() => setWaitlistOpen(false)} />}
-            {androidModalOpen && <AndroidDownloadModal onClose={() => setAndroidModalOpen(false)} apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk" />}
+
         </AnimatePresence>
                 {/* ━━━ Hero Section ━━━ */}
                 <section className="relative pt-16 h-dvh overflow-hidden">
@@ -525,9 +525,10 @@ function LandingPage() {
                                             className="h-[48px]"
                                         />
                                     </a>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAndroidModalOpen(true)}
+                                    <a
+                                        href="https://play.google.com/store/apps/details?id=com.phperformance.uk"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="inline-block"
                                         aria-label="Get it on Google Play"
                                     >
@@ -537,7 +538,7 @@ function LandingPage() {
                                             loading="lazy"
                                             className="h-[48px]"
                                         />
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
 

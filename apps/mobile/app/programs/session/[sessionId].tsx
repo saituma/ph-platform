@@ -22,6 +22,7 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useFocusEffect } from "@react-navigation/native";
 import { SkeletonSessionScreen } from "@/components/ui/legacy-skeleton";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system/legacy";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
@@ -179,9 +180,7 @@ export default function ProgramSessionDetailScreen() {
   }, [coachResponses]);
 
   const pickVideo = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) return null;
+    if (!await requestMediaLibraryPermission()) return null;
 
     const iosCompressionOptions =
       Platform.OS === "ios"

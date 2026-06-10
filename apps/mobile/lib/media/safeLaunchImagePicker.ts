@@ -1,4 +1,13 @@
 import { Platform } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+
+// Android photo picker (API 33+) manages its own access — no READ_MEDIA_IMAGES needed.
+// On iOS, the system still requires an explicit permission grant before opening the library.
+export async function requestMediaLibraryPermission(): Promise<boolean> {
+  if (Platform.OS === "android") return true;
+  const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  return granted;
+}
 
 /**
  * Android: launching the camera/library from a Modal (or during another transition)

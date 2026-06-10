@@ -111,7 +111,7 @@ function AppDownloadPage() {
 								APP STORE
 							</a>
 							<a
-								href="https://play.google.com"
+								href="https://play.google.com/store/apps/details?id=com.phperformance.uk"
 								target="_blank"
 								rel="noreferrer"
 								className="inline-flex items-center gap-2 px-7 py-[13px] border border-border text-foreground text-[11px] font-bold uppercase tracking-[0.14em] hover:border-foreground/30 hover:bg-foreground/5 transition-all"

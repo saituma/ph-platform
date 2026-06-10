@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
 import { apiRequest } from "@/lib/api";
@@ -93,8 +94,7 @@ export function useProfileSettings() {
 
   const handlePickAvatar = async () => {
     if (!token || isUploadingAvatar) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!await requestMediaLibraryPermission()) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       quality: 0.8,
@@ -192,8 +192,7 @@ export function useProfileSettings() {
 
   const handlePickCoverImage = async () => {
     if (!token || isUploadingCover) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!await requestMediaLibraryPermission()) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: "images",
       quality: 0.8,

@@ -242,7 +242,7 @@ function AddChildSuccessPage() {
 								App Store
 							</a>
 							<a
-								href="https://play.google.com/store/apps/details?id=com.phperformanceapp.app"
+								href="https://play.google.com/store/apps/details?id=com.phperformance.uk"
 								target="_blank"
 								rel="noreferrer"
 								className="inline-flex items-center gap-2 px-4 py-2.5 border-2 font-bold text-sm uppercase tracking-wider hover:bg-muted/60 transition-colors"

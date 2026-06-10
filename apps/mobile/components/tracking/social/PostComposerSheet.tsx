@@ -21,7 +21,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { radius, spacing } from "@/constants/theme";
 import { createSocialPost } from "@/services/tracking/socialService";
 import { apiRequest } from "@/lib/api";
-import { safeLaunchImagePicker } from "@/lib/media/safeLaunchImagePicker";
+import { safeLaunchImagePicker, requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 type SelectedPhoto = {
@@ -56,8 +56,7 @@ export function PostComposerSheet({
   );
 
   const pickPhoto = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
+    if (!await requestMediaLibraryPermission()) {
       Alert.alert("Permission needed", "Allow photo access to attach an image to your post.");
       return;
     }

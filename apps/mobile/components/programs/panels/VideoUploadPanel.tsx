@@ -16,6 +16,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useAppSelector } from "@/store/hooks";
 import { Text } from "@/components/ScaledText";
@@ -171,10 +172,7 @@ export function VideoUploadPanel({
         });
         return;
       }
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) return;
+      if (!await requestMediaLibraryPermission()) return;
 
       const iosCompressionOptions =
         Platform.OS === "ios"

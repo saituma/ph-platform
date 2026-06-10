@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import * as ImagePicker from "expo-image-picker";
+import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import * as FileSystem from "expo-file-system/legacy";
 import { apiRequest } from "@/lib/api";
 
@@ -114,9 +115,7 @@ export function useChatAttachments(
   const handleAttachImage = useCallback(async () => {
     if (!token || isUploadingAttachment) return;
     try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) return;
+      if (!await requestMediaLibraryPermission()) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "images",
         quality: 0.9,
@@ -152,9 +151,7 @@ export function useChatAttachments(
   const handleAttachVideo = useCallback(async () => {
     if (!token || isUploadingAttachment) return;
     try {
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) return;
+      if (!await requestMediaLibraryPermission()) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: "videos",
         quality: 0.9,

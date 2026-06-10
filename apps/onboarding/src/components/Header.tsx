@@ -1,5 +1,5 @@
 import { Layout, SignOut, User as UserIcon } from "@phosphor-icons/react";
-import { AndroidDownloadModal } from "./AndroidDownloadModal";
+
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -79,7 +79,7 @@ export default function Header() {
 		image: string;
 	} | null>(null);
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-	const [androidModalOpen, setAndroidModalOpen] = useState(false);
+
 	const [appWaitlistOpen, setAppWaitlistOpen] = useState(false);
 	const [waitlistForm, setWaitlistForm] = useState({ fullName: "", email: "", mobile: "" });
 	const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
@@ -289,12 +289,6 @@ export default function Header() {
 
 	return (
 		<>
-			{androidModalOpen && (
-				<AndroidDownloadModal
-					onClose={() => setAndroidModalOpen(false)}
-					apkUrl="https://pub-fb11245cd3b74af5ac76333e14fbdb95.r2.dev/downloads/ph-performance.apk"
-				/>
-			)}
 
 			{/* App Waiting List Modal */}
 			{appWaitlistOpen && (
@@ -490,14 +484,15 @@ export default function Header() {
 							>
 								<img src="/apple-app-store.svg" alt="App Store" className="h-[40px]" />
 							</a>
-							<button
-								type="button"
-								onClick={() => setAndroidModalOpen(true)}
+							<a
+								href="https://play.google.com/store/apps/details?id=com.phperformance.uk"
+								target="_blank"
+								rel="noopener noreferrer"
 								aria-label="Get it on Google Play"
 								className="opacity-85 hover:opacity-100 transition-opacity"
 							>
 								<img src="/google-play-badge.svg" alt="Google Play" className="h-[40px]" />
-							</button>
+							</a>
 
 							{/* Feature 7: Cmd+K hint */}
 							<button

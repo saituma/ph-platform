@@ -3,7 +3,7 @@ import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { useAdminSessions } from "@/hooks/admin/useAdminSessions";
 import { useAdminAudienceWorkspace, SessionItem } from "@/hooks/admin/useAdminAudienceWorkspace";
 import { VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION } from "@/lib/media/videoPickerNativeResolution";
-import { safeLaunchImagePicker } from "@/lib/media/safeLaunchImagePicker";
+import { safeLaunchImagePicker, requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker";
 import { apiRequest } from "@/lib/api";
 import {
   buildSessionItemMetadata,
@@ -126,8 +126,7 @@ export default function AdminSessionDetailScreen() {
     if (!token || videoPickerInFlightRef.current || videoUploading) return;
     videoPickerInFlightRef.current = true;
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) { Alert.alert("Permission needed", "Allow photo library access to upload a video."); return; }
+      if (!await requestMediaLibraryPermission()) { Alert.alert("Permission needed", "Allow photo library access to upload a video."); return; }
       const result = await safeLaunchImagePicker(() =>
         ImagePicker.launchImageLibraryAsync(VIDEO_PICK_PRESERVE_NATIVE_RESOLUTION)
       );
