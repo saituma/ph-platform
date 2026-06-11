@@ -1,6 +1,6 @@
-import { and, desc, eq, or, inArray, count } from "drizzle-orm";
+import { and, asc, desc, eq, gte, or, inArray, count, sql } from "drizzle-orm";
 import { db } from "../db";
-import { athleteTable, teamTable, trackingGoalTable, userTable } from "../db/schema";
+import { athleteTable, runLogTable, teamTable, trackingGoalTable, userTable } from "../db/schema";
 
 export type CreateGoalInput = {
   coachId: number;
@@ -131,6 +131,84 @@ export async function updateGoal(
 export async function deleteGoal(id: number) {
   const [goal] = await db.delete(trackingGoalTable).where(eq(trackingGoalTable.id, id)).returning();
   return goal ?? null;
+}
+
+export async function getGoalProgress(goalId: number) {
+  const [goal] = await db
+    .select()
+    .from(trackingGoalTable)
+    .where(eq(trackingGoalTable.id, goalId));
+
+  if (!goal) return null;
+
+  let athletes: { id: number; name: string; userId: number }[] = [];
+
+  if (goal.scope === "individual" && goal.athleteId) {
+    athletes = await db
+      .select({ id: athleteTable.id, name: athleteTable.name, userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(eq(athleteTable.id, goal.athleteId));
+  } else if (goal.scope === "team" && goal.teamId) {
+    athletes = await db
+      .select({ id: athleteTable.id, name: athleteTable.name, userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(eq(athleteTable.teamId, goal.teamId))
+      .orderBy(asc(athleteTable.name))
+      .limit(200);
+  } else if (goal.scope === "all") {
+    const audienceFilter =
+      goal.audience === "adult"
+        ? eq(athleteTable.athleteType, "adult")
+        : goal.audience === "youth"
+          ? eq(athleteTable.athleteType, "youth")
+          : undefined;
+    athletes = await db
+      .select({ id: athleteTable.id, name: athleteTable.name, userId: athleteTable.userId })
+      .from(athleteTable)
+      .where(audienceFilter)
+      .orderBy(asc(athleteTable.name))
+      .limit(500);
+  }
+
+  if (!athletes.length) return { goal, progress: [] };
+
+  const userIds = athletes.map((a) => a.userId);
+  const since = goal.createdAt ?? new Date(0);
+
+  const runAggs = await db
+    .select({
+      userId: runLogTable.userId,
+      totalMeters: sql<number>`coalesce(sum(${runLogTable.distanceMeters}), 0)::float`,
+      runCount: sql<number>`count(*)::int`,
+      lastRunDate: sql<string | null>`max(${runLogTable.date})`,
+    })
+    .from(runLogTable)
+    .where(and(inArray(runLogTable.userId, userIds), gte(runLogTable.date, since)))
+    .groupBy(runLogTable.userId);
+
+  const runMap = new Map(runAggs.map((r) => [r.userId, r]));
+
+  const progress = athletes.map((a) => {
+    const runs = runMap.get(a.userId);
+    const totalMeters = runs?.totalMeters ?? 0;
+    const runCount = runs?.runCount ?? 0;
+    const lastRunDate = runs?.lastRunDate ?? null;
+    const percentage =
+      goal.unit === "km"
+        ? Math.min(100, Math.round((totalMeters / (goal.targetValue * 1000)) * 100))
+        : 0;
+    return {
+      athleteId: a.id,
+      athleteName: a.name,
+      userId: a.userId,
+      totalMeters: goal.unit === "km" ? totalMeters : null,
+      runCount,
+      lastRunDate,
+      percentage,
+    };
+  });
+
+  return { goal, progress };
 }
 
 export async function listGoalsForAthlete(input: {

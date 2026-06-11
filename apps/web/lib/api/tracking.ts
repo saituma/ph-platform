@@ -54,6 +54,21 @@ const trackingApi = apiSlice.injectEndpoints({
       query: ({ id }) => ({ url: `/admin/tracking-goals/${id}`, method: "DELETE" }),
       invalidatesTags: ["TrackingGoals"],
     }),
+    getGoalProgress: builder.query<{
+      goal: any;
+      progress: {
+        athleteId: number;
+        athleteName: string;
+        userId: number;
+        totalMeters: number | null;
+        runCount: number;
+        lastRunDate: string | null;
+        percentage: number;
+      }[];
+    }, number>({
+      query: (goalId) => `/admin/tracking-goals/${goalId}/progress`,
+      providesTags: ["TrackingGoals"],
+    }),
     getAdminTrainingQuestionnaires: builder.query<
       { items: AdminTrainingQuestionnaireRow[] },
       { userId?: number; teamId?: number; from?: string; to?: string; limit?: number } | void
@@ -102,4 +117,5 @@ export const {
   useGetAdminTrainingQuestionnairesQuery,
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
+  useGetGoalProgressQuery,
 } = trackingApi;

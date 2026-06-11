@@ -10,7 +10,7 @@ import {
 } from "./sqliteRuns";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const LAST_PULL_KEY = "run_sync_last_pull";
+const lastPullKey = (userId: string | null) => `run_sync_last_pull${userId ? `_${userId}` : ""}`;
 
 type ServerRun = {
   id: number;
@@ -97,9 +97,10 @@ export async function pullRunsFromCloud(): Promise<void> {
   try {
     const token = store.getState().user.token;
     if (!token) return;
+    const userId = store.getState().user.profile.id ? String(store.getState().user.profile.id) : null;
 
     initSQLiteRuns();
-    const lastPull = await AsyncStorage.getItem(LAST_PULL_KEY);
+    const lastPull = await AsyncStorage.getItem(lastPullKey(userId));
     const query = lastPull ? `?after=${encodeURIComponent(lastPull)}` : "";
 
     const result = await apiRequest<{ runs: ServerRun[] }>(`/runs${query}`, {
@@ -124,11 +125,12 @@ export async function pullRunsFromCloud(): Promise<void> {
           feel_tags: run.feelTags ? JSON.stringify(run.feelTags) : null,
           notes: run.notes,
           sport: run.sport,
+          user_id: userId,
         });
       }
     }
 
-    await AsyncStorage.setItem(LAST_PULL_KEY, new Date().toISOString());
+    await AsyncStorage.setItem(lastPullKey(userId), new Date().toISOString());
   } catch (err) {
     // Silently fail — sync will retry on next trigger
     if (__DEV__) {

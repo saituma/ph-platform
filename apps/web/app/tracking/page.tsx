@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
+  ChevronDown,
+  ChevronUp,
   Flag,
   MapPinned,
   Plus,
@@ -53,6 +55,7 @@ import {
   useDeleteTrackingGoalMutation,
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
+  useGetGoalProgressQuery,
 } from "../../lib/api/tracking";
 import {
   useGetAdultAthletesQuery,
@@ -112,6 +115,7 @@ export default function TrackingPage() {
   const [tab, setTab] = useState<TabKey>("tracking");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [expandedGoalId, setExpandedGoalId] = useState<number | null>(null);
 
   const { data, isLoading, error, refetch } = useGetAdminRunTrackingQuery({ limit: 200 });
   const { data: goalsData, isLoading: goalsLoading } = useGetTrackingGoalsQuery();
@@ -372,55 +376,13 @@ export default function TrackingPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {goals.map((goal: any) => (
-                <Card key={goal.id} className="relative overflow-hidden">
-                  <CardContent className="p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                          <Flag className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground leading-tight">{goal.title}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">by {goal.coachName ?? "Coach"}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 shrink-0 p-0 text-destructive"
-                        onClick={() => handleDelete(goal.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-
-                    {goal.description && (
-                      <p className="text-xs text-muted-foreground">{goal.description}</p>
-                    )}
-
-                    <div className="flex items-center gap-2 rounded-xl bg-secondary/50 px-3 py-2">
-                      <Target className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-sm font-bold text-foreground">
-                        {goal.targetValue} {goal.unit === "custom" ? (goal.customUnit || "units") : UNIT_LABELS[goal.unit] ?? goal.unit}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className="text-[10px] gap-1">
-                        <Users className="h-2.5 w-2.5" />
-                        {AUDIENCE_LABELS[goal.audience] ?? goal.audience}
-                      </Badge>
-                      <Badge variant={goal.scope === "all" ? "outline" : "secondary"} className="text-[10px]">
-                        {goal.scope === "individual" ? (goal.athleteName ?? "Individual") : goal.scope === "team" ? (goal.teamName ?? "Team") : "All members"}
-                      </Badge>
-                      {goal.dueDate && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Due {new Date(goal.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  expanded={expandedGoalId === goal.id}
+                  onToggle={() => setExpandedGoalId(expandedGoalId === goal.id ? null : goal.id)}
+                  onDelete={() => handleDelete(goal.id)}
+                />
               ))}
             </div>
           )}
@@ -543,6 +505,116 @@ export default function TrackingPage() {
         </DialogContent>
       </Dialog>
     </AdminShell>
+  );
+}
+
+function GoalCard({
+  goal,
+  expanded,
+  onToggle,
+  onDelete,
+}: {
+  goal: any;
+  expanded: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+}) {
+  const { data, isFetching } = useGetGoalProgressQuery(goal.id, { skip: !expanded });
+
+  return (
+    <Card className="relative overflow-hidden">
+      <CardContent className="p-5 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Flag className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground leading-tight">{goal.title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">by {goal.coachName ?? "Coach"}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 shrink-0 p-0 text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        {goal.description && (
+          <p className="text-xs text-muted-foreground">{goal.description}</p>
+        )}
+
+        <div className="flex items-center gap-2 rounded-xl bg-secondary/50 px-3 py-2">
+          <Target className="h-3.5 w-3.5 text-primary" />
+          <span className="text-sm font-bold text-foreground">
+            {goal.targetValue} {goal.unit === "custom" ? (goal.customUnit || "units") : UNIT_LABELS[goal.unit] ?? goal.unit}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="text-[10px] gap-1">
+            <Users className="h-2.5 w-2.5" />
+            {AUDIENCE_LABELS[goal.audience] ?? goal.audience}
+          </Badge>
+          <Badge variant={goal.scope === "all" ? "outline" : "secondary"} className="text-[10px]">
+            {goal.scope === "individual" ? (goal.athleteName ?? "Individual") : goal.scope === "team" ? (goal.teamName ?? "Team") : "All members"}
+          </Badge>
+          {goal.dueDate && (
+            <Badge variant="outline" className="text-[10px]">
+              Due {new Date(goal.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </Badge>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground"
+        >
+          <span>Player progress</span>
+          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+
+        {expanded && (
+          <div className="space-y-2.5 pt-1">
+            {isFetching ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-9 w-full rounded-lg" />)}
+              </div>
+            ) : !data?.progress?.length ? (
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                No athletes in scope yet.
+              </p>
+            ) : (
+              data.progress.map((p) => (
+                <div key={p.athleteId} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-foreground">{p.athleteName}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {goal.unit === "km"
+                        ? `${((p.totalMeters ?? 0) / 1000).toFixed(1)} / ${goal.targetValue} km`
+                        : `${p.runCount} run${p.runCount !== 1 ? "s" : ""}`}
+                    </span>
+                  </div>
+                  {goal.unit === "km" && (
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${p.percentage}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

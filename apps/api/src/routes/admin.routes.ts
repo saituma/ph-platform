@@ -178,6 +178,7 @@ router.post("/admin/food-diary/:entryId/review", reviewFoodDiaryAdmin);
 
 // Tracking Goals
 router.get("/admin/tracking-goals", TrackingGoalsController.listGoals);
+router.get("/admin/tracking-goals/:goalId/progress", TrackingGoalsController.getGoalProgress);
 router.post("/admin/tracking-goals", TrackingGoalsController.createGoal);
 router.patch("/admin/tracking-goals/:id", TrackingGoalsController.updateGoal);
 router.delete("/admin/tracking-goals/:id", TrackingGoalsController.deleteGoal);

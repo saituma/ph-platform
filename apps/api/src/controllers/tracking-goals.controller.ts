@@ -74,6 +74,13 @@ export async function deleteGoal(req: Request, res: Response) {
   return res.status(200).json({ goal });
 }
 
+export async function getGoalProgress(req: Request, res: Response) {
+  const id = z.coerce.number().int().min(1).parse(req.params.goalId);
+  const result = await GoalService.getGoalProgress(id);
+  if (!result) return res.status(404).json({ error: "Goal not found" });
+  return res.status(200).json(result);
+}
+
 export async function listYouthTrackingAthletes(_req: Request, res: Response) {
   const athletes = await db
     .select({
