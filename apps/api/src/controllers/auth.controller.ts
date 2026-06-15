@@ -23,7 +23,7 @@ import { findManagedTeamIdForUser } from "../services/team-membership";
 import { getMessagingAccessTiers } from "../services/messaging-policy.service";
 import { buildAppCapabilities } from "../services/app-capabilities.service";
 import { db } from "../db";
-import { ProgramType, athleteTable, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
+import { ProgramType, athleteTable, preseasonProgrammeAssignmentTable, subscriptionPlanTable, teamSubscriptionRequestTable, teamTable, userTable } from "../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { isTrainingStaff } from "../lib/user-roles";
 import { env } from "../config/env";
@@ -441,6 +441,15 @@ export async function getMe(req: Request, res: Response) {
     const planFeatures = athlete?.id
       ? await getFeaturesForAthlete(Number(athlete.id))
       : featuresForTier(programTier ?? null);
+    const hasPreseasonAssignment = athlete?.id
+      ? await db
+          .select({ id: preseasonProgrammeAssignmentTable.id })
+          .from(preseasonProgrammeAssignmentTable)
+          .where(eq(preseasonProgrammeAssignmentTable.athleteId, Number(athlete.id)))
+          .limit(1)
+          .then((rows) => rows.length > 0)
+      : false;
+
     const capabilities = buildAppCapabilities({
       role: fullUser.role,
       programTier,
@@ -450,6 +459,7 @@ export async function getMe(req: Request, res: Response) {
       planFeatures,
       hasActivePlan: athlete?.currentPlanId != null,
       youthTrackingEnabled: athlete?.youthTrackingEnabled ?? false,
+      hasPreseasonAssignment,
     });
 
     return {

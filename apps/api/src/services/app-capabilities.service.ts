@@ -32,6 +32,7 @@ export type AppCapabilities = {
   runTracking: boolean;
   achievements: boolean;
   referralRewards: boolean;
+  preseasonProgramme: boolean;
 };
 
 /** Mirrors mobile `canUseCoachMessaging` policy toggles. */
@@ -60,6 +61,7 @@ export function buildAppCapabilities(input: {
   planFeatures?: ReadonlySet<FeatureKey>;
   hasActivePlan?: boolean;
   youthTrackingEnabled?: boolean;
+  hasPreseasonAssignment?: boolean;
 }): AppCapabilities {
   const {
     role,
@@ -70,6 +72,7 @@ export function buildAppCapabilities(input: {
     planFeatures,
     hasActivePlan = false,
     youthTrackingEnabled = false,
+    hasPreseasonAssignment = false,
   } = input;
   const isAdmin = isPlatformAdmin(role);
   const isStaff = isTrainingStaff(role);
@@ -109,6 +112,7 @@ export function buildAppCapabilities(input: {
       runTracking: has("run_tracking"),
       achievements: has("achievements"),
       referralRewards: has("referrals"),
+      preseasonProgramme: false,
     };
   }
 
@@ -143,6 +147,7 @@ export function buildAppCapabilities(input: {
       runTracking: true,
       achievements: true,
       referralRewards: true,
+      preseasonProgramme: true,
     };
   }
 
@@ -182,5 +187,6 @@ export function buildAppCapabilities(input: {
     runTracking: (isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled)) && has("run_tracking"),
     achievements: has("achievements"),
     referralRewards: has("referrals"),
+    preseasonProgramme: isAdult && (hasAssignedAccess || hasPreseasonAssignment),
   };
 }

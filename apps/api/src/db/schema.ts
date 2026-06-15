@@ -2353,3 +2353,192 @@ export const launchPromoCodeTable = pgTable(
   },
   (t) => [index("launch_promo_codes_campaign_idx").on(t.campaignId), index("launch_promo_codes_email_idx").on(t.email)],
 );
+
+// ─── Pre-Season Programme ─────────────────────────────────────────────────────
+
+export const preseasonSessionCategory = pgEnum("preseason_session_category", [
+  "PRIMER",
+  "GAME",
+  "RECOVERY",
+  "STRENGTH",
+  "SPEED",
+  "CONDITIONING",
+]);
+
+export const preseasonExerciseMetric = pgEnum("preseason_exercise_metric", ["reps", "duration"]);
+
+export const preseasonProgrammeTable = pgTable(
+  "preseason_programmes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    title: varchar({ length: 255 }).notNull(),
+    description: text(),
+    weekCount: integer().notNull().default(6),
+    requiredTier: ProgramType(),
+    athleteType: AthleteType().notNull().default("adult"),
+    isPublished: boolean().notNull().default(false),
+    createdBy: integer()
+      .notNull()
+      .references(() => userTable.id),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    tierIdx: index("preseason_programmes_tier_idx").on(table.requiredTier),
+    publishedIdx: index("preseason_programmes_published_idx").on(table.isPublished),
+  }),
+);
+
+export const preseasonWeekTable = pgTable(
+  "preseason_weeks",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    programmeId: integer()
+      .notNull()
+      .references(() => preseasonProgrammeTable.id, { onDelete: "cascade" }),
+    weekNumber: integer().notNull(),
+    title: varchar({ length: 255 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    programmeWeekUnique: uniqueIndex("preseason_weeks_programme_week_unique").on(table.programmeId, table.weekNumber),
+    programmeIdx: index("preseason_weeks_programme_idx").on(table.programmeId),
+  }),
+);
+
+export const preseasonWeekTypeTable = pgTable(
+  "preseason_week_types",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    weekId: integer()
+      .notNull()
+      .references(() => preseasonWeekTable.id, { onDelete: "cascade" }),
+    name: varchar({ length: 255 }).notNull(),
+    description: text(),
+    order: integer().notNull().default(1),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    weekIdx: index("preseason_week_types_week_idx").on(table.weekId),
+  }),
+);
+
+export const preseasonDaySessionTable = pgTable(
+  "preseason_day_sessions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    weekTypeId: integer()
+      .notNull()
+      .references(() => preseasonWeekTypeTable.id, { onDelete: "cascade" }),
+    dayOfWeek: integer().notNull(),
+    category: preseasonSessionCategory().notNull(),
+    title: varchar({ length: 255 }).notNull(),
+    description: text(),
+    durationLabel: varchar({ length: 64 }),
+    intensityLabel: varchar({ length: 64 }),
+    focusLabel: varchar({ length: 64 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    weekTypeDayUnique: uniqueIndex("preseason_day_sessions_week_type_day_unique").on(table.weekTypeId, table.dayOfWeek),
+    weekTypeIdx: index("preseason_day_sessions_week_type_idx").on(table.weekTypeId),
+  }),
+);
+
+export const preseasonDaySessionExerciseTable = pgTable(
+  "preseason_day_session_exercises",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    daySessionId: integer()
+      .notNull()
+      .references(() => preseasonDaySessionTable.id, { onDelete: "cascade" }),
+    exerciseId: integer()
+      .notNull()
+      .references(() => exerciseTable.id),
+    order: integer().notNull(),
+    metric: preseasonExerciseMetric().notNull().default("reps"),
+    setsOverride: integer(),
+    repsOverride: integer(),
+    durationOverride: integer(),
+    restSecondsOverride: integer(),
+    notes: varchar({ length: 500 }),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    daySessionIdx: index("preseason_day_session_exercises_session_idx").on(table.daySessionId),
+    daySessionOrderIdx: index("preseason_day_session_exercises_session_order_idx").on(table.daySessionId, table.order),
+  }),
+);
+
+export const preseasonAthleteWeekTypeSelectionTable = pgTable(
+  "preseason_athlete_week_type_selections",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    weekId: integer()
+      .notNull()
+      .references(() => preseasonWeekTable.id, { onDelete: "cascade" }),
+    weekTypeId: integer()
+      .notNull()
+      .references(() => preseasonWeekTypeTable.id, { onDelete: "cascade" }),
+    selectedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteWeekUnique: uniqueIndex("preseason_athlete_week_type_selections_unique").on(table.athleteId, table.weekId),
+    athleteIdx: index("preseason_athlete_week_type_selections_athlete_idx").on(table.athleteId),
+  }),
+);
+
+export const preseasonAthleteSessionCompletionTable = pgTable(
+  "preseason_athlete_session_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id),
+    daySessionId: integer()
+      .notNull()
+      .references(() => preseasonDaySessionTable.id, { onDelete: "cascade" }),
+    completedAt: timestamp().notNull().defaultNow(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    athleteSessionUnique: uniqueIndex("preseason_athlete_session_completions_unique").on(
+      table.athleteId,
+      table.daySessionId,
+    ),
+    athleteIdx: index("preseason_athlete_session_completions_athlete_idx").on(table.athleteId),
+  }),
+);
+
+export const preseasonProgrammeAssignmentTable = pgTable(
+  "preseason_programme_assignments",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    programmeId: integer("programmeId")
+      .notNull()
+      .references(() => preseasonProgrammeTable.id, { onDelete: "cascade" }),
+    athleteId: integer("athleteId")
+      .notNull()
+      .references(() => athleteTable.id, { onDelete: "cascade" }),
+    assignedBy: integer("assignedBy")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "no action" }),
+    assignedAt: timestamp("assignedAt").notNull().defaultNow(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("preseason_assignments_programme_athlete_unique").on(t.programmeId, t.athleteId),
+    index("preseason_assignments_programme_idx").on(t.programmeId),
+    index("preseason_assignments_athlete_idx").on(t.athleteId),
+  ],
+);

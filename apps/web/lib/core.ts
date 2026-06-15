@@ -436,6 +436,9 @@ export const apiSlice = createApi({
     "ModuleLibrary",
     "SessionLibrary",
     "TeamSessions",
+    "PreseasonProgrammes",
+    "PreseasonBuilder",
+    "PreseasonAssignments",
   ],
   endpoints: () => ({}),
 });

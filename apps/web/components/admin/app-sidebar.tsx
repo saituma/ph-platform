@@ -7,6 +7,7 @@ import {
   Activity,
   BookOpen,
   CalendarDays,
+  CalendarRange,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -101,6 +102,7 @@ const NAV: NavEntry[] = [
     icon: BookOpen,
     children: [
       { label: "Programs",           href: "/programs",                icon: BookOpen },
+      { label: "Pre-Season",        href: "/programs/preseason",      icon: CalendarRange },
       { label: "Exercise Library",  href: "/programs/exercises",      icon: Dumbbell },
       { label: "Session Library",   href: "/programs/sessions",       icon: PlaySquare },
       { label: "Module Library",    href: "/programs/modules",        icon: Library },

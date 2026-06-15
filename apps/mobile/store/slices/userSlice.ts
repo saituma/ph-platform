@@ -58,6 +58,7 @@ export type AppCapabilities = {
   runTracking: boolean;
   achievements: boolean;
   referralRewards: boolean;
+  preseasonProgramme?: boolean;
 };
 
 interface UserState {

@@ -306,6 +306,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   const insets = useAppSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
   const token = useAppSelector((s) => s.user.token);
+  const capabilities = useAppSelector((s) => s.user.capabilities);
   const profile = useAppSelector((s) => s.user.profile);
   const athleteUserId = useAppSelector((s) => s.user.athleteUserId);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
@@ -390,7 +391,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   );
 
   const onOpenModule = useCallback(
-    (id: number) => router.push(`/programs/module/${id}`),
+    (id: number) => router.push(`/programs/module/${id}` as any),
     [router],
   );
 
@@ -581,6 +582,42 @@ const ProgramsScreen = memo(function ProgramsScreen() {
               </Animated.View>
             </View>
           </View>
+
+          {/* ── Pre-Season Programme ── */}
+          {capabilities?.preseasonProgramme ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
+              <Pressable
+                onPress={() => router.push("/programs/preseason" as any)}
+                style={({ pressed }) => ({
+                  backgroundColor: "#1A1A1A",
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: "#BBFF00",
+                  overflow: "hidden",
+                  transform: [{ scale: pressed ? 0.97 : 1 }],
+                })}
+              >
+                <View style={{ height: 3, backgroundColor: "#BBFF00" }} />
+                <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, gap: 14 }}>
+                  <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: "#252500", alignItems: "center", justifyContent: "center" }}>
+                    <Dumbbell size={22} color="#BBFF00" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#BBFF00", letterSpacing: 0.8, marginBottom: 2 }}>
+                      PRE-SEASON
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: "#FFFFFF", letterSpacing: -0.3 }}>
+                      Pre-Season Programme
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: "#888888", marginTop: 2 }}>
+                      6-week structured training plan
+                    </Text>
+                  </View>
+                  <ChevronRight size={20} color="#BBFF00" />
+                </View>
+              </Pressable>
+            </View>
+          ) : null}
 
           {/* ── Continue Watching ── */}
           {watchHistory.length > 0 ? (

@@ -1212,6 +1212,27 @@
       "when": 1780500000000,
       "tag": "0172_stripe_subscription_id",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1780600000000,
+      "tag": "0173_group_message_content_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1780700000000,
+      "tag": "0174_preseason_programme",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1780800000000,
+      "tag": "0175_preseason_assignments",
+      "breakpoints": true
     }
   ]
 }
