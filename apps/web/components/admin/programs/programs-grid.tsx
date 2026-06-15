@@ -11,6 +11,8 @@ type ProgramItem = {
   type: string;
   minAge?: number | null;
   maxAge?: number | null;
+  href?: string;
+  isPreseason?: boolean;
 };
 
 type ProgramsGridProps = {
@@ -77,15 +79,19 @@ export function ProgramsGrid({
               {program.summary || "No description yet."}
             </p>
             <div className="flex gap-2">
-              <Link href={`/programs/${program.id}`}>
+              <Link href={program.href ?? `/programs/${program.id}`}>
                 <Button size="sm">Open</Button>
               </Link>
-              <Button size="sm" variant="outline" onClick={() => onManage(program)}>
-                Manage
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => onAssign(program)}>
-                Assign
-              </Button>
+              {!program.isPreseason && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => onManage(program)}>
+                    Manage
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onAssign(program)}>
+                    Assign
+                  </Button>
+                </>
+              )}
             </div>
           </CardPanel>
         </Card>

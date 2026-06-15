@@ -8,7 +8,7 @@ import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { ProgramsDialogs, type ProgramsDialog } from "../../components/admin/programs/programs-dialogs";
 import { ProgramsGrid } from "../../components/admin/programs/programs-grid";
-import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation, useDeleteProgramMutation } from "../../lib/apiSlice";
+import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation, useDeleteProgramMutation, useGetPreseasonProgrammesQuery } from "../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
 type ProgramRecord = {
@@ -27,6 +27,8 @@ type GridProgram = {
   type: string;
   minAge?: number | null;
   maxAge?: number | null;
+  href?: string;
+  isPreseason?: boolean;
 };
 
 export default function ProgramsPage() {
@@ -40,6 +42,7 @@ export default function ProgramsPage() {
 function ProgramsPageInner() {
   const searchParams = useSearchParams();
   const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
+  const { data: preseasonData, isLoading: preseasonLoading } = useGetPreseasonProgrammesQuery();
   const [createProgram, { isLoading: isCreating }] = useCreateProgramMutation();
   const [updateProgram, { isLoading: isUpdating }] = useUpdateProgramMutation();
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
@@ -51,18 +54,29 @@ function ProgramsPageInner() {
     skip: activeDialog !== "assign",
   });
 
-  const programs = useMemo<GridProgram[]>(
-    () =>
-      ((programsData?.programs ?? []) as ProgramRecord[]).map((program) => ({
-        id: program.id,
-        name: program.name,
-        summary: program.description ?? "",
-        type: program.type,
-        minAge: program.minAge ?? null,
-        maxAge: program.maxAge ?? null,
-      })),
-    [programsData]
-  );
+  const programs = useMemo<GridProgram[]>(() => {
+    const legacy = ((programsData?.programs ?? []) as ProgramRecord[]).map((program) => ({
+      id: program.id,
+      name: program.name,
+      summary: program.description ?? "",
+      type: program.type,
+      minAge: program.minAge ?? null,
+      maxAge: program.maxAge ?? null,
+    }));
+
+    const preseason = (preseasonData?.programmes ?? []).map((p) => ({
+      id: p.id,
+      name: p.title,
+      summary: p.description ?? "",
+      type: "Pre-Season",
+      minAge: null,
+      maxAge: null,
+      href: `/programs/preseason/${p.id}`,
+      isPreseason: true,
+    }));
+
+    return [...preseason, ...legacy];
+  }, [programsData, preseasonData]);
 
   const users = useMemo(
     () =>
@@ -109,7 +123,7 @@ function ProgramsPageInner() {
       <SectionHeader title="All Programs" description="Click a program to manage its modules, sessions, and exercises." />
       <ProgramsGrid
         programs={programs}
-        isLoading={programsLoading}
+        isLoading={programsLoading || preseasonLoading}
         highlightedProgramId={highlightedProgramId}
         onManage={(program) => {
           setSelectedProgram(program);
