@@ -63,8 +63,8 @@ async function resolveAthlete(req: Request, res: Response) {
 // ─── Admin handlers ───────────────────────────────────────────────────────────
 
 export async function listProgrammesHandler(_req: Request, res: Response) {
-  const items = await listProgrammes();
-  return res.status(200).json({ items });
+  const programmes = await listProgrammes();
+  return res.status(200).json({ programmes });
 }
 
 export async function getProgrammeFullHandler(req: Request, res: Response) {
