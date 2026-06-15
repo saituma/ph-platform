@@ -84,9 +84,9 @@ const createProgrammeSchema = z.object({
 
 export async function createProgrammeHandler(req: Request, res: Response) {
   const input = createProgrammeSchema.parse(req.body);
-  const item = await createProgramme({ ...input, createdBy: req.user!.id });
+  const programme = await createProgramme({ ...input, createdBy: req.user!.id });
   emitChanged();
-  return res.status(201).json({ item });
+  return res.status(201).json({ programme });
 }
 
 const updateProgrammeSchema = z.object({
@@ -100,18 +100,18 @@ const updateProgrammeSchema = z.object({
 export async function updateProgrammeHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const input = updateProgrammeSchema.parse(req.body);
-  const item = await updateProgramme(id, input);
-  if (!item) return res.status(404).json({ error: "Programme not found" });
+  const programme = await updateProgramme(id, input);
+  if (!programme) return res.status(404).json({ error: "Programme not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ programme });
 }
 
 export async function deleteProgrammeHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
-  const item = await deleteProgramme(id);
-  if (!item) return res.status(404).json({ error: "Programme not found" });
+  const deleted = await deleteProgramme(id);
+  if (!deleted) return res.status(404).json({ error: "Programme not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ deleted: true });
 }
 
 const publishProgrammeSchema = z.object({
@@ -121,10 +121,10 @@ const publishProgrammeSchema = z.object({
 export async function publishProgrammeHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const { isPublished } = publishProgrammeSchema.parse(req.body);
-  const item = await publishProgramme(id, isPublished);
-  if (!item) return res.status(404).json({ error: "Programme not found" });
+  const programme = await publishProgramme(id, isPublished);
+  if (!programme) return res.status(404).json({ error: "Programme not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ programme });
 }
 
 const createWeekSchema = z.object({
@@ -135,9 +135,9 @@ const createWeekSchema = z.object({
 
 export async function createWeekHandler(req: Request, res: Response) {
   const input = createWeekSchema.parse(req.body);
-  const item = await createWeek(input);
+  const week = await createWeek(input);
   emitChanged();
-  return res.status(201).json({ item });
+  return res.status(201).json({ week });
 }
 
 const updateWeekSchema = z.object({
@@ -148,18 +148,18 @@ const updateWeekSchema = z.object({
 export async function updateWeekHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const input = updateWeekSchema.parse(req.body);
-  const item = await updateWeek(id, input);
-  if (!item) return res.status(404).json({ error: "Week not found" });
+  const week = await updateWeek(id, input);
+  if (!week) return res.status(404).json({ error: "Week not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ week });
 }
 
 export async function deleteWeekHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
-  const item = await deleteWeek(id);
-  if (!item) return res.status(404).json({ error: "Week not found" });
+  const deleted = await deleteWeek(id);
+  if (!deleted) return res.status(404).json({ error: "Week not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ deleted: true });
 }
 
 const createWeekTypeSchema = z.object({
@@ -171,9 +171,9 @@ const createWeekTypeSchema = z.object({
 
 export async function createWeekTypeHandler(req: Request, res: Response) {
   const input = createWeekTypeSchema.parse(req.body);
-  const item = await createWeekType(input);
+  const weekType = await createWeekType(input);
   emitChanged();
-  return res.status(201).json({ item });
+  return res.status(201).json({ weekType });
 }
 
 const updateWeekTypeSchema = z.object({
@@ -185,18 +185,18 @@ const updateWeekTypeSchema = z.object({
 export async function updateWeekTypeHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const input = updateWeekTypeSchema.parse(req.body);
-  const item = await updateWeekType(id, input);
-  if (!item) return res.status(404).json({ error: "Week type not found" });
+  const weekType = await updateWeekType(id, input);
+  if (!weekType) return res.status(404).json({ error: "Week type not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ weekType });
 }
 
 export async function deleteWeekTypeHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
-  const item = await deleteWeekType(id);
-  if (!item) return res.status(404).json({ error: "Week type not found" });
+  const deleted = await deleteWeekType(id);
+  if (!deleted) return res.status(404).json({ error: "Week type not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ deleted: true });
 }
 
 const createDaySessionSchema = z.object({
@@ -212,9 +212,9 @@ const createDaySessionSchema = z.object({
 
 export async function createDaySessionHandler(req: Request, res: Response) {
   const input = createDaySessionSchema.parse(req.body);
-  const item = await createDaySession(input);
+  const daySession = await createDaySession(input);
   emitChanged();
-  return res.status(201).json({ item });
+  return res.status(201).json({ daySession });
 }
 
 const updateDaySessionSchema = z.object({
@@ -230,18 +230,18 @@ const updateDaySessionSchema = z.object({
 export async function updateDaySessionHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const input = updateDaySessionSchema.parse(req.body);
-  const item = await updateDaySession(id, input);
-  if (!item) return res.status(404).json({ error: "Day session not found" });
+  const daySession = await updateDaySession(id, input);
+  if (!daySession) return res.status(404).json({ error: "Day session not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ daySession });
 }
 
 export async function deleteDaySessionHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
-  const item = await deleteDaySession(id);
-  if (!item) return res.status(404).json({ error: "Day session not found" });
+  const deleted = await deleteDaySession(id);
+  if (!deleted) return res.status(404).json({ error: "Day session not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ deleted: true });
 }
 
 const addExerciseSchema = z.object({
@@ -258,9 +258,9 @@ const addExerciseSchema = z.object({
 
 export async function addExerciseHandler(req: Request, res: Response) {
   const input = addExerciseSchema.parse(req.body);
-  const item = await addExercise(input);
+  const exercise = await addExercise(input);
   emitChanged();
-  return res.status(201).json({ item });
+  return res.status(201).json({ exercise });
 }
 
 const updateExerciseSchema = z.object({
@@ -277,18 +277,18 @@ const updateExerciseSchema = z.object({
 export async function updateExerciseHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const input = updateExerciseSchema.parse(req.body);
-  const item = await updateExercise(id, input);
-  if (!item) return res.status(404).json({ error: "Exercise not found" });
+  const exercise = await updateExercise(id, input);
+  if (!exercise) return res.status(404).json({ error: "Exercise not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ exercise });
 }
 
 export async function deleteExerciseHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
-  const item = await deleteExercise(id);
-  if (!item) return res.status(404).json({ error: "Exercise not found" });
+  const deleted = await deleteExercise(id);
+  if (!deleted) return res.status(404).json({ error: "Exercise not found" });
   emitChanged();
-  return res.status(200).json({ item });
+  return res.status(200).json({ deleted: true });
 }
 
 const reorderExercisesSchema = z.object({
@@ -298,9 +298,9 @@ const reorderExercisesSchema = z.object({
 export async function reorderExercisesHandler(req: Request, res: Response) {
   const id = idParam.parse(req.params.id);
   const { orderedIds } = reorderExercisesSchema.parse(req.body);
-  const items = await reorderExercises(id, orderedIds);
+  await reorderExercises(id, orderedIds);
   emitChanged();
-  return res.status(200).json({ items });
+  return res.status(200).json({ ok: true });
 }
 
 export async function listAssignmentsHandler(req: Request, res: Response) {
