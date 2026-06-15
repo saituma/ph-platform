@@ -143,8 +143,17 @@ export async function createProgramme(data: {
     })
     .returning();
 
-  // Auto-create weeks with default week-types
+  // Auto-create weeks with default week-types and 7 day slots each
   const DEFAULT_WEEK_TYPES = ["Tuesday Game Week", "Saturday Game Week", "No Game Week"];
+  const DAY_DEFAULTS: { day: number; category: "PRIMER" | "GAME" | "RECOVERY" | "STRENGTH" | "SPEED" | "CONDITIONING"; title: string }[] = [
+    { day: 1, category: "PRIMER", title: "Monday Primer" },
+    { day: 2, category: "GAME", title: "Tuesday Session" },
+    { day: 3, category: "RECOVERY", title: "Wednesday Recovery" },
+    { day: 4, category: "STRENGTH", title: "Thursday Strength" },
+    { day: 5, category: "SPEED", title: "Friday Speed" },
+    { day: 6, category: "CONDITIONING", title: "Saturday Session" },
+    { day: 7, category: "RECOVERY", title: "Sunday Recovery" },
+  ];
 
   for (let i = 1; i <= weekCount; i++) {
     const [week] = await db
@@ -153,11 +162,20 @@ export async function createProgramme(data: {
       .returning();
 
     for (let j = 0; j < DEFAULT_WEEK_TYPES.length; j++) {
-      await db.insert(preseasonWeekTypeTable).values({
-        weekId: week.id,
-        name: DEFAULT_WEEK_TYPES[j],
-        order: j + 1,
-      });
+      const [weekType] = await db
+        .insert(preseasonWeekTypeTable)
+        .values({ weekId: week.id, name: DEFAULT_WEEK_TYPES[j], order: j + 1 })
+        .returning();
+
+      // Auto-create 7 day sessions for each week-type
+      for (const dayDef of DAY_DEFAULTS) {
+        await db.insert(preseasonDaySessionTable).values({
+          weekTypeId: weekType.id,
+          dayOfWeek: dayDef.day,
+          category: dayDef.category,
+          title: dayDef.title,
+        });
+      }
     }
   }
 
