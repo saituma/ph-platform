@@ -18,7 +18,6 @@ import {
 import { AdminShell } from "../../../../components/admin/shell";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
-import { Textarea } from "../../../../components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -963,54 +962,6 @@ function AutosaveInput({ value, placeholder, onSave, className, label }: Autosav
         className={cn("h-7 border-border/60 bg-transparent", className)}
       />
     </div>
-  );
-}
-
-type AutosaveTextareaProps = {
-  value: string;
-  placeholder?: string;
-  onSave: (val: string) => void;
-  className?: string;
-  rows?: number;
-};
-
-function AutosaveTextarea({ value, placeholder, onSave, className, rows = 2 }: AutosaveTextareaProps) {
-  const [local, setLocal] = useState(value);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setLocal(value);
-  }, [value]);
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const val = e.target.value;
-      setLocal(val);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        onSave(val);
-      }, 600);
-    },
-    [onSave],
-  );
-
-  const handleBlur = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    onSave(local);
-  }, [local, onSave]);
-
-  return (
-    <Textarea
-      value={local}
-      placeholder={placeholder}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      rows={rows}
-      className={cn("resize-none border-border/60 bg-transparent", className)}
-    />
   );
 }
 
