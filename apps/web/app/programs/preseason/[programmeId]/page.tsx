@@ -704,47 +704,7 @@ function DaySlot({ dayOfWeek, session, onAdd }: DaySlotProps) {
             </div>
 
             {expanded && (
-              <div className="mt-3 space-y-3 pl-0">
-                <AutosaveTextarea
-                  value={session.description ?? ""}
-                  placeholder="Description (optional)"
-                  onSave={(val) =>
-                    updateSession({ id: session.id, patch: { description: val || undefined } })
-                  }
-                  rows={2}
-                  className="text-xs"
-                />
-
-                <div className="grid grid-cols-3 gap-2">
-                  <AutosaveInput
-                    value={session.durationLabel ?? ""}
-                    placeholder="Duration"
-                    onSave={(val) =>
-                      updateSession({ id: session.id, patch: { durationLabel: val || undefined } })
-                    }
-                    className="text-xs"
-                    label="Duration"
-                  />
-                  <AutosaveInput
-                    value={session.intensityLabel ?? ""}
-                    placeholder="Intensity"
-                    onSave={(val) =>
-                      updateSession({ id: session.id, patch: { intensityLabel: val || undefined } })
-                    }
-                    className="text-xs"
-                    label="Intensity"
-                  />
-                  <AutosaveInput
-                    value={session.focusLabel ?? ""}
-                    placeholder="Focus"
-                    onSave={(val) =>
-                      updateSession({ id: session.id, patch: { focusLabel: val || undefined } })
-                    }
-                    className="text-xs"
-                    label="Focus"
-                  />
-                </div>
-
+              <div className="mt-3 space-y-2 pl-0">
                 {/* Exercises */}
                 <div className="space-y-2">
                   {(session.exercises ?? []).map((ex, idx) => (
