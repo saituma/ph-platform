@@ -1,14 +1,14 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
 import { AdminShell } from "../../components/admin/shell";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { ProgramsDialogs, type ProgramsDialog } from "../../components/admin/programs/programs-dialogs";
 import { ProgramsGrid } from "../../components/admin/programs/programs-grid";
-import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation, useDeleteProgramMutation, useGetPreseasonProgrammesQuery } from "../../lib/apiSlice";
+import { useCreateProgramMutation, useGetProgramsQuery, useGetUsersQuery, useAssignProgramMutation, useUpdateProgramMutation, useDeleteProgramMutation, useGetPreseasonProgrammesQuery, useCreatePreseasonProgrammeMutation } from "../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 
 type ProgramRecord = {
@@ -29,6 +29,7 @@ type GridProgram = {
   maxAge?: number | null;
   href?: string;
   isPreseason?: boolean;
+  isCreatePlaceholder?: boolean;
 };
 
 export default function ProgramsPage() {
@@ -40,6 +41,7 @@ export default function ProgramsPage() {
 }
 
 function ProgramsPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: programsData, isLoading: programsLoading } = useGetProgramsQuery();
   const { data: preseasonData, isLoading: preseasonLoading } = useGetPreseasonProgrammesQuery();
@@ -47,6 +49,7 @@ function ProgramsPageInner() {
   const [updateProgram, { isLoading: isUpdating }] = useUpdateProgramMutation();
   const [assignProgram, { isLoading: isAssigning }] = useAssignProgramMutation();
   const [deleteProgram, { isLoading: isDeleting }] = useDeleteProgramMutation();
+  const [createPreseason, { isLoading: isCreatingPreseason }] = useCreatePreseasonProgrammeMutation();
   const [activeDialog, setActiveDialog] = useState<ProgramsDialog>(null);
   const [selectedProgram, setSelectedProgram] = useState<GridProgram | null>(null);
   const [highlightedProgramId, setHighlightedProgramId] = useState<number | null>(null);
@@ -64,16 +67,28 @@ function ProgramsPageInner() {
       maxAge: program.maxAge ?? null,
     }));
 
-    const preseason = (preseasonData?.programmes ?? []).map((p) => ({
-      id: p.id,
-      name: p.title,
-      summary: p.description ?? "",
-      type: "Pre-Season",
-      minAge: null,
-      maxAge: null,
-      href: `/programs/preseason/${p.id}`,
-      isPreseason: true,
-    }));
+    const preseasonProgrammes = preseasonData?.programmes ?? [];
+    const preseason: GridProgram[] = preseasonProgrammes.length > 0
+      ? preseasonProgrammes.map((p) => ({
+          id: p.id,
+          name: p.title,
+          summary: p.description ?? "",
+          type: "Pre-Season",
+          minAge: null,
+          maxAge: null,
+          href: `/programs/preseason/${p.id}`,
+          isPreseason: true,
+        }))
+      : [{
+          id: -1,
+          name: "Pre-Season Programme",
+          summary: "Click to create your pre-season training block with weeks, sessions, and exercises.",
+          type: "Pre-Season",
+          minAge: null,
+          maxAge: null,
+          isPreseason: true,
+          isCreatePlaceholder: true,
+        }];
 
     return [...preseason, ...legacy];
   }, [programsData, preseasonData]);
@@ -89,6 +104,20 @@ function ProgramsPageInner() {
     [usersData]
   );
   const isSaving = isCreating || isUpdating || isAssigning;
+
+  async function handleCreatePreseason() {
+    try {
+      const result = await createPreseason({
+        title: "Pre-Season Programme",
+        weekCount: 6,
+        athleteType: "adult",
+      }).unwrap();
+      toast.success("Pre-Season programme created");
+      router.push(`/programs/preseason/${result.programme.id}`);
+    } catch {
+      toast.error("Failed to create programme");
+    }
+  }
 
   // Query params intentionally hydrate the dialog state after programs load.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -133,6 +162,8 @@ function ProgramsPageInner() {
           setSelectedProgram(program);
           setActiveDialog("assign");
         }}
+        onCreatePreseason={handleCreatePreseason}
+        isCreatingPreseason={isCreatingPreseason}
       />
       <ProgramsDialogs
         active={activeDialog}
