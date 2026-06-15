@@ -13,7 +13,6 @@ type ProgramItem = {
   maxAge?: number | null;
   href?: string;
   isPreseason?: boolean;
-  isCreatePlaceholder?: boolean;
 };
 
 type ProgramsGridProps = {
@@ -21,8 +20,6 @@ type ProgramsGridProps = {
   isLoading?: boolean;
   onManage: (program: ProgramItem) => void;
   onAssign: (program: ProgramItem) => void;
-  onCreatePreseason?: () => void;
-  isCreatingPreseason?: boolean;
   highlightedProgramId?: number | null;
 };
 
@@ -31,8 +28,6 @@ export function ProgramsGrid({
   isLoading = false,
   onManage,
   onAssign,
-  onCreatePreseason,
-  isCreatingPreseason = false,
   highlightedProgramId = null,
 }: ProgramsGridProps) {
   if (isLoading) {
@@ -84,15 +79,9 @@ export function ProgramsGrid({
               {program.summary || "No description yet."}
             </p>
             <div className="flex gap-2">
-              {program.isCreatePlaceholder ? (
-                <Button size="sm" onClick={onCreatePreseason} disabled={isCreatingPreseason}>
-                  {isCreatingPreseason ? "Creating..." : "Create"}
-                </Button>
-              ) : (
-                <Link href={program.href ?? `/programs/${program.id}`}>
-                  <Button size="sm">Open</Button>
-                </Link>
-              )}
+              <Link href={program.href ?? `/programs/${program.id}`}>
+                <Button size="sm">Open</Button>
+              </Link>
               {!program.isPreseason && (
                 <>
                   <Button size="sm" variant="outline" onClick={() => onManage(program)}>
