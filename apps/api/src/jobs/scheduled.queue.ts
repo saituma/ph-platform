@@ -4,7 +4,7 @@ import { logger } from "../lib/logger";
 
 const QUEUE_NAME = "scheduled-jobs";
 
-type ScheduledJobName = "nutrition-reminder" | "subscription-expiry" | "session-reminder" | "streak-reminder";
+type ScheduledJobName = "nutrition-reminder" | "subscription-expiry" | "session-reminder" | "streak-reminder" | "goal-expiry";
 
 type ScheduledJob = {
   name: ScheduledJobName;
@@ -45,6 +45,10 @@ const handlers: Record<ScheduledJobName, () => Promise<unknown>> = {
   "streak-reminder": async () => {
     const { runStreakReminderSweep } = await import("../services/streak-reminder.service");
     return runStreakReminderSweep();
+  },
+  "goal-expiry": async () => {
+    const { expireOverdueGoals } = await import("../services/tracking-goals.service");
+    return expireOverdueGoals();
   },
 };
 
@@ -106,8 +110,14 @@ export async function startScheduledWorker(): Promise<void> {
     { name: "streak-reminder", data: { name: "streak-reminder" } },
   );
 
+  await queue.upsertJobScheduler(
+    "goal-expiry",
+    { pattern: "5 0 * * *" },
+    { name: "goal-expiry", data: { name: "goal-expiry" } },
+  );
+
   logger.info(
-    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00, session-reminder every 30m, streak-reminder daily at 20:00 UTC)",
+    "[BullMQ] Scheduled jobs worker started (nutrition-reminder every 5m, subscription-expiry daily at 03:00, session-reminder every 30m, streak-reminder daily at 20:00 UTC, goal-expiry daily at 00:05 UTC)",
   );
 }
 

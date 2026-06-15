@@ -211,6 +211,21 @@ export async function getGoalProgress(goalId: number) {
   return { goal, progress };
 }
 
+export async function expireOverdueGoals() {
+  const now = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const expired = await db
+    .update(trackingGoalTable)
+    .set({ status: "archived", updatedAt: new Date() })
+    .where(
+      and(
+        eq(trackingGoalTable.status, "active"),
+        sql`${trackingGoalTable.dueDate} IS NOT NULL AND ${trackingGoalTable.dueDate} < ${now}::date`,
+      ),
+    )
+    .returning({ id: trackingGoalTable.id });
+  return { expiredCount: expired.length };
+}
+
 export async function listGoalsForAthlete(input: {
   athleteId: number;
   athleteType: "youth" | "adult";
