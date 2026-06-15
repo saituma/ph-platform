@@ -129,18 +129,39 @@ export async function createProgramme(data: {
   athleteType?: (typeof preseasonProgrammeTable.$inferInsert)["athleteType"];
   createdBy: number;
 }) {
-  const [row] = await db
+  const weekCount = data.weekCount ?? 6;
+
+  const [programme] = await db
     .insert(preseasonProgrammeTable)
     .values({
       title: data.title,
       description: data.description ?? null,
-      weekCount: data.weekCount ?? 6,
+      weekCount,
       requiredTier: data.requiredTier ?? null,
       athleteType: data.athleteType ?? "adult",
       createdBy: data.createdBy,
     })
     .returning();
-  return row;
+
+  // Auto-create weeks with default week-types
+  const DEFAULT_WEEK_TYPES = ["Tuesday Game Week", "Saturday Game Week", "No Game Week"];
+
+  for (let i = 1; i <= weekCount; i++) {
+    const [week] = await db
+      .insert(preseasonWeekTable)
+      .values({ programmeId: programme.id, weekNumber: i, title: `Week ${i}` })
+      .returning();
+
+    for (let j = 0; j < DEFAULT_WEEK_TYPES.length; j++) {
+      await db.insert(preseasonWeekTypeTable).values({
+        weekId: week.id,
+        name: DEFAULT_WEEK_TYPES[j],
+        order: j + 1,
+      });
+    }
+  }
+
+  return programme;
 }
 
 export async function updateProgramme(
