@@ -20,11 +20,11 @@ export function usePreseasonWeekTypes(token: string | null, weekId: number | nul
       setLoading(true);
       setError(null);
       try {
-        const res = await apiRequest<{ weekTypes: PreseasonWeekType[] }>(
+        const res = await apiRequest<{ weekTypes?: PreseasonWeekType[]; items?: PreseasonWeekType[] }>(
           `/preseason-programme/mobile/weeks/${weekId}/types`,
           { token, forceRefresh: force },
         );
-        setWeekTypes(res.weekTypes ?? []);
+        setWeekTypes(res.weekTypes ?? res.items ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load week types.");
       } finally {
@@ -45,11 +45,11 @@ export function usePreseasonWeekTypes(token: string | null, weekId: number | nul
     async (weekTypeId: number) => {
       if (!token || !weekId) return null;
       try {
-        const res = await apiRequest<{ selection: { weekTypeId: number } }>(
+        const res = await apiRequest<{ selection?: { weekTypeId: number }; item?: { weekTypeId: number } }>(
           `/preseason-programme/mobile/weeks/${weekId}/select`,
           { method: "POST", token, body: { weekTypeId } },
         );
-        return res.selection;
+        return res.selection ?? res.item ?? null;
       } catch {
         return null;
       }

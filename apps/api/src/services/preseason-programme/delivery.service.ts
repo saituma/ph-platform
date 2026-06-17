@@ -142,20 +142,23 @@ export async function getProgrammeOverview(input: {
 
   if (programme.athleteType !== input.athleteType) return null;
 
+  const assignment = await db
+    .select({ id: preseasonProgrammeAssignmentTable.id })
+    .from(preseasonProgrammeAssignmentTable)
+    .where(
+      and(
+        eq(preseasonProgrammeAssignmentTable.programmeId, programme.id),
+        eq(preseasonProgrammeAssignmentTable.athleteId, input.athleteId),
+      ),
+    )
+    .limit(1);
+
+  if (assignment.length === 0) {
+    return { accessDenied: true as const, lockedReason: "assignment" as const };
+  }
+
   if (!canAccessTier(input.currentProgramTier, programme.requiredTier ?? null)) {
-    const assignment = await db
-      .select({ id: preseasonProgrammeAssignmentTable.id })
-      .from(preseasonProgrammeAssignmentTable)
-      .where(
-        and(
-          eq(preseasonProgrammeAssignmentTable.programmeId, programme.id),
-          eq(preseasonProgrammeAssignmentTable.athleteId, input.athleteId),
-        ),
-      )
-      .limit(1);
-    if (assignment.length === 0) {
-      return { accessDenied: true as const, lockedReason: "tier" as const };
-    }
+    return { accessDenied: true as const, lockedReason: "tier" as const };
   }
 
   const weeks = await db
@@ -188,11 +191,7 @@ export async function getWeekTypes(weekId: number) {
 }
 
 export async function getWeekSessions(input: { athleteId: number; weekId: number }) {
-  const [week] = await db
-    .select()
-    .from(preseasonWeekTable)
-    .where(eq(preseasonWeekTable.id, input.weekId))
-    .limit(1);
+  const [week] = await db.select().from(preseasonWeekTable).where(eq(preseasonWeekTable.id, input.weekId)).limit(1);
 
   if (!week) return null;
 
@@ -279,12 +278,19 @@ export async function getDaySessionDetail(input: { athleteId: number; daySession
   const allWeeks = await db
     .select()
     .from(preseasonWeekTable)
-    .where(eq(preseasonWeekTable.programmeId, (await db
-      .select({ programmeId: preseasonWeekTable.programmeId })
-      .from(preseasonWeekTable)
-      .where(eq(preseasonWeekTable.id, weekType.weekId))
-      .limit(1)
-      .then(([r]) => r ?? { programmeId: 0 })).programmeId))
+    .where(
+      eq(
+        preseasonWeekTable.programmeId,
+        (
+          await db
+            .select({ programmeId: preseasonWeekTable.programmeId })
+            .from(preseasonWeekTable)
+            .where(eq(preseasonWeekTable.id, weekType.weekId))
+            .limit(1)
+            .then(([r]) => r ?? { programmeId: 0 })
+        ).programmeId,
+      ),
+    )
     .orderBy(asc(preseasonWeekTable.weekNumber));
 
   const weekStatuses = await deriveWeekStatuses(input.athleteId, allWeeks);

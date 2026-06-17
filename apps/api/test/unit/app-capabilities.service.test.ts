@@ -35,6 +35,30 @@ describe("buildAppCapabilities", () => {
     expect(adult.teamManagement).toBe(false);
   });
 
+  it("shows preseason only to assigned adult athletes", () => {
+    const unassignedAdult = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: "PHP_Premium",
+      messagingAccessTiers,
+      athleteType: "adult",
+      planFeatures: featuresForTier("PHP_Premium"),
+      hasActivePlan: true,
+      hasPreseasonAssignment: false,
+    });
+
+    const assignedAdult = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: null,
+      messagingAccessTiers,
+      athleteType: "adult",
+      hasPreseasonAssignment: true,
+    });
+
+    expect(unassignedAdult.training).toBe(true);
+    expect(unassignedAdult.preseasonProgramme).toBe(false);
+    expect(assignedAdult.preseasonProgramme).toBe(true);
+  });
+
   it("keeps youth parent content separate from adult progress features", () => {
     const youth = buildAppCapabilities({
       role: "guardian",

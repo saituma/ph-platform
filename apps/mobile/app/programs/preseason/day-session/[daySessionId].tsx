@@ -46,16 +46,19 @@ function categoryColor(cat: string): string {
 }
 
 function formatMetric(ex: PreseasonExercise): string {
-  if (ex.durationOverride != null) {
-    return `${ex.durationOverride} min`;
-  }
-  if (ex.metric) return ex.metric;
   const sets = ex.setsOverride ?? ex.exercise.sets;
   const reps = ex.repsOverride ?? ex.exercise.reps;
-  const dur = ex.exercise.duration;
+  const duration = ex.durationOverride ?? ex.exercise.duration;
+
+  if (ex.metric === "duration") {
+    if (sets && duration) return `${sets}×${duration}s`;
+    if (duration) return `${duration}s`;
+  }
+
   if (sets && reps) return `${sets}×${reps}`;
-  if (sets && dur) return `${sets}×${dur}s`;
-  if (dur) return `${dur} min`;
+  if (reps) return `${reps} reps`;
+  if (sets) return `${sets} sets`;
+  if (duration) return `${duration}s`;
   return "—";
 }
 

@@ -20,6 +20,7 @@ export type PreseasonExercise = {
   setsOverride: number | null;
   repsOverride: number | null;
   durationOverride: number | null;
+  restSecondsOverride?: number | null;
   notes: string | null;
   exercise: {
     id: number;
@@ -31,6 +32,48 @@ export type PreseasonExercise = {
     videoUrl: string | null;
   };
 };
+
+type RawPreseasonExercise = Omit<PreseasonExercise, "exercise"> & {
+  exercise?: PreseasonExercise["exercise"];
+  exerciseId?: number;
+  exerciseName?: string;
+  exerciseCategory?: string | null;
+  exerciseSets?: number | null;
+  exerciseReps?: number | null;
+  exerciseDuration?: number | null;
+  exerciseVideoUrl?: string | null;
+};
+
+type PreseasonSessionDetailResponse =
+  | {
+      daySession: PreseasonDaySession;
+      exercises: RawPreseasonExercise[];
+    }
+  | (PreseasonDaySession & {
+      exercises?: RawPreseasonExercise[];
+    });
+
+function normalizeExercise(ex: RawPreseasonExercise): PreseasonExercise {
+  if (ex.exercise) {
+    return {
+      ...ex,
+      exercise: ex.exercise,
+    };
+  }
+
+  return {
+    ...ex,
+    exercise: {
+      id: ex.exerciseId ?? ex.id,
+      name: ex.exerciseName ?? "Exercise",
+      category: ex.exerciseCategory ?? null,
+      sets: ex.exerciseSets ?? null,
+      reps: ex.exerciseReps ?? null,
+      duration: ex.exerciseDuration ?? null,
+      videoUrl: ex.exerciseVideoUrl ?? null,
+    },
+  };
+}
 
 export function usePreseasonSessionDetail(token: string | null, daySessionId: number | null) {
   const [daySession, setDaySession] = useState<PreseasonDaySession | null>(null);
@@ -46,12 +89,13 @@ export function usePreseasonSessionDetail(token: string | null, daySessionId: nu
       setLoading(true);
       setError(null);
       try {
-        const res = await apiRequest<{ daySession: PreseasonDaySession; exercises: PreseasonExercise[] }>(
+        const res = await apiRequest<PreseasonSessionDetailResponse>(
           `/preseason-programme/mobile/day-sessions/${daySessionId}`,
           { token, forceRefresh: force },
         );
-        setDaySession(res.daySession ?? null);
-        const sorted = (res.exercises ?? []).slice().sort((a, b) => a.order - b.order);
+        const daySession = "daySession" in res ? res.daySession : res;
+        setDaySession(daySession ?? null);
+        const sorted = (res.exercises ?? []).map(normalizeExercise).slice().sort((a, b) => a.order - b.order);
         setExercises(sorted);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load session.");

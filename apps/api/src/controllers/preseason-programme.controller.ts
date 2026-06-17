@@ -361,7 +361,7 @@ export async function getOverviewHandler(req: Request, res: Response) {
 export async function getWeekTypesHandler(req: Request, res: Response) {
   const weekId = idParam.parse(req.params.weekId);
   const items = await getWeekTypes(weekId);
-  return res.status(200).json({ items });
+  return res.status(200).json({ items, weekTypes: items });
 }
 
 const selectWeekTypeSchema = z.object({
@@ -377,7 +377,7 @@ export async function selectWeekTypeHandler(req: Request, res: Response) {
 
   try {
     const item = await selectWeekType({ athleteId: athlete.id, weekId, weekTypeId });
-    return res.status(200).json({ item });
+    return res.status(200).json({ item, selection: item });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Selection failed";
     if (message === "Week is locked") {
@@ -410,7 +410,26 @@ export async function getDaySessionDetailHandler(req: Request, res: Response) {
 
   if (!result) return res.status(404).json({ error: "Day session not found" });
   if ("locked" in result) return res.status(403).json({ error: "Week is locked" });
-  return res.status(200).json(result);
+
+  const { exercises, ...daySession } = result;
+  const normalizedExercises = exercises.map((exercise) => ({
+    ...exercise,
+    exercise: {
+      id: exercise.exerciseId,
+      name: exercise.exerciseName,
+      category: exercise.exerciseCategory,
+      sets: exercise.exerciseSets,
+      reps: exercise.exerciseReps,
+      duration: exercise.exerciseDuration,
+      videoUrl: exercise.exerciseVideoUrl,
+    },
+  }));
+
+  return res.status(200).json({
+    ...result,
+    daySession,
+    exercises: normalizedExercises,
+  });
 }
 
 export async function completeSessionHandler(req: Request, res: Response) {
