@@ -48,6 +48,7 @@ import {
   type PreseasonWeekType,
   type PreseasonDaySession,
   type PreseasonExercise,
+  type ExerciseLibraryItem,
 } from "../../../../lib/apiSlice";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -616,7 +617,7 @@ type DaySlotProps = {
   programmeId: number;
 };
 
-function DaySlot({ dayOfWeek, session, onAdd }: DaySlotProps) {
+function DaySlot({ dayOfWeek, session, onAdd, programmeId }: DaySlotProps) {
   const [expanded, setExpanded] = useState(true);
   const [deleteSession] = useDeletePreseasonDaySessionMutation();
   const [updateSession] = useUpdatePreseasonDaySessionMutation();
@@ -639,6 +640,7 @@ function DaySlot({ dayOfWeek, session, onAdd }: DaySlotProps) {
     if (!session) return;
     try {
       await addExercise({
+        programmeId,
         daySessionId: session.id,
         exerciseId,
         order: (session.exercises?.length ?? 0) + 1,
@@ -713,6 +715,7 @@ function DaySlot({ dayOfWeek, session, onAdd }: DaySlotProps) {
                       index={idx}
                       totalCount={session.exercises.length}
                       sessionId={session.id}
+                      programmeId={programmeId}
                       allExercises={session.exercises}
                     />
                   ))}
@@ -745,17 +748,18 @@ type ExerciseRowProps = {
   index: number;
   totalCount: number;
   sessionId: number;
+  programmeId: number;
   allExercises: PreseasonExercise[];
 };
 
-function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: ExerciseRowProps) {
+function ExerciseRow({ exercise, index, totalCount, sessionId, programmeId, allExercises }: ExerciseRowProps) {
   const [updateExercise] = useUpdatePreseasonExerciseMutation();
   const [deleteExercise] = useDeletePreseasonExerciseMutation();
   const [reorderExercises] = useReorderPreseasonExercisesMutation();
 
   async function handleDelete() {
     try {
-      await deleteExercise({ id: exercise.id }).unwrap();
+      await deleteExercise({ programmeId, id: exercise.id }).unwrap();
     } catch {
       toast.error("Failed to delete exercise");
     }
@@ -770,13 +774,16 @@ function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: E
     const swapIdx = direction === "up" ? currentIdx - 1 : currentIdx + 1;
     [newIds[currentIdx], newIds[swapIdx]] = [newIds[swapIdx], newIds[currentIdx]];
     try {
-      await reorderExercises({ daySessionId: sessionId, orderedIds: newIds }).unwrap();
+      await reorderExercises({ programmeId, daySessionId: sessionId, orderedIds: newIds }).unwrap();
     } catch {
       toast.error("Failed to reorder exercises");
     }
   }
 
   const isReps = exercise.metric === "reps";
+  const defaultSets = exercise.exercise?.sets ?? null;
+  const defaultReps = exercise.exercise?.reps ?? null;
+  const defaultDuration = exercise.exercise?.duration ?? null;
 
   return (
     <div className="flex items-start gap-2 rounded-xl border border-border bg-card/50 p-3">
@@ -818,7 +825,7 @@ function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: E
           <div className="flex overflow-hidden rounded-md border border-border text-[10px] font-semibold">
             <button
               type="button"
-              onClick={() => updateExercise({ id: exercise.id, patch: { metric: "reps" } })}
+              onClick={() => updateExercise({ programmeId, id: exercise.id, patch: { metric: "reps" } })}
               className={cn(
                 "px-2 py-1 transition",
                 isReps
@@ -830,7 +837,7 @@ function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: E
             </button>
             <button
               type="button"
-              onClick={() => updateExercise({ id: exercise.id, patch: { metric: "duration" } })}
+              onClick={() => updateExercise({ programmeId, id: exercise.id, patch: { metric: "duration" } })}
               className={cn(
                 "px-2 py-1 transition",
                 !isReps
@@ -844,21 +851,27 @@ function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: E
 
           <InlineNumberField
             label="Sets"
-            value={exercise.setsOverride ?? exercise.exercise?.sets ?? null}
-            onChange={(v) => updateExercise({ id: exercise.id, patch: { setsOverride: v } })}
+            value={exercise.setsOverride ?? defaultSets}
+            defaultValue={defaultSets}
+            hasOverride={exercise.setsOverride != null}
+            onChange={(v) => updateExercise({ programmeId, id: exercise.id, patch: { setsOverride: v } })}
           />
 
           {isReps ? (
             <InlineNumberField
               label="Reps"
-              value={exercise.repsOverride ?? exercise.exercise?.reps ?? null}
-              onChange={(v) => updateExercise({ id: exercise.id, patch: { repsOverride: v } })}
+              value={exercise.repsOverride ?? defaultReps}
+              defaultValue={defaultReps}
+              hasOverride={exercise.repsOverride != null}
+              onChange={(v) => updateExercise({ programmeId, id: exercise.id, patch: { repsOverride: v } })}
             />
           ) : (
             <InlineNumberField
               label="Sec"
-              value={exercise.durationOverride ?? exercise.exercise?.duration ?? null}
-              onChange={(v) => updateExercise({ id: exercise.id, patch: { durationOverride: v } })}
+              value={exercise.durationOverride ?? defaultDuration}
+              defaultValue={defaultDuration}
+              hasOverride={exercise.durationOverride != null}
+              onChange={(v) => updateExercise({ programmeId, id: exercise.id, patch: { durationOverride: v } })}
             />
           )}
 
@@ -866,7 +879,7 @@ function ExerciseRow({ exercise, index, totalCount, sessionId, allExercises }: E
             value={exercise.notes ?? ""}
             placeholder="Notes"
             onSave={(val) =>
-              updateExercise({ id: exercise.id, patch: { notes: val || null } })
+              updateExercise({ programmeId, id: exercise.id, patch: { notes: val || null } })
             }
             className="flex-1 text-xs"
           />
@@ -968,10 +981,12 @@ function AutosaveInput({ value, placeholder, onSave, className, label }: Autosav
 type InlineNumberFieldProps = {
   label: string;
   value: number | null | undefined;
+  defaultValue: number | null | undefined;
+  hasOverride: boolean;
   onChange: (val: number | null) => void;
 };
 
-function InlineNumberField({ label, value, onChange }: InlineNumberFieldProps) {
+function InlineNumberField({ label, value, defaultValue, hasOverride, onChange }: InlineNumberFieldProps) {
   const [local, setLocal] = useState(value != null ? String(value) : "");
 
   useEffect(() => {
@@ -980,7 +995,14 @@ function InlineNumberField({ label, value, onChange }: InlineNumberFieldProps) {
 
   function handleBlur() {
     const n = local === "" ? null : Number(local);
-    onChange(Number.isNaN(n) ? null : n);
+    const nextValue = Number.isNaN(n) ? null : n;
+    const normalizedDefault = defaultValue ?? null;
+    const currentValue = value ?? null;
+
+    if (!hasOverride && nextValue === normalizedDefault) return;
+    if (hasOverride && nextValue === currentValue) return;
+
+    onChange(nextValue === normalizedDefault ? null : nextValue);
   }
 
   return (
@@ -992,7 +1014,10 @@ function InlineNumberField({ label, value, onChange }: InlineNumberFieldProps) {
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={handleBlur}
-        className="h-6 w-12 rounded border border-border/60 bg-transparent px-1.5 text-xs text-foreground outline-none focus:border-ring"
+        className={cn(
+          "h-6 w-12 rounded border border-border/60 bg-transparent px-1.5 text-xs outline-none focus:border-ring",
+          hasOverride ? "text-primary" : "text-foreground",
+        )}
       />
     </div>
   );
@@ -1008,7 +1033,7 @@ function ExercisePickerDialog({ open, onClose, onSelect }: ExercisePickerDialogP
   const { data } = useGetExercisesForPreseasonQuery(undefined, { skip: !open });
   const [search, setSearch] = useState("");
 
-  const exercises: any[] = data?.exercises ?? [];
+  const exercises: ExerciseLibraryItem[] = data?.exercises ?? [];
   const filtered = search
     ? exercises.filter((e) =>
         e.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -1040,7 +1065,7 @@ function ExercisePickerDialog({ open, onClose, onSelect }: ExercisePickerDialogP
                 {search ? "No exercises match your search." : "No exercises in library."}
               </p>
             ) : (
-              filtered.map((ex: any) => (
+              filtered.map((ex) => (
                 <button
                   key={ex.id}
                   type="button"

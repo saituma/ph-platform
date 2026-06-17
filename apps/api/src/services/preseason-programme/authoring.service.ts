@@ -121,6 +121,36 @@ export async function getProgrammeFull(id: number) {
   };
 }
 
+async function getPreseasonExerciseRow(id: number) {
+  const [row] = await db
+    .select({
+      id: preseasonDaySessionExerciseTable.id,
+      daySessionId: preseasonDaySessionExerciseTable.daySessionId,
+      exerciseId: preseasonDaySessionExerciseTable.exerciseId,
+      order: preseasonDaySessionExerciseTable.order,
+      metric: preseasonDaySessionExerciseTable.metric,
+      setsOverride: preseasonDaySessionExerciseTable.setsOverride,
+      repsOverride: preseasonDaySessionExerciseTable.repsOverride,
+      durationOverride: preseasonDaySessionExerciseTable.durationOverride,
+      restSecondsOverride: preseasonDaySessionExerciseTable.restSecondsOverride,
+      notes: preseasonDaySessionExerciseTable.notes,
+      createdAt: preseasonDaySessionExerciseTable.createdAt,
+      updatedAt: preseasonDaySessionExerciseTable.updatedAt,
+      exerciseName: exerciseTable.name,
+      exerciseCategory: exerciseTable.category,
+      exerciseSets: exerciseTable.sets,
+      exerciseReps: exerciseTable.reps,
+      exerciseDuration: exerciseTable.duration,
+      exerciseVideoUrl: exerciseTable.videoUrl,
+    })
+    .from(preseasonDaySessionExerciseTable)
+    .innerJoin(exerciseTable, eq(preseasonDaySessionExerciseTable.exerciseId, exerciseTable.id))
+    .where(eq(preseasonDaySessionExerciseTable.id, id))
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function createProgramme(data: {
   title: string;
   description?: string | null;
@@ -145,7 +175,11 @@ export async function createProgramme(data: {
 
   // Auto-create weeks with default week-types and 7 day slots each
   const DEFAULT_WEEK_TYPES = ["Tuesday Game Week", "Saturday Game Week", "No Game Week"];
-  const DAY_DEFAULTS: { day: number; category: "PRIMER" | "GAME" | "RECOVERY" | "STRENGTH" | "SPEED" | "CONDITIONING"; title: string }[] = [
+  const DAY_DEFAULTS: {
+    day: number;
+    category: "PRIMER" | "GAME" | "RECOVERY" | "STRENGTH" | "SPEED" | "CONDITIONING";
+    title: string;
+  }[] = [
     { day: 1, category: "PRIMER", title: "Monday Primer" },
     { day: 2, category: "GAME", title: "Tuesday Session" },
     { day: 3, category: "RECOVERY", title: "Wednesday Recovery" },
@@ -201,10 +235,7 @@ export async function updateProgramme(
 }
 
 export async function deleteProgramme(id: number) {
-  const [row] = await db
-    .delete(preseasonProgrammeTable)
-    .where(eq(preseasonProgrammeTable.id, id))
-    .returning();
+  const [row] = await db.delete(preseasonProgrammeTable).where(eq(preseasonProgrammeTable.id, id)).returning();
   return row ?? null;
 }
 
@@ -351,7 +382,7 @@ export async function addExercise(data: {
       notes: data.notes ?? null,
     })
     .returning();
-  return row;
+  return getPreseasonExerciseRow(row.id);
 }
 
 export async function updateExercise(
@@ -372,7 +403,7 @@ export async function updateExercise(
     .set({ ...(data as any), updatedAt: new Date() })
     .where(eq(preseasonDaySessionExerciseTable.id, id))
     .returning();
-  return row ?? null;
+  return row ? getPreseasonExerciseRow(row.id) : null;
 }
 
 export async function deleteExercise(id: number) {
