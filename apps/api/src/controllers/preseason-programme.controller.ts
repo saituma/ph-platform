@@ -422,6 +422,15 @@ export async function getDaySessionDetailHandler(req: Request, res: Response) {
       reps: exercise.exerciseReps,
       duration: exercise.exerciseDuration,
       videoUrl: exercise.exerciseVideoUrl,
+      posterUrl: exercise.exercisePosterUrl,
+      cues: exercise.exerciseCues,
+      howTo: exercise.exerciseHowTo,
+      progression: exercise.exerciseProgression,
+      regression: exercise.exerciseRegression,
+      videoMuted: exercise.exerciseVideoMuted,
+      durationSec: exercise.exerciseDurationSec,
+      width: exercise.exerciseWidth,
+      height: exercise.exerciseHeight,
     },
   }));
 

@@ -318,6 +318,15 @@ export async function getDaySessionDetail(input: { athleteId: number; daySession
       exerciseReps: exerciseTable.reps,
       exerciseDuration: exerciseTable.duration,
       exerciseVideoUrl: exerciseTable.videoUrl,
+      exercisePosterUrl: exerciseTable.posterUrl,
+      exerciseCues: exerciseTable.cues,
+      exerciseHowTo: exerciseTable.howTo,
+      exerciseProgression: exerciseTable.progression,
+      exerciseRegression: exerciseTable.regression,
+      exerciseVideoMuted: exerciseTable.videoMuted,
+      exerciseDurationSec: exerciseTable.durationSec,
+      exerciseWidth: exerciseTable.width,
+      exerciseHeight: exerciseTable.height,
     })
     .from(preseasonDaySessionExerciseTable)
     .innerJoin(exerciseTable, eq(preseasonDaySessionExerciseTable.exerciseId, exerciseTable.id))

@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,12 +7,15 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Check } from "lucide-react-native";
+import { ChevronLeft, Check, ChevronRight } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
+import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { usePreseasonSessionDetail, type PreseasonExercise } from "@/hooks/preseason/usePreseasonSessionDetail";
 
 const ACCENT = "#BBFF00";
@@ -62,11 +65,15 @@ function formatMetric(ex: PreseasonExercise): string {
   return "—";
 }
 
-function ExerciseCard({ ex, index }: { ex: PreseasonExercise; index: number }) {
+function ExerciseCard({ ex, index, onPress }: { ex: PreseasonExercise; index: number; onPress: () => void }) {
   const metric = formatMetric(ex);
+  const hasDetails = !!(ex.exercise.videoUrl || ex.exercise.cues || ex.exercise.howTo || ex.exercise.progression || ex.exercise.regression);
   return (
     <Animated.View entering={FadeInDown.delay(index * 40).springify().damping(18)}>
-      <View style={styles.exerciseCard}>
+      <Pressable
+        onPress={hasDetails ? onPress : undefined}
+        style={({ pressed }) => [styles.exerciseCard, hasDetails && pressed && { opacity: 0.75 }]}
+      >
         <View style={styles.exerciseNumBadge}>
           <Text style={styles.exerciseNum}>{index + 1}</Text>
         </View>
@@ -77,8 +84,62 @@ function ExerciseCard({ ex, index }: { ex: PreseasonExercise; index: number }) {
             <Text style={styles.exerciseNotes}>{ex.notes}</Text>
           ) : null}
         </View>
-      </View>
+        {hasDetails && <ChevronRight size={16} color={TEXT_MUTED} />}
+      </Pressable>
     </Animated.View>
+  );
+}
+
+function ExerciseDetailContent({ ex }: { ex: PreseasonExercise }) {
+  const e = ex.exercise;
+  const hasVideo = !!e.videoUrl;
+  const aspectRatio = e.width && e.height ? e.width / e.height : 16 / 9;
+  const metric = formatMetric(ex);
+
+  const sections = [
+    { label: "COACHING CUES", value: e.cues },
+    { label: "HOW TO", value: e.howTo },
+    { label: "PROGRESSION", value: e.progression },
+    { label: "REGRESSION", value: e.regression },
+  ].filter((s) => s.value);
+
+  return (
+    <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+      {hasVideo && (
+        <View style={{ borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
+          <VideoPlayer
+            uri={e.videoUrl!}
+            posterUri={e.posterUrl}
+            initialAspectRatio={aspectRatio}
+            autoPlay={false}
+            initialMuted={e.videoMuted !== false}
+            forceMuted={e.videoMuted !== false}
+            isLooping
+            controllerKey={`preseason-ex-${ex.id}`}
+          />
+        </View>
+      )}
+
+      <Text style={{ fontSize: 22, fontFamily: "Outfit-Bold", color: TEXT_PRIMARY, letterSpacing: -0.5, marginBottom: 4 }}>
+        {e.name}
+      </Text>
+      {metric !== "—" && (
+        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: ACCENT, marginBottom: 16 }}>
+          {metric}
+        </Text>
+      )}
+
+      {sections.map((section) => (
+        <View key={section.label} style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: "#555555", letterSpacing: 1.5, marginBottom: 8 }}>
+            {section.label}
+          </Text>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: "#CCCCCC", lineHeight: 22 }}>
+            {section.value}
+          </Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -90,15 +151,23 @@ export default function PreseasonSessionDetailScreen() {
   const token = useAppSelector((s) => s.user.token);
   const { daySession, exercises, loading, error, completeSession, completing } =
     usePreseasonSessionDetail(token, daySessionId);
+  const [selectedExercise, setSelectedExercise] = useState<PreseasonExercise | null>(null);
+  const exerciseSheetRef = useRef<BottomSheet>(null);
 
   const handleComplete = useCallback(async () => {
     await completeSession();
   }, [completeSession]);
 
+  const handleExercisePress = useCallback((ex: PreseasonExercise) => {
+    setSelectedExercise(ex);
+    exerciseSheetRef.current?.expand();
+  }, []);
+
   const catColor = daySession ? categoryColor(daySession.category) : ACCENT;
   const dayAbbr = daySession ? (DAY_ABBR[daySession.dayOfWeek] ?? "---") : "---";
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Navigation header */}
       <View style={styles.navRow}>
@@ -167,7 +236,7 @@ export default function PreseasonSessionDetailScreen() {
 
             <View style={{ gap: 10 }}>
               {exercises.map((ex, idx) => (
-                <ExerciseCard key={ex.id} ex={ex} index={idx} />
+                <ExerciseCard key={ex.id} ex={ex} index={idx} onPress={() => handleExercisePress(ex)} />
               ))}
             </View>
 
@@ -201,7 +270,21 @@ export default function PreseasonSessionDetailScreen() {
           </View>
         </>
       ) : null}
+
+      <BottomSheet
+        ref={exerciseSheetRef}
+        index={-1}
+        snapPoints={["70%", "92%"]}
+        enablePanDownToClose
+        backgroundStyle={{ backgroundColor: "#111111" }}
+        handleIndicatorStyle={{ backgroundColor: "#444444" }}
+      >
+        <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          {selectedExercise && <ExerciseDetailContent ex={selectedExercise} />}
+        </BottomSheetScrollView>
+      </BottomSheet>
     </View>
+    </GestureHandlerRootView>
   );
 }
 

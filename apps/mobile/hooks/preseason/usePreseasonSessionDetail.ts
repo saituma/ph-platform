@@ -30,6 +30,15 @@ export type PreseasonExercise = {
     reps: number | null;
     duration: number | null;
     videoUrl: string | null;
+    posterUrl?: string | null;
+    cues?: string | null;
+    howTo?: string | null;
+    progression?: string | null;
+    regression?: string | null;
+    videoMuted?: boolean | null;
+    durationSec?: number | null;
+    width?: number | null;
+    height?: number | null;
   };
 };
 
@@ -42,6 +51,15 @@ type RawPreseasonExercise = Omit<PreseasonExercise, "exercise"> & {
   exerciseReps?: number | null;
   exerciseDuration?: number | null;
   exerciseVideoUrl?: string | null;
+  exercisePosterUrl?: string | null;
+  exerciseCues?: string | null;
+  exerciseHowTo?: string | null;
+  exerciseProgression?: string | null;
+  exerciseRegression?: string | null;
+  exerciseVideoMuted?: boolean | null;
+  exerciseDurationSec?: number | null;
+  exerciseWidth?: number | null;
+  exerciseHeight?: number | null;
 };
 
 type PreseasonSessionDetailResponse =
@@ -71,6 +89,15 @@ function normalizeExercise(ex: RawPreseasonExercise): PreseasonExercise {
       reps: ex.exerciseReps ?? null,
       duration: ex.exerciseDuration ?? null,
       videoUrl: ex.exerciseVideoUrl ?? null,
+      posterUrl: ex.exercisePosterUrl ?? null,
+      cues: ex.exerciseCues ?? null,
+      howTo: ex.exerciseHowTo ?? null,
+      progression: ex.exerciseProgression ?? null,
+      regression: ex.exerciseRegression ?? null,
+      videoMuted: ex.exerciseVideoMuted ?? null,
+      durationSec: ex.exerciseDurationSec ?? null,
+      width: ex.exerciseWidth ?? null,
+      height: ex.exerciseHeight ?? null,
     },
   };
 }
