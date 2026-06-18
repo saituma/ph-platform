@@ -112,9 +112,11 @@ function ExerciseDetailContent({ ex }: { ex: PreseasonExercise }) {
             posterUri={e.posterUrl}
             initialAspectRatio={aspectRatio}
             autoPlay={false}
+            previewOnly={false}
             initialMuted={e.videoMuted !== false}
             forceMuted={e.videoMuted !== false}
             isLooping
+            ignoreTabFocus
             controllerKey={`preseason-ex-${ex.id}`}
           />
         </View>

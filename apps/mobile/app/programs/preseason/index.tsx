@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Bell, ChevronRight, Lock, Check } from "lucide-react-native";
+import { Bell, ChevronLeft, ChevronRight, Lock, Check } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useAppSelector } from "@/store/hooks";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -61,7 +61,10 @@ export default function PreseasonProgrammeScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
+        <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Back">
+          <ChevronLeft size={22} color={TEXT_PRIMARY} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerBrand}>PH</Text>
           <Text style={styles.headerSub}>PERFORMANCE</Text>
         </View>
@@ -197,9 +200,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+    gap: 8,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: CARD,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
   },
   headerBrand: {
     fontSize: 28,
