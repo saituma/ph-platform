@@ -132,30 +132,26 @@ export async function getProgrammeOverview(input: {
   athleteType: string;
   currentProgramTier: string | null;
 }) {
+  // Access is granted by direct assignment, not by published status.
+  const [directAssignment] = await db
+    .select({ programmeId: preseasonProgrammeAssignmentTable.programmeId })
+    .from(preseasonProgrammeAssignmentTable)
+    .where(eq(preseasonProgrammeAssignmentTable.athleteId, input.athleteId))
+    .limit(1);
+
+  if (!directAssignment) {
+    return { accessDenied: true as const, lockedReason: "assignment" as const };
+  }
+
   const [programme] = await db
     .select()
     .from(preseasonProgrammeTable)
-    .where(eq(preseasonProgrammeTable.isPublished, true))
+    .where(eq(preseasonProgrammeTable.id, directAssignment.programmeId))
     .limit(1);
 
   if (!programme) return null;
 
   if (programme.athleteType !== input.athleteType) return null;
-
-  const assignment = await db
-    .select({ id: preseasonProgrammeAssignmentTable.id })
-    .from(preseasonProgrammeAssignmentTable)
-    .where(
-      and(
-        eq(preseasonProgrammeAssignmentTable.programmeId, programme.id),
-        eq(preseasonProgrammeAssignmentTable.athleteId, input.athleteId),
-      ),
-    )
-    .limit(1);
-
-  if (assignment.length === 0) {
-    return { accessDenied: true as const, lockedReason: "assignment" as const };
-  }
 
   if (!canAccessTier(input.currentProgramTier, programme.requiredTier ?? null)) {
     return { accessDenied: true as const, lockedReason: "tier" as const };

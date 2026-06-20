@@ -350,9 +350,18 @@ const ProgramsScreen = memo(function ProgramsScreen() {
     loadPrograms,
   } = useMyPrograms(token, !useAgeBasedContent);
 
+  const visiblePrograms = useMemo(() => {
+    if (!capabilities?.preseasonProgramme) return programs;
+    const isOffSeason = (name: string) => {
+      const key = name.trim().toLowerCase();
+      return key.includes("off season") || key.includes("off-season") || key.includes("offseason") || key.includes("off session");
+    };
+    return programs.filter((p) => !isOffSeason(p.name));
+  }, [programs, capabilities?.preseasonProgramme]);
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
-  const effectiveProgramId = selectedProgramId ?? programs[0]?.id ?? null;
+  const effectiveProgramId = selectedProgramId ?? visiblePrograms[0]?.id ?? null;
 
   useEffect(() => {
     if (useAgeBasedContent) {
@@ -399,7 +408,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   const streak = useStreakStore((ss) => ss.currentStreak);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
   const profilePic = profile?.avatar ?? null;
-  const totalModules = programs.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
+  const totalModules = visiblePrograms.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
 
   if (isSectionHidden("programs")) {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
@@ -452,7 +461,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       {/* ── Loading / Error states (no hero) ── */}
-      {programsLoading && programs.length === 0 ? (
+      {programsLoading && visiblePrograms.length === 0 ? (
         <View style={{ paddingHorizontal: 20, paddingTop: insets.top + 60, gap: 12 }}>
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonBox key={`skeleton-${i}`} width="100%" height={90} borderRadius={24} />
@@ -468,7 +477,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             {programsError}
           </Text>
         </View>
-      ) : programs.length === 0 ? (
+      ) : visiblePrograms.length === 0 && !capabilities?.preseasonProgramme ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
           <Dumbbell size={40} color={p.textSecondary} style={{ marginBottom: 12 }} />
           <Text style={{ fontSize: 16, fontFamily: "Outfit-Bold", color: p.textPrimary, marginBottom: 4 }}>
@@ -524,64 +533,68 @@ const ProgramsScreen = memo(function ProgramsScreen() {
                   Programs
                 </Animated.Text>
 
-                {/* Glass stat pills */}
-                <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-                  <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
-                      <BookOpen size={14} color={p.accent} />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{programs.length}</Text>
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-                        {programs.length === 1 ? "program" : "programs"}
-                      </Text>
-                    </View>
-                  </BlurView>
-                  {totalModules > 0 && (
+                {/* Glass stat pills — hidden when only preseason is assigned */}
+                {visiblePrograms.length > 0 ? (
+                  <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                     <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
-                        <Library size={14} color={p.accent} />
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{totalModules}</Text>
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>modules</Text>
+                        <BookOpen size={14} color={p.accent} />
+                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{visiblePrograms.length}</Text>
+                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+                          {visiblePrograms.length === 1 ? "program" : "programs"}
+                        </Text>
                       </View>
                     </BlurView>
-                  )}
-                </Animated.View>
+                    {totalModules > 0 && (
+                      <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                          <Library size={14} color={p.accent} />
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{totalModules}</Text>
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>modules</Text>
+                        </View>
+                      </BlurView>
+                    )}
+                  </Animated.View>
+                ) : null}
               </View>
             </View>
           </View>
 
           {/* ── Bento Stats ── */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 10 }}>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <Animated.View
-                entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
-                style={{ flex: 2, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
-              >
-                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                  <BookOpen size={22} color={p.accent} />
-                </View>
-                <View style={{ gap: 2 }}>
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.textPrimary, letterSpacing: -0.5 }}>
-                    {programs.length}
-                  </Text>
-                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
-                    {programs.length === 1 ? "Program" : "Programs"}
-                  </Text>
-                </View>
-              </Animated.View>
+          {visiblePrograms.length > 0 ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 10 }}>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Animated.View
+                  entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+                  style={{ flex: 2, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                    <BookOpen size={22} color={p.accent} />
+                  </View>
+                  <View style={{ gap: 2 }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.textPrimary, letterSpacing: -0.5 }}>
+                      {visiblePrograms.length}
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
+                      {visiblePrograms.length === 1 ? "Program" : "Programs"}
+                    </Text>
+                  </View>
+                </Animated.View>
 
-              <Animated.View
-                entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
-                style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
-              >
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
-                  {totalModules}
-                </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, opacity: 0.6 }}>
-                  Modules
-                </Text>
-              </Animated.View>
+                <Animated.View
+                  entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+                  style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+                >
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
+                    {totalModules}
+                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, opacity: 0.6 }}>
+                    Modules
+                  </Text>
+                </Animated.View>
+              </View>
             </View>
-          </View>
+          ) : null}
 
           {/* ── Pre-Season Programme ── */}
           {capabilities?.preseasonProgramme ? (
@@ -647,63 +660,67 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             </View>
           ) : null}
 
-          {/* ── Program Tabs ── */}
-          <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row", marginTop: watchHistory.length > 0 ? 0 : 16 }}>
-            <ScrollView
-              horizontal
-              nestedScrollEnabled
-              showsHorizontalScrollIndicator={false}
-              bounces={false}
-              contentContainerStyle={{
-                paddingHorizontal: 20,
-                paddingTop: 8,
-                paddingBottom: 10,
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 8,
-              }}
-              style={{ flexGrow: 0 }}
-            >
-              {programs.map((prog) => {
-                const active = effectiveProgramId === prog.id;
-                return (
-                  <Pressable
-                    key={prog.id}
-                    onPress={() => {
-                      setSelectedProgramId(prog.id);
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                    style={{
-                      paddingHorizontal: 14,
-                      height: 36,
-                      borderRadius: 100,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: active ? p.accent : p.cardWhite,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
-                        color: active ? p.buttonPrimaryText : p.textSecondary,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {prog.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          {/* ── Program Tabs + Content ── */}
+          {visiblePrograms.length > 0 ? (
+            <>
+              <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row", marginTop: watchHistory.length > 0 ? 0 : 16 }}>
+                <ScrollView
+                  horizontal
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator={false}
+                  bounces={false}
+                  contentContainerStyle={{
+                    paddingHorizontal: 20,
+                    paddingTop: 8,
+                    paddingBottom: 10,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                  style={{ flexGrow: 0 }}
+                >
+                  {visiblePrograms.map((prog) => {
+                    const active = effectiveProgramId === prog.id;
+                    return (
+                      <Pressable
+                        key={prog.id}
+                        onPress={() => {
+                          setSelectedProgramId(prog.id);
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        }}
+                        style={{
+                          paddingHorizontal: 14,
+                          height: 36,
+                          borderRadius: 100,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: active ? p.accent : p.cardWhite,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
+                            color: active ? p.buttonPrimaryText : p.textSecondary,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {prog.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
 
-          {effectiveProgramId ? (
-            <ProgramContent
-              key={effectiveProgramId}
-              programId={effectiveProgramId}
-              token={token}
-            />
+              {effectiveProgramId ? (
+                <ProgramContent
+                  key={effectiveProgramId}
+                  programId={effectiveProgramId}
+                  token={token}
+                />
+              ) : null}
+            </>
           ) : null}
         </>
       )}
