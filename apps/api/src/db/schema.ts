@@ -420,6 +420,7 @@ export const portalConfigTable = pgTable("portal_configs", {
   testimonials: jsonb(),
   cta: jsonb(),
   footer: jsonb(),
+  expiryBanner: jsonb("expiry_banner"),
   updatedBy: integer().references(() => userTable.id),
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),

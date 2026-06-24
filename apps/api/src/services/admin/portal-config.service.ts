@@ -100,9 +100,15 @@ export const defaultPortalConfig = {
     ],
     copyright: "© 2026 PH Performance. All rights reserved.",
   },
+  expiryBanner: {
+    message: "Your plan has expired. Renew to restore full access.",
+    buttonLabel: "Pay Now",
+    paymentUrl: "",
+  },
 };
 
 export type PortalConfig = typeof defaultPortalConfig;
+export type ExpiryBannerConfig = typeof defaultPortalConfig.expiryBanner;
 
 function mergeSection<T extends Record<string, any>>(stored: unknown, defaults: T): T {
   if (!stored || typeof stored !== "object") return defaults;
@@ -121,6 +127,7 @@ export async function getPortalConfig(): Promise<PortalConfig> {
     testimonials: mergeSection(row.testimonials, defaultPortalConfig.testimonials),
     cta: mergeSection(row.cta, defaultPortalConfig.cta),
     footer: mergeSection(row.footer, defaultPortalConfig.footer),
+    expiryBanner: mergeSection(row.expiryBanner, defaultPortalConfig.expiryBanner),
   };
 }
 
@@ -134,6 +141,7 @@ export async function updatePortalConfig(userId: number, input: Partial<PortalCo
     testimonials: input.testimonials ?? current.testimonials,
     cta: input.cta ?? current.cta,
     footer: input.footer ?? current.footer,
+    expiryBanner: input.expiryBanner ?? current.expiryBanner,
   };
 
   const existing = await db.select().from(portalConfigTable).limit(1);
@@ -148,6 +156,7 @@ export async function updatePortalConfig(userId: number, input: Partial<PortalCo
         testimonials: merged.testimonials,
         cta: merged.cta,
         footer: merged.footer,
+        expiryBanner: merged.expiryBanner,
         updatedBy: userId,
         updatedAt: new Date(),
       })
@@ -161,6 +170,7 @@ export async function updatePortalConfig(userId: number, input: Partial<PortalCo
       testimonials: merged.testimonials,
       cta: merged.cta,
       footer: merged.footer,
+      expiryBanner: merged.expiryBanner,
       updatedBy: userId,
     });
   }

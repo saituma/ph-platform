@@ -1233,6 +1233,13 @@
       "when": 1780800000000,
       "tag": "0175_preseason_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1780900000000,
+      "tag": "0176_expiry_banner_config",
+      "breakpoints": true
     }
   ]
 }
