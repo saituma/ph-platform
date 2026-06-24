@@ -2590,7 +2590,7 @@ function MessagingPageInner() {
                                 : "border-border"
                             }`}
                           >
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="truncate text-sm font-semibold text-foreground">
                                   {group.name}
@@ -2611,7 +2611,7 @@ function MessagingPageInner() {
                                 </p>
                               ) : null}
                             </div>
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="shrink-0 flex flex-col items-end gap-2">
                               <span className="text-xs text-muted-foreground">
                                 {formatTime(getGroupActivityTimestamp(group))}
                               </span>
@@ -2659,16 +2659,16 @@ function MessagingPageInner() {
                     key={team.team}
                     type="button"
                     onClick={() => void openTeamInbox(team)}
-                    className={`rounded-xl border bg-background p-4 ${
+                    className={`w-full text-left rounded-xl border bg-background p-4 ${
                       highlightedTeamName &&
                       team.team.toLowerCase() === highlightedTeamName
                         ? "border-primary shadow-[0_0_0_1px_hsl(var(--primary)/0.5)]"
                         : "border-border hover:border-primary/40 hover:bg-primary/5"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-start justify-between gap-3 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
                           <p className="truncate text-sm font-semibold text-foreground">
                             {team.team}
                           </p>
@@ -2706,7 +2706,7 @@ function MessagingPageInner() {
                           )}
                         </p>
                       </div>
-                      <div className="text-right text-xs text-muted-foreground">
+                      <div className="shrink-0 text-right text-xs text-muted-foreground">
                         <p>Updated {formatTime(team.updatedAt)}</p>
                         <p>Created {formatTime(team.createdAt)}</p>
                         <p className="mt-1 text-[11px] text-primary/90">
