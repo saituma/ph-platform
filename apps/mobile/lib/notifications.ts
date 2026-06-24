@@ -4,10 +4,6 @@ export async function getNotifications() {
     if (Platform.OS === "web") {
       return null;
     }
-    if (Platform.OS === "ios" && Number.parseInt(String(Platform.Version), 10) >= 26) {
-      return null;
-    }
-
     const ConstantsMod = await import("expo-constants");
     const anyConstants = ConstantsMod as any;
     const constants = anyConstants?.default ?? anyConstants;
