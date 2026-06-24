@@ -53,6 +53,7 @@ export const contentSurface = pgEnum("content_surface", [
   "legal",
   "announcements",
   "testimonial_submissions",
+  "news",
 ]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
 export const chatGroupCategory = pgEnum("chat_group_category", ["announcement", "coach_group", "team"]);
@@ -1434,6 +1435,45 @@ export const parentCourseTable = pgTable("parent_courses", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const newsCommentTable = pgTable(
+  "news_comments",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contentId: integer("content_id")
+      .notNull()
+      .references(() => contentTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    contentIdx: index("news_comments_content_idx").on(table.contentId),
+    userIdx: index("news_comments_user_idx").on(table.userId),
+  }),
+);
+
+export const newsLikeTable = pgTable(
+  "news_likes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    contentId: integer("content_id")
+      .notNull()
+      .references(() => contentTable.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    contentUserUnique: uniqueIndex("news_likes_content_user_unique").on(table.contentId, table.userId),
+    contentIdx: index("news_likes_content_idx").on(table.contentId),
+    userIdx: index("news_likes_user_idx").on(table.userId),
+  }),
+);
 
 export const subscriptionPlanTable = pgTable("subscription_plans", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

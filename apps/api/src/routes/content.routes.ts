@@ -14,6 +14,13 @@ import {
   updateContentItem,
   getContentItem,
   deleteContent,
+  listNewsContent,
+  listNewsCategoriesContent,
+  likeNewsContent,
+  unlikeNewsContent,
+  listNewsCommentsContent,
+  createNewsCommentContent,
+  deleteNewsCommentContent,
   submitTestimonial,
   listTestimonialSubmissions,
   approveTestimonialSubmission,
@@ -39,6 +46,13 @@ router.get("/content/home", requireAuth, listHomeContent);
 router.get("/content/parent-platform", requireAuth, listParentContent);
 router.get("/content/legal", requireAuth, listLegalContent);
 router.get("/content/announcements", requireAuth, listAnnouncementsContent);
+router.get("/content/news", requireAuth, listNewsContent);
+router.get("/content/news/categories", requireAuth, listNewsCategoriesContent);
+router.post("/content/news/:contentId/like", requireAuth, likeNewsContent);
+router.delete("/content/news/:contentId/like", requireAuth, unlikeNewsContent);
+router.get("/content/news/:contentId/comments", requireAuth, listNewsCommentsContent);
+router.post("/content/news/:contentId/comments", requireAuth, createNewsCommentContent);
+router.delete("/content/news/comments/:commentId", requireAuth, deleteNewsCommentContent);
 router.get("/stories", requireAuth, listStories);
 router.post("/stories/:storyId/view", requireAuth, viewStoryHandler);
 router.get("/content/stories", requireAuth, requireRole(["coach", "admin", "superAdmin"]), listStoriesForAdmin);

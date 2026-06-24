@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { logger } from "../lib/logger";
@@ -7,6 +7,8 @@ import {
   chatGroupMemberTable,
   contentTable,
   guardianTable,
+  newsCommentTable,
+  newsLikeTable,
   parentCourseTable,
   ProgramType,
   storyTable,
@@ -169,6 +171,180 @@ export async function getAnnouncements(userId?: number, role?: string) {
   });
 }
 
+export async function listNews(input: {
+  viewerUserId?: number;
+  role?: string | null;
+  limit?: number;
+  cursor?: number | null;
+  query?: string | null;
+  category?: string | null;
+}) {
+  const limit = Math.max(1, Math.min(input.limit ?? 20, 50));
+  const cursorFilter = input.cursor ? lt(contentTable.id, input.cursor) : sql`true`;
+  const now = new Date();
+  const activeFilter = isAdminRole(input.role)
+    ? sql`true`
+    : and(
+        eq(contentTable.isActive, true),
+        or(sql`${contentTable.startsAt} IS NULL`, sql`${contentTable.startsAt} <= ${now}`),
+        or(sql`${contentTable.endsAt} IS NULL`, sql`${contentTable.endsAt} >= ${now}`),
+      );
+  const searchTerm = input.query?.trim();
+  const searchFilter = searchTerm
+    ? or(
+        ilike(contentTable.title, `%${searchTerm}%`),
+        ilike(contentTable.content, `%${searchTerm}%`),
+        ilike(contentTable.body, `%${searchTerm}%`),
+      )
+    : sql`true`;
+  const categoryTerm = input.category?.trim();
+  const categoryFilter = categoryTerm ? eq(contentTable.category, categoryTerm) : sql`true`;
+
+  const rows = await db
+    .select({
+      id: contentTable.id,
+      title: contentTable.title,
+      content: contentTable.content,
+      body: contentTable.body,
+      type: contentTable.type,
+      category: contentTable.category,
+      isActive: contentTable.isActive,
+      startsAt: contentTable.startsAt,
+      endsAt: contentTable.endsAt,
+      createdAt: contentTable.createdAt,
+      updatedAt: contentTable.updatedAt,
+      authorName: userTable.name,
+    })
+    .from(contentTable)
+    .innerJoin(userTable, eq(userTable.id, contentTable.createdBy))
+    .where(and(eq(contentTable.surface, "news"), activeFilter, cursorFilter, searchFilter, categoryFilter))
+    .orderBy(desc(contentTable.id))
+    .limit(limit + 1);
+
+  const page = rows.slice(0, limit);
+  const nextCursor = rows.length > limit ? page[page.length - 1]!.id : null;
+
+  const items = await Promise.all(
+    page.map(async (item) => {
+      const [likes, comments] = await Promise.all([
+        db.select({ count: sql<string>`count(*)` }).from(newsLikeTable).where(eq(newsLikeTable.contentId, item.id)),
+        db.select({ count: sql<string>`count(*)` }).from(newsCommentTable).where(eq(newsCommentTable.contentId, item.id)),
+      ]);
+
+      let userLiked = false;
+      if (input.viewerUserId) {
+        const like = await db
+          .select({ id: newsLikeTable.id })
+          .from(newsLikeTable)
+          .where(and(eq(newsLikeTable.contentId, item.id), eq(newsLikeTable.userId, input.viewerUserId)))
+          .limit(1);
+        userLiked = like.length > 0;
+      }
+
+      return {
+        ...item,
+        date: item.createdAt.toISOString(),
+        likeCount: Number(likes[0]?.count ?? 0),
+        commentCount: Number(comments[0]?.count ?? 0),
+        userLiked,
+      };
+    }),
+  );
+
+  return { items, nextCursor };
+}
+
+export async function listNewsCategories() {
+  const rows = await db
+    .select({ category: contentTable.category })
+    .from(contentTable)
+    .where(and(eq(contentTable.surface, "news"), isNotNull(contentTable.category)))
+    .orderBy(asc(contentTable.category));
+
+  return {
+    items: Array.from(new Set(rows.map((row) => row.category).filter((value): value is string => Boolean(value)))),
+  };
+}
+
+export async function likeNews(userId: number, contentId: number) {
+  await db.insert(newsLikeTable).values({ userId, contentId }).onConflictDoNothing();
+  return { ok: true };
+}
+
+export async function unlikeNews(userId: number, contentId: number) {
+  await db.delete(newsLikeTable).where(and(eq(newsLikeTable.userId, userId), eq(newsLikeTable.contentId, contentId)));
+  return { ok: true };
+}
+
+export async function listNewsComments(contentId: number, viewerUserId: number) {
+  const rows = await db
+    .select({
+      commentId: newsCommentTable.id,
+      contentId: newsCommentTable.contentId,
+      userId: newsCommentTable.userId,
+      content: newsCommentTable.content,
+      createdAt: newsCommentTable.createdAt,
+      updatedAt: newsCommentTable.updatedAt,
+      name: userTable.name,
+      avatarUrl: userTable.profilePicture,
+    })
+    .from(newsCommentTable)
+    .innerJoin(userTable, eq(userTable.id, newsCommentTable.userId))
+    .where(eq(newsCommentTable.contentId, contentId))
+    .orderBy(asc(newsCommentTable.id));
+
+  return {
+    items: rows.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      isMine: row.userId === viewerUserId,
+      canDelete: row.userId === viewerUserId,
+    })),
+  };
+}
+
+export async function createNewsComment(input: { userId: number; contentId: number; content: string }) {
+  const inserted = await db
+    .insert(newsCommentTable)
+    .values({ userId: input.userId, contentId: input.contentId, content: input.content })
+    .returning({ id: newsCommentTable.id });
+  const commentId = inserted[0]?.id;
+  if (!commentId) throw new Error("Failed to create news comment");
+
+  const rows = await db
+    .select({
+      commentId: newsCommentTable.id,
+      contentId: newsCommentTable.contentId,
+      userId: newsCommentTable.userId,
+      content: newsCommentTable.content,
+      createdAt: newsCommentTable.createdAt,
+      updatedAt: newsCommentTable.updatedAt,
+      name: userTable.name,
+      avatarUrl: userTable.profilePicture,
+    })
+    .from(newsCommentTable)
+    .innerJoin(userTable, eq(userTable.id, newsCommentTable.userId))
+    .where(eq(newsCommentTable.id, commentId))
+    .limit(1);
+
+  const row = rows[0];
+  return row
+    ? {
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        isMine: true,
+        canDelete: true,
+      }
+    : null;
+}
+
+export async function deleteNewsComment(userId: number, commentId: number) {
+  await db.delete(newsCommentTable).where(and(eq(newsCommentTable.id, commentId), eq(newsCommentTable.userId, userId)));
+  return { ok: true };
+}
+
 /** Same audience rules as `getAnnouncements` for a single row (used for push fan-out). */
 export async function userMatchesAnnouncementItem(
   userId: number,
@@ -313,6 +489,31 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
       title,
       body,
       data: { type: "announcement", url: "/announcements", contentId: String(item.id) },
+    });
+  }
+}
+
+async function sendNewsCreatedPushes(item: typeof contentTable.$inferSelect) {
+  if (item.surface !== "news" || item.isActive === false) return;
+  const now = new Date();
+  if (item.startsAt && now < item.startsAt) return;
+  if (item.endsAt && now > item.endsAt) return;
+
+  const users = await db
+    .select({ id: userTable.id, role: userTable.role })
+    .from(userTable)
+    .where(and(eq(userTable.isDeleted, false), eq(userTable.isBlocked, false), isNotNull(userTable.expoPushToken)));
+
+  const title = (item.title ?? "News").trim().slice(0, 80) || "News";
+  const body = (item.content ?? "").trim().slice(0, 178) || "New PH Performance news";
+
+  for (const u of users) {
+    if (isAdminRole(u.role)) continue;
+    await createPushIntent({
+      userId: u.id,
+      title,
+      body,
+      data: { type: "news", url: "/news", contentId: String(item.id) },
     });
   }
 }
@@ -488,7 +689,7 @@ export async function createContent(input: {
   type: string;
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
-  surface: "home" | "parent_platform" | "legal" | "announcements" | "testimonial_submissions";
+  surface: "home" | "parent_platform" | "legal" | "announcements" | "testimonial_submissions" | "news";
   category?: string | null;
   ageList?: number[] | null;
   minAge?: number | null;
@@ -523,6 +724,11 @@ export async function createContent(input: {
   if (row && input.surface === "announcements") {
     void sendAnnouncementCreatedPushes(row).catch((err) =>
       logger.error({ err }, "[Content] announcement push fan-out failed"),
+    );
+  }
+  if (row && input.surface === "news") {
+    void sendNewsCreatedPushes(row).catch((err) =>
+      logger.error({ err }, "[Content] news push fan-out failed"),
     );
   }
 

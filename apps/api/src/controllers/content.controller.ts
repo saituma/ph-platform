@@ -29,6 +29,13 @@ import {
   createSingleStory,
   deleteSingleStory,
   getGalleryItems,
+  listNews,
+  listNewsCategories,
+  likeNews,
+  unlikeNews,
+  listNewsComments,
+  createNewsComment,
+  deleteNewsComment,
 } from "../services/content.service";
 import { ProgramType, contentType } from "../db/schema";
 import { getAthleteForUser } from "../services/user.service";
@@ -46,7 +53,7 @@ const contentCreateSchema = z
     type: z.enum(contentType.enumValues),
     body: z.string().optional(),
     programTier: z.enum(ProgramType.enumValues).optional(),
-    surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions"]),
+    surface: z.enum(["home", "parent_platform", "legal", "announcements", "testimonial_submissions", "news"]),
     category: z.string().optional(),
     ageList: z.array(z.number().int().min(0)).optional(),
     minAge: z.number().int().min(0).optional(),
@@ -297,6 +304,60 @@ export async function listLegalContent(_req: Request, res: Response) {
 export async function listAnnouncementsContent(_req: Request, res: Response) {
   const items = await getAnnouncements(_req.user!.id, (_req.user as { role?: string } | undefined)?.role);
   return res.status(200).json({ items });
+}
+
+export async function listNewsContent(req: Request, res: Response) {
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 20, 50));
+  const cursorRaw = Number(req.query.cursor);
+  const cursor = Number.isFinite(cursorRaw) && cursorRaw > 0 ? cursorRaw : null;
+  const query = typeof req.query.query === "string" ? req.query.query : null;
+  const category = typeof req.query.category === "string" ? req.query.category : null;
+  const role = (req.user as { role?: string } | undefined)?.role;
+  const out = await listNews({
+    viewerUserId: req.user!.id,
+    role,
+    limit,
+    cursor,
+    query,
+    category,
+  });
+  return res.status(200).json(out);
+}
+
+export async function listNewsCategoriesContent(_req: Request, res: Response) {
+  const out = await listNewsCategories();
+  return res.status(200).json(out);
+}
+
+export async function likeNewsContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const out = await likeNews(req.user!.id, contentId);
+  return res.status(200).json(out);
+}
+
+export async function unlikeNewsContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const out = await unlikeNews(req.user!.id, contentId);
+  return res.status(200).json(out);
+}
+
+export async function listNewsCommentsContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const out = await listNewsComments(contentId, req.user!.id);
+  return res.status(200).json(out);
+}
+
+export async function createNewsCommentContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const input = z.object({ content: z.string().trim().min(1).max(2000) }).parse(req.body);
+  const item = await createNewsComment({ userId: req.user!.id, contentId, content: input.content });
+  return res.status(201).json({ item });
+}
+
+export async function deleteNewsCommentContent(req: Request, res: Response) {
+  const commentId = z.coerce.number().int().min(1).parse(req.params.commentId);
+  const out = await deleteNewsComment(req.user!.id, commentId);
+  return res.status(200).json(out);
 }
 
 export async function listStories(req: Request, res: Response) {

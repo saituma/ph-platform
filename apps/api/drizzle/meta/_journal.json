@@ -1240,6 +1240,13 @@
       "when": 1780900000000,
       "tag": "0176_expiry_banner_config",
       "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1781000000000,
+      "tag": "0177_news_content",
+      "breakpoints": true
     }
   ]
 }
