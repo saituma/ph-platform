@@ -192,6 +192,6 @@ export function buildAppCapabilities(input: {
     runTracking: (isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled)) && (has("run_tracking") || gracePlan),
     achievements: has("achievements"),
     referralRewards: has("referrals"),
-    preseasonProgramme: isAdult && hasPreseasonAssignment,
+    preseasonProgramme: isAdult && hasPreseasonAssignment && hasAssignedAccess,
   };
 }

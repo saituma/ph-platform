@@ -134,6 +134,7 @@ export async function getExerciseLibrary() {
 export async function getMyAssignedPrograms(userId: number) {
   const athlete = await getAthleteForUser(userId);
   if (!athlete) return [];
+  if (!athlete.currentProgramTier && !athlete.currentPlanId) return [];
 
   const assignments = await db
     .select({
