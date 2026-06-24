@@ -30,6 +30,7 @@ import { env } from "../config/env";
 import { cache, cacheKeys } from "../lib/cache";
 import { isLikelyDatabaseConnectivityFailure } from "../lib/db-connectivity";
 import { featuresForTier, getFeaturesForAthlete } from "../services/billing/feature-access.service";
+import { getPortalConfig } from "../services/admin/portal-config.service";
 
 type TeamForMeRow = {
   id: number;
@@ -402,10 +403,11 @@ export async function getMe(req: Request, res: Response) {
   const user = req.user!;
 
   const payload = await cache.getOrSet(cacheKeys.userProfile(user.id), 60, async () => {
-    const [dbUser, athleteData, messagingAccessTiers] = await Promise.all([
+    const [dbUser, athleteData, messagingAccessTiers, portalConfig] = await Promise.all([
       getUserById(user.id),
       getOnboardingByUser(user.id),
       getMessagingAccessTiers(),
+      getPortalConfig(),
     ]);
 
     const fullUser = dbUser ?? user;
@@ -449,6 +451,9 @@ export async function getMe(req: Request, res: Response) {
           .limit(1)
           .then((rows) => rows.length > 0)
       : false;
+    // planPaymentType is set when a plan is assigned (admin or subscription flow)
+    // and is never cleared by the expiry sweep — reliable signal for "was a paying user".
+    const hadPreviousPlan = athlete?.planPaymentType != null;
 
     const capabilities = buildAppCapabilities({
       role: fullUser.role,
@@ -460,6 +465,7 @@ export async function getMe(req: Request, res: Response) {
       hasActivePlan: athlete?.currentPlanId != null,
       youthTrackingEnabled: athlete?.youthTrackingEnabled ?? false,
       hasPreseasonAssignment,
+      hadPreviousPlan,
     });
 
     return {
@@ -502,6 +508,7 @@ export async function getMe(req: Request, res: Response) {
       capabilities,
       planFeatures: Array.from(planFeatures),
       messagingAccessTiers,
+      expiryBanner: portalConfig.expiryBanner,
       role: fullUser.role,
       email: fullUser.email,
       name:
