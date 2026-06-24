@@ -62,6 +62,7 @@ export function buildAppCapabilities(input: {
   hasActivePlan?: boolean;
   youthTrackingEnabled?: boolean;
   hasPreseasonAssignment?: boolean;
+  hadPreviousPlan?: boolean;
 }): AppCapabilities {
   const {
     role,
@@ -73,6 +74,7 @@ export function buildAppCapabilities(input: {
     hasActivePlan = false,
     youthTrackingEnabled = false,
     hasPreseasonAssignment = false,
+    hadPreviousPlan = false,
   } = input;
   const isAdmin = isPlatformAdmin(role);
   const isStaff = isTrainingStaff(role);
@@ -157,19 +159,22 @@ export function buildAppCapabilities(input: {
   const canTrackProgress = isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled);
   // PHP Program is the entry-level tier — wellbeing, sleep, progress and nutrition are Premium+ only.
   const isPhpBasic = programTier === "PHP" && !has("programs_full");
+  // Retain social/engagement features for athletes whose plan lapsed — they keep
+  // messaging, tracking, wellbeing and sleep while programs/schedule stay gated.
+  const gracePlan = !hasAssignedAccess && hadPreviousPlan;
 
   return {
-    training: hasAssignedAccess,
+    training: hasAssignedAccess || gracePlan,
     schedule: has("schedule"),
     coachBooking: !isTeamAthlete && has("bookings"),
-    messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures, hasActivePlan),
+    messaging: messagingAllowed(programTier, messagingAccessTiers, planFeatures, hasActivePlan) || gracePlan,
     groupChat: isTeamAthlete,
     nutrition: !isPhpBasic && hasNutrition,
     nutritionReview: false,
     parentContent: isYouth && hasParentContent,
-    progressTracking: !isPhpBasic && canTrackProgress && has("progress_tracking"),
-    wellbeing: !isPhpBasic && hasAssignedAccess,
-    sleep: !isPhpBasic && hasAssignedAccess,
+    progressTracking: (!isPhpBasic && canTrackProgress && has("progress_tracking")) || (gracePlan && canTrackProgress),
+    wellbeing: (!isPhpBasic && hasAssignedAccess) || gracePlan,
+    sleep: (!isPhpBasic && hasAssignedAccess) || gracePlan,
     teamTracking: isTeamAthlete && (has("run_tracking") || has("social_feed") || has("progress_tracking")),
     socialTracking: isAdult && !isTeamAthlete && has("social_feed"),
     trainingQuestionnaire: (isAdult || isTeamAthlete) && has("progress_tracking"),
@@ -184,7 +189,7 @@ export function buildAppCapabilities(input: {
     semiPrivateBooking: has("semi_private"),
     coachVideoUpload: has("video_upload"),
     physioReferrals: has("physio_referrals"),
-    runTracking: (isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled)) && has("run_tracking"),
+    runTracking: (isAdult || isTeamAthlete || (isYouth && youthTrackingEnabled)) && (has("run_tracking") || gracePlan),
     achievements: has("achievements"),
     referralRewards: has("referrals"),
     preseasonProgramme: isAdult && hasPreseasonAssignment,
