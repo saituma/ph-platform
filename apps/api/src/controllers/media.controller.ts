@@ -76,6 +76,7 @@ const ALLOWED_TOP_FOLDERS = new Set([
   "exercises",
   "exercise-videos",
   "home",
+  "news",
   "portal",
   "parent-courses",
   "parent-content",
