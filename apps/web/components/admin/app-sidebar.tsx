@@ -19,6 +19,7 @@ import {
   Library,
   LifeBuoy,
   MessageCircle,
+  Newspaper,
   PlaySquare,
   Quote,
   Settings,
@@ -117,6 +118,7 @@ const NAV: NavEntry[] = [
     icon: Images,
     children: [
       { label: "Profile",     href: "/content/profile",       icon: UserCircle },
+      { label: "News",        href: "/content/news",          icon: Newspaper },
       { label: "Testimonials",href: "/content/testimonials",  icon: Quote },
       { label: "Intro Video", href: "/content/intro-video",   icon: Video },
       { label: "Gallery",     href: "/gallery",               icon: Images },

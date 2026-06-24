@@ -107,6 +107,7 @@ const PAGE_RESULTS: PageResult[] = [
   { id: "training", label: "Client training", href: "/training-snapshot", keywords: ["training", "snapshot"] },
   { id: "billing", label: "Billing", href: "/billing", keywords: ["payment", "invoice"] },
   { id: "content", label: "Content", href: "/content", keywords: ["cms"] },
+  { id: "news", label: "News", href: "/content/news", keywords: ["blog", "posts", "updates"] },
   { id: "parent", label: "Parent Portal", href: "/parent", keywords: ["guardian", "parent"] },
   { id: "library", label: "Training content", href: "/exercise-library", keywords: ["exercise", "library"] },
   { id: "messaging", label: "Messaging", href: "/messaging", keywords: ["chat", "threads", "inbox"] },

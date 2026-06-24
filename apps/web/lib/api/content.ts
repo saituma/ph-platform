@@ -25,6 +25,10 @@ const contentApi = apiSlice.injectEndpoints({
       query: () => "/content/announcements",
       providesTags: ["Content"],
     }),
+    getNews: builder.query<{ items: any[]; nextCursor: number | null }, void>({
+      query: () => "/content/news?limit=50",
+      providesTags: ["Content"],
+    }),
     getOpenGraph: builder.query<{ data: any }, { url: string }>({
       query: ({ url }) => `/open-graph?url=${encodeURIComponent(url)}`,
     }),
@@ -158,6 +162,7 @@ export const {
   useGetGalleryItemsQuery,
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
+  useGetNewsQuery,
   useGetOpenGraphQuery,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,
