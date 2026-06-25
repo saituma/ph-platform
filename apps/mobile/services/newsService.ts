@@ -92,3 +92,31 @@ export async function deleteNewsComment(token: string, commentId: number) {
     { token, method: "DELETE", suppressLog: true, suppressStatusCodes: [404] },
   );
 }
+
+export async function createNewsPost(
+  token: string,
+  payload: { title: string; content: string; body?: string; category?: string; type?: string },
+) {
+  return apiRequest<{ item: any }>(
+    "/content",
+    { token, method: "POST", body: { ...payload, surface: "news" }, suppressLog: true },
+  );
+}
+
+export async function updateNewsPost(
+  token: string,
+  contentId: number,
+  payload: { title: string; content: string; body?: string; category?: string; type?: string },
+) {
+  return apiRequest<{ item: any }>(
+    `/content/${encodeURIComponent(String(contentId))}`,
+    { token, method: "PUT", body: { ...payload, surface: "news" }, suppressLog: true },
+  );
+}
+
+export async function deleteNewsPost(token: string, contentId: number) {
+  return apiRequest<{ deleted: boolean }>(
+    `/content/${encodeURIComponent(String(contentId))}`,
+    { token, method: "DELETE", suppressLog: true, suppressStatusCodes: [404] },
+  );
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
-import { Heart, MessageCircle, Search, Send, Trash2, X } from "lucide-react-native";
+import { Heart, MessageCircle, Plus, Search, Send, Trash2, X } from "lucide-react-native";
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -22,13 +22,16 @@ import { LazyVideo } from "@/components/media/LazyVideo";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import {
+  createNewsPost,
   deleteNewsComment,
+  deleteNewsPost,
   fetchNewsCategories,
   fetchNewsComments,
   fetchNewsFeed,
   likeNewsItem,
   postNewsComment,
   unlikeNewsItem,
+  updateNewsPost,
   type NewsCommentItem,
   type NewsItem,
 } from "@/services/newsService";
@@ -104,23 +107,26 @@ function initials(name: string | null | undefined) {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   return (parts[0]?.[0] ?? "P").toUpperCase();
 }
 
 export default function NewsScreen() {
   const token = useAppSelector((state) => state.user.token);
+  const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
+  const isAdmin = apiUserRole === "admin" || apiUserRole === "superAdmin";
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const [items, setItems] = useState<NewsItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<number | null>(null);
   const cursorRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [commentsFor, setCommentsFor] = useState<NewsItem | null>(null);
+  const [adminModal, setAdminModal] = useState<{ mode: "create" | "edit"; item?: NewsItem } | null>(null);
 
   const loadFresh = useCallback(
     async () => {
@@ -134,7 +140,6 @@ export default function NewsScreen() {
           category: activeCategory,
         });
         setItems(res.items ?? []);
-        setCursor(res.nextCursor ?? null);
         cursorRef.current = res.nextCursor ?? null;
       } catch (error) {
         Alert.alert("Couldn't load news", error instanceof Error ? error.message : "Please try again.");
@@ -158,7 +163,6 @@ export default function NewsScreen() {
           category: activeCategory,
         });
         setItems((prev) => [...prev, ...(res.items ?? [])]);
-        setCursor(res.nextCursor ?? null);
         cursorRef.current = res.nextCursor ?? null;
       } catch (error) {
         Alert.alert("Couldn't load news", error instanceof Error ? error.message : "Please try again.");
@@ -181,7 +185,7 @@ export default function NewsScreen() {
       void loadFresh();
     }, 250);
     return () => clearTimeout(timeout);
-  }, [activeCategory, query]);
+  }, [activeCategory, query, loadFresh]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -213,8 +217,6 @@ export default function NewsScreen() {
     [loadFresh, token],
   );
 
-  const data = useMemo(() => items, [items]);
-
   const renderNewsItem = useCallback(
     ({ item }: { item: NewsItem }) => (
       <NewsCard
@@ -222,9 +224,16 @@ export default function NewsScreen() {
         p={p}
         onLike={() => void onToggleLike(item)}
         onComments={() => setCommentsFor(item)}
+        onLongPress={isAdmin ? () => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          Alert.alert(item.title, undefined, [
+            { text: "Edit Post", onPress: () => setAdminModal({ mode: "edit", item }) },
+            { text: "Cancel", style: "cancel" },
+          ]);
+        } : undefined}
       />
     ),
-    [onToggleLike, p],
+    [onToggleLike, p, isAdmin],
   );
 
   const handleEndReached = useCallback(() => {
@@ -292,7 +301,7 @@ export default function NewsScreen() {
         </View>
       ) : (
         <FlatList
-          data={data}
+          data={items}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 96, gap: 14 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -311,6 +320,33 @@ export default function NewsScreen() {
         />
       )}
 
+      {isAdmin ? (
+        <Pressable
+          onPress={() => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            setAdminModal({ mode: "create" });
+          }}
+          style={{
+            position: "absolute",
+            bottom: insets.bottom + 20,
+            right: 20,
+            width: 52,
+            height: 52,
+            borderRadius: 26,
+            backgroundColor: p.accent,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            elevation: 6,
+          }}
+        >
+          <Plus size={24} color="#FFFFFF" />
+        </Pressable>
+      ) : null}
+
       {commentsFor && token ? (
         <NewsCommentsModal
           item={commentsFor}
@@ -318,6 +354,21 @@ export default function NewsScreen() {
           p={p}
           onClose={() => setCommentsFor(null)}
           onChanged={() => void loadFresh()}
+        />
+      ) : null}
+
+      {adminModal && token ? (
+        <AdminPostModal
+          mode={adminModal.mode}
+          item={adminModal.item}
+          token={token}
+          p={p}
+          insets={insets}
+          onClose={() => setAdminModal(null)}
+          onSaved={() => {
+            setAdminModal(null);
+            void loadFresh();
+          }}
         />
       ) : null}
     </View>
@@ -352,19 +403,24 @@ function NewsCard({
   p,
   onLike,
   onComments,
+  onLongPress,
 }: {
   item: NewsItem;
   p: any;
   onLike: () => void;
   onComments: () => void;
+  onLongPress?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const parsed = useMemo(() => parseNewsBody(item.body), [item.body]);
+  const parsed = React.useMemo(() => parseNewsBody(item.body), [item.body]);
   const body = parsed.text || item.content;
   const shouldFold = body.length > FOLDED_BODY_CHARS;
 
   return (
-    <View style={{ borderRadius: 16, backgroundColor: p.cardWhite, borderWidth: 1, borderColor: p.border, padding: 16 }}>
+    <Pressable
+      onLongPress={onLongPress}
+      style={{ borderRadius: 16, backgroundColor: p.cardWhite, borderWidth: 1, borderColor: p.border, padding: 16 }}
+    >
       <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary, lineHeight: 25 }}>
@@ -425,7 +481,7 @@ function NewsCard({
           </Text>
         </Pressable>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -715,23 +771,39 @@ function CommentRow({
     <Pressable
       onLongPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const options: Array<{ text: string; onPress?: () => void; style?: "default" | "cancel" | "destructive" }> = [
+          { text: "Reply", onPress: () => onReply() },
+        ];
+        if (comment.canDelete) {
+          options.push({ text: "Delete", style: "destructive", onPress: () => onDelete() });
+        }
+        options.push({ text: "Cancel", style: "cancel" });
+        Alert.alert(comment.name, undefined, options);
       }}
       style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}
     >
-      <View
-        style={{
-          alignItems: "center",
-          backgroundColor: p.accentSoft,
-          borderRadius: 16,
-          height: 32,
-          justifyContent: "center",
-          width: 32,
-        }}
-      >
-        <Text style={{ color: p.accent, fontFamily: "Outfit-Bold", fontSize: 13 }}>
-          {initials(comment.name)}
-        </Text>
-      </View>
+      {comment.avatarUrl ? (
+        <ExpoImage
+          source={{ uri: comment.avatarUrl }}
+          contentFit="cover"
+          style={{ width: 32, height: 32, borderRadius: 16 }}
+        />
+      ) : (
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: p.accentSoft,
+            borderRadius: 16,
+            height: 32,
+            justifyContent: "center",
+            width: 32,
+          }}
+        >
+          <Text style={{ color: p.accent, fontFamily: "Outfit-Bold", fontSize: 13 }}>
+            {initials(comment.name)}
+          </Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={{ color: p.textPrimary, fontFamily: "Outfit-Regular", fontSize: 13, lineHeight: 19 }}>
           <Text style={{ fontFamily: "Outfit-Bold" }}>{comment.name}</Text>
@@ -755,5 +827,199 @@ function CommentRow({
         </View>
       </View>
     </Pressable>
+  );
+}
+
+function AdminPostModal({
+  mode,
+  item,
+  token,
+  p,
+  insets,
+  onClose,
+  onSaved,
+}: {
+  mode: "create" | "edit";
+  item?: NewsItem;
+  token: string;
+  p: any;
+  insets: { top: number; bottom: number };
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const parsed = React.useMemo(() => (item?.body ? parseNewsBody(item.body) : { text: "", media: [] }), [item]);
+
+  const [title, setTitle] = useState(item?.title ?? "");
+  const [category, setCategory] = useState(item?.category ?? "");
+  const [summary, setSummary] = useState(item?.content ?? "");
+  const [body, setBody] = useState(parsed.text);
+  const [saving, setSaving] = useState(false);
+
+  const fieldStyle = {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: p.border,
+    backgroundColor: p.cardWhite,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: p.textPrimary,
+    fontFamily: "Outfit-Regular",
+    fontSize: 15,
+    marginBottom: 12,
+  };
+
+  const handleSave = async () => {
+    const t = title.trim();
+    const s = summary.trim();
+    if (!t || !s) {
+      Alert.alert("Required", "Title and summary are required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const bodyJson = body.trim()
+        ? JSON.stringify({ text: body.trim(), media: parsed.media })
+        : undefined;
+      const payload = {
+        title: t,
+        content: s,
+        body: bodyJson,
+        category: category.trim() || undefined,
+      };
+      if (mode === "create") {
+        await createNewsPost(token, payload);
+      } else if (item) {
+        await updateNewsPost(token, item.id, payload);
+      }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onSaved();
+    } catch {
+      Alert.alert("Error", "Could not save post. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!item) return;
+    Alert.alert("Delete Post", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteNewsPost(token, item.id);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onSaved();
+          } catch {
+            Alert.alert("Error", "Could not delete post.");
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top + 10 }}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingHorizontal: 18,
+            paddingBottom: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: p.border,
+          }}
+        >
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
+            {mode === "create" ? "New Post" : "Edit Post"}
+          </Text>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <X size={22} color={p.textSecondary} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 40 }}
+        >
+          <TextInput
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Title *"
+            placeholderTextColor={p.textMuted}
+            style={fieldStyle}
+          />
+          <TextInput
+            value={category}
+            onChangeText={setCategory}
+            placeholder="Category (e.g. Academy)"
+            placeholderTextColor={p.textMuted}
+            style={fieldStyle}
+          />
+          <TextInput
+            value={summary}
+            onChangeText={setSummary}
+            placeholder="Short summary *"
+            placeholderTextColor={p.textMuted}
+            multiline
+            style={[fieldStyle, { minHeight: 80 }]}
+          />
+          <TextInput
+            value={body}
+            onChangeText={setBody}
+            placeholder="Full post body"
+            placeholderTextColor={p.textMuted}
+            multiline
+            style={[fieldStyle, { minHeight: 120 }]}
+          />
+
+          <Pressable
+            onPress={() => void handleSave()}
+            disabled={saving}
+            style={{
+              borderRadius: 12,
+              backgroundColor: p.accent,
+              paddingVertical: 14,
+              alignItems: "center",
+              marginTop: 4,
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: "#FFFFFF" }}>
+                {mode === "create" ? "Publish" : "Save Changes"}
+              </Text>
+            )}
+          </Pressable>
+
+          {mode === "edit" ? (
+            <Pressable
+              onPress={handleDelete}
+              style={{
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#E84A5F",
+                paddingVertical: 14,
+                alignItems: "center",
+                marginTop: 12,
+              }}
+            >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: "#E84A5F" }}>
+                Delete Post
+              </Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
