@@ -148,6 +148,7 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   const initialLoadDone = useRef(false);
   const lastFetchDataRef = useRef<number>(0);
   const lastFetchRecentLogsRef = useRef<number>(0);
+  const prevDateRef = useRef<string>(today);
   const fetchData = useCallback(async () => {
     if (!token) {
       setLoading(false);
@@ -384,6 +385,17 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
     void fetchCoachHistory();
     void fetchRecentLogs();
   }, [fetchCoachHistory, fetchRecentLogs]);
+
+  // When the selected date changes (user taps < > arrows in the history view),
+  // clear stale data immediately and fetch the new date's log without waiting
+  // for the 30-second useFocusEffect throttle.
+  useEffect(() => {
+    if (prevDateRef.current === today) return;
+    prevDateRef.current = today;
+    setLoading(true);
+    setData(null);
+    void fetchData();
+  }, [today, fetchData]);
 
   // Refetch the day whenever the screen regains focus, so a meal logged elsewhere
   // (or while the screen was backgrounded) shows up without restarting the app.
