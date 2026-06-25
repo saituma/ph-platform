@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, LayoutAnimation, Platform, Pressable, UIManager, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -66,27 +67,20 @@ export function AthleteHealthDetail({ athleteId, athleteUserId }: { athleteId: n
 
 /* ----------------------------- data ----------------------------- */
 
-function useAsyncData<T>(fetcher: () => Promise<T> | null, deps: React.DependencyList) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let alive = true;
-    const promise = fetcher();
-    if (!promise) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    promise
-      .then((d) => alive && setData(d))
-      .catch(() => alive && setData(null))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return { data, loading };
+const ATHLETE_STALE_TIME = 5 * 60 * 1000;
+
+function useAthleteQuery<T>(
+  key: readonly unknown[],
+  fetcher: () => Promise<T>,
+  enabled: boolean,
+) {
+  const { data, isLoading, error } = useQuery<T>({
+    queryKey: key,
+    queryFn: fetcher,
+    staleTime: ATHLETE_STALE_TIME,
+    enabled,
+  });
+  return { data: data ?? null, loading: isLoading, error };
 }
 
 /* --------------------------- primitives -------------------------- */
@@ -176,6 +170,11 @@ function Row({ label, value, tone }: { label: string; value?: string; tone?: Ton
 function Empty({ label }: { label: string }) {
   const p = useAdminPastel();
   return <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted }}>{label}</Text>;
+}
+
+function ErrorMessage({ label = "Failed to load. Pull down to retry." }: { label?: string }) {
+  const p = useAdminPastel();
+  return <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.danger ?? "#ef4444" }}>{label}</Text>;
 }
 
 function Loading() {
@@ -297,9 +296,10 @@ function severityTone(severity: string): Tone {
 function EngagementOverview({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const p = useAdminPastel();
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<ManagerEngagement>(
-    () => (token ? fetchAthleteEngagement(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<ManagerEngagement>(
+    ["athlete-engagement", athleteId, range],
+    () => fetchAthleteEngagement(token!, athleteId, range),
+    !!token,
   );
   const rangeLabel = range === "7d" ? "Last 7 days" : range === "30d" ? "Last 30 days" : "All time";
 
@@ -311,6 +311,8 @@ function EngagementOverview({ athleteId, range }: { athleteId: number; range: Hi
       </View>
       {loading ? (
         <Loading />
+      ) : error ? (
+        <ErrorMessage />
       ) : data ? (
         <>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -346,9 +348,10 @@ function EngagementOverview({ athleteId, range }: { athleteId: number; range: Hi
 
 function TrainingSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<ManagerTraining>(
-    () => (token ? fetchAthleteTraining(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<ManagerTraining>(
+    ["athlete-training", athleteId, range],
+    () => fetchAthleteTraining(token!, athleteId, range),
+    !!token,
   );
   const t = data?.totals;
   const pct = t && t.programsAssigned > 0 ? Math.round((t.programsCompleted / t.programsAssigned) * 100) : 0;
@@ -359,7 +362,9 @@ function TrainingSection({ athleteId, range }: { athleteId: number; range: Histo
       loading={loading}
       defaultOpen
     >
-      {data ? (
+      {error ? (
+        <ErrorMessage />
+      ) : data ? (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <StatTile value={`${t!.programsCompleted}/${t!.programsAssigned}`} label="Programs" />
@@ -391,9 +396,10 @@ function TrainingSection({ athleteId, range }: { athleteId: number; range: Histo
 
 function AttendanceSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ attendance: ManagerAttendance[] }>(
-    () => (token ? fetchAthleteAttendance(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ attendance: ManagerAttendance[] }>(
+    ["athlete-attendance", athleteId, range],
+    () => fetchAthleteAttendance(token!, athleteId, range),
+    !!token,
   );
   const rows = data?.attendance ?? [];
   const present = rows.filter((r) => r.status === "present" || r.checkInAt != null).length;
@@ -404,7 +410,9 @@ function AttendanceSection({ athleteId, range }: { athleteId: number; range: His
       loading={loading}
       defaultOpen
     >
-      {rows.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : rows.length ? (
         <View style={{ gap: 8 }}>
           {rows.slice(0, 30).map((r) => (
             <Row
@@ -424,9 +432,10 @@ function AttendanceSection({ athleteId, range }: { athleteId: number; range: His
 
 function RunningSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ runs: ManagerRun[] }>(
-    () => (token ? fetchAthleteRuns(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ runs: ManagerRun[] }>(
+    ["athlete-runs", athleteId, range],
+    () => fetchAthleteRuns(token!, athleteId, range),
+    !!token,
   );
   const runs = data?.runs ?? [];
   const totalKm = runs.reduce((s, r) => s + r.distanceMeters / 1000, 0);
@@ -438,7 +447,9 @@ function RunningSection({ athleteId, range }: { athleteId: number; range: Histor
       loading={loading}
       defaultOpen
     >
-      {runs.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : runs.length ? (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <StatTile value={runs.length} label="Runs" />
@@ -474,9 +485,10 @@ function NutritionSection({
   const p = useAdminPastel();
   const { token } = useAppSelector((s) => s.user);
   const { data: today } = useNutritionDay(undefined, athleteUserId);
-  const { data: compliance, loading } = useAsyncData<ManagerNutritionCompliance>(
-    () => (token ? fetchAthleteNutritionCompliance(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data: compliance, loading, error } = useAthleteQuery<ManagerNutritionCompliance>(
+    ["athlete-nutrition-compliance", athleteId, range],
+    () => fetchAthleteNutritionCompliance(token!, athleteId, range),
+    !!token,
   );
   const summary = compliance
     ? compliance.compliancePct != null
@@ -485,7 +497,9 @@ function NutritionSection({
     : undefined;
   return (
     <Section title="Nutrition" summary={summary} loading={loading} defaultOpen>
-      {compliance ? (
+      {error ? (
+        <ErrorMessage />
+      ) : compliance ? (
         <View style={{ gap: 12 }}>
           {compliance.compliancePct != null ? (
             <View style={{ gap: 6 }}>
@@ -528,9 +542,10 @@ function NutritionSection({
 function AchievementsSection({ athleteId }: { athleteId: number }) {
   const p = useAdminPastel();
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<ManagerAchievements>(
-    () => (token ? fetchAthleteAchievements(token, athleteId) : null),
-    [token, athleteId],
+  const { data, loading, error } = useAthleteQuery<ManagerAchievements>(
+    ["athlete-achievements", athleteId],
+    () => fetchAthleteAchievements(token!, athleteId),
+    !!token,
   );
   const unlocked = data?.achievements.filter((a) => a.unlocked).length ?? 0;
   return (
@@ -539,7 +554,9 @@ function AchievementsSection({ athleteId }: { athleteId: number }) {
       summary={data ? `${unlocked}/${data.achievements.length} unlocked` : undefined}
       loading={loading}
     >
-      {data ? (
+      {error ? (
+        <ErrorMessage />
+      ) : data ? (
         <View style={{ gap: 12 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <StatTile value={data.stats.exerciseCompletions} label="Check-ins" />
@@ -575,9 +592,10 @@ function AchievementsSection({ athleteId }: { athleteId: number }) {
 
 function BookingsSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ bookings: ManagerBooking[] }>(
-    () => (token ? fetchAthleteBookings(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ bookings: ManagerBooking[] }>(
+    ["athlete-bookings", athleteId, range],
+    () => fetchAthleteBookings(token!, athleteId, range),
+    !!token,
   );
   const bookings = data?.bookings ?? [];
   return (
@@ -586,7 +604,9 @@ function BookingsSection({ athleteId, range }: { athleteId: number; range: Histo
       summary={data ? (bookings.length ? `${bookings.length} bookings` : "No bookings") : undefined}
       loading={loading}
     >
-      {bookings.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : bookings.length ? (
         <View style={{ gap: 8 }}>
           {bookings.slice(0, 20).map((b) => (
             <Row
@@ -606,9 +626,10 @@ function BookingsSection({ athleteId, range }: { athleteId: number; range: Histo
 
 function ProgressSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ entries: ManagerProgressEntry[] }>(
-    () => (token ? fetchAthleteProgress(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ entries: ManagerProgressEntry[] }>(
+    ["athlete-progress", athleteId, range],
+    () => fetchAthleteProgress(token!, athleteId, range),
+    !!token,
   );
   const entries = data?.entries ?? [];
   return (
@@ -617,7 +638,9 @@ function ProgressSection({ athleteId, range }: { athleteId: number; range: Histo
       summary={data ? (entries.length ? `${entries.length} entries` : "No entries") : undefined}
       loading={loading}
     >
-      {entries.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : entries.length ? (
         <View style={{ gap: 8 }}>
           {entries.slice(0, 20).map((e) => {
             const label =
@@ -670,9 +693,10 @@ function SleepSection({ athleteUserId, range }: { athleteUserId: number; range: 
 
 function WellbeingSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ logs: ManagerWellbeing[] }>(
-    () => (token ? fetchAthleteWellbeing(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ logs: ManagerWellbeing[] }>(
+    ["athlete-wellbeing", athleteId, range],
+    () => fetchAthleteWellbeing(token!, athleteId, range),
+    !!token,
   );
   const logs = data?.logs ?? [];
   return (
@@ -681,7 +705,9 @@ function WellbeingSection({ athleteId, range }: { athleteId: number; range: Hist
       summary={data ? (logs.length ? `${logs.length} submissions` : "No submissions") : undefined}
       loading={loading}
     >
-      {logs.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : logs.length ? (
         <View style={{ gap: 8 }}>
           {logs.slice(0, 60).map((l) => (
             <Row key={l.id} label={l.dateKey} value={`Mood ${l.mood} · Energy ${l.energy} · Pain ${l.pain}`} />
@@ -696,9 +722,10 @@ function WellbeingSection({ athleteId, range }: { athleteId: number; range: Hist
 
 function InjuriesSection({ athleteId, range }: { athleteId: number; range: HistoryRange }) {
   const { token } = useAppSelector((s) => s.user);
-  const { data, loading } = useAsyncData<{ injuries: ManagerInjury[] }>(
-    () => (token ? fetchAthleteInjuries(token, athleteId, range) : null),
-    [token, athleteId, range],
+  const { data, loading, error } = useAthleteQuery<{ injuries: ManagerInjury[] }>(
+    ["athlete-injuries", athleteId, range],
+    () => fetchAthleteInjuries(token!, athleteId, range),
+    !!token,
   );
   const injuries = data?.injuries ?? [];
   const active = injuries.filter((i) => !i.resolvedAt).length;
@@ -708,7 +735,9 @@ function InjuriesSection({ athleteId, range }: { athleteId: number; range: Histo
       summary={data ? (injuries.length ? `${active} active · ${injuries.length} total` : "None logged") : undefined}
       loading={loading}
     >
-      {injuries.length ? (
+      {error ? (
+        <ErrorMessage />
+      ) : injuries.length ? (
         <View style={{ gap: 8 }}>
           {injuries.slice(0, 20).map((i) => (
             <Row
