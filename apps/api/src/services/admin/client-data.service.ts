@@ -1,12 +1,10 @@
-import { and, count, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 
 import { db } from "../../db";
 import {
   athleteAchievementUnlockTable,
   athleteTable,
   athleteTrainingSessionCompletionTable,
-  athleteTrainingSessionLogTable,
-  athleteTrainingSessionWorkoutLogTable,
   bookingTable,
   enrollmentTable,
   foodDiaryTable,
@@ -301,19 +299,19 @@ async function pageBySection(input: PageInput) {
       eq(programSectionCompletionTable.athleteId, input.athleteId),
       ...dateRangeFilters(input, programSectionCompletionTable.completedAt),
     ];
-    const workoutFilters = [
-      eq(athleteTrainingSessionWorkoutLogTable.athleteId, input.athleteId),
-      ...dateRangeFilters(input, athleteTrainingSessionWorkoutLogTable.updatedAt),
+    const sessionFilters = [
+      eq(athleteTrainingSessionCompletionTable.athleteId, input.athleteId),
+      ...dateRangeFilters(input, athleteTrainingSessionCompletionTable.completedAt),
     ];
 
-    const [[{ cCount = 0 } = {}], [{ wCount = 0 } = {}]] = await Promise.all([
+    const [[{ cCount = 0 } = {}], [{ sCount = 0 } = {}]] = await Promise.all([
       db.select({ cCount: count() }).from(programSectionCompletionTable).where(and(...completionFilters)),
-      db.select({ wCount: count() }).from(athleteTrainingSessionWorkoutLogTable).where(and(...workoutFilters)),
+      db.select({ sCount: count() }).from(athleteTrainingSessionCompletionTable).where(and(...sessionFilters)),
     ]);
 
-    const totalCount = Number(cCount) + Number(wCount);
+    const totalCount = Number(cCount) + Number(sCount);
 
-    const [completions, workouts] = await Promise.all([
+    const [completions, sessions] = await Promise.all([
       db
         .select({
           id: programSectionCompletionTable.id,
@@ -333,23 +331,20 @@ async function pageBySection(input: PageInput) {
         .orderBy(desc(programSectionCompletionTable.completedAt)),
       db
         .select({
-          id: athleteTrainingSessionWorkoutLogTable.id,
-          athleteId: athleteTrainingSessionWorkoutLogTable.athleteId,
-          sessionId: athleteTrainingSessionWorkoutLogTable.sessionId,
+          id: athleteTrainingSessionCompletionTable.id,
+          athleteId: athleteTrainingSessionCompletionTable.athleteId,
+          sessionId: athleteTrainingSessionCompletionTable.sessionId,
           sessionTitle: trainingModuleSessionTable.title,
-          weightsUsed: athleteTrainingSessionWorkoutLogTable.weightsUsed,
-          repsCompleted: athleteTrainingSessionWorkoutLogTable.repsCompleted,
-          rpe: athleteTrainingSessionWorkoutLogTable.rpe,
-          completedAt: athleteTrainingSessionWorkoutLogTable.updatedAt,
-          _source: sql<string>`'workout_log'`,
+          completedAt: athleteTrainingSessionCompletionTable.completedAt,
+          _source: sql<string>`'session_completion'`,
         })
-        .from(athleteTrainingSessionWorkoutLogTable)
-        .leftJoin(trainingModuleSessionTable, eq(trainingModuleSessionTable.id, athleteTrainingSessionWorkoutLogTable.sessionId))
-        .where(and(...workoutFilters))
-        .orderBy(desc(athleteTrainingSessionWorkoutLogTable.updatedAt)),
+        .from(athleteTrainingSessionCompletionTable)
+        .leftJoin(trainingModuleSessionTable, eq(trainingModuleSessionTable.id, athleteTrainingSessionCompletionTable.sessionId))
+        .where(and(...sessionFilters))
+        .orderBy(desc(athleteTrainingSessionCompletionTable.completedAt)),
     ]);
 
-    const merged = [...completions, ...workouts].sort((a, b) => {
+    const merged = [...completions, ...sessions].sort((a, b) => {
       const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
       const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
       return bTime - aTime;
@@ -536,7 +531,7 @@ async function getCounts(athleteId: number, athleteUserId: number) {
     db.select({ value: count() }).from(runLogTable).where(eq(runLogTable.userId, athleteUserId)),
     db.select({ value: count() }).from(nutritionLogsTable).where(eq(nutritionLogsTable.userId, athleteUserId)),
     db.select({ value: count() }).from(foodDiaryTable).where(eq(foodDiaryTable.athleteId, athleteId)),
-    db.select({ value: count() }).from(athleteTrainingSessionWorkoutLogTable).where(eq(athleteTrainingSessionWorkoutLogTable.athleteId, athleteId)),
+    db.select({ value: count() }).from(athleteTrainingSessionCompletionTable).where(eq(athleteTrainingSessionCompletionTable.athleteId, athleteId)),
     db.select({ value: count() }).from(programSectionCompletionTable).where(eq(programSectionCompletionTable.athleteId, athleteId)),
     db.select({ value: count() }).from(videoUploadTable).where(eq(videoUploadTable.athleteId, athleteId)),
     db.select({ value: count() }).from(sleepLogsTable).where(eq(sleepLogsTable.userId, athleteUserId)),
