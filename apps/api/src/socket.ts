@@ -69,65 +69,6 @@ const typingSchema = z.object({
   groupId: z.coerce.number().int().positive().optional(),
 });
 
-// ── Per-user socket rate limiting ──────────────────────────────────
-
-const RATE_LIMITS: Record<string, { max: number; windowMs: number }> = {
-  "message:send": { max: 30, windowMs: 60_000 },
-  "group:send": { max: 30, windowMs: 60_000 },
-  "typing:start": { max: 60, windowMs: 60_000 },
-  "typing:stop": { max: 60, windowMs: 60_000 },
-  "message:delivered": { max: 120, windowMs: 60_000 },
-  "message:read": { max: 60, windowMs: 60_000 },
-  "group:join": { max: 30, windowMs: 60_000 },
-};
-
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(userId: number, event: string): boolean {
-  const limit = RATE_LIMITS[event];
-  if (!limit) return false;
-  const key = `${userId}:${event}`;
-  const now = Date.now();
-  const bucket = rateBuckets.get(key);
-  if (!bucket || now >= bucket.resetAt) {
-    rateBuckets.set(key, { count: 1, resetAt: now + limit.windowMs });
-    return false;
-  }
-  bucket.count++;
-  return bucket.count > limit.max;
-}
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateBuckets) {
-    if (now >= bucket.resetAt) rateBuckets.delete(key);
-  }
-}, 120_000);
-
-// ── Per-socket sliding-window rate limiter (Fix C) ─────────────────
-// Protects expensive events: max 20 per 10 s per socket (independent of the
-// per-user bucket above which guards per-minute limits).
-const SOCKET_SLIDING_MAX = 20;
-const SOCKET_SLIDING_WINDOW_MS = 10_000;
-
-const SOCKET_SLIDING_EVENTS = new Set(["message:send", "group:send", "typing:start", "typing:stop"]);
-
-function isSocketSlidingRateLimited(socket: { data: Record<string, unknown> }, event: string): boolean {
-  if (!SOCKET_SLIDING_EVENTS.has(event)) return false;
-  const key = `__sliding_${event}`;
-  const now = Date.now();
-  const cutoff = now - SOCKET_SLIDING_WINDOW_MS;
-  const timestamps = (socket.data[key] as number[] | undefined) ?? [];
-  // Evict expired entries
-  const trimmed = timestamps.filter((t) => t > cutoff);
-  if (trimmed.length >= SOCKET_SLIDING_MAX) {
-    socket.data[key] = trimmed;
-    return true;
-  }
-  trimmed.push(now);
-  socket.data[key] = trimmed;
-  return false;
-}
 
 // ── lastSeenAt debounce (Fix B) ────────────────────────────────────
 // Mobile reconnect storms fire disconnect rapidly; batching DB writes
@@ -448,16 +389,6 @@ export function initSocket(server: HttpServer) {
 
     function guarded<T extends z.ZodTypeAny>(event: string, schema: T, handler: (data: z.infer<T>) => Promise<void>) {
       socket.on(event, async (rawPayload: unknown) => {
-        // Fix C: Per-socket sliding window check (20 events / 10 s for expensive events).
-        if (isSocketSlidingRateLimited(socket, event)) {
-          socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
-          return;
-        }
-        // Per-user per-minute bucket check (existing).
-        if (isRateLimited(userId, event)) {
-          socket.emit("error:rate_limited", { event, message: "Too many requests, slow down" });
-          return;
-        }
         const parsed = schema.safeParse(rawPayload ?? {});
         if (!parsed.success) {
           socket.emit("error:validation", { event, issues: parsed.error.issues.map((i) => i.message) });

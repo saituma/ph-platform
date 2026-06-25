@@ -420,7 +420,6 @@ export function useMessagesRealtime({
 
     const handleErrorRateLimited = (payload: { event: string; message: string }) => {
       console.warn("[socket] error:rate_limited", payload);
-      Alert.alert("Slow Down", "You're sending messages too quickly. Please wait a moment.");
     };
 
     const handleErrorServer = (payload: { event: string; message: string }) => {
