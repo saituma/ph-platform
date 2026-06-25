@@ -1,5 +1,5 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
@@ -12,6 +12,7 @@ import { useAdminPastel } from "@/components/admin/AdminUI";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
 import { useSocket } from "@/context/SocketContext";
+import { useQuery } from "@tanstack/react-query";
 
 type PhysioMetadata = {
   referralType?: string | null;
@@ -39,34 +40,28 @@ export default function PhysioReferralScreen() {
   const hasProReferrals = Boolean(capabilities?.physioReferrals);
   const { socket } = useSocket();
   const p = useAdminPastel();
-  const [loading, setLoading] = useState(true);
-  const [referral, setReferral] = useState<ReferralData | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadReferral = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await apiRequest<{ item?: any }>("/physio-referral", { token });
-      setReferral(data.item ?? null);
-    } catch (err: any) {
-      setError(err?.message ?? "Failed to load referral.");
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const {
+    data: referral = null,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ["physio-referral"],
+    queryFn: async () => {
+      const data = await apiRequest<{ item?: any }>("/physio-referral", { token: token! });
+      return (data.item ?? null) as ReferralData | null;
+    },
+    enabled: hasProReferrals && !!token,
+  });
 
-  useEffect(() => {
-    if (!hasProReferrals || !token) return;
-    void loadReferral();
-  }, [hasProReferrals, token, loadReferral]);
+  const error = queryError ? ((queryError as Error).message ?? "Failed to load referral.") : null;
 
   useEffect(() => {
     if (!socket || !hasProReferrals) return;
 
     const handleReferralChange = () => {
-      void loadReferral();
+      void refetch();
     };
 
     socket.on("physio:referral:updated", handleReferralChange);
@@ -76,7 +71,7 @@ export default function PhysioReferralScreen() {
       socket.off("physio:referral:updated", handleReferralChange);
       socket.off("physio:referral:deleted", handleReferralChange);
     };
-  }, [hasProReferrals, loadReferral, socket]);
+  }, [hasProReferrals, refetch, socket]);
 
   if (!hasProReferrals) {
     return (

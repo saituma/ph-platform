@@ -14,9 +14,11 @@ import type { AdminCardColor } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { isAdminRole } from "@/lib/isAdminRole";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
@@ -45,41 +47,32 @@ export default function AdminTeamsListScreen() {
 
   const canAccess = isAdminRole(apiUserRole) || appRole === "coach";
   const canLoad = Boolean(token && bootstrapReady && canAccess);
+  const queryClient = useQueryClient();
 
-  const [teams, setTeams] = useState<AdminTeam[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: teams = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.admin.teams(),
+    queryFn: async () => {
+      const res = await apiRequest<{ teams?: AdminTeam[] }>("/admin/teams", {
+        token: token!,
+        suppressStatusCodes: [403],
+        forceRefresh: true,
+      });
+      return Array.isArray(res?.teams) ? res.teams : [];
+    },
+    enabled: canLoad,
+  });
+
+  const error = queryError ? (queryError as Error).message ?? "Failed to load teams" : null;
 
   const [teamName, setTeamName] = useState("");
   const [teamType, setTeamType] = useState<"youth" | "adult">("youth");
   const [createBusy, setCreateBusy] = useState(false);
-
-  const load = useCallback(
-    async (_forceRefresh?: boolean) => {
-      if (!token || !bootstrapReady || !canAccess) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ teams?: AdminTeam[] }>("/admin/teams", {
-          token,
-          suppressStatusCodes: [403],
-          forceRefresh: true,
-        });
-        setTeams(Array.isArray(res?.teams) ? res.teams : []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load teams");
-        setTeams([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [bootstrapReady, canAccess, token],
-  );
-
-  useEffect(() => {
-    if (!canLoad) return;
-    void load(false);
-  }, [canLoad, load]);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const createDisabled = useMemo(
     () => createBusy || !teamName.trim().length || !canLoad,
@@ -92,7 +85,7 @@ export default function AdminTeamsListScreen() {
     if (!trimmed) return;
 
     setCreateBusy(true);
-    setError(null);
+    setCreateError(null);
     try {
       await apiRequest("/admin/teams", {
         method: "POST",
@@ -102,13 +95,13 @@ export default function AdminTeamsListScreen() {
         skipCache: true,
       });
       setTeamName("");
-      await load(true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.teams() });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create team");
+      setCreateError(e instanceof Error ? e.message : "Failed to create team");
     } finally {
       setCreateBusy(false);
     }
-  }, [bootstrapReady, canAccess, load, teamName, teamType, token]);
+  }, [bootstrapReady, canAccess, queryClient, teamName, teamType, token]);
 
   if (!canAccess) {
     return <ReplaceOnce href="/(tabs)" />;
@@ -224,12 +217,12 @@ export default function AdminTeamsListScreen() {
                 label="Refresh"
                 variant="ghost"
                 compact
-                onPress={() => load(true)}
+                onPress={() => void refetch()}
                 disabled={!canLoad || loading}
               />
             </View>
 
-            {error ? (
+            {(error || createError) ? (
               <Text
                 style={{
                   fontFamily: "Outfit-Regular",
@@ -238,7 +231,7 @@ export default function AdminTeamsListScreen() {
                   marginTop: 12,
                 }}
               >
-                {error}
+                {createError || error}
               </Text>
             ) : null}
 
@@ -258,7 +251,7 @@ export default function AdminTeamsListScreen() {
         </Animated.View>
       </View>
     ),
-    [canLoad, create, createBusy, createDisabled, error, load, loading, p, teamName, teamType, teams.length],
+    [canLoad, create, createBusy, createDisabled, createError, error, refetch, loading, p, teamName, teamType, teams.length],
   );
 
   const ListEmpty = useCallback(
@@ -292,7 +285,7 @@ export default function AdminTeamsListScreen() {
         refreshControl={
           <RefreshControl
             refreshing={loading && teams.length > 0}
-            onRefresh={() => load(true)}
+            onRefresh={() => void refetch()}
             tintColor={p.accent}
           />
         }

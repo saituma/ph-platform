@@ -412,6 +412,23 @@ export default function ThreadScreen() {
         visible={searchOpen}
         threadId={currentThread.id}
         token={token}
+        participantNames={React.useMemo(() => {
+          const map: Record<number, string> = {};
+          if (profile?.id) map[Number(profile.id)] = "You";
+          if (currentThread.id.startsWith("group:")) {
+            const gid = Number(currentThread.id.replace("group:", ""));
+            const members = groupMembers[gid];
+            if (members) {
+              for (const [uid, m] of Object.entries(members)) {
+                if (!map[Number(uid)]) map[Number(uid)] = m.name;
+              }
+            }
+          } else {
+            const otherId = Number(currentThread.id);
+            if (!map[otherId]) map[otherId] = currentThread.name;
+          }
+          return map;
+        }, [profile?.id, currentThread.id, currentThread.name, groupMembers])}
         onClose={() => setSearchOpen(false)}
         onJumpToMessage={() => setSearchOpen(false)}
       />

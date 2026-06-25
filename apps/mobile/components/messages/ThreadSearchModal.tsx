@@ -19,6 +19,7 @@ type Props = {
   visible: boolean;
   threadId: string; // "123" for DM, "group:45" for group
   token?: string | null;
+  participantNames?: Record<number, string>;
   onClose: () => void;
   onJumpToMessage: (messageId: number) => void;
 };
@@ -55,7 +56,7 @@ function formatTs(iso: string) {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-export default function ThreadSearchModal({ visible, threadId, token, onClose, onJumpToMessage }: Props) {
+export default function ThreadSearchModal({ visible, threadId, token, participantNames, onClose, onJumpToMessage }: Props) {
   const { colors, isDark } = useAppTheme();
   const insets = useAppSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
@@ -118,7 +119,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
       style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: colors.borderSubtle }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
-        <Text style={{ color: tp, fontFamily: fonts.labelBold, fontSize: 14 }}>#{item.senderId}</Text>
+        <Text style={{ color: tp, fontFamily: fonts.labelBold, fontSize: 14 }}>{participantNames?.[item.senderId] ?? "Unknown"}</Text>
         <Text style={{ color: ts, fontFamily: fonts.bodyRegular, fontSize: 12 }}>{formatTs(item.createdAt)}</Text>
       </View>
       <HighlightedText text={item.content} highlight={query} baseColor={ts} accentColor={ac} />

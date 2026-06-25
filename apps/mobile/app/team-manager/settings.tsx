@@ -39,7 +39,6 @@ export default function TeamSettingsScreen() {
 
   const [settings, setSettings] = useState<TeamSocialSettings>(DEFAULT_TEAM_SOCIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
   const lastLoadRef = useRef<number>(0);
 
   const load = useCallback(async () => {
@@ -64,22 +63,31 @@ export default function TeamSettingsScreen() {
     }, [load]),
   );
 
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+
   const toggleSetting = useCallback(
     async (key: keyof TeamSocialSettings, value: boolean) => {
       if (!token || !isTeamManager) return;
-      setSaving(key);
-      const prev = { ...settings };
-      setSettings((s) => ({ ...s, [key]: value }));
+      setSavingKeys((s) => new Set(s).add(key));
+      let prevValue: boolean | undefined;
+      setSettings((s) => {
+        prevValue = s[key] as boolean;
+        return { ...s, [key]: value };
+      });
       try {
         const res = await updateTeamSocialSettings(token, { [key]: value });
         if (res.settings) setSettings(res.settings);
       } catch {
-        setSettings(prev);
+        setSettings((s) => ({ ...s, [key]: prevValue ?? !value }));
       } finally {
-        setSaving(null);
+        setSavingKeys((s) => {
+          const next = new Set(s);
+          next.delete(key);
+          return next;
+        });
       }
     },
-    [isTeamManager, token, settings],
+    [isTeamManager, token],
   );
 
   const TOGGLES: {
@@ -302,7 +310,7 @@ export default function TeamSettingsScreen() {
                         {toggle.subtitle}
                       </Text>
                     </View>
-                    {saving === toggle.key ? (
+                    {savingKeys.has(toggle.key) ? (
                       <ActivityIndicator size="small" color={p.accent} />
                     ) : (
                       <Switch

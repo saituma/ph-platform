@@ -220,6 +220,7 @@ export default function WellbeingScreen() {
   const [energy, setEnergy] = useState(todayLog?.energy ?? 3);
   const [pain, setPain] = useState(todayLog?.pain ?? 1);
   const [saved, setSaved] = useState(false);
+  const isDirtyRef = useRef(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -229,7 +230,7 @@ export default function WellbeingScreen() {
   }, []);
 
   React.useEffect(() => {
-    if (todayLog) {
+    if (todayLog && !isDirtyRef.current) {
       setMood(todayLog.mood);
       setEnergy(todayLog.energy);
       setPain(todayLog.pain);
@@ -267,10 +268,14 @@ export default function WellbeingScreen() {
   );
 
   const values = { mood, energy, pain };
+  const dirtySet = useCallback((setter: (v: number) => void) => (v: number) => {
+    isDirtyRef.current = true;
+    setter(v);
+  }, []);
   const setters = {
-    mood: setMood,
-    energy: setEnergy,
-    pain: setPain,
+    mood: dirtySet(setMood),
+    energy: dirtySet(setEnergy),
+    pain: dirtySet(setPain),
   };
 
   const handleSave = useCallback(async () => {
@@ -283,6 +288,7 @@ export default function WellbeingScreen() {
     try {
       const result = await saveLog(input);
       if (result) {
+        isDirtyRef.current = false;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setSaved(true);
         if (savedTimerRef.current) clearTimeout(savedTimerRef.current);

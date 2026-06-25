@@ -25,6 +25,8 @@ import { Modal, Pressable, Switch, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import { Users, ChevronRight } from "lucide-react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 
 type AdminTeamMember = {
   athleteId: number;
@@ -253,9 +255,30 @@ export default function AdminTeamDetailScreen() {
   const params = useLocalSearchParams<{ teamName?: string }>();
   const teamName = asString(params.teamName);
 
-  const [detail, setDetail] = useState<AdminTeamDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const {
+    data: detail = null,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.admin.teamDetail(teamName),
+    queryFn: async () => {
+      const res = await apiRequest<AdminTeamDetail>(
+        `/admin/teams/${encodeURIComponent(teamName)}`,
+        {
+          token: token!,
+          suppressStatusCodes: [403],
+          forceRefresh: true,
+        },
+      );
+      return res ?? null;
+    },
+    enabled: canLoad && !!teamName,
+  });
+
+  const error = queryError ? (queryError as Error).message ?? "Failed to load team details" : null;
 
   const [assignOpen, setAssignOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -274,39 +297,6 @@ export default function AdminTeamDetailScreen() {
 
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
-
-  const load = useCallback(
-    async (_forceRefresh?: boolean) => {
-      if (!token || !bootstrapReady || !canAccess) return;
-      if (!teamName) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<AdminTeamDetail>(
-          `/admin/teams/${encodeURIComponent(teamName)}`,
-          {
-            token,
-            suppressStatusCodes: [403],
-            forceRefresh: true,
-          },
-        );
-        setDetail(res ?? null);
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "Failed to load team details",
-        );
-        setDetail(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [bootstrapReady, canAccess, teamName, token],
-  );
-
-  useEffect(() => {
-    if (!canLoad) return;
-    void load(false);
-  }, [canLoad, load]);
 
   useEffect(() => {
     if (!assignOpen) return;
@@ -415,7 +405,7 @@ export default function AdminTeamDetailScreen() {
         },
       );
       setAssignOpen(false);
-      await load(true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.teamDetail(teamName) });
     } catch (e) {
       setAttachError(
         e instanceof Error ? e.message : "Failed to assign athlete",
@@ -427,8 +417,8 @@ export default function AdminTeamDetailScreen() {
     bootstrapReady,
     canAccess,
     includeOtherTeams,
-    load,
     moveConfirm,
+    queryClient,
     selected,
     selectedIsMove,
     teamName,
@@ -454,7 +444,7 @@ export default function AdminTeamDetailScreen() {
         right={<AdminBackButton onPress={() => router.back()} />}
       />
 
-      <ThemedScrollView onRefresh={() => load(true)}>
+      <ThemedScrollView onRefresh={() => void refetch()}>
         <View style={{ paddingHorizontal: 24, gap: 16 }}>
           {/* Team type badge + assign button */}
           <Animated.View

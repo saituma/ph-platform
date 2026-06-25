@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useMemo, useEffect, useState } from "react";
 import {
   RefreshControl,
   StyleSheet,
@@ -7,30 +7,22 @@ import {
   Platform,
   useColorScheme,
   Image,
-  ImageBackground,
   Pressable,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import Animated, {
   FadeInDown,
   FadeIn,
-  FadeInRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   useReducedMotion,
-  runOnJS,
   withRepeat,
   withSequence,
-  withDelay,
   withTiming,
-  interpolateColor,
 } from "react-native-reanimated";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -39,7 +31,6 @@ import { useAppSelector } from "@/store/hooks";
 import { useNotificationBadge } from "@/hooks/useNotificationBadge";
 import { Text } from "@/components/ScaledText";
 import { SkeletonHomeScreen } from "@/components/ui/legacy-skeleton";
-import { useWatchHistoryStore } from "@/lib/mmkv";
 import { getWeeklySummaries } from "@/lib/sqliteRuns";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Colors } from "@/constants/theme";
@@ -57,16 +48,11 @@ import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
 import { apiRequest } from "@/lib/api";
 import {
-  Play,
-  TrendingUp,
   Flame,
   Timer,
   Route,
   Zap,
-  ChevronRight,
   Bell,
-  PersonStanding,
-  Activity,
 } from "lucide-react-native";
 
 const { width: _SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -118,62 +104,12 @@ function formatTime(sec: number): string {
   return hrs >= 1 ? `${hrs.toFixed(1)}h` : `${Math.round(seconds / 60)}m`;
 }
 
-function formatCompact(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return String(n);
-}
-
-const MOTIVATIONAL = [
-  "Every rep counts. Keep pushing.",
-  "Champions are built in the off-season.",
-  "Your only limit is your mindset.",
-  "Show up. Work hard. Repeat.",
-  "Progress, not perfection.",
-  "The grind never lies.",
-  "Be better than yesterday.",
-  "Discipline beats motivation.",
-];
-
-function getDailyMotivation(): string {
-  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  return MOTIVATIONAL[dayOfYear % MOTIVATIONAL.length];
-}
-
 function useWeeklyStats(userId: string | null) {
   return useQuery({
     queryKey: queryKeys.home.weeklyStats(userId ?? 0),
     queryFn: () => getWeeklySummaries(new Date(), userId),
     staleTime: 5 * 60 * 1000,
   });
-}
-
-// ── Glass stat pill (floating on hero image) ──
-function GlassPill({
-  icon,
-  value,
-  label,
-  delay: pillDelay,
-  reduceMotion,
-  isDark,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  delay: number;
-  reduceMotion: boolean | null;
-  isDark: boolean;
-}) {
-  return (
-    <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(pillDelay).duration(500).springify().damping(16)}>
-      <BlurView intensity={40} tint={isDark ? "dark" : "light"} style={[s.glassPill, !isDark && { borderColor: "rgba(0,0,0,0.08)" }]}>
-        <View style={s.glassPillInner}>
-          {icon}
-          <Text style={[s.glassPillValue, { color: isDark ? "#FFFFFF" : "#0C0A09" }]}>{value}</Text>
-          <Text style={[s.glassPillLabel, { color: isDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.5)" }]}>{label}</Text>
-        </View>
-      </BlurView>
-    </Animated.View>
-  );
 }
 
 // ── Stat card ──
@@ -308,11 +244,10 @@ const HomeScreen = memo(function HomeScreen() {
   const profilePic = profile?.avatar ?? null;
   const unreadNotifications = useNotificationBadge(token);
 
-  const { homeContent, isLoading: homeLoading, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
+  const { homeContent, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
   const userId = profile?.id ?? null;
 
   const statsQuery = useWeeklyStats(userId);
-  const watchHistory = useWatchHistoryStore((s) => s.history);
   const runStatus = useRunStore((s) => s.status);
   const liveRunDistanceMeters = useRunStore((s) => s.distanceMeters);
   const liveRunElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
@@ -332,11 +267,8 @@ const HomeScreen = memo(function HomeScreen() {
   const showTracking = hasTeam || appRole === "coach" || canTrack;
 
   const greeting = useMemo(() => getGreeting(), []);
-  const motivation = useMemo(() => getDailyMotivation(), []);
   const streak = useStreakStore((s) => s.currentStreak);
   const freezesAvailable = useStreakStore((s) => s.freezesAvailable);
-  const shouldShowStreak = useStreakStore((s) => s.shouldShowStreak);
-  const shouldShowMilestone = useStreakStore((s) => s.shouldShowMilestone);
   const hydrateFromServer = useStreakStore((s) => s.hydrateFromServer);
 
   const [streakVisible, setStreakVisible] = useState(false);
@@ -407,12 +339,6 @@ const HomeScreen = memo(function HomeScreen() {
     }
   }, [queryClient, reloadHomeContent]);
 
-  const navigateToTracking = useCallback(() => {
-    if (!showTracking) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push("/(tabs)/tracking" as any);
-  }, [router, showTracking]);
-
   const navigateToProgress = useCallback(() => {
     if (capabilities?.progressTracking === false) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -435,41 +361,6 @@ const HomeScreen = memo(function HomeScreen() {
     router.push("/notifications" as any);
   }, [router]);
 
-  // CTA button animation
-  const ctaScale = useSharedValue(1);
-  const ctaStyle = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
-  const ctaTap = useMemo(() => Gesture.Tap()
-    .onBegin(() => {
-      "worklet";
-      ctaScale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      "worklet";
-      ctaScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
-    })
-    .onEnd(() => {
-      "worklet";
-      runOnJS(navigateToTracking)();
-    }), [navigateToTracking]);
-
-  // Pulse animation for active run indicator
-  const pulseOpacity = useSharedValue(1);
-  useEffect(() => {
-    if (isRunActive) {
-      pulseOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.4, { duration: 800 }),
-          withTiming(1, { duration: 800 }),
-        ),
-        -1,
-        true,
-      );
-    } else {
-      pulseOpacity.value = 1;
-    }
-  }, [isRunActive]);
-  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulseOpacity.value }));
 
   if (isLoading) {
     return (
@@ -493,7 +384,6 @@ const HomeScreen = memo(function HomeScreen() {
   const heroGradientEnd = isDark ? "#000000" : p.pageBg;
   const heroTextColor = isDark ? "#FFFFFF" : p.textPrimary;
   const heroSubColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
-  const pillIconColor = isDark ? "#FFFFFF" : p.textPrimary;
 
   return (
     <View style={[s.screen, { backgroundColor: isDark ? "#000000" : p.pageBg }]}>
