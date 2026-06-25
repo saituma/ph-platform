@@ -1244,10 +1244,8 @@ function WorkoutRunCard({
   const muted = isDark ? "#8b8b8b" : "#666";
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}
-      style={scaleStyle}
-    >
+    <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}>
+      <Animated.View style={scaleStyle}>
       <Pressable
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1385,6 +1383,7 @@ function WorkoutRunCard({
           </View>
         </View>
       </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }

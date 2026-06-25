@@ -329,10 +329,11 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
       {/* Controls overlay */}
       {!showPoster && showControls && (
         <Animated.View
-          style={[styles.controlsOverlay, controlsAnimStyle]}
           entering={reduceMotion ? undefined : FadeIn.duration(150)}
           exiting={reduceMotion ? undefined : FadeOut.duration(300)}
+          style={StyleSheet.absoluteFill}
         >
+          <Animated.View style={[styles.controlsOverlay, controlsAnimStyle]}>
           <View style={styles.controlBar}>
             <Pressable onPress={handlePlayPause} accessibilityLabel={isPlaying ? "Pause" : "Play"}>
               <Ionicons name={isPlaying ? "pause" : "play"} size={28} color="#FFF" />
@@ -348,6 +349,7 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
               </Pressable>
             )}
           </View>
+          </Animated.View>
         </Animated.View>
       )}
     </Pressable>
