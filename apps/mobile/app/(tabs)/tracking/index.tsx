@@ -87,6 +87,7 @@ import {
 } from "lucide-react-native";
 import { useStreakStore } from "@/lib/streakStore";
 import { RunShareCard } from "@/components/tracking/RunShareCard";
+import { RunDetailOverlay } from "@/components/tracking/RunDetailOverlay";
 
 const TRACKING_BG = require("@/assets/images/trakcing-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -211,6 +212,7 @@ export default function TrackingHomeScreen() {
 
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
+  const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
 
   type TrackingGoal = {
     id: number;
@@ -1020,7 +1022,7 @@ export default function TrackingHomeScreen() {
                           isDark={isDark}
                           p={p}
                           formatKm={formatKm}
-                          onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                          onPress={() => setSelectedRun(run)}
                           onShare={() => setShareRun(run)}
                         />
                       ))}
@@ -1038,7 +1040,7 @@ export default function TrackingHomeScreen() {
                     isDark={isDark}
                     p={p}
                     formatKm={formatKm}
-                    onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                    onPress={() => setSelectedRun(run)}
                     onShare={() => setShareRun(run)}
                   />
                 ))}
@@ -1109,6 +1111,14 @@ export default function TrackingHomeScreen() {
         onClose={() => setShareRun(null)}
       />
     ) : null}
+    <RunDetailOverlay
+      run={selectedRun}
+      onClose={() => setSelectedRun(null)}
+      onShare={(run) => {
+        setSelectedRun(null);
+        setShareRun(run);
+      }}
+    />
     </>
   );
 }
