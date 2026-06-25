@@ -18,22 +18,12 @@ import PagerView, {
   PageScrollStateChangedNativeEvent,
 } from "react-native-pager-view";
 import { useSharedValue } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { TabBar, TabConfig } from "./TabBar";
 
-let hapticsPromise: Promise<typeof import("expo-haptics") | null> | null = null;
-
-function getHaptics() {
-  if (!hapticsPromise) {
-    hapticsPromise = import("expo-haptics").catch(() => null);
-  }
-  return hapticsPromise;
-}
-
-function initialVisitedPages(initialIndex: number, tabCount: number) {
+function initialVisitedPages(_initialIndex: number, tabCount: number) {
   const pages = new Set<number>();
-  pages.add(initialIndex);
-  if (initialIndex > 0) pages.add(initialIndex - 1);
-  if (initialIndex < tabCount - 1) pages.add(initialIndex + 1);
+  for (let i = 0; i < tabCount; i++) pages.add(i);
   return pages;
 }
 
@@ -172,9 +162,7 @@ export function SwipeableTabLayout({
     (index: number) => {
       if (index === lastSelectedIndex.current) return;
 
-      getHaptics().then((Haptics) => {
-        Haptics?.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
       isSyncingRef.current = true;
       lastChangeSourceRef.current = "press";
@@ -216,6 +204,17 @@ export function SwipeableTabLayout({
   const routeContext = React.useContext(NavigationRouteContext);
   const containerRefContext = React.useContext(NavigationContainerRefContext);
 
+  // Capture context values in refs so pagerChildren doesn't recalculate every
+  // time the route changes (router.replace after tab press updates these contexts
+  // 250ms later, causing a second render of all tab pages). The Provider still
+  // propagates the latest values to consumers automatically.
+  const navCtxRef = useRef(navigationContext);
+  const routeCtxRef = useRef(routeContext);
+  const containerCtxRef = useRef(containerRefContext);
+  navCtxRef.current = navigationContext;
+  routeCtxRef.current = routeContext;
+  containerCtxRef.current = containerRefContext;
+
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
@@ -223,9 +222,9 @@ export function SwipeableTabLayout({
 
       return (
         <View key={key} style={styles.page}>
-          <NavigationContainerRefContext.Provider value={containerRefContext}>
-            <NavigationContext.Provider value={navigationContext}>
-              <NavigationRouteContext.Provider value={routeContext}>
+          <NavigationContainerRefContext.Provider value={containerCtxRef.current}>
+            <NavigationContext.Provider value={navCtxRef.current}>
+              <NavigationRouteContext.Provider value={routeCtxRef.current}>
                 {shouldRenderChild ? (
                   <ActiveTabProvider currentTabIndex={index}>
                     {child}
@@ -239,14 +238,7 @@ export function SwipeableTabLayout({
         </View>
       );
     });
-  }, [
-    childrenArray,
-    tabs,
-    visitedSet,
-    navigationContext,
-    routeContext,
-    containerRefContext,
-  ]);
+  }, [childrenArray, tabs, visitedSet]);
 
   // Android + native pickers (camera/library) can trigger transient remounts where PagerView breaks
   // React Navigation context propagation, causing "Couldn't find a navigation context" crashes.
