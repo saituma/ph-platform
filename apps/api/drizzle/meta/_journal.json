@@ -1261,6 +1261,13 @@
       "when": 1783000000000,
       "tag": "0179_message_edit",
       "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1783100000000,
+      "tag": "0180_fix_column_casing",
+      "breakpoints": true
     }
   ]
 }
