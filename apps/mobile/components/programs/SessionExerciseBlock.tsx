@@ -49,7 +49,113 @@ function formatMb(bytes: number | undefined) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function SessionExerciseBlock({
+const isDirectVideoUrl = (url: string) =>
+  /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url) || /\.(m3u8)(\?.*)?$/i.test(url);
+
+const isKnownExternalHost = (url: string) => {
+  const lower = url.toLowerCase();
+  return (
+    lower.includes("vimeo.com") ||
+    lower.includes("streamable.com") ||
+    lower.includes("drive.google.com")
+  );
+};
+
+const externalLabelFor = (url: string) => {
+  const lower = url.toLowerCase();
+  if (lower.includes("vimeo.com")) return "Open in Vimeo";
+  if (lower.includes("loom.com")) return "Open in Loom";
+  if (lower.includes("streamable.com")) return "Open in Streamable";
+  if (lower.includes("drive.google.com")) return "Open in Google Drive";
+  return "Open Video";
+};
+
+interface MetaSectionCardProps {
+  icon: React.ComponentProps<typeof Feather>["name"];
+  title: string;
+  body: string;
+  p: ReturnType<typeof useAdminPastel>;
+}
+
+const MetaSectionCard = React.memo(function MetaSectionCard({
+  icon,
+  title: sectionTitle,
+  body,
+  p,
+}: MetaSectionCardProps) {
+  const raw = body.trim();
+  const len = raw.length;
+  const baseSize = len > 420 ? 13 : len > 220 ? 14 : 15;
+  const lineHeight = Math.round(baseSize * 1.55);
+  const headSize = len > 420 ? 15 : 16;
+  return (
+    <View
+      style={{
+        borderRadius: 22,
+        borderWidth: 1,
+        borderColor: p.divider,
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        gap: 12,
+        backgroundColor: p.inputBg,
+        width: "100%",
+        alignSelf: "stretch",
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexShrink: 1 }}>
+        <View
+          style={{
+            height: 36,
+            width: 36,
+            borderRadius: 18,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: p.accentSoft,
+          }}
+        >
+          <Feather name={icon} size={16} color={p.accent} />
+        </View>
+        <Text
+          style={{
+            fontSize: 11,
+            fontFamily: "Outfit-Bold",
+            textTransform: "uppercase",
+            letterSpacing: 1.4,
+            flex: 1,
+            color: p.textSecondary,
+          }}
+        >
+          {sectionTitle}
+        </Text>
+      </View>
+      <MarkdownText
+        text={raw}
+        baseStyle={{
+          fontSize: baseSize,
+          lineHeight,
+          color: p.textPrimary,
+          fontWeight: "500",
+        }}
+        headingStyle={{
+          fontSize: headSize,
+          lineHeight: headSize + 8,
+          color: p.textPrimary,
+          fontWeight: "700",
+        }}
+        subheadingStyle={{
+          fontSize: baseSize + 1,
+          lineHeight: lineHeight + 2,
+          color: p.textPrimary,
+          fontWeight: "700",
+        }}
+        listItemStyle={{ paddingLeft: 6 }}
+        containerStyle={{ width: "100%" }}
+      />
+    </View>
+  );
+});
+
+export const SessionExerciseBlock = React.memo(function SessionExerciseBlock({
   title,
   items,
   onUploadPress,
@@ -71,108 +177,6 @@ export function SessionExerciseBlock({
 }: Props) {
   const p = useAdminPastel();
   if (items.length === 0) return null;
-
-  const MetaSectionCard = ({
-    icon,
-    title: sectionTitle,
-    body,
-  }: {
-    icon: React.ComponentProps<typeof Feather>["name"];
-    title: string;
-    body: string;
-  }) => {
-    const raw = body.trim();
-    const len = raw.length;
-    const baseSize = len > 420 ? 13 : len > 220 ? 14 : 15;
-    const lineHeight = Math.round(baseSize * 1.55);
-    const headSize = len > 420 ? 15 : 16;
-    return (
-      <View
-        style={{
-          borderRadius: 22,
-          borderWidth: 1,
-          borderColor: p.divider,
-          paddingHorizontal: 16,
-          paddingVertical: 16,
-          gap: 12,
-          backgroundColor: p.inputBg,
-          width: "100%",
-          alignSelf: "stretch",
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flexShrink: 1 }}>
-          <View
-            style={{
-              height: 36,
-              width: 36,
-              borderRadius: 18,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: p.accentSoft,
-            }}
-          >
-            <Feather name={icon} size={16} color={p.accent} />
-          </View>
-          <Text
-            style={{
-              fontSize: 11,
-              fontFamily: "Outfit-Bold",
-              textTransform: "uppercase",
-              letterSpacing: 1.4,
-              flex: 1,
-              color: p.textSecondary,
-            }}
-          >
-            {sectionTitle}
-          </Text>
-        </View>
-        <MarkdownText
-          text={raw}
-          baseStyle={{
-            fontSize: baseSize,
-            lineHeight,
-            color: p.textPrimary,
-            fontWeight: "500",
-          }}
-          headingStyle={{
-            fontSize: headSize,
-            lineHeight: headSize + 8,
-            color: p.textPrimary,
-            fontWeight: "700",
-          }}
-          subheadingStyle={{
-            fontSize: baseSize + 1,
-            lineHeight: lineHeight + 2,
-            color: p.textPrimary,
-            fontWeight: "700",
-          }}
-          listItemStyle={{ paddingLeft: 6 }}
-          containerStyle={{ width: "100%" }}
-        />
-      </View>
-    );
-  };
-
-  const isDirectVideoUrl = (url: string) =>
-    /\.(mp4|mov|m4v|webm)(\?.*)?$/i.test(url) || /\.(m3u8)(\?.*)?$/i.test(url);
-
-  const isKnownExternalHost = (url: string) => {
-    const lower = url.toLowerCase();
-    return (
-      lower.includes("vimeo.com") ||
-      lower.includes("streamable.com") ||
-      lower.includes("drive.google.com")
-    );
-  };
-
-  const externalLabelFor = (url: string) => {
-    const lower = url.toLowerCase();
-    if (lower.includes("vimeo.com")) return "Open in Vimeo";
-    if (lower.includes("loom.com")) return "Open in Loom";
-    if (lower.includes("streamable.com")) return "Open in Streamable";
-    if (lower.includes("drive.google.com")) return "Open in Google Drive";
-    return "Open Video";
-  };
 
   return (
     <View style={{ marginBottom: 40 }}>
@@ -707,6 +711,7 @@ export function SessionExerciseBlock({
                         icon="list"
                         title="Steps"
                         body={item.metadata.steps.trim()}
+                        p={p}
                       />
                     ) : null}
                     {item.metadata.cues?.trim() ? (
@@ -714,6 +719,7 @@ export function SessionExerciseBlock({
                         icon="message-circle"
                         title="Cues"
                         body={item.metadata.cues.trim()}
+                        p={p}
                       />
                     ) : null}
                     {item.metadata.progression?.trim() ? (
@@ -721,6 +727,7 @@ export function SessionExerciseBlock({
                         icon="trending-up"
                         title="Progression"
                         body={item.metadata.progression.trim()}
+                        p={p}
                       />
                     ) : null}
                     {item.metadata.regression?.trim() ? (
@@ -728,6 +735,7 @@ export function SessionExerciseBlock({
                         icon="trending-down"
                         title="Regression"
                         body={item.metadata.regression.trim()}
+                        p={p}
                       />
                     ) : null}
                   </View>
@@ -879,4 +887,4 @@ export function SessionExerciseBlock({
       </View>
     </View>
   );
-}
+});
