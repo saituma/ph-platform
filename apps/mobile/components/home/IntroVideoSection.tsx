@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
