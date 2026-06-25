@@ -325,6 +325,59 @@ export async function getManagedAthleteBookings(user: AuthUser, athleteId: numbe
     .limit(win.limit);
 }
 
+/** Full nutrition log entries for a managed athlete, ordered newest first. */
+export async function getManagedAthleteNutritionLogs(
+  user: AuthUser,
+  athleteId: number,
+  win: AthleteDataWindow,
+) {
+  const athlete = await resolveManagedAthlete(user, athleteId, win.teamId);
+  if (!athlete) return null;
+
+  const conds = [eq(nutritionLogsTable.userId, athlete.userId)];
+  if (win.from) conds.push(gte(nutritionLogsTable.dateKey, ymd(win.from)));
+  if (win.to) conds.push(lte(nutritionLogsTable.dateKey, ymd(win.to)));
+
+  const rows = await db
+    .select({
+      id: nutritionLogsTable.id,
+      dateKey: nutritionLogsTable.dateKey,
+      mealType: nutritionLogsTable.mealType,
+      athleteType: nutritionLogsTable.athleteType,
+      breakfast: nutritionLogsTable.breakfast,
+      snacks: nutritionLogsTable.snacks,
+      snacksMorning: nutritionLogsTable.snacksMorning,
+      snacksAfternoon: nutritionLogsTable.snacksAfternoon,
+      snacksEvening: nutritionLogsTable.snacksEvening,
+      lunch: nutritionLogsTable.lunch,
+      dinner: nutritionLogsTable.dinner,
+      waterIntake: nutritionLogsTable.waterIntake,
+      steps: nutritionLogsTable.steps,
+      sleepHours: nutritionLogsTable.sleepHours,
+      mood: nutritionLogsTable.mood,
+      energy: nutritionLogsTable.energy,
+      pain: nutritionLogsTable.pain,
+      foodDiary: nutritionLogsTable.foodDiary,
+      coachFeedback: nutritionLogsTable.coachFeedback,
+      loggedAt: nutritionLogsTable.loggedAt,
+    })
+    .from(nutritionLogsTable)
+    .where(and(...conds))
+    .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.loggedAt))
+    .limit(win.limit);
+
+  const [target] = await db
+    .select({ calories: nutritionTargetsTable.calories })
+    .from(nutritionTargetsTable)
+    .where(eq(nutritionTargetsTable.userId, athlete.userId))
+    .limit(1);
+
+  return {
+    targetCalories: target?.calories ?? null,
+    logs: rows,
+  };
+}
+
 /** Logging compliance — nutrition intake is free-text, so we measure days logged, not calories. */
 export async function getManagedAthleteNutrition(
   user: AuthUser,

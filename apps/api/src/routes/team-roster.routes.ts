@@ -9,6 +9,7 @@ import {
   getTeamRosterAthleteEngagement,
   getTeamRosterAthleteInjuries,
   getTeamRosterAthleteNutrition,
+  getTeamRosterAthleteNutritionLogs,
   getTeamRosterAthleteProgress,
   getTeamRosterAthleteRuns,
   getTeamRosterAthleteTraining,
@@ -98,6 +99,12 @@ router.get(
   requireAuth,
   requireRole([...readManagerRoles]),
   getTeamRosterAthleteNutrition,
+);
+router.get(
+  "/team/roster/athletes/:athleteId/nutrition/logs",
+  requireAuth,
+  requireRole([...readManagerRoles]),
+  getTeamRosterAthleteNutritionLogs,
 );
 router.get(
   "/team/roster/athletes/:athleteId/engagement",

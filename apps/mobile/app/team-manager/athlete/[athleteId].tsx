@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Lock,
   Pencil,
+  Utensils as NutritionIcon,
 } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -427,6 +428,47 @@ export default function AthleteDetailScreen() {
                 <Skeleton width="100%" height={120} borderRadius={22} />
                 <Skeleton width="100%" height={80} borderRadius={22} />
               </View>
+            ) : null}
+
+            {/* Nutrition logs link */}
+            {canAccess && athleteId ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/team-manager/athlete/nutrition/${athleteId}` as any)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  borderRadius: 22,
+                  backgroundColor: p.cardWhite,
+                  padding: 18,
+                  marginTop: 14,
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: p.accent + "18",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <NutritionIcon size={18} color={p.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
+                    Nutrition Logs
+                  </Text>
+                  <Text
+                    style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 2 }}
+                  >
+                    View daily meal entries and coach feedback
+                  </Text>
+                </View>
+                <ChevronRight size={17} color={p.textMuted} />
+              </Pressable>
             ) : null}
 
             {/* Collapsible profile & notes section */}

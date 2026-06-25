@@ -22,6 +22,7 @@ import {
   getManagedAthleteEngagement,
   getManagedAthleteInjuries,
   getManagedAthleteNutrition,
+  getManagedAthleteNutritionLogs,
   getManagedAthleteProgress,
   getManagedAthleteRuns,
   getManagedAthleteTraining,
@@ -161,6 +162,17 @@ export async function getTeamRosterAthleteNutrition(req: Request, res: Response)
     return res.status(200).json(data);
   } catch (error) {
     return handleAthleteDataError(error, res, "getTeamRosterAthleteNutrition");
+  }
+}
+
+export async function getTeamRosterAthleteNutritionLogs(req: Request, res: Response) {
+  try {
+    const { athleteId, win } = resolveWindow(req);
+    const data = await getManagedAthleteNutritionLogs(req.user!, athleteId, win);
+    if (!data) return res.status(404).json({ error: "Athlete not found." });
+    return res.status(200).json(data);
+  } catch (error) {
+    return handleAthleteDataError(error, res, "getTeamRosterAthleteNutritionLogs");
   }
 }
 
