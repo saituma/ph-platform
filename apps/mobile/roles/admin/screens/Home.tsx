@@ -127,6 +127,7 @@ function getGreeting(): string {
 
 const KPI_CARDS: { label: string; icon: any; color: AdminCardColor; iconColor: string }[] = [
     { label: "Athletes", icon: Users, color: "sage", iconColor: "#5BA67A" },
+    { label: "Teams", icon: Shield, color: "mint", iconColor: "#4A9B8A" },
     { label: "Premium", icon: Trophy, color: "yellow", iconColor: "#D4A04A" },
     { label: "Unread", icon: MessageCircle, color: "pink", iconColor: "#D4686A" },
     { label: "Bookings", icon: Calendar, color: "lavender", iconColor: "#7C6FA0" },
