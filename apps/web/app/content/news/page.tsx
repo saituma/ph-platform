@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Calendar,
+  ChevronDown,
+  ChevronUp,
   GripVertical,
   Heart,
   Image,
@@ -12,8 +14,10 @@ import {
   Pencil,
   Plus,
   Search,
+  Send,
   Trash2,
   Upload,
+  User,
   Video,
   X,
 } from "lucide-react";
@@ -37,7 +41,11 @@ import { toast } from "../../../lib/toast";
 import {
   useCreateContentMutation,
   useDeleteContentMutation,
+  useDeleteNewsCommentMutation,
+  useGetNewsPostCommentsQuery,
+  useGetNewsPostLikesQuery,
   useGetNewsQuery,
+  usePostNewsCommentMutation,
   usePresignMediaUploadMutation,
   useUpdateContentMutation,
 } from "../../../lib/apiSlice";
@@ -147,6 +155,7 @@ export default function NewsContentPage() {
   const [dragMediaIndex, setDragMediaIndex] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<NewsItem | null>(null);
   const [search, setSearch] = useState("");
+  const [engagementFor, setEngagementFor] = useState<number | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
@@ -563,45 +572,75 @@ export default function NewsContentPage() {
               {filteredItems.map((item) => {
                 const parsed = parseNewsBody(item.body);
                 return (
-                  <div key={item.id} className="rounded-xl border border-border bg-background p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                          {item.date ? (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(item.date)}
-                            </span>
-                          ) : null}
-                          {item.category ? (
-                            <Badge variant="secondary" size="sm">{item.category}</Badge>
-                          ) : null}
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Heart className="h-3 w-3" />
-                            {item.likeCount ?? 0}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MessageCircle className="h-3 w-3" />
-                            {item.commentCount ?? 0}
-                          </span>
-                          {parsed.media.length > 0 ? (
-                            <span className="text-xs text-muted-foreground">{parsed.media.length} media</span>
-                          ) : null}
+                  <div key={item.id} className="rounded-xl border border-border bg-background">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                            {item.date ? (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(item.date)}
+                              </span>
+                            ) : null}
+                            {item.category ? (
+                              <Badge variant="secondary" size="sm">{item.category}</Badge>
+                            ) : null}
+                            {parsed.media.length > 0 ? (
+                              <span className="text-xs text-muted-foreground">{parsed.media.length} media</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button size="sm" variant="outline" onClick={() => edit(item)}>
+                            <Pencil className="h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(item)}>
+                            <Trash2 className="h-4 w-4" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex shrink-0 gap-2">
-                        <Button size="sm" variant="outline" onClick={() => edit(item)}>
-                          <Pencil className="h-4 w-4" />
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => setDeleteTarget(item)}>
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </Button>
+                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{item.content}</p>
+
+                      {/* Engagement toggle row */}
+                      <div className="mt-3 flex items-center gap-3 border-t border-border pt-3">
+                        <button
+                          type="button"
+                          onClick={() => setEngagementFor(engagementFor === item.id ? null : item.id)}
+                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        >
+                          <Heart className="h-3.5 w-3.5" />
+                          {item.likeCount ?? 0} {(item.likeCount ?? 0) === 1 ? "like" : "likes"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEngagementFor(engagementFor === item.id ? null : item.id)}
+                          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          {item.commentCount ?? 0} {(item.commentCount ?? 0) === 1 ? "comment" : "comments"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEngagementFor(engagementFor === item.id ? null : item.id)}
+                          className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {engagementFor === item.id ? (
+                            <><ChevronUp className="h-3.5 w-3.5" /> Hide</>
+                          ) : (
+                            <><ChevronDown className="h-3.5 w-3.5" /> View details</>
+                          )}
+                        </button>
                       </div>
                     </div>
-                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{item.content}</p>
+
+                    {/* Engagement panel */}
+                    {engagementFor === item.id ? (
+                      <PostEngagementPanel contentId={item.id} />
+                    ) : null}
                   </div>
                 );
               })}
@@ -639,5 +678,196 @@ export default function NewsContentPage() {
         </AlertDialogPopup>
       </AlertDialog>
     </AdminShell>
+  );
+}
+
+type CommentItem = {
+  commentId: number;
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  content: string;
+  createdAt: string;
+  canDelete: boolean;
+};
+
+type LikeItem = {
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  createdAt: string;
+};
+
+function relativeTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${Math.floor(diffHours / 24)}d ago`;
+}
+
+function initials(name: string | null | undefined) {
+  const parts = String(name ?? "?").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return (parts[0]?.[0] ?? "?").toUpperCase();
+}
+
+function PostEngagementPanel({ contentId }: { contentId: number }) {
+  const [tab, setTab] = useState<"likes" | "comments">("comments");
+  const [commentText, setCommentText] = useState("");
+
+  const { data: likesData, isLoading: likesLoading } = useGetNewsPostLikesQuery(contentId);
+  const { data: commentsData, isLoading: commentsLoading } = useGetNewsPostCommentsQuery(contentId);
+  const [postComment, { isLoading: posting }] = usePostNewsCommentMutation();
+  const [deleteComment, { isLoading: deletingComment }] = useDeleteNewsCommentMutation();
+
+  const likes = (likesData?.items ?? []) as LikeItem[];
+  const comments = (commentsData?.items ?? []) as CommentItem[];
+
+  const submitComment = async () => {
+    const text = commentText.trim();
+    if (!text || posting) return;
+    try {
+      await postComment({ contentId, content: text }).unwrap();
+      setCommentText("");
+    } catch {
+      // handled by RTK
+    }
+  };
+
+  return (
+    <div className="border-t border-border bg-muted/30">
+      {/* Tab strip */}
+      <div className="flex border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab("comments")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${
+            tab === "comments"
+              ? "border-b-2 border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <MessageCircle className="h-3.5 w-3.5" />
+          Comments ({comments.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("likes")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors ${
+            tab === "likes"
+              ? "border-b-2 border-primary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Heart className="h-3.5 w-3.5" />
+          Liked by ({likes.length})
+        </button>
+      </div>
+
+      {tab === "comments" ? (
+        <div className="p-4">
+          {commentsLoading ? (
+            <p className="text-xs text-muted-foreground">Loading comments…</p>
+          ) : comments.length === 0 ? (
+            <p className="py-2 text-xs text-muted-foreground">No comments yet. Be the first.</p>
+          ) : (
+            <div className="mb-4 space-y-3">
+              {comments.map((comment) => (
+                <div key={comment.commentId} className="flex items-start gap-2.5">
+                  {comment.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={comment.avatarUrl}
+                      alt={comment.name}
+                      className="h-7 w-7 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                      {initials(comment.name)}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1 rounded-lg bg-background px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-foreground">{comment.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{relativeTime(comment.createdAt)}</span>
+                        {comment.canDelete ? (
+                          <button
+                            type="button"
+                            disabled={deletingComment}
+                            onClick={() => void deleteComment({ commentId: comment.commentId, contentId })}
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            title="Delete comment"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <p className="mt-0.5 text-xs text-foreground">{comment.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Admin comment input */}
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <User className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
+              <input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitComment(); } }}
+                placeholder="Add a comment as admin…"
+                className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                type="button"
+                disabled={!commentText.trim() || posting}
+                onClick={() => void submitComment()}
+                className="text-primary disabled:opacity-40 hover:text-primary/80 transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-4">
+          {likesLoading ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : likes.length === 0 ? (
+            <p className="py-2 text-xs text-muted-foreground">No likes yet.</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {likes.map((like) => (
+                <div key={like.userId} className="flex items-center gap-2">
+                  {like.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={like.avatarUrl}
+                      alt={like.name}
+                      className="h-7 w-7 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                      {initials(like.name)}
+                    </div>
+                  )}
+                  <span className="text-xs font-medium text-foreground">{like.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

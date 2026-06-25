@@ -34,6 +34,7 @@ import {
   likeNews,
   unlikeNews,
   listNewsComments,
+  listNewsLikes,
   createNewsComment,
   deleteNewsComment,
 } from "../services/content.service";
@@ -343,7 +344,9 @@ export async function unlikeNewsContent(req: Request, res: Response) {
 
 export async function listNewsCommentsContent(req: Request, res: Response) {
   const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
-  const out = await listNewsComments(contentId, req.user!.id);
+  const role = (req.user as any)?.role as string | undefined;
+  const isAdmin = role === "admin" || role === "superAdmin";
+  const out = await listNewsComments(contentId, req.user!.id, isAdmin);
   return res.status(200).json(out);
 }
 
@@ -356,7 +359,15 @@ export async function createNewsCommentContent(req: Request, res: Response) {
 
 export async function deleteNewsCommentContent(req: Request, res: Response) {
   const commentId = z.coerce.number().int().min(1).parse(req.params.commentId);
-  const out = await deleteNewsComment(req.user!.id, commentId);
+  const role = (req.user as any)?.role as string | undefined;
+  const isAdmin = role === "admin" || role === "superAdmin";
+  const out = await deleteNewsComment(req.user!.id, commentId, isAdmin);
+  return res.status(200).json(out);
+}
+
+export async function listNewsLikesContent(req: Request, res: Response) {
+  const contentId = z.coerce.number().int().min(1).parse(req.params.contentId);
+  const out = await listNewsLikes(contentId);
   return res.status(200).json(out);
 }
 

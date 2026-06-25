@@ -18,6 +18,7 @@ import {
   listNewsCategoriesContent,
   likeNewsContent,
   unlikeNewsContent,
+  listNewsLikesContent,
   listNewsCommentsContent,
   createNewsCommentContent,
   deleteNewsCommentContent,
@@ -50,6 +51,7 @@ router.get("/content/news", requireAuth, listNewsContent);
 router.get("/content/news/categories", requireAuth, listNewsCategoriesContent);
 router.post("/content/news/:contentId/like", requireAuth, likeNewsContent);
 router.delete("/content/news/:contentId/like", requireAuth, unlikeNewsContent);
+router.get("/content/news/:contentId/likes", requireAuth, listNewsLikesContent);
 router.get("/content/news/:contentId/comments", requireAuth, listNewsCommentsContent);
 router.post("/content/news/:contentId/comments", requireAuth, createNewsCommentContent);
 router.delete("/content/news/comments/:commentId", requireAuth, deleteNewsCommentContent);

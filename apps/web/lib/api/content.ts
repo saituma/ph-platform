@@ -29,6 +29,35 @@ const contentApi = apiSlice.injectEndpoints({
       query: () => "/content/news?limit=50",
       providesTags: ["Content"],
     }),
+    getNewsPostLikes: builder.query<
+      { items: Array<{ userId: number; name: string; avatarUrl: string | null; createdAt: string }> },
+      number
+    >({
+      query: (contentId) => `/content/news/${contentId}/likes`,
+      providesTags: (_r, _e, id) => [{ type: "Content", id: `likes-${id}` }],
+    }),
+    getNewsPostComments: builder.query<
+      { items: Array<{ commentId: number; userId: number; name: string; avatarUrl: string | null; content: string; createdAt: string; canDelete: boolean }> },
+      number
+    >({
+      query: (contentId) => `/content/news/${contentId}/comments`,
+      providesTags: (_r, _e, id) => [{ type: "Content", id: `comments-${id}` }],
+    }),
+    postNewsComment: builder.mutation<{ item: any }, { contentId: number; content: string }>({
+      query: ({ contentId, content }) => ({
+        url: `/content/news/${contentId}/comments`,
+        method: "POST",
+        body: { content },
+      }),
+      invalidatesTags: (_r, _e, { contentId }) => [{ type: "Content", id: `comments-${contentId}` }, "Content"],
+    }),
+    deleteNewsComment: builder.mutation<{ ok: boolean }, { commentId: number; contentId: number }>({
+      query: ({ commentId }) => ({
+        url: `/content/news/comments/${commentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_r, _e, { contentId }) => [{ type: "Content", id: `comments-${contentId}` }, "Content"],
+    }),
     getOpenGraph: builder.query<{ data: any }, { url: string }>({
       query: ({ url }) => `/open-graph?url=${encodeURIComponent(url)}`,
     }),
@@ -163,6 +192,10 @@ export const {
   useGetLegalContentQuery,
   useGetAnnouncementsQuery,
   useGetNewsQuery,
+  useGetNewsPostLikesQuery,
+  useGetNewsPostCommentsQuery,
+  usePostNewsCommentMutation,
+  useDeleteNewsCommentMutation,
   useGetOpenGraphQuery,
   useGetTestimonialSubmissionsQuery,
   useApproveTestimonialSubmissionMutation,

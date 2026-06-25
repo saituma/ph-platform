@@ -276,7 +276,7 @@ export async function unlikeNews(userId: number, contentId: number) {
   return { ok: true };
 }
 
-export async function listNewsComments(contentId: number, viewerUserId: number) {
+export async function listNewsComments(contentId: number, viewerUserId: number, viewerIsAdmin = false) {
   const rows = await db
     .select({
       commentId: newsCommentTable.id,
@@ -299,9 +299,25 @@ export async function listNewsComments(contentId: number, viewerUserId: number) 
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       isMine: row.userId === viewerUserId,
-      canDelete: row.userId === viewerUserId,
+      canDelete: viewerIsAdmin || row.userId === viewerUserId,
     })),
   };
+}
+
+export async function listNewsLikes(contentId: number) {
+  const rows = await db
+    .select({
+      userId: newsLikeTable.userId,
+      name: userTable.name,
+      avatarUrl: userTable.profilePicture,
+      createdAt: newsLikeTable.createdAt,
+    })
+    .from(newsLikeTable)
+    .innerJoin(userTable, eq(userTable.id, newsLikeTable.userId))
+    .where(eq(newsLikeTable.contentId, contentId))
+    .orderBy(asc(newsLikeTable.createdAt));
+
+  return { items: rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })) };
 }
 
 export async function createNewsComment(input: { userId: number; contentId: number; content: string }) {
@@ -340,8 +356,11 @@ export async function createNewsComment(input: { userId: number; contentId: numb
     : null;
 }
 
-export async function deleteNewsComment(userId: number, commentId: number) {
-  await db.delete(newsCommentTable).where(and(eq(newsCommentTable.id, commentId), eq(newsCommentTable.userId, userId)));
+export async function deleteNewsComment(userId: number, commentId: number, isAdmin = false) {
+  const condition = isAdmin
+    ? eq(newsCommentTable.id, commentId)
+    : and(eq(newsCommentTable.id, commentId), eq(newsCommentTable.userId, userId));
+  await db.delete(newsCommentTable).where(condition);
   return { ok: true };
 }
 
