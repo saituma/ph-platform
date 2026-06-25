@@ -21,6 +21,7 @@ import {
   isMessagingThreadLocallyRead,
 } from "@/lib/messages/unreadEvents";
 import { deleteMessageSync } from "@/lib/db/messageDb";
+import { removeMessageFromMemoryCache } from "./useChatCache";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
@@ -572,8 +573,9 @@ export function useChatActions({
         if (removedIndex < 0) return prev;
         return prev.filter((item) => item.id !== message.id);
       });
-      // Remove from SQLite immediately so navigating away before the debounce
-      // fires doesn't resurrect the deleted message on next thread open.
+      // Remove from both the in-memory Map and SQLite immediately so navigating
+      // away before the useEffect debounce fires can't resurrect the message.
+      removeMessageFromMemoryCache(effectiveProfileId, message.id);
       deleteMessageSync(effectiveProfileId, message.id);
       try {
         if (message.threadId.startsWith("group:")) {

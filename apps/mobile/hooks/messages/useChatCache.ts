@@ -58,14 +58,32 @@ export function getInitialCache(profileId: number): MessagesControllerCache | nu
 
 /** Immediately syncs current state into the in-memory Map so any component
  *  that calls getInitialCache() sees fresh data without waiting for the
- *  2-second SQLite debounce to fire. */
+ *  2-second SQLite debounce to fire.
+ *
+ *  Guard: never overwrite a Map entry that has threads with a state that has
+ *  none — this happens on the very first render before the API responds and
+ *  would blank the cache for any ThreadScreen that mounts in that window. */
 export function updateMemoryCache(
   profileId: number,
   data: Omit<MessagesControllerCache, "updatedAtMs">,
 ) {
   if (!Number.isFinite(profileId) || profileId <= 0) return;
+  const existing = messagesControllerCacheByProfileId.get(profileId);
+  if (existing && data.threads.length === 0 && existing.threads.length > 0) return;
   messagesControllerCacheByProfileId.set(profileId, {
     ...data,
+    updatedAtMs: Date.now(),
+  });
+}
+
+/** Removes a single message from the Map immediately — call this right after
+ *  setMessages in handleDeleteMessage so navigation can't race the useEffect. */
+export function removeMessageFromMemoryCache(profileId: number, messageId: string) {
+  const existing = messagesControllerCacheByProfileId.get(profileId);
+  if (!existing) return;
+  messagesControllerCacheByProfileId.set(profileId, {
+    ...existing,
+    messages: existing.messages.filter((m) => m.id !== messageId),
     updatedAtMs: Date.now(),
   });
 }
