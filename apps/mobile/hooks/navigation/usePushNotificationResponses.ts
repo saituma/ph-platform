@@ -189,27 +189,27 @@ export function usePushNotificationResponses(enabled: boolean) {
         return;
       }
       if (data?.type === "booking" || data?.screen === "schedule") {
-        nav.push("/(tabs)/schedule");
+        nav.push("/(tabs)/schedule" as any);
         return;
       }
       if (data?.screen === "messages") {
-        nav.push("/(tabs)/messages");
+        nav.push("/(tabs)/messages" as any);
         return;
       }
       if (data?.screen === "progress" || data?.type === "progress_reminder") {
-        nav.push("/progress");
+        nav.push("/progress" as any);
         return;
       }
       if (data?.screen === "plans" || data?.type === "plan_approved") {
         // Legacy `plans` route removed; land in Programs.
-        nav.push("/(tabs)/programs");
+        nav.push("/(tabs)/programs" as any);
         return;
       }
       if (
         data?.screen === "physio-referral" ||
         data?.type === "physio-referral"
       ) {
-        nav.push("/physio-referral");
+        nav.push("/physio-referral" as any);
         return;
       }
       if (
@@ -217,9 +217,9 @@ export function usePushNotificationResponses(enabled: boolean) {
         (data?.contentId != null || data?.videoUploadId != null)
       ) {
         if (data.contentId != null) {
-          nav.push(`/programs/content/${String(data.contentId)}`);
+          nav.push(`/programs/content/${String(data.contentId)}` as any);
         } else {
-          nav.push("/video-upload");
+          nav.push("/video-upload" as any);
         }
         return;
       }

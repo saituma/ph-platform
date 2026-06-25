@@ -105,9 +105,9 @@ function StartupSplashController() {
     // Expo Router's persisted navigation state (e.g. a program detail from a
     // previous session) is never shown on cold start.
     if (!isAuthenticated) {
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/login" as any);
     } else {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)" as any);
     }
 
     // Small delay lets the replace() navigation settle before the splash disappears,
