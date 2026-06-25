@@ -350,7 +350,7 @@ function MessagingPageInner() {
 
   const { data: announcementsData, refetch: refetchAnnouncements } =
     useGetAnnouncementsQuery();
-  const { data: storiesData, refetch: refetchStories } = useGetStoriesQuery();
+  const { data: storiesData } = useGetStoriesQuery();
   const [createStory, { isLoading: isCreatingStory }] = useCreateStoryMutation();
   const [deleteStory] = useDeleteStoryMutation();
   const { data: adminProfileData } = useGetAdminProfileQuery();
