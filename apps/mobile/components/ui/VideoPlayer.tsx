@@ -109,7 +109,6 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const controlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const innerPlayerRef = useRef<VideoPlayerRef>(null);
 
   useImperativeHandle(ref, () => ({
@@ -184,22 +183,22 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
     }
   }, [isFullscreen]);
 
-  // ── Watch history progress ────────────────────────────────────────
+  // ── Watch history progress — written on pause/stop, not polled ────
+  const watchElapsedRef = useRef(0);
   useEffect(() => {
     if (!isPlaying || !videoId) return;
-    progressInterval.current = setInterval(() => {
-      // progress is tracked by total elapsed time vs duration
+    const start = Date.now();
+    return () => {
+      watchElapsedRef.current += (Date.now() - start) / 1000;
+      const progress = durationSec > 0 ? Math.min(1, watchElapsedRef.current / durationSec) : 0;
       upsertWatchEntry({
         videoId: videoId!,
         title: title ?? "",
         thumbnail: typeof source === "string" ? thumbnail : undefined,
-        progress: 0, // in a real implementation, track actual player position
+        progress,
         durationSec,
         lastWatched: Date.now(),
       });
-    }, 10_000);
-    return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current);
     };
   }, [isPlaying, videoId, title, source, thumbnail, durationSec]);
 
@@ -226,9 +225,9 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
 
   const showPoster = !isPlaying && !autoPlay;
 
-  // For local sources, keep the player mounted during the poster phase so the
-  // video buffers in the background while the user sees the thumbnail.
-  const preloadLocal = sourceType === "local" && !autoPlay;
+  // Don't pre-allocate native video decoders in list contexts — each decoder
+  // consumes significant memory and mid-range Android devices run out quickly.
+  const preloadLocal = false;
 
   // ── Unified render (poster + active share the same tree for local) ──
   return (

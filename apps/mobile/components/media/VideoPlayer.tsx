@@ -300,29 +300,28 @@ function VideoPlayerYoutubeMode({
         alignItems: "center",
       }}
     >
-      <YouTubeEmbed
-        ref={inlineYouTubeRef as any}
-        url={uri}
-        width={containerSize.width}
-        height={containerSize.height}
-        shouldPlay={
-          !fullscreenOpen && effectiveShouldPlay && youtubeIsPlaying
-        }
-        initialMuted={youtubeMuted}
-        onPlayerStateChange={(state: string) => {
-          if (fullscreenOpen) return;
-          if (state === "playing" || state === "buffering") {
-            youtubePlaybackStartedRef.current = true;
-            setYoutubeIsPlaying(true);
-          }
-          if (
-            (state === "paused" || state === "ended") &&
-            youtubePlaybackStartedRef.current
-          ) {
-            setYoutubeIsPlaying(false);
-          }
-        }}
-      />
+      {!fullscreenOpen && (
+        <YouTubeEmbed
+          ref={inlineYouTubeRef as any}
+          url={uri}
+          width={containerSize.width}
+          height={containerSize.height}
+          shouldPlay={effectiveShouldPlay && youtubeIsPlaying}
+          initialMuted={youtubeMuted}
+          onPlayerStateChange={(state: string) => {
+            if (state === "playing" || state === "buffering") {
+              youtubePlaybackStartedRef.current = true;
+              setYoutubeIsPlaying(true);
+            }
+            if (
+              (state === "paused" || state === "ended") &&
+              youtubePlaybackStartedRef.current
+            ) {
+              setYoutubeIsPlaying(false);
+            }
+          }}
+        />
+      )}
 
       {!hideTopChrome && (
         <View
@@ -890,23 +889,25 @@ function VideoPlayerExpoNativeMode({
         justifyContent: "center",
       }}
     >
-      <Animated.View
-        style={{
-          width: containerSize.width,
-          height: containerSize.height,
-          opacity: fadeAnim,
-        }}
-      >
-        <VideoView
-          player={player}
-          style={{ flex: 1, width: "100%", height: "100%" }}
-          contentFit={fitMode}
-          nativeControls={!forceMuted && ignoreTabFocus}
-          fullscreenOptions={{ enable: false, orientation: "default" }}
-          allowsPictureInPicture={!forceMuted}
-          {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
-        />
-      </Animated.View>
+      {!fullscreenOpen && (
+        <Animated.View
+          style={{
+            width: containerSize.width,
+            height: containerSize.height,
+            opacity: fadeAnim,
+          }}
+        >
+          <VideoView
+            player={player}
+            style={{ flex: 1, width: "100%", height: "100%" }}
+            contentFit={fitMode}
+            nativeControls={!forceMuted && ignoreTabFocus}
+            fullscreenOptions={{ enable: false, orientation: "default" }}
+            allowsPictureInPicture={!forceMuted}
+            {...(Platform.OS === "android" ? { surfaceType: "textureView" } : {})}
+          />
+        </Animated.View>
+      )}
 
       {showPoster && (
         <VideoPoster
