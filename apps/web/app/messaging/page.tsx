@@ -524,7 +524,6 @@ function MessagingPageInner() {
               : null,
         });
       }
-      scheduleInboxRefetch(120);
       const senderId = Number(payload?.senderId ?? NaN);
       const receiverId = Number(payload?.receiverId ?? NaN);
       const me = currentUserIdRef.current;
@@ -536,6 +535,8 @@ function MessagingPageInner() {
           : null;
       if (!threadUserId) return;
       const activeThreadUserId = activeThreadUserIdRef.current;
+      // Only refetch inbox if the message is NOT in the currently open thread
+      if (threadUserId !== activeThreadUserId) scheduleInboxRefetch(500);
       if (
         activeThreadUserId &&
         Number.isFinite(activeThreadUserId) &&
@@ -599,9 +600,10 @@ function MessagingPageInner() {
               : null,
         });
       }
-      scheduleInboxRefetch(120);
       scheduleGroupRefetch(120);
       const groupId = Number(payload?.groupId ?? NaN);
+      // Only refetch inbox if the message is NOT in the currently open group
+      if (groupId !== activeGroupIdRef.current) scheduleInboxRefetch(500);
       if (!Number.isFinite(groupId) || groupId <= 0) return;
       const activeGroupId = activeGroupIdRef.current;
       if (

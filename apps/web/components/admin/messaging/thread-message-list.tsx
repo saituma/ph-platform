@@ -251,8 +251,11 @@ export function ThreadMessageList({
         : false;
     void mine;
     requestAnimationFrame(() => {
-      scrollToBottomWithRetry("smooth");
-      setLastSeenMessageId(latestId);
+      if (isNearBottomRef.current) {
+        scrollToBottomWithRetry("smooth");
+        setLastSeenMessageId(latestId);
+      }
+      // if scrolled up, leave lastSeenMessageId alone so FAB count increments
     });
   }, [currentUserId, messages, scrollToBottomWithRetry]);
 
@@ -338,11 +341,14 @@ export function ThreadMessageList({
     return cleaned[0] ?? null;
   };
 
-  const messageById = new Map<number, ChatMessage>();
-  messages.forEach((item) => {
-    const id = Number(item.id);
-    if (Number.isFinite(id)) messageById.set(id, item);
-  });
+  const messageById = useMemo(() => {
+    const map = new Map<number, ChatMessage>();
+    messages.forEach((item) => {
+      const id = Number(item.id);
+      if (Number.isFinite(id)) map.set(id, item);
+    });
+    return map;
+  }, [messages]);
 
   const downArrowLabel = useMemo(() => {
     if (newIncomingCount <= 0) return "";
