@@ -1,17 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { TabConfig } from "@/components/navigation";
 import React from "react";
-import { useSafePathname, useSafeRouter } from "@/hooks/navigation/useSafeExpoRouter";
-
-/** Tab keys that match a file under `app/(tabs)/` — admin/coach shells use other keys; do not `router.replace` those. */
-const TABS_SHELL_ROUTE_KEYS = new Set([
-  "index",
-  "programs",
-  "messages",
-  "schedule",
-  "tracking",
-  "more",
-]);
+import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
 
 /** First segment under (tabs), aligned with tab keys (index = home). */
 export function parsePrimaryTabSegment(pathname: string): string {
@@ -36,19 +26,17 @@ export function parsePrimaryTabSegment(pathname: string): string {
 
 export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Record<string, React.ComponentType<any>>) {
   const pathname = useSafePathname("");
-  const router = useSafeRouter();
   const lastResolvedRef = useRef<{ pathname: string; index: number } | null>(null);
-  const routeSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (routeSyncTimerRef.current) {
-        clearTimeout(routeSyncTimerRef.current);
-      }
-    };
-  }, []);
 
   const initialIndex = useMemo(() => {
+    // Push screens live outside /(tabs)/ — don't recompute the active tab
+    // when the root Stack navigates to a push screen like /messages/123 or
+    // /programs/content/5. The SwipeableTabLayout preserves its own activeIndex
+    // state through push/pop cycles, so we just keep the last known tab index.
+    if (pathname && !pathname.startsWith("/(tabs)")) {
+      return lastResolvedRef.current?.index ?? 0;
+    }
+
     if (!pathname) return lastResolvedRef.current?.index ?? 0;
 
     const routeName = parsePrimaryTabSegment(pathname);
@@ -68,24 +56,16 @@ export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Reco
     return 0;
   }, [pathname, visibleTabs]);
 
+  // No router.replace — calling router.replace("/(tabs)/programs") from here was
+  // the source of the "double redirect": Expo Router's route replacement fired a
+  // visible navigation event 250 ms after every tab press. Tab visual state is
+  // managed entirely by SwipeableTabLayout's activeIndex React state, which is
+  // preserved through push/pop navigation cycles without any URL sync needed.
+  // Deep links still work: they call router.replace themselves, which updates
+  // pathname and triggers the initialIndex sync effect in SwipeableTabLayout.
   const handleIndexChange = useCallback(
-    (index: number, _source: "swipe" | "press" | "sync") => {
-      const tab = visibleTabs[index];
-      if (!tab || !router) return;
-      if (!TABS_SHELL_ROUTE_KEYS.has(tab.key)) return;
-
-      const current = parsePrimaryTabSegment(pathname);
-      if (current === tab.key) return;
-
-      const href = tab.key === "index" ? "/(tabs)" : `/(tabs)/${tab.key}`;
-      if (routeSyncTimerRef.current) {
-        clearTimeout(routeSyncTimerRef.current);
-      }
-      routeSyncTimerRef.current = setTimeout(() => {
-        router.replace(href as Parameters<typeof router.replace>[0]);
-      }, 250);
-    },
-    [visibleTabs, pathname, router],
+    (_index: number, _source: "swipe" | "press" | "sync") => {},
+    [],
   );
 
   const screens = useMemo(() => {
