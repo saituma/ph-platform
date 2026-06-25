@@ -297,33 +297,66 @@ async function pageBySection(input: PageInput) {
   }
 
   if (input.section === "training") {
-    const filters = [
+    const completionFilters = [
+      eq(programSectionCompletionTable.athleteId, input.athleteId),
+      ...dateRangeFilters(input, programSectionCompletionTable.completedAt),
+    ];
+    const workoutFilters = [
       eq(athleteTrainingSessionWorkoutLogTable.athleteId, input.athleteId),
       ...dateRangeFilters(input, athleteTrainingSessionWorkoutLogTable.updatedAt),
     ];
-    const [{ value = 0 } = { value: 0 }] = await db
-      .select({ value: count() })
-      .from(athleteTrainingSessionWorkoutLogTable)
-      .where(and(...filters));
-    const items = await db
-      .select({
-        id: athleteTrainingSessionWorkoutLogTable.id,
-        athleteId: athleteTrainingSessionWorkoutLogTable.athleteId,
-        sessionId: athleteTrainingSessionWorkoutLogTable.sessionId,
-        sessionTitle: trainingModuleSessionTable.title,
-        weightsUsed: athleteTrainingSessionWorkoutLogTable.weightsUsed,
-        repsCompleted: athleteTrainingSessionWorkoutLogTable.repsCompleted,
-        rpe: athleteTrainingSessionWorkoutLogTable.rpe,
-        createdAt: athleteTrainingSessionWorkoutLogTable.createdAt,
-        updatedAt: athleteTrainingSessionWorkoutLogTable.updatedAt,
-      })
-      .from(athleteTrainingSessionWorkoutLogTable)
-      .leftJoin(trainingModuleSessionTable, eq(trainingModuleSessionTable.id, athleteTrainingSessionWorkoutLogTable.sessionId))
-      .where(and(...filters))
-      .orderBy(desc(athleteTrainingSessionWorkoutLogTable.updatedAt), desc(athleteTrainingSessionWorkoutLogTable.id))
-      .limit(limit)
-      .offset(offset);
-    return pageResult(items, limit, offset, Number(value));
+
+    const [[{ cCount = 0 } = {}], [{ wCount = 0 } = {}]] = await Promise.all([
+      db.select({ cCount: count() }).from(programSectionCompletionTable).where(and(...completionFilters)),
+      db.select({ wCount: count() }).from(athleteTrainingSessionWorkoutLogTable).where(and(...workoutFilters)),
+    ]);
+
+    const totalCount = Number(cCount) + Number(wCount);
+
+    const [completions, workouts] = await Promise.all([
+      db
+        .select({
+          id: programSectionCompletionTable.id,
+          athleteId: programSectionCompletionTable.athleteId,
+          sessionTitle: programSectionContentTable.title,
+          sectionType: programSectionContentTable.sectionType,
+          rpe: programSectionCompletionTable.rpe,
+          soreness: programSectionCompletionTable.soreness,
+          fatigue: programSectionCompletionTable.fatigue,
+          notes: programSectionCompletionTable.notes,
+          completedAt: programSectionCompletionTable.completedAt,
+          _source: sql<string>`'completion'`,
+        })
+        .from(programSectionCompletionTable)
+        .leftJoin(programSectionContentTable, eq(programSectionContentTable.id, programSectionCompletionTable.programSectionContentId))
+        .where(and(...completionFilters))
+        .orderBy(desc(programSectionCompletionTable.completedAt)),
+      db
+        .select({
+          id: athleteTrainingSessionWorkoutLogTable.id,
+          athleteId: athleteTrainingSessionWorkoutLogTable.athleteId,
+          sessionId: athleteTrainingSessionWorkoutLogTable.sessionId,
+          sessionTitle: trainingModuleSessionTable.title,
+          weightsUsed: athleteTrainingSessionWorkoutLogTable.weightsUsed,
+          repsCompleted: athleteTrainingSessionWorkoutLogTable.repsCompleted,
+          rpe: athleteTrainingSessionWorkoutLogTable.rpe,
+          completedAt: athleteTrainingSessionWorkoutLogTable.updatedAt,
+          _source: sql<string>`'workout_log'`,
+        })
+        .from(athleteTrainingSessionWorkoutLogTable)
+        .leftJoin(trainingModuleSessionTable, eq(trainingModuleSessionTable.id, athleteTrainingSessionWorkoutLogTable.sessionId))
+        .where(and(...workoutFilters))
+        .orderBy(desc(athleteTrainingSessionWorkoutLogTable.updatedAt)),
+    ]);
+
+    const merged = [...completions, ...workouts].sort((a, b) => {
+      const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    const pageItems = merged.slice(offset, offset + limit);
+    return pageResult(pageItems, limit, offset, totalCount);
   }
 
   if (input.section === "moduleCompletions") {
