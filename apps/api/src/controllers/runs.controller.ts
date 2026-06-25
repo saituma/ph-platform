@@ -16,6 +16,7 @@ const runPayloadSchema = z.object({
   feelTags: z.any().optional(),
   notes: z.string().max(500).nullable().optional(),
   sport: z.string().max(40).nullable().optional(),
+  visibility: z.enum(["public", "private"]).optional(),
 });
 
 const syncBodySchema = z.object({

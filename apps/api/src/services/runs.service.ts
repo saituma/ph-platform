@@ -16,6 +16,7 @@ interface RunPayload {
   feelTags?: unknown | null;
   notes?: string | null;
   sport?: string | null;
+  visibility?: "public" | "private" | null;
 }
 
 export async function upsertRuns(userId: number, runs: RunPayload[]) {
@@ -38,6 +39,7 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
       feelTags: run.feelTags ?? null,
       notes: run.notes ?? null,
       sport: run.sport ?? null,
+      visibility: (run.visibility === "private" ? "private" : "public") as "public" | "private",
     };
 
     await db
@@ -57,6 +59,7 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
           feelTags: values.feelTags,
           notes: values.notes,
           sport: values.sport,
+          visibility: values.visibility,
           updatedAt: new Date(),
         },
       });

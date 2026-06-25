@@ -160,6 +160,61 @@ export async function syncRuns(): Promise<void> {
   await pullRunsFromCloud();
 }
 
+/**
+ * Sync a single just-completed run with explicit visibility.
+ * Used when the team share sheet resolves before navigating away from active-run.
+ * Marks the run synced in SQLite so the background queue skips it.
+ */
+export async function syncRunWithVisibility(
+  run: {
+    clientId: string;
+    date: string;
+    distanceMeters: number;
+    durationSeconds: number;
+    avgPace: number | null;
+    avgSpeed: number | null;
+    calories: number | null;
+    coordinates: unknown;
+    effortLevel: number | null;
+    feelTags: unknown;
+    notes: string | null;
+    sport: string | null;
+  },
+  visibility: "public" | "private",
+  token: string,
+): Promise<void> {
+  try {
+    const result = await apiRequest<{ synced: string[] }>("/runs/sync", {
+      method: "POST",
+      token,
+      body: {
+        runs: [
+          {
+            clientId: run.clientId,
+            date: run.date,
+            distanceMeters: run.distanceMeters,
+            durationSeconds: run.durationSeconds,
+            avgPace: run.avgPace,
+            avgSpeed: run.avgSpeed,
+            calories: run.calories,
+            coordinates: run.coordinates,
+            effortLevel: run.effortLevel,
+            feelTags: run.feelTags,
+            notes: run.notes,
+            sport: run.sport,
+            visibility,
+          },
+        ],
+      },
+    });
+    if (result.synced?.includes(run.clientId)) {
+      markRunsSynced([run.clientId]);
+    }
+  } catch (err) {
+    if (__DEV__) console.warn("[runSync] syncRunWithVisibility failed:", err);
+  }
+}
+
 function safeJsonParse(value: string | null | undefined): unknown {
   if (!value) return null;
   try {

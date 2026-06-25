@@ -4,7 +4,7 @@ import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
 import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveActiveRunDraft, saveRunRecord } from "@/lib/sqliteRuns";
 import { estimateCalories } from "@/lib/tracking/runUtils";
-import { queueRunPushToCloud } from "@/lib/runSync";
+import { queueRunPushToCloud, syncRunWithVisibility } from "@/lib/runSync";
 import {
   announceRunComplete,
   announceRunStarted,
@@ -54,6 +54,7 @@ import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "@/componen
 import { ActiveRunExpandedView } from "@/components/tracking/active-run/ActiveRunExpandedView";
 import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
 import { ActiveRunStartSheet } from "@/components/tracking/active-run/ActiveRunStartSheet";
+import { RunShareSheet } from "@/components/tracking/active-run/RunShareSheet";
 import { haversineDistance } from "@/lib/haversine";
 
 export default function ActiveRunScreen() {
@@ -63,6 +64,7 @@ export default function ActiveRunScreen() {
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
+  const token = useAppSelector((s) => s.user.token);
   const hasTeam = useAppSelector((s) => !!(s.user.authTeamMembership?.teamId));
   const hasStartedRef = React.useRef(false);
   const trackingActiveRef = React.useRef(false);
@@ -94,6 +96,13 @@ export default function ActiveRunScreen() {
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [startSheetOpen, setStartSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+  const pendingRunRef = React.useRef<{
+    clientId: string; date: string; distanceMeters: number; durationSeconds: number;
+    avgPace: number | null; avgSpeed: number | null; calories: number | null;
+    coordinates: unknown; effortLevel: number | null; feelTags: unknown;
+    notes: string | null; sport: string | null;
+  } | null>(null);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -293,22 +302,23 @@ export default function ActiveRunScreen() {
     const finalDistance = snap.distanceMeters;
     const finalSeconds = snap.elapsedSeconds;
     const finalCoords = snap.coordinates;
-    const finalRunId = snap.currentRunId;
+    const finalRunId = snap.currentRunId ?? Crypto.randomUUID();
 
     const distanceKm = finalDistance / 1000;
     const avg_speed = distanceKm > 0 && finalSeconds > 0 ? distanceKm / (finalSeconds / 3600) : 0;
     const avg_pace = distanceKm > 0 && finalSeconds > 0 ? finalSeconds / 60 / distanceKm : 0;
+    const calories = estimateCalories(finalDistance);
 
     try {
       initSQLiteRuns();
       saveRunRecord({
-        id: finalRunId ?? Crypto.randomUUID(),
+        id: finalRunId,
         date: new Date().toISOString(),
         distance_meters: finalDistance,
         duration_seconds: finalSeconds,
         avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
         avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
-        calories: estimateCalories(finalDistance),
+        calories,
         coordinates: JSON.stringify(finalCoords ?? []),
         effort_level: EFFORT_PENDING_FEEDBACK,
         feel_tags: "[]",
@@ -316,13 +326,46 @@ export default function ActiveRunScreen() {
         user_id: userId,
         sport: selectedSport,
       });
-      queueRunPushToCloud();
     } catch (e) {
       console.warn("[active-run] failed to save run", e);
     }
 
     if (audioCuesEnabled) {
       announceRunComplete(finalDistance, finalSeconds);
+    }
+
+    if (hasTeam && token) {
+      pendingRunRef.current = {
+        clientId: finalRunId,
+        date: new Date().toISOString(),
+        distanceMeters: finalDistance,
+        durationSeconds: finalSeconds,
+        avgPace: Number.isFinite(avg_pace) ? avg_pace : null,
+        avgSpeed: Number.isFinite(avg_speed) ? avg_speed : null,
+        calories,
+        coordinates: finalCoords ?? [],
+        effortLevel: null,
+        feelTags: [],
+        notes: null,
+        sport: selectedSport,
+      };
+      setShareSheetVisible(true);
+      return;
+    }
+
+    queueRunPushToCloud();
+    resetRun();
+    router.back();
+  };
+
+  const handleShareDecision = (share: boolean) => {
+    setShareSheetVisible(false);
+    const run = pendingRunRef.current;
+    pendingRunRef.current = null;
+    if (run && token) {
+      void syncRunWithVisibility(run, share ? "public" : "private", token);
+    } else {
+      queueRunPushToCloud();
     }
     resetRun();
     router.back();
@@ -726,6 +769,14 @@ export default function ActiveRunScreen() {
           bottomInset={bottomSafeInset}
         />
       )}
+
+      <RunShareSheet
+        visible={shareSheetVisible}
+        distanceMeters={pendingRunRef.current?.distanceMeters ?? 0}
+        durationSeconds={pendingRunRef.current?.durationSeconds ?? 0}
+        onShare={() => handleShareDecision(true)}
+        onSkip={() => handleShareDecision(false)}
+      />
 
     </>
   );
