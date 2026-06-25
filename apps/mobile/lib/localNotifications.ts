@@ -20,7 +20,7 @@ export async function configureInteractiveNotificationCategories(): Promise<void
         identifier: CHAT_ACTION_REPLY_ID,
         buttonTitle: "Reply",
         options: {
-          opensAppToForeground: false,
+          opensAppToForeground: true,
         },
         textInput: {
           submitButtonTitle: "Send",

@@ -10,7 +10,6 @@ import {
 import { useAppSelector } from "@/store/hooks";
 import {
   getMessagesRolePrefix,
-  messagesThreadHref,
   type MessagesRolePrefix,
 } from "@/lib/messages/roleMessageRoutes";
 /** Map web-only or legacy push `url` values to Expo Router paths (esp. coach/admin). */
@@ -158,6 +157,10 @@ export function usePushNotificationResponses(enabled: boolean) {
         if (replyText) {
           void replyToThread(threadIdFromAction, replyText);
           void markThreadRead(threadIdFromAction);
+          routerRef.current.push({
+            pathname: `/${rolePrefix}/messages/[id]` as any,
+            params: { id: threadIdFromAction },
+          });
         }
         return;
       }
@@ -174,7 +177,7 @@ export function usePushNotificationResponses(enabled: boolean) {
         if (!isSafeInternalPath(mappedPath)) return;
         if (mappedPath.startsWith("/messages/")) {
           const thread = mappedPath.replace("/messages/", "");
-          nav.push(messagesThreadHref(rolePrefix, thread));
+          nav.push({ pathname: `/${rolePrefix}/messages/[id]` as any, params: { id: thread } });
           return;
         }
         nav.push(mappedPath as any);
@@ -182,7 +185,7 @@ export function usePushNotificationResponses(enabled: boolean) {
       }
       const threadId = data?.threadId;
       if (threadId) {
-        nav.push(messagesThreadHref(rolePrefix, String(threadId)));
+        nav.push({ pathname: `/${rolePrefix}/messages/[id]` as any, params: { id: String(threadId) } });
         return;
       }
       if (data?.type === "booking" || data?.screen === "schedule") {

@@ -30,6 +30,8 @@ import "./global.css";
 import "@/lib/backgroundTask";
 /** Defines the headless chat-reply task so notification Reply/Mark Read works while the app is killed. */
 import "@/lib/backgroundNotificationTask";
+/** Sets the foreground notification handler so iOS shows banners while the app is active. */
+import "@/lib/notificationHandler";
 import AppThemeProvider from "./theme/AppThemeProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { Compose } from "@/lib/compose";
