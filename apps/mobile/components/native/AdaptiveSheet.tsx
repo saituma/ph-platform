@@ -25,8 +25,12 @@ type AdaptiveSheetProps = {
   cardStyle?: StyleProp<ViewStyle>;
 };
 
-function getPresentationStyle(variant: AdaptiveSheetVariant): ModalProps["presentationStyle"] {
-  if (Platform.OS !== "ios") return "fullScreen";
+function getPresentationStyle(variant: AdaptiveSheetVariant): ModalProps["presentationStyle"] | undefined {
+  if (Platform.OS !== "ios") {
+    // bottom variant uses transparent={true}; leaving presentationStyle unset lets
+    // RN auto-resolve to "overFullScreen" and avoids the fullScreen+transparent warning
+    return variant === "bottom" ? undefined : "fullScreen";
+  }
   if (variant === "form") return "formSheet" as ModalProps["presentationStyle"];
   if (variant === "fullscreen") return "fullScreen";
   if (variant === "bottom") return "overFullScreen";

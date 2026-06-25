@@ -85,6 +85,8 @@ export function ThemedScrollView({
         </Animated.View>
       )}
       <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         {...props}
         scrollEnabled={!disabled && (props.scrollEnabled ?? true)}
         onScroll={scrollHandler}

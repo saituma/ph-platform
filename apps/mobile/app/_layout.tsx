@@ -212,12 +212,12 @@ function RootLayout() {
             name="programs/content/[contentId]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "program-content"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -225,12 +225,12 @@ function RootLayout() {
             name="programs/exercise/[planExerciseId]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "program-exercise"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -238,12 +238,12 @@ function RootLayout() {
             name="messages/[id]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -251,12 +251,12 @@ function RootLayout() {
             name="team/messages/[id]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -264,12 +264,12 @@ function RootLayout() {
             name="adult/messages/[id]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -277,12 +277,12 @@ function RootLayout() {
             name="youth/messages/[id]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />
@@ -290,12 +290,12 @@ function RootLayout() {
             name="admin/messages/[id]"
             options={({ route }: any) =>
               Platform.OS === "android"
-                ? { ...slideFromRight, gestureEnabled: false }
+                ? slideFromRight
                 : {
                     ...Transition.Presets.SharedAppleMusic({
                       sharedBoundTag: String(route?.params?.sharedBoundTag ?? "thread-card"),
                     }),
-                    gestureEnabled: false,
+                    gestureEnabled: true,
                   }
             }
           />

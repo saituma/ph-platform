@@ -55,7 +55,7 @@ function getLinksForRole(
       const links: QuickLink[] = [];
       if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
       if (!hideWellbeingSleep && capabilities?.sleep === true) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
-      links.push({ label: "News", icon: "news", route: "/news" });
+      links.push({ label: "Nutrition", icon: "tracking", route: "/nutrition" });
       links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
       return links;
     }

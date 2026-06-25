@@ -225,6 +225,7 @@ export function NutritionDashboard() {
         style={{ flex: 1, backgroundColor: p.pageBg }}
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -566,7 +567,9 @@ export function NutritionDashboard() {
                       key={entry.logId}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setSelectedDate(entry.dateKey);
+                        router.push(
+                          `/nutrition/log/${encodeURIComponent(entry.dateKey)}?userId=${encodeURIComponent(String(athleteUserId || "me"))}` as any,
+                        );
                       }}
                       style={({ pressed }) => ({
                         flexDirection: "row",

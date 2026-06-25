@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { LucideProps } from 'lucide-react-native';
 import { forwardRef } from 'react';
 import {
+  Platform,
   Pressable,
   TextStyle,
   TouchableOpacity,
@@ -196,12 +197,9 @@ export const Button = forwardRef<View, ButtonProps>(
       }
     };
 
-    // Trigger haptic feedback
     const triggerHapticFeedback = () => {
       if (haptic && !disabled && !loading) {
-        if (process.env.EXPO_OS === 'ios') {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     };
 
@@ -209,15 +207,14 @@ export const Button = forwardRef<View, ButtonProps>(
     const handlePressIn = (ev?: any) => {
       triggerHapticFeedback();
 
-      // Scale up with bouncy spring animation
-      scale.value = withSpring(1.05, {
+      // Scale down on press — matches native iOS button feel
+      scale.value = withSpring(0.97, {
         damping: 15,
         stiffness: 400,
         mass: 0.5,
       });
 
-      // Slight brightness increase for glass effect
-      brightness.value = withSpring(1.1, {
+      brightness.value = withSpring(0.92, {
         damping: 20,
         stiffness: 300,
       });
@@ -234,7 +231,6 @@ export const Button = forwardRef<View, ButtonProps>(
         overshootClamping: false,
       });
 
-      // Return brightness to normal
       brightness.value = withSpring(1, {
         damping: 20,
         stiffness: 300,
@@ -325,6 +321,7 @@ export const Button = forwardRef<View, ButtonProps>(
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled || loading}
+        android_ripple={Platform.OS === "android" ? { color: "rgba(255,255,255,0.18)", borderless: false } : undefined}
         style={getPressableStyle()}
         {...props}
       >

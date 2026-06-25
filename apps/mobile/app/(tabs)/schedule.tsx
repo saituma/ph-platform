@@ -1084,18 +1084,6 @@ export default memo(function ScheduleScreen() {
     setBookingOpen(true);
   }, [services.length, refreshServices]);
 
-  // ── Guards ────────────────────────────────────────────────────
-  if (isSectionHidden("schedule")) {
-    return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
-  }
-  if (eventsLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
-        <SkeletonScheduleScreen />
-      </View>
-    );
-  }
-
   const fabBottom = 20 + insets.bottom + 56; // 56 = TAB_HEIGHT
   const bentoGap = 10;
 
@@ -1373,6 +1361,18 @@ export default memo(function ScheduleScreen() {
     if (item.type === "pending-event") return `pend-${item.event.id}`;
     return `${item.type}-${index}`;
   }, []);
+
+  // ── Guards ────────────────────────────────────────────────────
+  if (isSectionHidden("schedule")) {
+    return <AgeGate title="Schedule locked" message="Scheduling is restricted for this age." />;
+  }
+  if (eventsLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: p.pageBg, paddingTop: insets.top }}>
+        <SkeletonScheduleScreen />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>

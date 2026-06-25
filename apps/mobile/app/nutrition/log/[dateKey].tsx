@@ -11,13 +11,240 @@ import React, { useMemo } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 import { SkeletonNutritionLogScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { X } from "lucide-react-native";
+import {
+  X,
+  Utensils,
+  Droplets,
+  Moon,
+  Footprints,
+  Heart,
+  Zap,
+  AlertCircle,
+  MessageSquare,
+} from "lucide-react-native";
 
-function parseSlot(value: unknown) {
+type MealItem = {
+  id?: string;
+  name: string;
+  calories: number;
+  weightGrams?: number;
+  unit?: string;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
+};
+
+type ParsedMeal =
+  | { logged: false }
+  | { logged: true; items: MealItem[]; legacyText?: string };
+
+function parseMealSlot(value: unknown): ParsedMeal {
   const raw = typeof value === "string" ? value.trim() : "";
-  if (!raw) return { checked: false, details: "" };
-  if (raw.toLowerCase() === "yes") return { checked: true, details: "" };
-  return { checked: true, details: raw };
+  if (!raw) return { logged: false };
+
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return { logged: true, items: parsed as MealItem[] };
+      }
+    } catch {}
+  }
+
+  if (raw.toLowerCase() === "yes") return { logged: true, items: [] };
+  return { logged: true, items: [], legacyText: raw };
+}
+
+function mealTotalCals(meal: ParsedMeal): number {
+  if (!meal.logged) return 0;
+  return meal.items.reduce((sum, i) => sum + (i.calories ?? 0), 0);
+}
+
+function MealSection({
+  label,
+  meal,
+  p,
+}: {
+  label: string;
+  meal: ParsedMeal;
+  p: ReturnType<typeof useNutritionTheme>;
+}) {
+  if (!meal.logged) return null;
+  const total = mealTotalCals(meal);
+
+  return (
+    <View
+      style={{
+        borderRadius: 18,
+        backgroundColor: p.inputBg,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: p.divider,
+      }}
+    >
+      {/* Meal header */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderBottomWidth: meal.items.length > 0 ? 1 : 0,
+          borderBottomColor: p.divider,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 9,
+              backgroundColor: p.accentSoft,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Utensils size={14} color={p.accent} />
+          </View>
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+            {label}
+          </Text>
+        </View>
+        {total > 0 && (
+          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
+            {total} kcal
+          </Text>
+        )}
+        {meal.logged && meal.items.length === 0 && !meal.legacyText && (
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+            Logged
+          </Text>
+        )}
+      </View>
+
+      {/* Legacy text log */}
+      {meal.legacyText ? (
+        <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 20 }}>
+            {meal.legacyText}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Food items */}
+      {meal.items.map((item, idx) => {
+        const hasWeight = item.weightGrams && item.weightGrams > 0;
+        const hasMacros =
+          (item.protein ?? 0) > 0 || (item.carbs ?? 0) > 0 || (item.fat ?? 0) > 0;
+        return (
+          <View
+            key={item.id ?? idx}
+            style={{
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              borderTopWidth: idx > 0 ? 1 : 0,
+              borderTopColor: p.divider,
+              gap: 4,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: "Outfit-Medium",
+                  fontSize: 13,
+                  color: p.textPrimary,
+                }}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+              <View style={{ alignItems: "flex-end", gap: 2 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textPrimary }}>
+                  {item.calories} kcal
+                </Text>
+                {hasWeight ? (
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>
+                    {item.weightGrams}
+                    {item.unit ?? "g"}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            {hasMacros && (
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 2 }}>
+                {(item.protein ?? 0) > 0 && (
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.success }}>
+                    P {Math.round(item.protein!)}g
+                  </Text>
+                )}
+                {(item.carbs ?? 0) > 0 && (
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.accent }}>
+                    C {Math.round(item.carbs!)}g
+                  </Text>
+                )}
+                {(item.fat ?? 0) > 0 && (
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary }}>
+                    F {Math.round(item.fat!)}g
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function StatRow({
+  icon,
+  label,
+  value,
+  p,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  p: ReturnType<typeof useNutritionTheme>;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 10,
+      }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          backgroundColor: p.accentSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {icon}
+      </View>
+      <Text style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary }}>
+        {label}
+      </Text>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+        {value}
+      </Text>
+    </View>
+  );
 }
 
 export default function NutritionLogDetailScreen() {
@@ -31,8 +258,7 @@ export default function NutritionLogDetailScreen() {
   const token = useAppSelector((s) => s.user.token);
 
   const effectiveUserId = useMemo(() => {
-    if (typeof userId === "string" && userId.trim().length)
-      return userId.trim();
+    if (typeof userId === "string" && userId.trim().length) return userId.trim();
     return athleteUserId ? String(athleteUserId) : "me";
   }, [athleteUserId, userId]);
 
@@ -56,7 +282,6 @@ export default function NutritionLogDetailScreen() {
         `/nutrition/logs?${qs.toString()}`,
         { token: token!, suppressLog: true },
       );
-      // Return null (not undefined) so TanStack Query treats it as loaded-but-empty
       return (data.logs ?? []).find((l: any) => l?.dateKey === dk) ?? null;
     },
     enabled: !!token && isValidDate,
@@ -81,59 +306,61 @@ export default function NutritionLogDetailScreen() {
       ? log.coachFeedbackMediaUrl.trim()
       : "";
 
-  const lines = useMemo(() => {
-    if (!log) return [];
-    const out: string[] = [];
-    const diary =
-      typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "";
+  const meals = useMemo(() => {
+    if (!log) return null;
+    const breakfast = parseMealSlot(log?.breakfast);
+    const lunch = parseMealSlot(log?.lunch);
+    const dinner = parseMealSlot(log?.dinner);
+    const snacksMorning = parseMealSlot(log?.snacksMorning);
+    const snacksAfternoon = parseMealSlot(log?.snacksAfternoon);
+    const snacksEvening = parseMealSlot(log?.snacksEvening);
 
-    const b = parseSlot(log?.breakfast);
-    const l = parseSlot(log?.lunch);
-    const d = parseSlot(log?.dinner);
-    const sm = parseSlot(log?.snacksMorning);
-    const sa = parseSlot(log?.snacksAfternoon);
-    const se = parseSlot(log?.snacksEvening);
-    const legacySnacksRaw =
-      typeof log?.snacks === "string" ? log.snacks.trim() : "";
+    // Decide how to show snacks: if modern snacks exist use them, otherwise fall back
+    const anyModernSnack =
+      snacksMorning.logged || snacksAfternoon.logged || snacksEvening.logged;
+    const legacySnack = anyModernSnack ? null : parseMealSlot(log?.snacks);
 
-    if (b.checked) out.push(`Breakfast: ${b.details || "Logged"}`);
-    if (l.checked) out.push(`Lunch: ${l.details || "Logged"}`);
-    if (d.checked) out.push(`Dinner: ${d.details || "Logged"}`);
+    const totalCals =
+      mealTotalCals(breakfast) +
+      mealTotalCals(lunch) +
+      mealTotalCals(dinner) +
+      mealTotalCals(snacksMorning) +
+      mealTotalCals(snacksAfternoon) +
+      mealTotalCals(snacksEvening) +
+      (legacySnack ? mealTotalCals(legacySnack) : 0);
 
-    const anyNewSnack = sm.checked || sa.checked || se.checked;
-    if (!anyNewSnack && legacySnacksRaw) {
-      const legacy = parseSlot(legacySnacksRaw);
-      if (legacy.checked)
-        out.push(`Snack (legacy): ${legacy.details || "Logged"}`);
-    } else {
-      if (sm.checked) out.push(`Morning snack: ${sm.details || "Logged"}`);
-      if (sa.checked) out.push(`Afternoon snack: ${sa.details || "Logged"}`);
-      if (se.checked) out.push(`Evening snack: ${se.details || "Logged"}`);
-    }
-
-    const w = typeof log?.waterIntake === "number" ? log.waterIntake : 0;
-    if (w > 0) out.push(`Water: ${w}`);
-
-    if (log?.athleteType === "adult") {
-      const steps = typeof log?.steps === "number" ? log.steps : 0;
-      const sleepHours =
-        typeof log?.sleepHours === "number" ? log.sleepHours : 0;
-      out.push(`Steps: ${steps}`);
-      out.push(`Sleep: ${sleepHours}h`);
-    }
-    if (typeof log?.mood === "number") out.push(`Mood: ${log.mood}/5`);
-    if (typeof log?.energy === "number") out.push(`Energy: ${log.energy}/5`);
-    if (typeof log?.pain === "number") out.push(`Pain: ${log.pain}/5`);
-
-    if (diary) out.push(`Food diary: ${diary}`);
-    return out;
+    return {
+      breakfast,
+      lunch,
+      dinner,
+      snacksMorning,
+      snacksAfternoon,
+      snacksEvening,
+      legacySnack,
+      anyModernSnack,
+      totalCals,
+      water: typeof log?.waterIntake === "number" ? log.waterIntake : 0,
+      steps: log?.athleteType === "adult" && typeof log?.steps === "number" ? log.steps : null,
+      sleepHours: log?.athleteType === "adult" && typeof log?.sleepHours === "number" ? log.sleepHours : null,
+      mood: typeof log?.mood === "number" ? log.mood : null,
+      energy: typeof log?.energy === "number" ? log.energy : null,
+      pain: typeof log?.pain === "number" ? log.pain : null,
+      foodDiary: typeof log?.foodDiary === "string" ? log.foodDiary.trim() : "",
+      targetCalories: typeof log?.targetCalories === "number" ? log.targetCalories : null,
+    };
   }, [log]);
+
+  const formattedDate = useMemo(() => {
+    if (!dk) return "";
+    const d = new Date(dk + "T00:00:00");
+    return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  }, [dk]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <MoreStackHeader
         title="Nutrition Log"
-        subtitle={String(dateKey ?? "")}
+        subtitle={formattedDate}
         rightSlot={
           <TouchableOpacity
             onPress={() => {
@@ -154,7 +381,10 @@ export default function NutritionLogDetailScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 16, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 16 }}
+        showsVerticalScrollIndicator={false}
+      >
         {loading ? (
           <SkeletonNutritionLogScreen />
         ) : error === "Log not found." ? (
@@ -172,12 +402,10 @@ export default function NutritionLogDetailScreen() {
               No nutrition log for this day yet.
             </Text>
             <TouchableOpacity
-              onPress={() => router.replace("/nutrition" as any)}
+              onPress={() => router.replace("/(tabs)" as any)}
               style={{ borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.buttonPrimary }}
             >
-              <Text
-                style={{ fontSize: 14, fontFamily: "Outfit-Bold", textAlign: "center", color: p.buttonPrimaryText }}
-              >
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", textAlign: "center", color: p.buttonPrimaryText }}>
                 Log today's nutrition
               </Text>
             </TouchableOpacity>
@@ -186,71 +414,169 @@ export default function NutritionLogDetailScreen() {
           <View
             style={{
               borderRadius: 22,
-              paddingHorizontal: 20,
-              paddingVertical: 20,
+              padding: 20,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
               backgroundColor: p.cardPeach,
             }}
           >
-            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>{error}</Text>
+            <AlertCircle size={18} color={p.textSecondary} />
+            <Text style={{ flex: 1, fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+              {error}
+            </Text>
           </View>
-        ) : (
+        ) : meals ? (
           <>
-            <View
-              style={{
-                borderRadius: 22,
-                padding: 20,
-                gap: 8,
-                backgroundColor: p.cardWhite,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
-                Your log
-              </Text>
-              {lines.length ? (
-                lines.map((t) => (
-                  <Text key={t} style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary }}>
-                    {t}
+            {/* Calorie summary strip */}
+            {meals.totalCals > 0 && (
+              <View
+                style={{
+                  borderRadius: 20,
+                  backgroundColor: p.cardWhite,
+                  paddingHorizontal: 20,
+                  paddingVertical: 16,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <View>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginBottom: 2 }}>
+                    Total eaten
                   </Text>
-                ))
-              ) : (
-                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                  No details logged.
-                </Text>
-              )}
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -0.5 }}>
+                    {meals.totalCals}
+                    <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted }}> kcal</Text>
+                  </Text>
+                </View>
+                {meals.targetCalories && (
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginBottom: 2 }}>
+                      Goal
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.accent }}>
+                      {meals.targetCalories}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Meal sections */}
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1, paddingLeft: 4 }}>
+                Meals
+              </Text>
+              <MealSection label="Breakfast" meal={meals.breakfast} p={p} />
+              <MealSection label="Lunch" meal={meals.lunch} p={p} />
+              <MealSection label="Dinner" meal={meals.dinner} p={p} />
+              {meals.anyModernSnack ? (
+                <>
+                  <MealSection label="Morning Snack" meal={meals.snacksMorning} p={p} />
+                  <MealSection label="Afternoon Snack" meal={meals.snacksAfternoon} p={p} />
+                  <MealSection label="Evening Snack" meal={meals.snacksEvening} p={p} />
+                </>
+              ) : meals.legacySnack ? (
+                <MealSection label="Snack" meal={meals.legacySnack} p={p} />
+              ) : null}
+              {!meals.breakfast.logged &&
+                !meals.lunch.logged &&
+                !meals.dinner.logged &&
+                !meals.snacksMorning.logged && (
+                  <View style={{ borderRadius: 18, backgroundColor: p.inputBg, padding: 16 }}>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, textAlign: "center" }}>
+                      No meals logged for this day.
+                    </Text>
+                  </View>
+                )}
             </View>
 
-            <View
-              style={{
-                borderRadius: 22,
-                padding: 20,
-                gap: 12,
-                backgroundColor: p.cardWhite,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontFamily: "Outfit-Regular", color: p.textMuted, textTransform: "uppercase", letterSpacing: 1.2 }}>
+            {/* Daily stats */}
+            {(meals.water > 0 || meals.steps !== null || meals.sleepHours !== null || meals.mood !== null || meals.energy !== null || meals.pain !== null || meals.foodDiary) && (
+              <View
+                style={{
+                  borderRadius: 20,
+                  backgroundColor: p.cardWhite,
+                  paddingHorizontal: 16,
+                  paddingTop: 14,
+                  paddingBottom: 6,
+                }}
+              >
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                  Daily stats
+                </Text>
+                <View style={{ height: 1, backgroundColor: p.divider, marginBottom: 4 }} />
+                {meals.water > 0 && (
+                  <StatRow icon={<Droplets size={15} color={p.accent} />} label="Water" value={`${meals.water} L`} p={p} />
+                )}
+                {meals.steps !== null && (
+                  <StatRow icon={<Footprints size={15} color={p.accent} />} label="Steps" value={meals.steps.toLocaleString()} p={p} />
+                )}
+                {meals.sleepHours !== null && (
+                  <StatRow icon={<Moon size={15} color={p.accent} />} label="Sleep" value={`${meals.sleepHours}h`} p={p} />
+                )}
+                {meals.mood !== null && (
+                  <StatRow icon={<Heart size={15} color={p.accent} />} label="Mood" value={`${meals.mood}/5`} p={p} />
+                )}
+                {meals.energy !== null && (
+                  <StatRow icon={<Zap size={15} color={p.accent} />} label="Energy" value={`${meals.energy}/5`} p={p} />
+                )}
+                {meals.pain !== null && (
+                  <StatRow icon={<AlertCircle size={15} color={p.accent} />} label="Pain" value={`${meals.pain}/5`} p={p} />
+                )}
+                {meals.foodDiary ? (
+                  <View style={{ paddingTop: 8, paddingBottom: 10 }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.8 }}>
+                      Food diary
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, lineHeight: 22 }}>
+                      {meals.foodDiary}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
+            {/* Coach response */}
+            <View style={{ gap: 10 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1, paddingLeft: 4 }}>
                 Coach response
               </Text>
-              {coachText ? (
-                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 24 }}>
-                  {coachText}
-                </Text>
-              ) : (
-                <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
-                  No coach response yet.
-                </Text>
-              )}
-              {coachMedia ? (
-                <View style={{ borderRadius: 22, overflow: "hidden", backgroundColor: p.inputBg }}>
-                  <VideoPlayer
-                    uri={coachMedia}
-                    height={200}
-                    useVideoResolution
-                  />
+              <View
+                style={{
+                  borderRadius: 20,
+                  backgroundColor: p.cardWhite,
+                  padding: 16,
+                  gap: 12,
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+                    <MessageSquare size={14} color={p.accent} />
+                  </View>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+                    {coachText || coachMedia ? "Feedback" : "No response yet"}
+                  </Text>
                 </View>
-              ) : null}
+                {coachText ? (
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textPrimary, lineHeight: 24 }}>
+                    {coachText}
+                  </Text>
+                ) : !coachMedia ? (
+                  <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    Once your coach reviews this log, their feedback will appear here.
+                  </Text>
+                ) : null}
+                {coachMedia ? (
+                  <View style={{ borderRadius: 16, overflow: "hidden", backgroundColor: p.inputBg }}>
+                    <VideoPlayer uri={coachMedia} height={200} useVideoResolution />
+                  </View>
+                ) : null}
+              </View>
             </View>
           </>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

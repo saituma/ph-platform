@@ -3,7 +3,7 @@ import { Text } from "@/components/ScaledText";
 import { ArrowLeft } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 
 type MoreStackHeaderProps = {
   title: string;
@@ -53,6 +53,7 @@ export function MoreStackHeader({
               }
             }}
             hitSlop={10}
+            android_ripple={{ color: p.accentSoft, borderless: true, radius: 22 }}
             style={({ pressed }) => ({
               height: 40,
               width: 40,
@@ -60,7 +61,7 @@ export function MoreStackHeader({
               justifyContent: "center",
               borderRadius: 100,
               backgroundColor: p.accentSoft,
-              opacity: pressed ? 0.7 : 1,
+              opacity: Platform.OS === "ios" && pressed ? 0.7 : 1,
             })}
           >
             <ArrowLeft size={18} color={p.accent} strokeWidth={2} />

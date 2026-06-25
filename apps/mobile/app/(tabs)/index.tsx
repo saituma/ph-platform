@@ -41,6 +41,7 @@ import { QuickLinksSection } from "@/components/home/QuickLinksSection";
 import { TestimonialsSection } from "@/components/home/TestimonialsSection";
 import { StreakModal } from "@/components/home/StreakModal";
 import { StreakMilestoneModal } from "@/components/home/StreakMilestoneModal";
+import { PermissionPromptSheet } from "@/components/home/PermissionPromptSheet";
 import { useStreakStore } from "@/lib/streakStore";
 import { scheduleStreakReminder } from "@/lib/streakReminder";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
@@ -55,11 +56,11 @@ import {
   Bell,
 } from "lucide-react-native";
 
+const HOME_BG = require("@/assets/images/home-bg.png") as number;
+
 const { width: _SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const HERO_HEIGHT = SCREEN_H * 0.52;
-
-const HOME_BG = require("@/assets/images/home-bg.png");
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -391,6 +392,7 @@ const HomeScreen = memo(function HomeScreen() {
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
+        overScrollMode="never"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={accentLime} />}
         style={{ backgroundColor: isDark ? "#000000" : p.pageBg }}
       >
@@ -540,6 +542,7 @@ const HomeScreen = memo(function HomeScreen() {
         milestoneDay={activeMilestoneDay}
         firstName={firstName}
       />
+      <PermissionPromptSheet />
     </View>
   );
 });
@@ -556,12 +559,20 @@ const s = StyleSheet.create({
     overflow: "hidden",
   },
   heroBgImage: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: "100%",
     height: "100%",
   },
   heroGradient: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   heroContent: {
     flex: 1,

@@ -211,7 +211,11 @@ const TabItem = React.memo(function TabItem({
       accessibilityRole="tab"
       accessibilityLabel={tab.label || tab.key}
       accessibilityState={{ selected: isSelected }}
-      style={styles.tabItemContainer}
+      android_ripple={{ color: "rgba(0,0,0,0.06)", borderless: false }}
+      style={({ pressed }) => [
+        styles.tabItemContainer,
+        Platform.OS === "ios" && pressed ? { opacity: 0.75 } : null,
+      ]}
     >
       <View style={styles.iconStack}>
         {/* Inactive Icon */}
@@ -304,13 +308,11 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
               }
         ]}
       >
-        {Platform.OS === "ios" && (
-          <BlurView
-            intensity={isAdmin ? 50 : 65}
-            tint={isDark ? "dark" : "light"}
-            style={StyleSheet.absoluteFill}
-          />
-        )}
+        <BlurView
+          intensity={isAdmin ? 50 : 65}
+          tint={isDark ? "dark" : "light"}
+          style={StyleSheet.absoluteFill}
+        />
 
         {/* Tab Items */}
         <View style={styles.tabItemsWrapper}>
