@@ -24,6 +24,7 @@ import {
   Route,
   Send,
   Settings2,
+  User,
   UserRound,
   Users,
   type LucideIcon,
@@ -54,6 +55,7 @@ export type AppIconName =
   | "tracking"
   | "roster"
   | "user"
+  | "profile"
   | "heart"
   | "heart-filled"
   | "wellbeing"
@@ -96,6 +98,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   tracking: "figure.run",
   roster: "person.2",
   user: "person.crop.circle",
+  profile: "person",
   sleep: "moon.fill",
 };
 
@@ -127,6 +130,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   tracking: Route,
   roster: Users,
   user: UserRound,
+  profile: User,
   sleep: Moon,
 };
 

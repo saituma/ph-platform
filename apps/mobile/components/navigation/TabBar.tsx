@@ -82,9 +82,10 @@ function resolveTabIcon(icon: string): AppIconName {
       return "settings";
     case "person-circle":
     case "person-circle-outline":
+      return "user";
     case "person":
     case "person-outline":
-      return "user";
+      return "profile";
     case "stats-chart":
     case "stats-chart-outline":
     case "analytics":
