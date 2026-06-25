@@ -20,7 +20,7 @@ import {
   emitMessagingUnreadChanged,
   isMessagingThreadLocallyRead,
 } from "@/lib/messages/unreadEvents";
-import { deleteMessageSync } from "@/lib/db/messageDb";
+import { markMessageDeletedSync, loadDeletedMessageIds } from "@/lib/db/messageDb";
 import { removeMessageFromMemoryCache } from "./useChatCache";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
@@ -79,6 +79,9 @@ export function useChatActions({
 }: ChatActionsParams) {
   // Track IDs of messages pending deletion so background reloads don't re-add them
   const pendingDeleteIds = useRef<Set<string>>(new Set());
+  // Persistent deleted IDs loaded from SQLite — survives app restarts so
+  // zombies from stale cache can't reappear via applyFetchedData.
+  const persistedDeletedIds = useRef<Set<string>>(loadDeletedMessageIds(effectiveProfileId));
 
   /**
    * Processes raw server responses into threads/messages state.
@@ -287,9 +290,10 @@ export function useChatActions({
         );
       });
       const deletedIds = pendingDeleteIds.current;
+      const persistedDeleted = persistedDeletedIds.current;
       setMessages((prev) => {
         const groupMessages = prev.filter((m) =>
-          String(m.threadId ?? "").startsWith("group:") && !deletedIds.has(m.id),
+          String(m.threadId ?? "").startsWith("group:") && !deletedIds.has(m.id) && !persistedDeleted.has(m.id),
         );
         const optimisticDirect = prev.filter(
           (m) =>
@@ -297,12 +301,14 @@ export function useChatActions({
             typeof m.id === "string" &&
             m.id.startsWith("client-"),
         );
-        // Preserve confirmed direct messages not yet in server response (send race).
+        // Preserve confirmed direct messages not yet in server response (send race),
+        // but exclude any that are in the persistent deleted set (zombie guard).
         const confirmedDirect = prev.filter(
           (m) =>
             !String(m.threadId ?? "").startsWith("group:") &&
             !(typeof m.id === "string" && m.id.startsWith("client-")) &&
-            !deletedIds.has(m.id),
+            !deletedIds.has(m.id) &&
+            !persistedDeleted.has(m.id),
         );
         const seen = new Set<string>();
         const next: ChatMessage[] = [];
@@ -560,23 +566,13 @@ export function useChatActions({
   const handleDeleteMessage = useCallback(
     async (message: ChatMessage) => {
       if (!token) return;
-      // Mark as pending delete immediately so background reloads skip it
       pendingDeleteIds.current.add(message.id);
-      let removedMessage: ChatMessage | null = null;
-      let removedIndex = -1;
-      setMessages((prev) => {
-        removedIndex = prev.findIndex((item) => item.id === message.id);
-        removedMessage =
-          removedIndex >= 0 && removedIndex < prev.length
-            ? prev[removedIndex]
-            : null;
-        if (removedIndex < 0) return prev;
-        return prev.filter((item) => item.id !== message.id);
-      });
-      // Remove from both the in-memory Map and SQLite immediately so navigating
-      // away before the useEffect debounce fires can't resurrect the message.
+      setMessages((prev) => prev.filter((item) => item.id !== message.id));
+      // Remove from Map, SQLite, and the persistent deleted-IDs table immediately.
+      // Also add to the in-session ref so applyFetchedData filters it right away.
+      persistedDeletedIds.current.add(message.id);
       removeMessageFromMemoryCache(effectiveProfileId, message.id);
-      deleteMessageSync(effectiveProfileId, message.id);
+      markMessageDeletedSync(effectiveProfileId, message.id);
       try {
         if (message.threadId.startsWith("group:")) {
           const groupId = Number(message.threadId.replace("group:", ""));
@@ -594,21 +590,13 @@ export function useChatActions({
           }
           await messagesApi.deleteMessage(messageId, { token, headers: actingHeaders });
         }
-        // Keep in set permanently — message is gone from server too
+        // Keep in pendingDeleteIds permanently — message is gone from server.
       } catch (error) {
-        // Delete failed — remove from pending set and restore message
+        // Don't restore the message even on API failure. If the server returns
+        // 404 it's already gone; any other error means the message will reappear
+        // on the next full data sync if it still exists. Restoring here is what
+        // creates unkillable zombie messages.
         pendingDeleteIds.current.delete(message.id);
-        if (removedMessage) {
-          setMessages((prev) => {
-            if (prev.some((item) => item.id === removedMessage?.id)) return prev;
-            if (removedIndex < 0 || removedIndex > prev.length) {
-              return [...prev, removedMessage as ChatMessage];
-            }
-            const next = [...prev];
-            next.splice(removedIndex, 0, removedMessage as ChatMessage);
-            return next;
-          });
-        }
         console.warn("Failed to delete message", error);
       }
     },

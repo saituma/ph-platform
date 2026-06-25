@@ -41,6 +41,13 @@ function getDb(): SQLite.SQLiteDatabase {
       raw_json   TEXT    NOT NULL,
       PRIMARY KEY (profile_id, group_id)
     );
+
+    CREATE TABLE IF NOT EXISTS deleted_message_ids (
+      message_id  TEXT    NOT NULL,
+      profile_id  INTEGER NOT NULL,
+      deleted_at  INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (message_id, profile_id)
+    );
   `);
   return _db;
 }
@@ -63,6 +70,8 @@ export function loadCacheSync(profileId: number): CacheData | null {
 
     const threads = threadRows.map((r) => JSON.parse(r.raw_json));
 
+    const deletedIds = loadDeletedMessageIds(profileId);
+
     const msgRows = db.getAllSync<{ raw_json: string }>(
       `SELECT raw_json FROM chat_messages
        WHERE profile_id = ?
@@ -70,7 +79,9 @@ export function loadCacheSync(profileId: number): CacheData | null {
        LIMIT ${MAX_MESSAGES}`,
       [profileId],
     );
-    const messages = msgRows.map((r) => JSON.parse(r.raw_json));
+    const messages = msgRows
+      .map((r) => JSON.parse(r.raw_json))
+      .filter((m: { id: string }) => !deletedIds.has(String(m.id)));
 
     const gmRows = db.getAllSync<{ group_id: number; raw_json: string }>(
       "SELECT group_id, raw_json FROM group_member_snapshots WHERE profile_id = ?",
@@ -88,21 +99,47 @@ export function loadCacheSync(profileId: number): CacheData | null {
 }
 
 /**
- * Synchronous delete — called immediately when a message is removed so the
- * SQLite cache doesn't resurrect it if the user navigates away before the
- * async saveToCache debounce fires.
+ * Marks a message as permanently deleted and removes it from chat_messages.
+ * Persists across app restarts so zombies from stale SQLite cache can't resurface.
  */
-export function deleteMessageSync(profileId: number, messageId: string): void {
+export function markMessageDeletedSync(profileId: number, messageId: string): void {
   try {
     const db = getDb();
+    db.runSync(
+      "INSERT OR IGNORE INTO deleted_message_ids (message_id, profile_id, deleted_at) VALUES (?, ?, ?)",
+      [messageId, profileId, Date.now()],
+    );
     db.runSync(
       "DELETE FROM chat_messages WHERE profile_id = ? AND id = ?",
       [profileId, messageId],
     );
   } catch (e) {
-    if (__DEV__) console.warn("[messageDb] deleteMessageSync failed:", e);
+    if (__DEV__) console.warn("[messageDb] markMessageDeletedSync failed:", e);
   }
 }
+
+/** Returns the set of message IDs that were permanently deleted for this profile. */
+export function loadDeletedMessageIds(profileId: number): Set<string> {
+  try {
+    const db = getDb();
+    // Only keep the last 30 days to bound table size.
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    db.runSync(
+      "DELETE FROM deleted_message_ids WHERE profile_id = ? AND deleted_at < ?",
+      [profileId, cutoff],
+    );
+    const rows = db.getAllSync<{ message_id: string }>(
+      "SELECT message_id FROM deleted_message_ids WHERE profile_id = ?",
+      [profileId],
+    );
+    return new Set(rows.map((r) => r.message_id));
+  } catch {
+    return new Set();
+  }
+}
+
+// Keep the old name as an alias so existing callers (useChatActions) don't break.
+export const deleteMessageSync = markMessageDeletedSync;
 
 /**
  * Async write — called after API sync or socket events.
