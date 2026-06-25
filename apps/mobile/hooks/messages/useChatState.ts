@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { ChatMessage } from "@/constants/messages";
-import { getInitialCache, saveToCache } from "./useChatCache";
+import { getInitialCache, saveToCache, updateMemoryCache } from "./useChatCache";
 
 export function useChatState(effectiveProfileId: number, threadId?: string) {
   const initialCache = useMemo(
@@ -49,6 +49,22 @@ export function useChatState(effectiveProfileId: number, threadId?: string) {
     draftRef.current = next?.draft ?? "";
   }, [effectiveProfileId]);
 
+  // Immediately mirror state into the shared in-memory Map so any component
+  // that mounts and calls getInitialCache() sees current data right away —
+  // without waiting for the SQLite debounce below.
+  useEffect(() => {
+    updateMemoryCache(effectiveProfileId, {
+      threads,
+      messages,
+      groupMembers,
+      typingStatus: {},
+      selectedThread,
+      draft: draftRef.current,
+    });
+  }, [threads, messages, groupMembers, selectedThread, effectiveProfileId]);
+
+  // Debounced SQLite write — only persists to disk every 2 s to avoid
+  // hammering the DB on every socket message.
   const saveToCacheTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (saveToCacheTimerRef.current) clearTimeout(saveToCacheTimerRef.current);

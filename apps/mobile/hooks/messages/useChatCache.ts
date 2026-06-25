@@ -56,6 +56,20 @@ export function getInitialCache(profileId: number): MessagesControllerCache | nu
   return null;
 }
 
+/** Immediately syncs current state into the in-memory Map so any component
+ *  that calls getInitialCache() sees fresh data without waiting for the
+ *  2-second SQLite debounce to fire. */
+export function updateMemoryCache(
+  profileId: number,
+  data: Omit<MessagesControllerCache, "updatedAtMs">,
+) {
+  if (!Number.isFinite(profileId) || profileId <= 0) return;
+  messagesControllerCacheByProfileId.set(profileId, {
+    ...data,
+    updatedAtMs: Date.now(),
+  });
+}
+
 export function saveToCache(profileId: number, data: Omit<MessagesControllerCache, "updatedAtMs">) {
   if (!Number.isFinite(profileId) || profileId <= 0) return;
   pruneExpiredCacheEntries();
