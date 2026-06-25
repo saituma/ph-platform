@@ -4,9 +4,9 @@ import {
   NativeSyntheticEvent,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useContentWidth } from "@/lib/contentWidth";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
-import { Image } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -70,7 +70,13 @@ function TestimonialCard({
             }}
           >
             {photo ? (
-              <Image source={{ uri: photo }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+              <Image
+                source={{ uri: photo }}
+                style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
+              />
             ) : (
               <AppIcon name="user" size={22} color={p.accent} />
             )}

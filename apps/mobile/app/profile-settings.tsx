@@ -17,7 +17,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
-  Image as RNImage,
 } from "react-native";
 import { Image } from "expo-image";
 import {
@@ -144,10 +143,12 @@ export default function ProfileSettingsScreen() {
               {/* ── Cover Banner ── */}
               <View style={{ position: "relative", width: SCREEN_W, height: BANNER_H }}>
                 {profile.coverImage ? (
-                  <RNImage
+                  <Image
                     source={{ uri: profile.coverImage }}
                     style={{ width: SCREEN_W, height: BANNER_H, position: "absolute" }}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
                   />
                 ) : (
                   <LinearGradient

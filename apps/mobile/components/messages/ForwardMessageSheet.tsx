@@ -191,6 +191,9 @@ export default function ForwardMessageSheet({
                   <Image
                     source={{ uri: item.avatarUrl }}
                     style={{ width: 40, height: 40, borderRadius: 20 }}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
                   />
                 ) : (
                   <View

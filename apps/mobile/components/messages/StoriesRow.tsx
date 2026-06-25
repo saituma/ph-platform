@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
-  FlatList,
   Pressable,
   StyleSheet,
   View,
@@ -39,6 +39,7 @@ function StoryCircle({
         source={{ uri: story.mediaUrl }}
         style={styles.avatar}
         contentFit="cover"
+        cachePolicy="memory-disk"
         transition={200}
       />
     </View>
@@ -118,7 +119,7 @@ export const StoriesRow = React.memo(function StoriesRow({ stories }: Props) {
 
   return (
     <>
-      <FlatList
+      <FlashList
         data={stories}
         horizontal
         showsHorizontalScrollIndicator={false}

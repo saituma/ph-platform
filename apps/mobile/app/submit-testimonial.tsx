@@ -8,13 +8,13 @@ import { requestMediaLibraryPermission } from "@/lib/media/safeLaunchImagePicker
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  Image,
   Platform,
   Pressable,
   TouchableOpacity,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { Image } from "expo-image";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -127,7 +127,7 @@ export default function SubmitTestimonialScreen() {
         title="Submit Testimonial"
         subtitle="Share your progress story and help future athletes feel the value of the platform."
         badge="Community"
-        onBack={() => router.replace("/(tabs)/more")}
+        onBack={() => router.back()}
       />
 
       <KeyboardAvoidingView
@@ -152,7 +152,7 @@ export default function SubmitTestimonialScreen() {
               <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22, marginBottom: 32, textAlign: "center" }}>
                 Your testimonial has been submitted and is pending review.
               </Text>
-              <Pressable onPress={() => router.replace("/(tabs)/more")} style={{ marginTop: 8, width: "100%" }}>
+              <Pressable onPress={() => router.back()} style={{ marginTop: 8, width: "100%" }}>
                 <View
                   style={{
                     height: 56,
@@ -233,6 +233,9 @@ export default function SubmitTestimonialScreen() {
                     <Image
                       source={{ uri: photoMeta.uri }}
                       style={{ width: "100%", height: "100%" }}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={200}
                     />
                   </View>
                 ) : null}

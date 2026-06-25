@@ -1,15 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
   View,
 } from "react-native";
+import { Image } from "expo-image";
 import { useContentWidth } from "@/lib/contentWidth";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { NavigationContext } from "@react-navigation/native";
-import { Image as ExpoImage } from "expo-image";
 import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
 
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -103,7 +102,6 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
   const flatListRef = useRef<FlashListRef<AnnouncementItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
-  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const announcements = items && items.length ? items : [];
   const cardWidth = width;
 
@@ -139,8 +137,13 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
     }
   };
 
+  const parsedCache = useMemo(
+    () => new Map(announcements.map(a => [a.id ?? a.title, extractAnnouncements(a)])),
+    [announcements],
+  );
+
   const renderItem = useCallback(({ item }: { item: AnnouncementItem }) => {
-    const parsed = extractAnnouncements(item);
+    const parsed = parsedCache.get(item.id ?? item.title) ?? extractAnnouncements(item);
     const title = item.title?.trim() || "Announcement";
     const date = item.updatedAt || item.createdAt;
     const dateLabel = date ? new Date(date).toLocaleDateString() : "";
@@ -202,27 +205,13 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
                   className="rounded-[24px] overflow-hidden"
                   style={{ width: imageWidth, height: imageHeight }}
                 >
-                  {imageErrors[url] ? (
-                    <Image
-                      source={{ uri: url }}
-                      resizeMode="cover"
-                      style={{ width: imageWidth, height: imageHeight }}
-                    />
-                  ) : (
-                    <ExpoImage
-                      source={{ uri: url }}
-                      contentFit="cover"
-                      transition={200}
-                      cachePolicy="memory-disk"
-                      onError={() =>
-                        setImageErrors((prev) => ({
-                          ...prev,
-                          [url]: true,
-                        }))
-                      }
-                      style={{ width: imageWidth, height: imageHeight }}
-                    />
-                  )}
+                  <Image
+                    source={{ uri: url }}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
+                    style={{ width: imageWidth, height: imageHeight }}
+                  />
                 </View>
               ))}
             </ScrollView>
@@ -244,7 +233,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
         </View>
       </View>
     );
-  }, [cardWidth, isDark, imageErrors, setImageErrors, isFocused]);
+  }, [cardWidth, isDark, isFocused]);
 
   if (isEmpty) return null;
 
@@ -278,6 +267,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           horizontal
+          estimatedItemSize={300}
           pagingEnabled
           style={{ width: cardWidth }}
           showsHorizontalScrollIndicator={false}
