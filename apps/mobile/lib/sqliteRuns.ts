@@ -289,6 +289,70 @@ export function updateRunFeedback(id: string, feedback: { effort_level: number; 
   );
 }
 
+type ServerRunPayload = {
+  clientId: string;
+  date: string | Date;
+  distanceMeters: number;
+  durationSeconds: number;
+  avgPace?: number | null;
+  avgSpeed?: number | null;
+  calories?: number | null;
+  coordinates?: unknown;
+  effortLevel?: number | null;
+  feelTags?: unknown;
+  notes?: string | null;
+  sport?: string | null;
+  updatedAt?: string | Date | null;
+};
+
+export function upsertServerRuns(runs: ServerRunPayload[], userId: string) {
+  ensureInitialized();
+  for (const run of runs) {
+    const coordsStr =
+      run.coordinates == null
+        ? null
+        : typeof run.coordinates === "string"
+          ? run.coordinates
+          : JSON.stringify(run.coordinates);
+    const feelTagsStr =
+      run.feelTags == null
+        ? null
+        : typeof run.feelTags === "string"
+          ? run.feelTags
+          : JSON.stringify(run.feelTags);
+    const dateStr = run.date instanceof Date ? run.date.toISOString() : String(run.date);
+    const syncedAt =
+      run.updatedAt == null
+        ? new Date().toISOString()
+        : run.updatedAt instanceof Date
+          ? run.updatedAt.toISOString()
+          : String(run.updatedAt);
+
+    db.runSync(
+      `INSERT OR REPLACE INTO runs
+        (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories,
+         coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport, is_draft)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        run.clientId,
+        dateStr,
+        run.distanceMeters,
+        run.durationSeconds,
+        run.avgPace ?? null,
+        run.avgSpeed ?? null,
+        run.calories ?? null,
+        coordsStr,
+        run.effortLevel ?? null,
+        feelTagsStr,
+        run.notes ?? null,
+        syncedAt,
+        userId,
+        run.sport ?? null,
+      ],
+    );
+  }
+}
+
 export function deleteRunRecord(id: string) {
   ensureInitialized();
   db.runSync("DELETE FROM runs WHERE id = ?", [id]);

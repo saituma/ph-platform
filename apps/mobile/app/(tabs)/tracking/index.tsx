@@ -34,6 +34,7 @@ import {
   getRecentRuns,
   getWeeklySummaries,
   initSQLiteRuns,
+  upsertServerRuns,
   RunRecord,
 } from "@/lib/sqliteRuns";
 import {
@@ -268,11 +269,27 @@ export default function TrackingHomeScreen() {
     }
   }, [userId]);
 
+  const syncRunsFromServer = useCallback(async () => {
+    if (!token || !userId) return;
+    try {
+      const data = await apiRequest<{ runs: any[] }>("/runs?limit=500");
+      if (data.runs?.length) {
+        upsertServerRuns(data.runs, userId);
+        reload();
+      }
+    } catch {
+      // offline or unauthorized — local data already shown
+    }
+  }, [token, userId, reload]);
+
   useEffect(() => {
     initSQLiteRuns();
-    const task = requestAnimationFrame(() => { reload(); });
+    const task = requestAnimationFrame(() => {
+      reload();
+      syncRunsFromServer();
+    });
     return () => cancelAnimationFrame(task);
-  }, [reload]);
+  }, [reload, syncRunsFromServer]);
 
   const runStatus = useRunStore((s) => s.status);
   const liveRunDistanceMeters = useRunStore((s) => s.distanceMeters);
