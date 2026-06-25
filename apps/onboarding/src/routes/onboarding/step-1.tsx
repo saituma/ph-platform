@@ -10,7 +10,8 @@ import {
 	EyeSlash,
 	Check,
 	X,
-	LockKey
+	LockKey,
+	Warning,
 } from "@phosphor-icons/react";
 import { Button } from "#/components/ui/button";
 import { Card } from "#/components/ui/card";
@@ -20,6 +21,11 @@ import { toast } from "sonner";
 import { config } from "#/lib/config";
 import { getAuthHeaders, getTokenStatus } from "#/lib/client-storage";
 import { useMutation } from "@tanstack/react-query";
+import {
+	getPasswordStrengthChecks,
+	isStrongPassword,
+	getPasswordStrengthMeter,
+} from "#/lib/password-strength";
 
 export const Route = createFileRoute("/onboarding/step-1")({
 	head: () => ({
@@ -82,15 +88,20 @@ function OnboardingStep1() {
 		return () => { cancelled = true; };
 	}, [navigate]);
 
-	const passwordRequirements = useMemo(() => ({
-		hasUpper: /[A-Z]/.test(password),
-		hasNumber: /[0-9]/.test(password),
-		hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-		hasMinLength: password.length >= 8,
-	}), [password]);
-
-	const isPasswordStrong = Object.values(passwordRequirements).every(Boolean);
+	const strengthChecks = useMemo(() => getPasswordStrengthChecks(password), [password]);
+	const strengthMeter = useMemo(() => getPasswordStrengthMeter(password), [password]);
+	const passwordStrong = useMemo(() => isStrongPassword(password), [password]);
 	const passwordsMatch = password === confirmPassword && password !== "";
+
+	const friendlyHint = useMemo(() => {
+		if (!password || passwordStrong) return null;
+		const unmet = strengthChecks.filter((c) => !c.met);
+		if (unmet.length === 0) return null;
+		if (unmet.length === 1) return `Almost there — just add a ${unmet[0].label.toLowerCase()}.`;
+		const labels = unmet.map((c) => c.label.toLowerCase());
+		const last = labels.pop();
+		return `Still missing: ${labels.join(", ")} and ${last}.`;
+	}, [password, passwordStrong, strengthChecks]);
 
 	const mutation = useMutation({
 		mutationFn: async () => {
@@ -128,7 +139,7 @@ function OnboardingStep1() {
 		},
 	});
 
-	const canContinue = selected && isPasswordStrong && passwordsMatch && !mutation.isPending;
+	const canContinue = selected && passwordStrong && passwordsMatch && !mutation.isPending;
 
 	if (isValidating) return null;
 
@@ -267,28 +278,63 @@ function OnboardingStep1() {
 									</div>
 								</div>
 
-								{/* Password Requirements Tip */}
-								<div className="space-y-3 pt-2">
-									<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
-										Security Requirements
-									</p>
-									<div className="grid grid-cols-2 gap-2">
-										<RequirementItem
-											met={passwordRequirements.hasMinLength}
-											label="8+ Characters"
-										/>
-										<RequirementItem
-											met={passwordRequirements.hasUpper}
-											label="Uppercase Letter"
-										/>
-										<RequirementItem
-											met={passwordRequirements.hasNumber}
-											label="One Number"
-										/>
-										<RequirementItem
-											met={passwordRequirements.hasSpecial}
-											label="Special Character"
-										/>
+								{/* Strength meter + requirements */}
+								<div className="space-y-4 pt-2">
+									{password.length > 0 && (
+										<div className="space-y-1.5">
+											<div className="flex items-center justify-between">
+												<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+													Password Strength
+												</p>
+												{strengthMeter.label && (
+													<span className={cn(
+														"font-mono text-[10px] uppercase tracking-wider font-bold",
+														strengthMeter.tone === "destructive" && "text-red-500",
+														strengthMeter.tone === "amber" && "text-amber-500",
+														strengthMeter.tone === "success" && "text-emerald-500",
+													)}>
+														{strengthMeter.label}
+													</span>
+												)}
+											</div>
+											<div className="flex gap-1">
+												{Array.from({ length: strengthMeter.total }).map((_, i) => (
+													<div
+														key={i}
+														className={cn(
+															"h-1 flex-1 transition-all duration-500",
+															i < strengthMeter.filled
+																? strengthMeter.tone === "destructive"
+																	? "bg-red-500"
+																	: strengthMeter.tone === "amber"
+																		? "bg-amber-500"
+																		: "bg-emerald-500"
+																: "bg-foreground/[0.08]"
+														)}
+													/>
+												))}
+											</div>
+										</div>
+									)}
+
+									{friendlyHint && (
+										<div className="flex items-start gap-2 rounded-sm border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+											<Warning size={14} weight="fill" className="mt-0.5 shrink-0 text-amber-500" />
+											<p className="font-mono text-[10px] leading-relaxed text-amber-600 dark:text-amber-400">
+												{friendlyHint}
+											</p>
+										</div>
+									)}
+
+									<div className="space-y-2">
+										<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+											Requirements
+										</p>
+										<div className="grid grid-cols-2 gap-2">
+											{strengthChecks.map((check) => (
+												<RequirementItem key={check.id} met={check.met} label={check.label} />
+											))}
+										</div>
 									</div>
 								</div>
 							</div>
