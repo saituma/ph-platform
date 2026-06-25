@@ -298,6 +298,7 @@ function MessagingPageInner() {
   >(null);
   const [deleteAnnouncementTarget, setDeleteAnnouncementTarget] =
     useState<AnnouncementItem | null>(null);
+  const [deleteStoryTarget, setDeleteStoryTarget] = useState<{ id: number; title: string } | null>(null);
 
   const [storyTitle, setStoryTitle] = useState("");
   const [storyMediaUrl, setStoryMediaUrl] = useState("");
@@ -1056,11 +1057,16 @@ function MessagingPageInner() {
     }
   };
 
-  const handleDeleteStory = async (storyId: number, title: string) => {
-    if (!confirm(`Delete story "${title}"?`)) return;
+  const handleDeleteStory = (storyId: number, title: string) => {
+    setDeleteStoryTarget({ id: storyId, title });
+  };
+
+  const confirmDeleteStory = async () => {
+    if (!deleteStoryTarget) return;
     try {
-      await deleteStory({ storyId }).unwrap();
+      await deleteStory({ storyId: deleteStoryTarget.id }).unwrap();
       toast.success("Story deleted");
+      setDeleteStoryTarget(null);
     } catch {
       toast.error("Failed to delete story");
     }
@@ -1974,13 +1980,19 @@ function MessagingPageInner() {
       <Tabs value={tab} onValueChange={(v) => setTab(v ?? "")}>
         <div className="overflow-x-auto pb-1">
           <TabsList className="min-w-max">
+            <TabsTrigger value="inbox" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 shrink-0" />
+              Inbox
+              {stats.unreadThreads > 0 ? (
+                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {stats.unreadThreads > 99 ? "99+" : stats.unreadThreads}
+                </span>
+              ) : null}
+            </TabsTrigger>
             <TabsTrigger value="announcement" className="flex items-center gap-2">
               <Megaphone className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Announcement</span>
               <span className="sm:hidden">Announce</span>
-            </TabsTrigger>
-            <TabsTrigger value="inbox" className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 shrink-0" /> Inbox
             </TabsTrigger>
             <TabsTrigger value="teams" className="flex items-center gap-2">
               <Users2 className="h-4 w-4 shrink-0" /> Teams
@@ -2154,7 +2166,7 @@ function MessagingPageInner() {
                 />
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs font-medium text-foreground">
                       Audience type
                     </p>
                     {(() => {
@@ -2188,7 +2200,7 @@ function MessagingPageInner() {
                   </div>
                   {announcementAudienceType === "team" ? (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Team</p>
+                      <p className="text-xs font-medium text-foreground">Team</p>
                       {(() => {
                         const teamItems = [
                           { label: "Choose a team", value: "" },
@@ -2213,7 +2225,7 @@ function MessagingPageInner() {
                   ) : null}
                   {announcementAudienceType === "group" ? (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Group</p>
+                      <p className="text-xs font-medium text-foreground">Group</p>
                       {(() => {
                         const groupItems = [
                           { label: "Choose a group", value: "" },
@@ -2241,7 +2253,7 @@ function MessagingPageInner() {
                   ) : null}
                   {announcementAudienceType === "tier" ? (
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Tier</p>
+                      <p className="text-xs font-medium text-foreground">Tier</p>
                       {(() => {
                         const tierItems = [
                           { label: "Choose a tier", value: "" },
@@ -2268,7 +2280,7 @@ function MessagingPageInner() {
                     </div>
                   ) : null}
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Timing</p>
+                    <p className="text-xs font-medium text-foreground">Timing</p>
                     {(() => {
                       const timingItems = [
                         { label: "Permanent", value: "permanent" },
@@ -2296,7 +2308,7 @@ function MessagingPageInner() {
                 {announcementTimingType === "scheduled" ? (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Starts</p>
+                      <p className="text-xs font-medium text-foreground">Starts</p>
                       <Input
                         type="datetime-local"
                         value={announcementStartsAt}
@@ -2306,7 +2318,7 @@ function MessagingPageInner() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Ends</p>
+                      <p className="text-xs font-medium text-foreground">Ends</p>
                       <Input
                         type="datetime-local"
                         value={announcementEndsAt}
@@ -2386,13 +2398,13 @@ function MessagingPageInner() {
                           <div className="mt-3 space-y-2">
                             <div className="grid gap-2 md:grid-cols-2">
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs font-medium text-foreground">
                                   Status
                                 </p>
                                 {(() => {
                                   const activeItems = [
-                                    { label: "On", value: "on" },
-                                    { label: "Off", value: "off" },
+                                    { label: "Active", value: "on" },
+                                    { label: "Paused", value: "off" },
                                   ];
                                   return (
                                     <Select
@@ -2413,7 +2425,7 @@ function MessagingPageInner() {
                                 })()}
                               </div>
                               <div className="space-y-1">
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs font-medium text-foreground">
                                   Timing
                                 </p>
                                 {(() => {
@@ -2563,13 +2575,13 @@ function MessagingPageInner() {
                       key: "coach-groups",
                       title: "Coach groups",
                       items: groupedInboxSections.coachGroups,
-                      tone: "bg-sky-500/10 text-sky-200 border-sky-500/30",
+                      tone: "bg-secondary text-muted-foreground border-border",
                     },
                     {
                       key: "team-inbox",
                       title: "Team inbox",
                       items: groupedInboxSections.teamInbox,
-                      tone: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30",
+                      tone: "bg-primary/10 text-primary border-primary/20",
                     },
                   ].map((section) => (
                     <div key={section.key} className="space-y-2">
@@ -2594,10 +2606,13 @@ function MessagingPageInner() {
                             }}
                             className={`group flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
                               highlightedInboxGroupId === group.id
-                                ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+                                ? "border-primary/50 bg-primary/5"
                                 : "border-border"
                             }`}
                           >
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground">
+                              {String(group.name ?? "G").slice(0, 1).toUpperCase()}
+                            </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="truncate text-sm font-semibold text-foreground">
@@ -2614,8 +2629,7 @@ function MessagingPageInner() {
                               </p>
                               {lastSender ? (
                                 <p className="mt-1 truncate text-[11px] text-muted-foreground/80">
-                                  Sender: {lastSender} · Group:{" "}
-                                  {String(group.name ?? "Group")}
+                                  {lastSender}
                                 </p>
                               ) : null}
                             </div>
@@ -2717,8 +2731,12 @@ function MessagingPageInner() {
                       <div className="shrink-0 text-right text-xs text-muted-foreground">
                         <p>Updated {formatTime(team.updatedAt)}</p>
                         <p>Created {formatTime(team.createdAt)}</p>
-                        <p className="mt-1 text-[11px] text-primary/90">
-                          Open chat
+                        <p className="mt-1">
+                          {resolvedTeamInboxGroup ? (
+                            <span className="text-xs text-primary font-medium">Open inbox</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Create inbox</span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -3174,6 +3192,40 @@ function MessagingPageInner() {
                 {isAddingGroupMembers ? "Adding..." : "Add members"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteStoryTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteStoryTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete story?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <span className="font-medium text-foreground">
+                {deleteStoryTarget?.title || "this story"}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteStoryTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void confirmDeleteStory()}
+            >
+              Delete
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

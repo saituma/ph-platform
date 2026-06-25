@@ -118,9 +118,9 @@ function InboxThreadRow({
       onClick={onOpen}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`group flex w-full items-center gap-3 rounded-2xl border bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
+      className={`group flex w-full items-center gap-3 rounded-2xl border bg-card/60 p-3 text-left transition hover:border-primary/40 hover:bg-primary/10 ${
         highlighted
-          ? "border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]"
+          ? "bg-primary/10 border-primary/50"
           : "border-border/70"
       }`}
     >
@@ -134,8 +134,13 @@ function InboxThreadRow({
               {thread.name}
             </p>
             {thread.isPremium ? (
-              <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+              <span className="inline-flex shrink-0 items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
                 Premium
+              </span>
+            ) : null}
+            {thread.tierLabel && thread.tierLabel.toLowerCase() !== "premium" ? (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+                {thread.tierLabel}
               </span>
             ) : null}
           </div>
@@ -227,14 +232,16 @@ export function InboxThreadPanel({
                 className="pl-9"
               />
             </div>
-            <div className="rounded-full border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-              {totalUnread} unread
-            </div>
+            {totalUnread > 0 ? (
+              <div className="rounded-full border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                {totalUnread} unread
+              </div>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[68vh] pr-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {filteredThreads.map((thread) => (
                 <InboxThreadRow
                   key={thread.userId}
@@ -248,8 +255,9 @@ export function InboxThreadPanel({
                 />
               ))}
               {!filteredThreads.length ? (
-                <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                  Inbox is empty.
+                <div className="rounded-2xl border border-dashed border-border px-4 py-6 text-center">
+                  <p className="text-sm font-medium text-foreground">No conversations yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">New messages from athletes will appear here.</p>
                 </div>
               ) : null}
             </div>

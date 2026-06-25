@@ -114,19 +114,17 @@ export function InboxList({
                     setContextMenuAnchor({ x: event.clientX, y: event.clientY });
                     setContextMenuUserId(thread.userId);
                   }}
-                  className={`flex w-full items-center justify-between rounded-2xl border border-border p-4 text-left text-sm transition ${
+                  className={`flex w-full items-center justify-between rounded-xl border border-border p-4 text-left text-sm transition ${
                     selected === thread.userId
-                      ? "bg-background"
-                      : thread.premium
-                        ? "bg-primary/10 hover:border-primary/60"
-                        : "bg-secondary/40 hover:border-primary/40"
+                      ? "border-primary/50 bg-primary/10"
+                      : "bg-secondary/40 hover:border-primary/40"
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <Avatar
                       className={cn(
                         "h-10 w-10 border border-border text-xs font-semibold",
-                        !thread.avatarUrl && (thread.unread ? "bg-primary/10 text-primary" : "bg-secondary"),
+                        !thread.avatarUrl && "bg-secondary",
                       )}
                     >
                       {thread.avatarUrl ? (
@@ -137,6 +135,9 @@ export function InboxList({
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-foreground">{name}</p>
+                        {thread.premium ? (
+                          <Badge variant="default" size="sm">Premium</Badge>
+                        ) : null}
                         {thread.pinned ? (
                           <Badge variant="secondary" size="sm">Pinned</Badge>
                         ) : null}
@@ -154,11 +155,10 @@ export function InboxList({
                       </p>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-muted-foreground">
-                    {thread.premium ? <Badge variant="default">Premium</Badge> : null}
-                    <p className="mt-2">{thread.time}</p>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <p className="text-xs text-muted-foreground">{thread.time}</p>
                     {thread.unread ? (
-                      <div className="mt-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] text-white">
+                      <div className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
                         {thread.unread}
                       </div>
                     ) : null}

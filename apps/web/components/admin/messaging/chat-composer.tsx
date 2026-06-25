@@ -2,7 +2,7 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { Image as ImageIcon, Paperclip, Send, Smile, Sticker, Video, X } from "lucide-react";
+import { Film, Image as ImageIcon, Paperclip, Send, Smile, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
@@ -72,12 +72,12 @@ export function ChatComposer({
   };
 
   return (
-    <div className="rounded-xl border border-border p-3">
+    <div className="rounded-2xl border border-border p-3">
       {replyingTo ? (
         <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
-          <div className="min-w-0">
+          <div className="border-l-2 border-primary/50 pl-2 min-w-0">
             <p className="text-xs font-medium text-muted-foreground">Replying to</p>
-            <p className="truncate text-sm text-foreground">{replyingTo.preview}</p>
+            <p className="truncate text-xs text-foreground">{replyingTo.preview}</p>
           </div>
           <Button type="button" variant="ghost" size="icon" onClick={onCancelReply} aria-label="Cancel reply">
             <X className="h-4 w-4" />
@@ -92,6 +92,7 @@ export function ChatComposer({
             size="icon"
             onClick={() => setShowEmojiPicker((current) => !current)}
             aria-label="Open emoji picker"
+            className="opacity-80 hover:opacity-100"
           >
             <Smile className="h-4 w-4" />
           </Button>
@@ -112,26 +113,26 @@ export function ChatComposer({
         <Menu>
           <MenuTrigger
             render={
-              <Button variant="outline" size="icon" disabled={isUploading} aria-label="Add attachment" />
+              <Button
+                variant="outline"
+                size="icon"
+                disabled={isUploading}
+                aria-label="Add attachment"
+                className="opacity-80 hover:opacity-100"
+              />
             }
           >
             <Paperclip className="h-4 w-4" />
           </MenuTrigger>
           <MenuPopup align="start" side="top">
-            <MenuItem
-              onClick={() => onPickPhoto()}
-            >
+            <MenuItem onClick={() => onPickPhoto()}>
               <ImageIcon className="h-4 w-4" /> Photo
             </MenuItem>
-            <MenuItem
-              onClick={() => onPickVideo()}
-            >
+            <MenuItem onClick={() => onPickVideo()}>
               <Video className="h-4 w-4" /> Video
             </MenuItem>
-            <MenuItem
-              onClick={() => onPickGif()}
-            >
-              <Sticker className="h-4 w-4" /> GIF (GIPHY)
+            <MenuItem onClick={() => onPickGif()}>
+              <Film className="h-4 w-4" /> GIF
             </MenuItem>
           </MenuPopup>
         </Menu>
@@ -151,7 +152,7 @@ export function ChatComposer({
               onSend();
             }}
             placeholder={placeholder}
-            className="min-h-11"
+            className="min-h-[3rem]"
           />
           <InputGroupAddon align="inline-end">
             <Button
@@ -165,7 +166,16 @@ export function ChatComposer({
           </InputGroupAddon>
         </InputGroup>
       </div>
-      {isUploading ? <p className="mt-2 text-xs text-muted-foreground">Uploading attachment...</p> : null}
+      {isUploading ? (
+        <div className="mt-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">Uploading attachment...</p>
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

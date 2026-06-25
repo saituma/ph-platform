@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
-import { Check, CheckCheck, Image as ImageIcon, Paperclip, Pencil, Play, Send, Smile, Star, Trash2, Video } from "lucide-react";
+import { Check, CheckCheck, Image as ImageIcon, Paperclip, Pencil, Play, Send, Smile, Trash2, Video } from "lucide-react";
 import { COMMON_REACTION_EMOJIS } from "./reaction-options";
 
 type Message = {
@@ -258,7 +258,7 @@ export function ConversationPanel({
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-4 lg:h-[calc(100vh-16rem)] lg:min-h-[34rem]">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/30 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/50 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-foreground">{name}</p>
           <p className="text-xs text-muted-foreground">
@@ -272,9 +272,6 @@ export function ConversationPanel({
               {tag}
             </Badge>
           ))}
-          <Button size="icon" variant="ghost">
-            <Star className="h-4 w-4" />
-          </Button>
         </div>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/80 p-3 pr-2 dark:bg-black/60">
@@ -289,12 +286,12 @@ export function ConversationPanel({
           return (
             <div
               key={message.id}
-              className={`flex ${isCoach ? "justify-end" : "justify-start"}`}
+              className={`relative overflow-visible flex ${isCoach ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`group relative max-w-[80%] rounded-2xl p-3 text-sm shadow-sm ${
+                className={`group relative max-w-[75%] rounded-2xl p-3 text-sm shadow-sm ${
                   isCoach
-                    ? "bg-emerald-100/80 text-foreground dark:bg-emerald-900/40"
+                    ? "bg-primary/10 text-foreground dark:bg-primary/20"
                     : "bg-white text-foreground dark:bg-slate-900"
                 }`}
               >
@@ -327,8 +324,8 @@ export function ConversationPanel({
                     ) : null}
                   </div>
                 ) : null}
-                <p className="text-[11px] text-muted-foreground">
-                  {message.author} • {message.time}
+                <p className="text-xs text-muted-foreground">
+                  {isCoach ? message.author : `${message.author} • ${message.time}`}
                 </p>
                 {message.mediaUrl && message.contentType === "image" ? (
                   <button
@@ -492,7 +489,7 @@ export function ConversationPanel({
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-primary transition-all"
+              className="h-full bg-primary transition-all duration-300 ease-out"
               style={{ width: `${uploadState.progress}%` }}
             />
           </div>
@@ -569,11 +566,7 @@ export function ConversationPanel({
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline">Save Draft</Button>
-            <Button
-              className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={submitDraft}
-            >
+            <Button className="gap-2" onClick={submitDraft}>
               Send
               <Send className="h-4 w-4" />
             </Button>
@@ -659,7 +652,6 @@ export function ConversationPanel({
                 ) : null}
               </div>
               <Button
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
                 onClick={sendRecording}
                 disabled={!recordedBlob}
               >

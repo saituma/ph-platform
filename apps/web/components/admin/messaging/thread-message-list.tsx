@@ -13,6 +13,18 @@ type EmojiPick = {
   native?: string;
 };
 
+function formatDateLabel(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "";
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 function getInitials(name: string) {
   const trimmed = String(name ?? "").trim();
   if (!trimmed) return "?";
@@ -337,11 +349,38 @@ export function ThreadMessageList({
     return newIncomingCount > 99 ? "99+" : String(newIncomingCount);
   }, [newIncomingCount]);
 
+  const messagesWithSeparators = useMemo(() => {
+    const result: Array<
+      | { type: "message"; message: ChatMessage }
+      | { type: "separator"; label: string }
+    > = [];
+    let lastDate = "";
+    for (const msg of messages) {
+      const dateLabel = formatDateLabel(msg.createdAt);
+      if (dateLabel && dateLabel !== lastDate) {
+        result.push({ type: "separator", label: dateLabel });
+        lastDate = dateLabel;
+      }
+      result.push({ type: "message", message: msg });
+    }
+    return result;
+  }, [messages]);
+
   return (
     <div ref={scrollContainerRef} className="relative">
       <ScrollArea className="h-105 rounded-xl border border-border p-3">
         <div className="space-y-3">
-          {messages.map((message) => {
+          {messagesWithSeparators.map((item) => {
+            if (item.type === "separator") {
+              return (
+                <div key={`sep-${item.label}`} className="flex items-center gap-3 py-2">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              );
+            }
+            const message = item.message;
             const senderId = Number(message?.senderId ?? NaN);
             const mine = isMessageFromCurrentUser({
               message,
@@ -405,7 +444,7 @@ export function ThreadMessageList({
               <div
                 key={message.id}
                 data-message-id={Number(message.id)}
-                className={`flex w-full ${mine ? "justify-end" : "justify-start"} ${
+                className={`group flex w-full ${mine ? "justify-end" : "justify-start"} ${
                   highlightedMessageId === Number(message.id)
                     ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background"
                     : ""
@@ -414,7 +453,7 @@ export function ThreadMessageList({
                 <div
                   className={`flex max-w-[88%] items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-secondary text-[10px] font-semibold text-foreground">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
                     {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -432,10 +471,10 @@ export function ThreadMessageList({
                       mediaOnly
                         ? "bg-transparent px-0 py-0 shadow-none"
                         : mine
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-primary/10 text-primary"
                           : hasMedia
-                            ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                            : "border border-border bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                            ? "bg-secondary text-foreground"
+                            : "border border-border bg-secondary text-foreground"
                     }`}
                   >
                     {showSenderName ? (
@@ -446,19 +485,13 @@ export function ThreadMessageList({
                         <button
                           type="button"
                           onClick={() => jumpToMessage(parsed.replyToId)}
-                          className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                            mine
-                              ? "border-white/30 bg-white/15 text-white/90"
-                              : "border-border bg-secondary/50 text-muted-foreground"
-                          }`}
+                          className="w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground"
                           aria-label="Jump to replied message"
                           title="Jump to replied message"
                         >
                           {repliedSenderLabel ? (
                             <p
-                              className={`text-[10px] font-semibold uppercase tracking-wide ${
-                                mine ? "text-white/80" : "text-muted-foreground"
-                              }`}
+                              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
                             >
                               {repliedSenderLabel}
                             </p>
@@ -467,17 +500,11 @@ export function ThreadMessageList({
                         </button>
                       ) : (
                         <div
-                          className={`w-full rounded-lg border px-2 py-1 text-left text-xs ${
-                            mine
-                              ? "border-white/30 bg-white/15 text-white/90"
-                              : "border-border bg-secondary/50 text-muted-foreground"
-                          }`}
+                          className="w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground"
                         >
                           {repliedSenderLabel ? (
                             <p
-                              className={`text-[10px] font-semibold uppercase tracking-wide ${
-                                mine ? "text-white/80" : "text-muted-foreground"
-                              }`}
+                              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
                             >
                               {repliedSenderLabel}
                             </p>
@@ -522,7 +549,7 @@ export function ThreadMessageList({
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                            className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                             onClick={() => { const t = editDraft.trim(); if (t) onEdit?.(Number(message.id), t); setEditingId(null); setEditDraft(""); }}
                           >Save</button>
                           <button
@@ -539,7 +566,7 @@ export function ThreadMessageList({
                     ) : null}
                     {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
                     <div
-                      className={`mt-1 flex items-center gap-2 text-[10px] ${mine && !mediaOnly ? "text-white/80" : "text-muted-foreground"}`}
+                      className={`mt-1 flex items-center gap-2 text-[10px] ${mine && !mediaOnly ? "text-primary/70" : "text-muted-foreground"}`}
                     >
                       <span>{formatTime(message.createdAt)}</span>
                       {message.localStatus === "sending" ? (
@@ -550,12 +577,12 @@ export function ThreadMessageList({
                 </div>
                 <div
                   data-reaction-picker-root="true"
-                  className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}
+                  className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end opacity-0 transition-opacity group-hover:opacity-100`}
                 >
                   {onEdit && !hasMedia && editingId !== Number(message.id) ? (
                     <button
                       type="button"
-                      className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
                       onClick={() => { setEditingId(Number(message.id)); setEditDraft(String(parsed.text ?? "")); setPickerMessageId(null); }}
                       aria-label="Edit message"
                     >
@@ -565,7 +592,7 @@ export function ThreadMessageList({
                   {onDelete ? (
                     <button
                       type="button"
-                      className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
                       onClick={() => { if (window.confirm("Delete this message?")) onDelete(Number(message.id)); }}
                       aria-label="Delete message"
                     >
@@ -575,7 +602,7 @@ export function ThreadMessageList({
                   {onReply ? (
                     <button
                       type="button"
-                      className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
                       onClick={() => {
                         const defaultPreview =
                           parsed.text?.trim() ||
@@ -592,7 +619,7 @@ export function ThreadMessageList({
                   ) : null}
                   <button
                     type="button"
-                    className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                    className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs shadow-sm hover:bg-secondary"
                     onClick={() => {
                       setPickerMessageId((current) =>
                         current === String(message.id)
@@ -676,7 +703,10 @@ export function ThreadMessageList({
             );
           })}
           {!messages.length ? (
-            <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <p className="text-sm font-medium">{emptyLabel}</p>
+              <p className="text-xs text-muted-foreground">Be the first to send a message.</p>
+            </div>
           ) : null}
         </div>
       </ScrollArea>
@@ -690,7 +720,7 @@ export function ThreadMessageList({
             setIsNearBottom(true);
             setLastSeenMessageId(lastMessageIdRef.current);
           }}
-          className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-lg hover:bg-emerald-700"
+          className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
           aria-label="Scroll to newest message"
         >
           <ArrowDown className="h-4 w-4" />
