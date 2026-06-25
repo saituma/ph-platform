@@ -20,6 +20,23 @@ import PagerView, {
 import { useSharedValue } from "react-native-reanimated";
 import { TabBar, TabConfig } from "./TabBar";
 
+let hapticsPromise: Promise<typeof import("expo-haptics") | null> | null = null;
+
+function getHaptics() {
+  if (!hapticsPromise) {
+    hapticsPromise = import("expo-haptics").catch(() => null);
+  }
+  return hapticsPromise;
+}
+
+function initialVisitedPages(initialIndex: number, tabCount: number) {
+  const pages = new Set<number>();
+  pages.add(initialIndex);
+  if (initialIndex > 0) pages.add(initialIndex - 1);
+  if (initialIndex < tabCount - 1) pages.add(initialIndex + 1);
+  return pages;
+}
+
 interface SwipeableTabLayoutProps {
   tabs: TabConfig[];
   children: React.ReactNode[];
@@ -38,6 +55,10 @@ export function SwipeableTabLayout({
   const pagerRef = useRef<PagerView>(null);
 
   const [activeIndex, setActiveIndex] = useState(initialIndex);
+  const [visitedSet, setVisitedSet] = useState<Set<number>>(
+    () => initialVisitedPages(initialIndex, tabs.length),
+  );
+  const visitedRef = useRef(visitedSet);
   useEffect(() => {
     setGlobalActiveTab(activeIndex);
   }, [activeIndex]);
@@ -56,6 +77,20 @@ export function SwipeableTabLayout({
   const activeIndexRef = useRef(activeIndex);
   activeIndexRef.current = activeIndex;
 
+  const markVisited = useCallback((index: number) => {
+    const nextPages = [index];
+    if (index > 0) nextPages.push(index - 1);
+    if (index < tabs.length - 1) nextPages.push(index + 1);
+    if (nextPages.every((page) => visitedRef.current.has(page))) return;
+
+    setVisitedSet((prev) => {
+      const next = new Set(prev);
+      nextPages.forEach((page) => next.add(page));
+      visitedRef.current = next;
+      return next;
+    });
+  }, [tabs.length]);
+
   // Only react to route-driven `initialIndex` changes — not every swipe (avoids extra effect runs).
   useEffect(() => {
     if (initialIndex === lastInitialIndex.current) {
@@ -68,20 +103,14 @@ export function SwipeableTabLayout({
     if (isUserSwipingRef.current || isSyncingRef.current) return;
 
     setActiveIndex(initialIndex);
+    markVisited(initialIndex);
     lastSelectedIndex.current = initialIndex;
     lastNotifiedIndex.current = initialIndex;
 
     pagerRef.current?.setPageWithoutAnimation(initialIndex);
     scrollOffset.value = initialIndex;
     // scrollOffset ref is stable (Reanimated shared value)
-  }, [initialIndex]);
-
-  useEffect(() => {
-    return subscribeToGlobalTabRequests((index) => {
-      if (index === lastSelectedIndex.current) return;
-      handleTabPress(index);
-    });
-  }, []);
+  }, [initialIndex, markVisited, scrollOffset]);
 
   const handlePageScrollStateChanged = useCallback(
     (e: PageScrollStateChangedNativeEvent) => {
@@ -109,6 +138,7 @@ export function SwipeableTabLayout({
       const index = e.nativeEvent.position;
       lastSelectedIndex.current = index;
       setActiveIndex(index);
+      markVisited(index);
       scrollOffset.value = index;
 
       if (lastNotifiedIndex.current !== index) {
@@ -122,34 +152,55 @@ export function SwipeableTabLayout({
 
       setGlobalActiveTab(index);
     },
-    [onIndexChange],
+    [markVisited, onIndexChange, scrollOffset],
   );
 
   const handlePageScroll = useCallback(
     (e: PagerViewOnPageScrollEvent) => {
-      scrollOffset.value = e.nativeEvent.position + e.nativeEvent.offset;
+      const nextOffset = e.nativeEvent.position + e.nativeEvent.offset;
+      scrollOffset.value = nextOffset;
+
+      const nextIndex = Math.round(nextOffset);
+      if (nextIndex !== activeIndexRef.current) {
+        markVisited(nextIndex);
+      }
     },
-    [scrollOffset],
+    [markVisited, scrollOffset],
   );
 
-  const handleTabPress = (index: number) => {
-    if (index === lastSelectedIndex.current) return;
+  const handleTabPress = useCallback(
+    (index: number) => {
+      if (index === lastSelectedIndex.current) return;
 
-    isSyncingRef.current = true;
-    lastChangeSourceRef.current = "press";
-    pagerRef.current?.setPage(index);
-    setActiveIndex(index);
-    scrollOffset.value = index;
-    lastSelectedIndex.current = index;
+      getHaptics().then((Haptics) => {
+        Haptics?.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      });
 
-    setGlobalActiveTab(index);
+      isSyncingRef.current = true;
+      lastChangeSourceRef.current = "press";
+      pagerRef.current?.setPage(index);
+      setActiveIndex(index);
+      markVisited(index);
+      scrollOffset.value = index;
+      lastSelectedIndex.current = index;
 
-    if (lastNotifiedIndex.current !== index) {
-      lastNotifiedIndex.current = index;
-      onIndexChange?.(index, "press");
-    }
-    lastChangeSourceRef.current = "sync";
-  };
+      setGlobalActiveTab(index);
+
+      if (lastNotifiedIndex.current !== index) {
+        lastNotifiedIndex.current = index;
+        onIndexChange?.(index, "press");
+      }
+      lastChangeSourceRef.current = "sync";
+    },
+    [markVisited, onIndexChange, scrollOffset],
+  );
+
+  useEffect(() => {
+    return subscribeToGlobalTabRequests((index) => {
+      if (index === lastSelectedIndex.current) return;
+      handleTabPress(index);
+    });
+  }, [handleTabPress]);
 
   // Stabilize children references to prevent PagerView from re-creating pages.
   // React.Children.toArray creates new references each render — but refresh when tab keys or child keys change.
@@ -168,15 +219,20 @@ export function SwipeableTabLayout({
   const pagerChildren = useMemo(() => {
     return childrenArray.map((child, index) => {
       const key = tabs[index]?.key ?? `page-${index}`;
+      const shouldRenderChild = visitedSet.has(index);
 
       return (
         <View key={key} style={styles.page}>
           <NavigationContainerRefContext.Provider value={containerRefContext}>
             <NavigationContext.Provider value={navigationContext}>
               <NavigationRouteContext.Provider value={routeContext}>
-                <ActiveTabProvider currentTabIndex={index}>
-                  {child}
-                </ActiveTabProvider>
+                {shouldRenderChild ? (
+                  <ActiveTabProvider currentTabIndex={index}>
+                    {child}
+                  </ActiveTabProvider>
+                ) : (
+                  <View style={styles.page} />
+                )}
               </NavigationRouteContext.Provider>
             </NavigationContext.Provider>
           </NavigationContainerRefContext.Provider>
@@ -186,6 +242,7 @@ export function SwipeableTabLayout({
   }, [
     childrenArray,
     tabs,
+    visitedSet,
     navigationContext,
     routeContext,
     containerRefContext,
@@ -201,14 +258,17 @@ export function SwipeableTabLayout({
         <View style={styles.pager}>
           {childrenArray.map((child, index) => {
             const key = tabs[index]?.key ?? `page-${index}`;
+            const shouldRenderChild = visitedSet.has(index);
             return (
               <View
                 key={key}
                 style={[StyleSheet.absoluteFillObject, { display: activeIndex === index ? "flex" : "none" }]}
               >
-                <ActiveTabProvider currentTabIndex={index}>
-                  {child}
-                </ActiveTabProvider>
+                {shouldRenderChild ? (
+                  <ActiveTabProvider currentTabIndex={index}>
+                    {child}
+                  </ActiveTabProvider>
+                ) : null}
               </View>
             );
           })}
@@ -241,7 +301,7 @@ export function SwipeableTabLayout({
         scrollEnabled={isTabBarVisible}
         overdrag={false}
         overScrollMode={Platform.OS === "ios" ? undefined : "never"}
-        offscreenPageLimit={Math.min(4, Math.max(1, tabs.length - 1))}
+        offscreenPageLimit={1}
       >
         {pagerChildren}
       </PagerView>

@@ -1,13 +1,10 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
 import Animated, {
   useAnimatedStyle,
-  withSpring,
   interpolate,
   Extrapolation,
-  useDerivedValue,
-  useSharedValue,
   type SharedValue,
 } from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -37,11 +34,6 @@ interface TabBarProps {
 
 const TAB_HEIGHT = 64;
 const DOCK_MARGIN = 16;
-
-const Springs = {
-  snappy: { damping: 15, stiffness: 400, mass: 0.3 },
-  responsive: { damping: 20, stiffness: 300, mass: 0.4 },
-};
 
 // ── Icon resolver ────────────────────────────────────────────────────
 
@@ -125,6 +117,7 @@ const TabItem = React.memo(function TabItem({
   onTabPress,
   colors,
   isDark,
+  isSelected,
 }: {
   tab: TabConfig;
   index: number;
@@ -132,6 +125,7 @@ const TabItem = React.memo(function TabItem({
   onTabPress: (index: number) => void;
   colors: any;
   isDark: boolean;
+  isSelected: boolean;
 }) {
   const activeColor = colors.accent ?? colors.tint;
   const isAdminColors = "surface" in colors && (colors as any).surface === "#FFFFFF";
@@ -216,7 +210,7 @@ const TabItem = React.memo(function TabItem({
       onPress={() => onTabPress(index)}
       accessibilityRole="tab"
       accessibilityLabel={tab.label || tab.key}
-      accessibilityState={{ selected: scrollOffset.value === index }}
+      accessibilityState={{ selected: isSelected }}
       style={styles.tabItemContainer}
     >
       <View style={styles.iconStack}>
@@ -288,39 +282,14 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
     [tabs],
   );
 
-  const numTabs = visibleTabs.length;
-  const dockWidthSV = useSharedValue(300);
-  const tabWidthSV = useDerivedValue(() => dockWidthSV.value / numTabs);
-
-  const onWrapperLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
-    dockWidthSV.value = e.nativeEvent.layout.width - DOCK_MARGIN * 2;
-  }, [dockWidthSV]);
-
   const safeBottom = Math.max(insets.bottom, 12);
-
-  // Indicator Animation
-  const indicatorStyle = useAnimatedStyle(() => {
-    if (!scrollOffset) return { opacity: 0 };
-    const tw = tabWidthSV.value;
-    const dw = dockWidthSV.value;
-    const translateX = interpolate(
-      scrollOffset.value,
-      [0, numTabs - 1],
-      [0, dw - tw],
-      Extrapolation.CLAMP,
-    );
-    return {
-      width: tw - 8,
-      transform: [{ translateX: translateX + 4 }],
-    };
-  });
 
   const tabColors = isAdmin
     ? { ...colors, accent: p.accent, tint: p.accent, danger: p.danger, surface: p.cardWhite }
     : colors;
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]} onLayout={onWrapperLayout}>
+    <View pointerEvents="box-none" style={[styles.wrapper, { paddingBottom: safeBottom }]}>
       <Animated.View
         style={[
           styles.dockContainer,
@@ -354,6 +323,7 @@ export function TabBar({ tabs, activeIndex, scrollOffset, onTabPress }: TabBarPr
               onTabPress={onTabPress}
               colors={tabColors}
               isDark={isDark}
+              isSelected={index === activeIndex}
             />
           ))}
         </View>

@@ -4,14 +4,13 @@ import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
 import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveActiveRunDraft, saveRunRecord } from "@/lib/sqliteRuns";
 import { estimateCalories } from "@/lib/tracking/runUtils";
-import { pushRunsToCloud } from "@/lib/runSync";
+import { queueRunPushToCloud } from "@/lib/runSync";
 import {
   announceRunComplete,
   announceRunStarted,
   announceManualPause,
   announceManualResume,
 } from "@/lib/tracking/audioCues";
-import { RunShareCard } from "@/components/tracking/RunShareCard";
 import { useAppSelector } from "@/store/hooks";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -95,11 +94,6 @@ export default function ActiveRunScreen() {
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [startSheetOpen, setStartSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
-  const [shareCardData, setShareCardData] = useState<{
-    distanceMeters: number;
-    elapsedSeconds: number;
-    coordinates: { latitude: number; longitude: number; timestamp: number; altitude?: number | null }[];
-  } | null>(null);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -186,10 +180,10 @@ export default function ActiveRunScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (hasStartedRef.current && status !== "running" && status !== "paused" && !shareCardData) {
+      if (hasStartedRef.current && status !== "running" && status !== "paused") {
         router.replace("/(tabs)/tracking" as any);
       }
-    }, [status, router, shareCardData]),
+    }, [status, router]),
   );
 
   useEffect(() => {
@@ -321,19 +315,14 @@ export default function ActiveRunScreen() {
         user_id: userId,
         sport: selectedSport,
       });
-      pushRunsToCloud();
+      queueRunPushToCloud();
     } catch (e) {
       console.warn("[active-run] failed to save run", e);
     }
 
-    setShareCardData({ distanceMeters: finalDistance, elapsedSeconds: finalSeconds, coordinates: finalCoords });
     if (audioCuesEnabled) {
       announceRunComplete(finalDistance, finalSeconds);
     }
-  };
-
-  const handleShareCardClose = () => {
-    setShareCardData(null);
     resetRun();
     router.replace("/(tabs)/tracking" as any);
   };
@@ -737,15 +726,6 @@ export default function ActiveRunScreen() {
         />
       )}
 
-      {shareCardData && (
-        <RunShareCard
-          visible={!!shareCardData}
-          distanceMeters={shareCardData.distanceMeters}
-          elapsedSeconds={shareCardData.elapsedSeconds}
-          coordinates={shareCardData.coordinates}
-          onClose={handleShareCardClose}
-        />
-      )}
     </>
   );
 }

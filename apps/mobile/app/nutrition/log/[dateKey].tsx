@@ -3,9 +3,11 @@ import { Text } from "@/components/ScaledText";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { apiRequest } from "@/lib/api";
 import { useNutritionTheme } from "@/components/nutrition/theme";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import React, { useMemo } from "react";
 import { ScrollView, TouchableOpacity, View } from "react-native";
 import { SkeletonNutritionLogScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,27 +36,17 @@ export default function NutritionLogDetailScreen() {
     return athleteUserId ? String(athleteUserId) : "me";
   }, [athleteUserId, userId]);
 
-  const [loading, setLoading] = useState(true);
-  const [log, setLog] = useState<any | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const dk = String(dateKey ?? "").trim();
+  const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(dk);
 
-  const load = useCallback(async () => {
-    if (!token) {
-      setError("Not signed in.");
-      setLog(null);
-      setLoading(false);
-      return;
-    }
-    const dk = String(dateKey ?? "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dk)) {
-      setError("Invalid date.");
-      setLog(null);
-      setLoading(false);
-      return;
-    }
-    try {
-      setLoading(true);
-      setError(null);
+  const {
+    data: logResult,
+    isLoading: loading,
+    isError,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.nutrition.log(dk, effectiveUserId),
+    queryFn: async () => {
       const qs = new URLSearchParams();
       qs.set("userId", effectiveUserId);
       qs.set("from", dk);
@@ -62,22 +54,25 @@ export default function NutritionLogDetailScreen() {
       qs.set("limit", "5");
       const data = await apiRequest<{ logs: any[] }>(
         `/nutrition/logs?${qs.toString()}`,
-        { token, suppressLog: true },
+        { token: token!, suppressLog: true },
       );
-      const row = (data.logs ?? []).find((l) => l?.dateKey === dk) ?? null;
-      setLog(row);
-      if (!row) setError("Log not found.");
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load log.");
-      setLog(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [dateKey, effectiveUserId, token]);
+      // Return null (not undefined) so TanStack Query treats it as loaded-but-empty
+      return (data.logs ?? []).find((l: any) => l?.dateKey === dk) ?? null;
+    },
+    enabled: !!token && isValidDate,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const log: any | null = logResult ?? null;
+  const error: string | null = !token
+    ? "Not signed in."
+    : !isValidDate
+      ? "Invalid date."
+      : isError
+        ? ((queryError as Error)?.message ?? "Failed to load log.")
+        : !loading && logResult === null
+          ? "Log not found."
+          : null;
 
   const coachText =
     typeof log?.coachFeedback === "string" ? log.coachFeedback.trim() : "";

@@ -83,8 +83,10 @@ import {
   Route,
   Timer,
   Info,
+  Share2,
 } from "lucide-react-native";
 import { useStreakStore } from "@/lib/streakStore";
+import { RunShareCard } from "@/components/tracking/RunShareCard";
 
 const TRACKING_BG = require("@/assets/images/trakcing-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -95,6 +97,75 @@ const SPORT_CATEGORIES: { label: string; icon: string; sports: string[] }[] = [
   { label: "Cycle Sports", icon: "bike", sports: ["ride"] },
   { label: "Water Sports", icon: "swim", sports: ["swim"] },
 ];
+
+type RunCoord = { latitude: number; longitude: number; timestamp?: number; altitude?: number | null };
+
+function parseRunCoords(value: string | null | undefined): RunCoord[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (point): point is RunCoord =>
+        point &&
+        typeof point.latitude === "number" &&
+        typeof point.longitude === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function formatRunPace(run: RunRecord): string {
+  if (run.avg_pace && run.avg_pace > 0) {
+    const mins = Math.floor(run.avg_pace);
+    const secs = Math.round((run.avg_pace - mins) * 60);
+    return `${mins}:${String(secs).padStart(2, "0")} /km`;
+  }
+  const km = run.distance_meters / 1000;
+  if (km <= 0 || run.duration_seconds <= 0) return "-";
+  const secPerKm = run.duration_seconds / km;
+  const mins = Math.floor(secPerKm / 60);
+  const secs = Math.round(secPerKm % 60);
+  return `${mins}:${String(secs).padStart(2, "0")} /km`;
+}
+
+function sportLabel(sport: string | null | undefined): string {
+  switch (sport) {
+    case "ride":
+      return "Ride";
+    case "walk":
+      return "Walk";
+    case "hike":
+      return "Hike";
+    case "swim":
+      return "Swim";
+    case "trail_run":
+      return "Trail Run";
+    case "treadmill":
+      return "Treadmill";
+    case "virtual_run":
+      return "Virtual Run";
+    default:
+      return "Run";
+  }
+}
+
+function effortScoreForRun(run: RunRecord): number {
+  if (run.effort_level != null && run.effort_level >= 0) {
+    return Math.min(100, Math.max(0, Math.round(run.effort_level * 10)));
+  }
+  const distanceKm = run.distance_meters / 1000;
+  const minutes = run.duration_seconds / 60;
+  return Math.min(100, Math.max(8, Math.round(distanceKm * 8 + minutes * 0.45)));
+}
+
+function effortLabel(score: number): string {
+  if (score >= 80) return "All-out";
+  if (score >= 60) return "Hard";
+  if (score >= 35) return "Steady";
+  return "Easy";
+}
 
 // ── AnimatedStat — Strava-style count-up number ────────────────────────────
 
@@ -118,7 +189,7 @@ function AnimatedStat({
       duration: 1000,
       easing: Easing.out(Easing.cubic),
     });
-  }, [value]);
+  }, [animValue, value]);
 
   useAnimatedReaction(
     () => animValue.value,
@@ -310,6 +381,8 @@ export default function TrackingHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
+  const [shareRun, setShareRun] = useState<RunRecord | null>(null);
+  const shareRunCoords = useMemo(() => parseRunCoords(shareRun?.coordinates), [shareRun]);
   useFocusEffect(
     useCallback(() => {
       const status = useRunStore.getState().status;
@@ -910,16 +983,17 @@ export default function TrackingHomeScreen() {
                         {section.label}
                       </Text>
                     </View>
-                    <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, overflow: "hidden" }}>
+                    <View style={{ gap: 12 }}>
                       {section.data.slice(0, 5).map((run, idx) => (
-                        <RunRow
+                        <WorkoutRunCard
                           key={run.id}
                           run={run}
                           idx={idx}
-                          total={Math.min(section.data.length, 5)}
+                          isDark={isDark}
                           p={p}
                           formatKm={formatKm}
                           onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                          onShare={() => setShareRun(run)}
                         />
                       ))}
                     </View>
@@ -927,16 +1001,17 @@ export default function TrackingHomeScreen() {
                 ))}
               </View>
             ) : (
-              <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, overflow: "hidden" }}>
+              <View style={{ gap: 12 }}>
                 {runs.slice(0, 6).map((run, idx) => (
-                  <RunRow
+                  <WorkoutRunCard
                     key={run.id}
                     run={run}
                     idx={idx}
-                    total={Math.min(runs.length, 6)}
+                    isDark={isDark}
                     p={p}
                     formatKm={formatKm}
                     onPress={() => router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.id)}` as any)}
+                    onShare={() => setShareRun(run)}
                   />
                 ))}
               </View>
@@ -997,115 +1072,233 @@ export default function TrackingHomeScreen() {
       onClose={() => setSportSheetOpen(false)}
       colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
     />
+    {shareRun ? (
+      <RunShareCard
+        visible={!!shareRun}
+        distanceMeters={shareRun.distance_meters}
+        elapsedSeconds={shareRun.duration_seconds}
+        coordinates={shareRunCoords}
+        onClose={() => setShareRun(null)}
+      />
+    ) : null}
     </>
   );
 }
 
-// ── RunRow ───────────────────────────────────────────────────────────────────
+// ── WorkoutRunCard ───────────────────────────────────────────────────────────
 
-function RunRow({
+function WorkoutRunCard({
   run,
   idx,
-  total,
+  isDark,
   p,
   formatKm,
   onPress,
+  onShare,
 }: {
   run: RunRecord;
   idx: number;
-  total: number;
+  isDark: boolean;
   p: ReturnType<typeof useAdminPastel>;
   formatKm: (m: number) => string;
   onPress: () => void;
+  onShare: () => void;
 }) {
+  const scale = useSharedValue(1);
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const coords = useMemo(() => parseRunCoords(run.coordinates), [run.coordinates]);
+  const score = effortScoreForRun(run);
+  const label = sportLabel(run.sport);
+  const date = new Date(run.date).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
+  const mediaBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(47,159,61,0.08)";
+
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}>
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        paddingHorizontal: 20,
-        paddingVertical: 14,
-        backgroundColor: pressed ? p.accentSoft : "transparent",
-      })}
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}
+      style={scaleStyle}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-          <View style={{ width: 3, height: 36, borderRadius: 2, backgroundColor: p.accent, opacity: 0.55 }} />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary }}>
-                {formatKm(run.distance_meters)}
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${label} from ${date}`}
+        style={{
+          backgroundColor: p.cardWhite,
+          borderColor: border,
+          borderRadius: 22,
+          borderWidth: 1,
+          overflow: "hidden",
+        }}
+      >
+        <RoutePreview coords={coords} p={p} backgroundColor={mediaBg} />
+
+        <View style={{ gap: 14, padding: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 13,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: p.accentSoft,
+              }}
+            >
+              <Route size={20} color={p.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+                {label}
               </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary }}>
-                km
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 1 }}>
+                {date}
               </Text>
             </View>
-            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 1 }}>
-              {new Date(run.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${label}`}
+              hitSlop={10}
+              onPress={(event) => {
+                event.stopPropagation?.();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onShare();
+              }}
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? p.accentSoft : "transparent",
+              })}
+            >
+              <Share2 size={20} color={p.textSecondary} />
+            </Pressable>
+          </View>
+
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
+              {formatKm(run.distance_meters)} km {label}
             </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
+              <View style={{ backgroundColor: p.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
+                  {effortLabel(score)} {score}/100
+                </Text>
+              </View>
+              {run.sport ? (
+                <View style={{ backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textSecondary }}>
+                    {run.sport.replace(/_/g, " ")}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <WorkoutStat label="Distance" value={`${formatKm(run.distance_meters)} km`} p={p} />
+            <WorkoutStat label="Pace" value={formatRunPace(run)} p={p} />
+            <WorkoutStat label="Time" value={formatDurationClock(run.duration_seconds)} p={p} />
+          </View>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: 1, borderTopColor: border, paddingTop: 12 }}>
+            <Flame size={16} color={p.accent} />
+            <Text style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 12, lineHeight: 17, color: p.textSecondary }}>
+              {run.calories ? `${Math.round(run.calories)} kcal` : "Route saved"} · tap for full details
+            </Text>
+            <ChevronRight size={18} color={p.textMuted} />
           </View>
         </View>
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textSecondary }}>
-          {formatDurationClock(run.duration_seconds)}
-        </Text>
-      </View>
-
-      {idx < total - 1 && (
-        <View style={{ position: "absolute", bottom: 0, left: 35, right: 20, height: 1, backgroundColor: p.divider }} />
-      )}
-    </Pressable>
+      </Pressable>
     </Animated.View>
   );
 }
 
-// ── MetricTile ──────────────────────────────────────────────────────────────
-
-function MetricTile({
+function WorkoutStat({
   label,
   value,
-  bg,
-  accent,
-  textPrimary,
-  valueIsAccent = false,
+  p,
 }: {
   label: string;
   value: string;
-  bg: string;
-  accent: string;
-  textPrimary: string;
-  valueIsAccent?: boolean;
+  p: ReturnType<typeof useAdminPastel>;
 }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: bg,
-        borderRadius: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 10,
-        gap: 4,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: "Outfit-Bold",
-          fontSize: 10,
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-          color: accent,
-        }}
-      >
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, letterSpacing: 0.5, color: p.textMuted, textTransform: "uppercase" }}>
         {label}
       </Text>
-      <Text
-        style={{
-          fontFamily: "Outfit-Bold",
-          fontSize: 14,
-          color: valueIsAccent ? accent : textPrimary,
-        }}
-      >
+      <Text numberOfLines={1} style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, marginTop: 3 }}>
         {value}
       </Text>
+    </View>
+  );
+}
+
+function RoutePreview({
+  coords,
+  p,
+  backgroundColor,
+}: {
+  coords: RunCoord[];
+  p: ReturnType<typeof useAdminPastel>;
+  backgroundColor: string;
+}) {
+  const path = useMemo(() => {
+    if (coords.length < 2) return "";
+    const thin = coords.length > 80 ? coords.filter((_, index) => index % Math.ceil(coords.length / 80) === 0) : coords;
+    const lats = thin.map((coord) => coord.latitude);
+    const lngs = thin.map((coord) => coord.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latRange = maxLat - minLat || 0.0001;
+    const lngRange = maxLng - minLng || 0.0001;
+    return thin
+      .map((coord, index) => {
+        const x = 18 + ((coord.longitude - minLng) / lngRange) * 264;
+        const y = 18 + ((maxLat - coord.latitude) / latRange) * 104;
+        return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      })
+      .join(" ");
+  }, [coords]);
+
+  return (
+    <View style={{ height: 140, backgroundColor, overflow: "hidden" }}>
+      <LinearGradient
+        colors={["rgba(47,159,61,0.28)", "rgba(47,159,61,0.04)"]}
+        style={StyleSheet.absoluteFill}
+      />
+      <Svg width="100%" height="100%" viewBox="0 0 300 140">
+        <Circle cx="48" cy="34" r="42" fill={p.accent} opacity="0.08" />
+        <Circle cx="248" cy="112" r="58" fill={p.accent} opacity="0.1" />
+        {path ? (
+          <>
+            <Path d={path} stroke="rgba(15,23,42,0.16)" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <Path d={path} stroke={p.accent} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </>
+        ) : (
+          <Path d="M 34 102 C 78 42, 126 78, 164 45 S 238 68, 268 28" stroke={p.accent} strokeWidth={5} strokeLinecap="round" fill="none" opacity="0.75" />
+        )}
+      </Svg>
+      <View style={{ position: "absolute", left: 16, bottom: 14, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.86)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
+        <MapPin size={13} color={p.accent} />
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
+          {coords.length > 1 ? "Route captured" : "Workout route"}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -1240,7 +1433,7 @@ function BackgroundLocationInfoCard({ p }: { p: ReturnType<typeof useAdminPastel
           })}
         >
           <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: allowed ? p.textPrimary : p.textMuted }}>
-            {allowed ? "Enabled" : "Disabled — locked phone won't track"}
+            {allowed ? "Enabled" : "Disabled - locked phone will not track"}
           </Text>
           <Switch
             value={allowed}
@@ -1319,7 +1512,7 @@ function TrackingEmptyState({
           Ready to run?
         </Text>
         <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, textAlign: "center", lineHeight: 20, maxWidth: 220 }}>
-          Hit start and we'll track every step of the way
+          Hit start and we will track every step of the way
         </Text>
       </Animated.View>
 
@@ -1805,7 +1998,7 @@ function ManagerDashboard({
             <View style={{ paddingVertical: 60, alignItems: "center", gap: 12 }}>
               <CloudOff size={36} color={p.textMuted} />
               <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, textAlign: "center" }}>
-                Couldn't load team data. Pull down to retry.
+                Could not load team data. Pull down to retry.
               </Text>
             </View>
           ) : null

@@ -34,7 +34,6 @@ import {
   TrendingUp,
   Save,
 } from "lucide-react-native";
-import { RunShareCard } from "../../../components/tracking/RunShareCard";
 import * as Crypto from "expo-crypto";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -65,7 +64,7 @@ import {
   FeelTagSelector,
   FEEL_TAGS,
 } from "../../../components/tracking/FeelTagSelector";
-import { pushRunsToCloud } from "../../../lib/runSync";
+import { queueRunPushToCloud } from "../../../lib/runSync";
 
 export default function RunSummaryScreen() {
   const { height: screenHeight } = useWindowDimensions();
@@ -91,12 +90,6 @@ export default function RunSummaryScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [notesFocused, setNotesFocused] = useState(false);
-  const [showShareCard, setShowShareCard] = useState(false);
-  const [savedRunSnapshot, setSavedRunSnapshot] = useState<{
-    distanceMeters: number;
-    elapsedSeconds: number;
-    coordinates: typeof coordinates;
-  } | null>(null);
 
   const mapCoordinates = useMemo(
     () => thinRoutePointsForDisplay(coordinates, 22),
@@ -148,6 +141,7 @@ export default function RunSummaryScreen() {
         sport: null,
       });
       persistedThisSummaryRef.current = true;
+      queueRunPushToCloud();
     } catch (e) {
       console.warn("[summary] failed to persist run", e);
     }
@@ -175,10 +169,6 @@ export default function RunSummaryScreen() {
 
   const handleSave = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const finalDistanceMeters =
-      typeof distanceOverrideMeters === "number"
-        ? distanceOverrideMeters
-        : distanceMeters;
 
     try {
       initSQLiteRuns();
@@ -191,19 +181,11 @@ export default function RunSummaryScreen() {
         ),
         notes,
       });
-      pushRunsToCloud();
+      queueRunPushToCloud();
     } catch (e) {
       console.warn("[summary] failed to save run", e);
     }
 
-    // Snapshot run data then show share card before navigating
-    setSavedRunSnapshot({ distanceMeters: finalDistanceMeters, elapsedSeconds, coordinates });
-    setShowShareCard(true);
-  };
-
-  const handleShareCardClose = () => {
-    setShowShareCard(false);
-    setSavedRunSnapshot(null);
     resetRun();
     router.replace("/(tabs)/tracking" as any);
   };
@@ -563,15 +545,6 @@ export default function RunSummaryScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {savedRunSnapshot && (
-        <RunShareCard
-          visible={showShareCard}
-          distanceMeters={savedRunSnapshot.distanceMeters}
-          elapsedSeconds={savedRunSnapshot.elapsedSeconds}
-          coordinates={savedRunSnapshot.coordinates}
-          onClose={handleShareCardClose}
-        />
-      )}
     </>
   );
 }

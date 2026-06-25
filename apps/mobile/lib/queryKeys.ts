@@ -56,6 +56,12 @@ export const queryKeys = {
     stories: () => ["admin", "stories"] as const,
     content: () => ["admin", "content"] as const,
     teamDetail: (name: string) => ["admin", "teamDetail", name] as const,
+    referralGroups: () => ["admin", "referralGroups"] as const,
+  },
+
+  nutrition: {
+    all: () => ["nutrition"] as const,
+    log: (dateKey: string, userId: string) => ["nutrition", "log", dateKey, userId] as const,
   },
 
   programs: {

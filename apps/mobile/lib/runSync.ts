@@ -89,6 +89,19 @@ export async function pushRunsToCloud(): Promise<void> {
   }
 }
 
+let queuedPush: Promise<void> | null = null;
+
+/**
+ * Coalesces save-triggered sync calls so screens can request immediate admin
+ * visibility without starting overlapping /runs/sync requests.
+ */
+export function queueRunPushToCloud(): void {
+  if (queuedPush) return;
+  queuedPush = pushRunsToCloud().finally(() => {
+    queuedPush = null;
+  });
+}
+
 /**
  * Pull runs from the server that are newer than the last pull.
  * Fire-and-forget safe — never throws.
