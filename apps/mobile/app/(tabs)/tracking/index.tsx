@@ -51,9 +51,7 @@ import {
 } from "@/lib/tracking/teamTrackingGate";
 import {
   fetchLeaderboard,
-  fetchRunFeed,
   type SocialLeaderboardItem,
-  type SocialRunFeedItem,
 } from "@/services/tracking/socialService";
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
@@ -1677,8 +1675,6 @@ type ManagerListItem =
   | { type: "athlete-header" }
   | { type: "athlete-empty" }
   | { type: "athlete"; athlete: AthleteWithStats; rank: number; isFirst: boolean; isLast: boolean }
-  | { type: "recent-header" }
-  | { type: "recent-run"; run: SocialRunFeedItem; index: number; total: number }
   | { type: "manage-header" }
   | { type: "manage-links" }
   | { type: "spacer" };
@@ -1707,20 +1703,17 @@ function ManagerDashboard({
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
-  const [recentRuns, setRecentRuns] = useState<SocialRunFeedItem[]>([]);
   const [liveLocations, setLiveLocations] = useState<UserLocation[]>([]);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
     setFetchError(false);
     try {
-      const [lb, runs, locs] = await Promise.all([
+      const [lb, locs] = await Promise.all([
         fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
-        fetchRunFeed(token, { limit: 50, windowDays: 7, useTeamFeed: true }),
         fetchTeamLocations(token).catch(() => ({ locations: [] as UserLocation[] })),
       ]);
       setLeaderboard(lb?.items ?? []);
-      setRecentRuns(runs?.items ?? []);
       setLiveLocations(locs?.locations ?? []);
     } catch {
       setFetchError(true);
@@ -1743,11 +1736,6 @@ function ManagerDashboard({
     const lbMap = new Map<number, SocialLeaderboardItem>();
     for (const item of leaderboard) lbMap.set(item.userId, item);
 
-    const runsMap = new Map<number, string>();
-    for (const run of recentRuns) {
-      if (!runsMap.has(run.userId)) runsMap.set(run.userId, run.date);
-    }
-
     return managedAthletes.map((a) => {
       const lb = a.userId ? lbMap.get(a.userId) : undefined;
       return {
@@ -1755,10 +1743,10 @@ function ManagerDashboard({
         kmTotal: lb?.kmTotal ?? 0,
         durationMinutesTotal: lb?.durationMinutesTotal ?? 0,
         rank: lb?.rank ?? null,
-        lastRunDate: (a.userId ? runsMap.get(a.userId) : null) ?? null,
+        lastRunDate: null,
       };
     });
-  }, [managedAthletes, leaderboard, recentRuns]);
+  }, [managedAthletes, leaderboard]);
 
   const filtered = useMemo(() => {
     let list = [...athletes];
@@ -1807,17 +1795,9 @@ function ManagerDashboard({
       });
     }
 
-    const recentRunPreview = recentRuns.slice(0, 8);
-    if (recentRunPreview.length > 0) {
-      items.push({ type: "recent-header" });
-      recentRunPreview.forEach((run, index) => {
-        items.push({ type: "recent-run", run, index, total: recentRunPreview.length });
-      });
-    }
-
     items.push({ type: "spacer" });
     return items;
-  }, [filtered, liveLocations, recentRuns]);
+  }, [filtered, liveLocations]);
 
   const managerKeyExtractor = useCallback((item: ManagerListItem) => {
     switch (item.type) {
@@ -1825,8 +1805,6 @@ function ManagerDashboard({
         return `live-${item.location.userId}`;
       case "athlete":
         return `athlete-${item.athlete.id ?? item.athlete.userId ?? item.rank}`;
-      case "recent-run":
-        return `recent-${item.run.runLogId}`;
       default:
         return item.type;
     }
@@ -1835,11 +1813,6 @@ function ManagerDashboard({
   const openSocial = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push("/(tabs)/tracking/social" as any);
-  }, [router]);
-
-  const openRecentRun = useCallback((runLogId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(runLogId)}` as any);
   }, [router]);
 
   const renderManagerItem = useCallback(({ item }: { item: ManagerListItem }) => {
@@ -1996,10 +1969,6 @@ function ManagerDashboard({
             onPress={openSocial}
           />
         );
-      case "recent-header":
-        return <SectionLabel p={p} label="Recent Activity" />;
-      case "recent-run":
-        return <RecentRunRow run={item.run} index={item.index} total={item.total} p={p} onPress={openRecentRun} />;
       case "manage-header":
         return <SectionLabel p={p} label="Manage" />;
       case "manage-links":
@@ -2057,7 +2026,6 @@ function ManagerDashboard({
     inactiveCount,
     liveLocations.length,
     managedAthletes.length,
-    openRecentRun,
     openSocial,
     p,
     router,
@@ -2446,82 +2414,6 @@ const AthleteRow = React.memo(function AthleteRow({
         </Text>
       </View>
 
-      <ChevronRight size={16} color={p.textMuted} />
-    </Pressable>
-  );
-});
-
-const RecentRunRow = React.memo(function RecentRunRow({
-  run,
-  index,
-  total,
-  p,
-  onPress,
-}: {
-  run: SocialRunFeedItem;
-  index: number;
-  total: number;
-  p: ReturnType<typeof useAdminPastel>;
-  onPress: (runLogId: string) => void;
-}) {
-  return (
-    <Pressable
-      onPress={() => onPress(String(run.runLogId))}
-      style={({ pressed }) => ({
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        backgroundColor: pressed ? p.accentSoft : p.cardWhite,
-        borderTopLeftRadius: index === 0 ? 22 : 0,
-        borderTopRightRadius: index === 0 ? 22 : 0,
-        borderBottomLeftRadius: index === total - 1 ? 22 : 0,
-        borderBottomRightRadius: index === total - 1 ? 22 : 0,
-        borderBottomWidth: index < total - 1 ? 1 : 0,
-        borderBottomColor: p.divider,
-        overflow: "hidden",
-      })}
-    >
-      <ManagerAvatar
-        uri={run.avatarUrl}
-        name={run.name}
-        size={36}
-        accent={p.accent}
-        accentSoft={p.accentSoft}
-      />
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Text
-            numberOfLines={1}
-            style={{
-              fontFamily: "Outfit-Bold",
-              fontSize: 14,
-              color: p.textPrimary,
-              flex: 1,
-            }}
-          >
-            {run.name}
-          </Text>
-          <Text
-            style={{
-              fontFamily: "Outfit-Regular",
-              fontSize: 11,
-              color: p.textMuted,
-            }}
-          >
-            {relativeTime(run.date)}
-          </Text>
-        </View>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.accent }}>
-            {(run.distanceMeters / 1000).toFixed(1)} km
-          </Text>
-          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-            {formatDurationClock(run.durationSeconds)}
-          </Text>
-        </View>
-      </View>
       <ChevronRight size={16} color={p.textMuted} />
     </Pressable>
   );
