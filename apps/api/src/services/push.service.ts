@@ -110,6 +110,7 @@ async function sendToAdditionalDevices(
     channelId: string;
     categoryId: string | undefined;
     imageUrl?: string;
+    tag?: string;
   },
 ) {
   try {
@@ -135,7 +136,7 @@ async function sendToAdditionalDevices(
           title: payload.title,
           body: payload.body,
           data: fcmData,
-          android: { channelId: payload.channelId, priority: "high" },
+          android: { channelId: payload.channelId, priority: "high", tag: payload.tag },
           imageUrl: payload.imageUrl,
         }).catch((err) => log.error({ userId, err }, "Multi-device FCM send failed"));
         continue;
@@ -248,7 +249,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
           title,
           body,
           data: fcmData,
-          android: { channelId, priority: "high" },
+          android: { channelId, priority: "high", tag: dataForDevice.threadId ?? undefined },
           imageUrl: data?.senderAvatar ?? undefined,
         });
         return;
@@ -345,7 +346,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
 
     // Send to any additional devices registered via the per-device token table.
     const richImage = data?.senderAvatar ?? undefined;
-    await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId, imageUrl: richImage });
+    await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId, imageUrl: richImage, tag: dataForDevice.threadId ?? undefined });
   } catch (err) {
     log.error({ userId, err }, "Failed to send push notification");
     logDebugPush({

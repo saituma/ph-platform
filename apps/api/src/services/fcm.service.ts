@@ -75,6 +75,7 @@ export type SendFcmPushInput = {
   android?: {
     channelId?: string;
     priority?: "normal" | "high";
+    tag?: string;
   };
   imageUrl?: string;
 };
@@ -120,6 +121,7 @@ export async function sendFcmPush(input: SendFcmPushInput) {
           sound: "default",
           defaultSound: true,
           defaultVibrateTimings: true,
+          ...(input.android?.tag ? { tag: input.android.tag } : {}),
           ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
         },
       },

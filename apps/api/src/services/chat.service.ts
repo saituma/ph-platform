@@ -105,7 +105,7 @@ export async function createDirectMessage(input: {
 
   try {
     const sender = await db
-      .select({ name: userTable.name, email: userTable.email })
+      .select({ name: userTable.name, email: userTable.email, profilePicture: userTable.profilePicture })
       .from(userTable)
       .where(eq(userTable.id, input.senderId))
       .limit(1);
@@ -114,7 +114,7 @@ export async function createDirectMessage(input: {
       email: sender[0]?.email,
       senderId: input.senderId,
     });
-    const title = `New message from ${senderName}`;
+    const title = senderName;
     const body = (input.contentType ?? "text") === "text" ? safeContent : `Sent a ${input.contentType ?? "message"}`;
 
     const dmThreadId = String(input.senderId);
@@ -123,6 +123,7 @@ export async function createDirectMessage(input: {
       threadId: dmThreadId,
       url: `/messages/${dmThreadId}`,
       mediaUrl: input.mediaUrl ?? null,
+      senderAvatar: sender[0]?.profilePicture ?? null,
     });
   } catch (error) {
     log.error({ err: error }, "Failed to send direct chat push notification");

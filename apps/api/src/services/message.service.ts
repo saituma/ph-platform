@@ -740,7 +740,7 @@ export async function sendMessage(input: {
       log.warn("Socket server not initialized, skipping message:new emit");
     }
 
-    const title = `New message from ${senderMeta?.name ?? "Coach"}`;
+    const title = senderMeta?.name ?? "Coach";
     const body = input.contentType === "text" ? input.content : `Sent a ${input.contentType}`;
     logRealtimeLatency(trace, "direct.push.background_scheduled", {
       messageId: message.id,
@@ -769,6 +769,7 @@ export async function sendMessage(input: {
               threadId: String(input.senderId),
               url: `/messages/${String(input.senderId)}`,
               mediaUrl: input.mediaUrl ?? null,
+              senderAvatar: senderMeta?.profilePicture ?? null,
             },
           });
           logRealtimeLatency(trace, "direct.push.after_enqueue", {

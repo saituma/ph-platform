@@ -150,6 +150,7 @@ export function usePushNotificationResponses(enabled: boolean) {
         typeof data?.threadId === "string" ? data.threadId : undefined;
       if (actionId === CHAT_ACTION_MARK_READ_ID && threadIdFromAction) {
         void markThreadRead(threadIdFromAction);
+        getNotifications().then((n) => (n as any)?.dismissAllNotificationsAsync?.());
         return;
       }
       if (actionId === CHAT_ACTION_REPLY_ID && threadIdFromAction) {
@@ -157,6 +158,7 @@ export function usePushNotificationResponses(enabled: boolean) {
         if (replyText) {
           void replyToThread(threadIdFromAction, replyText);
           void markThreadRead(threadIdFromAction);
+          getNotifications().then((n) => (n as any)?.dismissAllNotificationsAsync?.());
           routerRef.current.push({
             pathname: `/${rolePrefix}/messages/[id]` as any,
             params: { id: threadIdFromAction },

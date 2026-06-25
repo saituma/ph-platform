@@ -100,10 +100,12 @@ TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, async ({ data, error }) => 
     if (!text) return;
     await reply(threadId, text);
     await markRead(threadId);
+    getNotifications().then((n) => (n as any)?.dismissAllNotificationsAsync?.());
     return;
   }
 
   await markRead(threadId);
+  getNotifications().then((n) => (n as any)?.dismissAllNotificationsAsync?.());
 });
 
 export async function registerBackgroundNotificationTask(): Promise<void> {
