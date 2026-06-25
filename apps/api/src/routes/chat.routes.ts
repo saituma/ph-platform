@@ -5,15 +5,16 @@ import { requireRole } from "../middlewares/roles";
 import {
   addMembers,
   createGroupChat,
+  deleteGroupChatMessage,
+  editGroupChatMessage,
   listGroupChatMessages,
   listGroups,
   listMembers,
+  markGroupChatRead,
   reportGroupMessage,
   searchGroupMessages,
   sendGroupChatMessage,
   toggleGroupReaction,
-  deleteGroupChatMessage,
-  markGroupChatRead,
 } from "../controllers/chat.controller";
 
 const router = Router();
@@ -28,6 +29,7 @@ router.post("/chat/groups/:groupId/messages", requireAuth, sendGroupChatMessage)
 router.post("/chat/groups/:groupId/read", requireAuth, markGroupChatRead);
 router.put("/chat/groups/:groupId/messages/:messageId/reactions", requireAuth, toggleGroupReaction);
 router.post("/chat/groups/:groupId/messages/:messageId/report", requireAuth, reportGroupMessage);
+router.put("/chat/groups/:groupId/messages/:messageId", requireAuth, editGroupChatMessage);
 router.delete("/chat/groups/:groupId/messages/:messageId", requireAuth, deleteGroupChatMessage);
 
 export default router;

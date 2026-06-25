@@ -1254,6 +1254,13 @@
       "when": 1782000000000,
       "tag": "0178_conversation_mutes",
       "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1783000000000,
+      "tag": "0179_message_edit",
+      "breakpoints": true
     }
   ]
 }

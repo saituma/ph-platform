@@ -880,7 +880,31 @@ export async function markConversationMessageDelivered(messageId: number, receiv
 }
 
 /** Delete a conversation message the user authored; cascades receipts/reactions; emits message:deleted. */
-export async function deleteConversationMessage(userId: number, messageId: number): Promise<boolean> {
+export async function editConversationMessage(input: {
+  messageId: number;
+  userId: number;
+  content: string;
+  isAdmin?: boolean;
+}): Promise<boolean> {
+  const [message] = await db
+    .select({ id: conversationMessageTable.id, senderId: conversationMessageTable.senderId })
+    .from(conversationMessageTable)
+    .where(eq(conversationMessageTable.id, input.messageId))
+    .limit(1);
+  if (!message) return false;
+  if (!input.isAdmin && message.senderId !== input.userId) return false;
+  await db
+    .update(conversationMessageTable)
+    .set({ content: input.content, editedAt: new Date() })
+    .where(eq(conversationMessageTable.id, input.messageId));
+  const io = getSocketServer();
+  if (io) {
+    io.to("admin:all").emit("message:edited", { messageId: input.messageId, content: input.content });
+  }
+  return true;
+}
+
+export async function deleteConversationMessage(userId: number, messageId: number, isAdmin?: boolean): Promise<boolean> {
   const [message] = await db
     .select({
       id: conversationMessageTable.id,
@@ -890,7 +914,7 @@ export async function deleteConversationMessage(userId: number, messageId: numbe
     .from(conversationMessageTable)
     .where(eq(conversationMessageTable.id, messageId))
     .limit(1);
-  if (!message || message.senderId !== userId) return false;
+  if (!message || (!isAdmin && message.senderId !== userId)) return false;
 
   const participants = await db
     .select({ userId: conversationParticipantTable.userId })

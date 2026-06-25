@@ -3,6 +3,7 @@ import { Router } from "express";
 import { requireAuth } from "../middlewares/auth";
 import {
   deleteMessage,
+  editMessage,
   forwardMessage,
   listInbox,
   listMessages,
@@ -31,6 +32,7 @@ router.put("/messages/:messageId/reactions", requireAuth, toggleReaction);
 router.put("/messages/:messageId/pin", requireAuth, pinMessage);
 router.post("/messages/forward", requireAuth, forwardMessage);
 router.post("/messages/:messageId/report", requireAuth, reportMessage);
+router.put("/messages/:messageId", requireAuth, editMessage);
 router.delete("/messages/:messageId", requireAuth, deleteMessage);
 
 // Conversation mute

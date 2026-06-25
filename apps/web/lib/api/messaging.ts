@@ -102,6 +102,17 @@ const messagingApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["Threads"],
     }),
+    editMessage: builder.mutation<
+      { edited: boolean },
+      { messageId: number; content: string }
+    >({
+      query: ({ messageId, content }) => ({
+        url: `/messages/${messageId}`,
+        method: "PUT",
+        body: { content },
+      }),
+      invalidatesTags: ["Threads"],
+    }),
     deleteMessage: builder.mutation<
       { deleted: boolean },
       { messageId: number }
@@ -111,6 +122,17 @@ const messagingApi = apiSlice.injectEndpoints({
         method: "DELETE",
       }),
       invalidatesTags: ["Threads"],
+    }),
+    editGroupMessage: builder.mutation<
+      { edited: boolean },
+      { groupId: number; messageId: number; content: string }
+    >({
+      query: ({ groupId, messageId, content }) => ({
+        url: `/chat/groups/${groupId}/messages/${messageId}`,
+        method: "PUT",
+        body: { content },
+      }),
+      invalidatesTags: ["ChatGroups"],
     }),
     deleteGroupMessage: builder.mutation<
       { deleted: boolean },
@@ -231,7 +253,9 @@ export const {
   useDeleteThreadMutation,
   useSendMessageMutation,
   useToggleMessageReactionMutation,
+  useEditMessageMutation,
   useDeleteMessageMutation,
+  useEditGroupMessageMutation,
   useDeleteGroupMessageMutation,
   useGetChatGroupsQuery,
   useCreateChatGroupMutation,

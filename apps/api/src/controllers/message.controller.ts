@@ -12,11 +12,12 @@ import { db } from "../db";
 import { and, eq, inArray } from "drizzle-orm";
 import { auditLogsTable, userTable } from "../db/schema";
 import { publicDisplayName } from "../lib/display-name";
-import { isTrainingStaff } from "../lib/user-roles";
+import { isTrainingStaff, isPlatformAdmin } from "../lib/user-roles";
 import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
 import {
   canAccessConversationMessage,
   deleteConversationMessage,
+  editConversationMessage,
   getConversationMessageForForward,
   listConversationMessagesForUser,
   listConversationThreadsAdmin,
@@ -528,8 +529,9 @@ export async function toggleReaction(req: Request, res: Response) {
 export async function deleteMessage(req: Request, res: Response) {
   const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
   const actingUserId = req.user!.id;
+  const isAdmin = isPlatformAdmin(req.user!.role);
   try {
-    const deleted = await deleteConversationMessage(actingUserId, messageId);
+    const deleted = await deleteConversationMessage(actingUserId, messageId, isAdmin);
     if (!deleted) return res.status(404).json({ error: "Message not found" });
     return res.status(200).json({ deleted: true });
   } catch (error) {
@@ -540,6 +542,25 @@ export async function deleteMessage(req: Request, res: Response) {
     if (message === "Message not found") {
       return res.status(404).json({ error: message });
     }
+    throw error;
+  }
+}
+
+const editMessageSchema = z.object({ content: z.string().trim().min(1).max(500) });
+
+export async function editMessage(req: Request, res: Response) {
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const { content } = editMessageSchema.parse(req.body);
+  const userId = req.user!.id;
+  const isAdmin = isPlatformAdmin(req.user!.role);
+  try {
+    const edited = await editConversationMessage({ messageId, userId, content, isAdmin });
+    if (!edited) return res.status(404).json({ error: "Message not found" });
+    return res.status(200).json({ edited: true });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Request failed";
+    if (msg === "Forbidden") return res.status(403).json({ error: msg });
+    if (msg === "Message not found") return res.status(404).json({ error: msg });
     throw error;
   }
 }

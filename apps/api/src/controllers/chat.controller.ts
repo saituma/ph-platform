@@ -6,6 +6,7 @@ import {
   createGroup,
   createGroupMessage,
   deleteGroupMessage,
+  editGroupMessage,
   isGroupMember,
   listGroupMembers,
   listGroupMessages,
@@ -17,6 +18,7 @@ import { db } from "../db";
 import { auditLogsTable, chatGroupMessageTable } from "../db/schema";
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { createRealtimeTrace, logRealtimeLatency } from "../lib/realtime-latency";
+import { isPlatformAdmin } from "../lib/user-roles";
 
 const createGroupSchema = z.object({
   name: z.string().min(1),
@@ -163,15 +165,39 @@ export async function toggleGroupReaction(req: Request, res: Response) {
   }
 }
 
+const editGroupMessageSchema = z.object({ content: z.string().trim().min(1).max(2000) });
+
+export async function editGroupChatMessage(req: Request, res: Response) {
+  const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
+  const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
+  const { content } = editGroupMessageSchema.parse(req.body);
+  const userId = req.user!.id;
+  const isAdmin = isPlatformAdmin(req.user!.role);
+  if (!isAdmin) {
+    const allowed = await isGroupMember(groupId, userId);
+    if (!allowed) return res.status(403).json({ error: "Forbidden" });
+  }
+  try {
+    const result = await editGroupMessage({ groupId, messageId, userId, content, isAdmin });
+    return res.status(200).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    if (message === "Forbidden") return res.status(403).json({ error: message });
+    if (message === "Message not found") return res.status(404).json({ error: message });
+    throw error;
+  }
+}
+
 export async function deleteGroupChatMessage(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);
   const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);
-  const allowed = await isGroupMember(groupId, req.user!.id);
-  if (!allowed) {
-    return res.status(403).json({ error: "Forbidden" });
+  const isAdmin = isPlatformAdmin(req.user!.role);
+  if (!isAdmin) {
+    const allowed = await isGroupMember(groupId, req.user!.id);
+    if (!allowed) return res.status(403).json({ error: "Forbidden" });
   }
   try {
-    const result = await deleteGroupMessage({ groupId, messageId, userId: req.user!.id });
+    const result = await deleteGroupMessage({ groupId, messageId, userId: req.user!.id, isAdmin });
     return res.status(200).json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed";

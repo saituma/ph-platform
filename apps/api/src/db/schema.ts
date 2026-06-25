@@ -995,6 +995,7 @@ export const messageTable = pgTable(
     videoUploadId: integer(),
     read: boolean().notNull().default(false),
     pinnedAt: timestamp(),
+    editedAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
@@ -1052,6 +1053,7 @@ export const chatGroupMessageTable = pgTable(
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
     clientMessageId: varchar({ length: 96 }),
+    editedAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
   },
   (table) => ({
@@ -1202,6 +1204,7 @@ export const conversationMessageTable = pgTable(
     videoUploadId: integer(),
     clientMessageId: varchar({ length: 96 }),
     pinnedAt: timestamp(),
+    editedAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },

@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
-import { Check, CheckCheck, Image as ImageIcon, Paperclip, Play, Send, Smile, Star, Video } from "lucide-react";
+import { Check, CheckCheck, Image as ImageIcon, Paperclip, Pencil, Play, Send, Smile, Star, Trash2, Video } from "lucide-react";
 import { COMMON_REACTION_EMOJIS } from "./reaction-options";
 
 type Message = {
@@ -35,6 +35,7 @@ type ConversationPanelProps = {
   uploadState?: { name: string; sizeLabel: string; progress: number } | null;
   onReact?: (messageId: string, emoji: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onEditMessage?: (messageId: string, content: string) => void;
   onSend?: (payload: { text: string; attachment?: ComposerAttachment | null }) => void;
   onTypingChange?: (isTyping: boolean) => void;
   typingLabel?: string | null;
@@ -47,11 +48,14 @@ export function ConversationPanel({
   uploadState,
   onReact,
   onDeleteMessage,
+  onEditMessage,
   onSend,
   onTypingChange,
   typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
   const [activeMedia, setActiveMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const [recorderOpen, setRecorderOpen] = useState(false);
@@ -281,24 +285,48 @@ export function ConversationPanel({
           const shouldHideText =
             normalizedText === "attachment" ||
             normalizedText.startsWith("file attached:");
+          const isEditing = editingMessageId === message.id;
           return (
             <div
               key={message.id}
               className={`flex ${isCoach ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`group max-w-[80%] rounded-2xl p-3 text-sm shadow-sm ${
+                className={`group relative max-w-[80%] rounded-2xl p-3 text-sm shadow-sm ${
                   isCoach
                     ? "bg-emerald-100/80 text-foreground dark:bg-emerald-900/40"
                     : "bg-white text-foreground dark:bg-slate-900"
                 }`}
-                onContextMenu={(event) => {
-                  if (!onDeleteMessage) return;
-                  event.preventDefault();
-                  const confirmed = window.confirm("Delete this message?");
-                  if (confirmed) onDeleteMessage(message.id);
-                }}
               >
+                {(onDeleteMessage || onEditMessage) && !isEditing ? (
+                  <div className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 ${isCoach ? "right-0" : "left-0"}`}>
+                    {onEditMessage && !message.mediaUrl ? (
+                      <button
+                        type="button"
+                        title="Edit message"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-foreground"
+                        onClick={() => {
+                          setEditingMessageId(message.id);
+                          setEditDraft(message.text ?? "");
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                    {onDeleteMessage ? (
+                      <button
+                        type="button"
+                        title="Delete message"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-red-600"
+                        onClick={() => {
+                          if (window.confirm("Delete this message?")) onDeleteMessage(message.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <p className="text-[11px] text-muted-foreground">
                   {message.author} • {message.time}
                 </p>
@@ -351,7 +379,52 @@ export function ConversationPanel({
                     Voice messages are disabled.
                   </p>
                 ) : null}
-                {shouldHideText ? null : <p className="mt-2 text-foreground">{message.text}</p>}
+                {isEditing ? (
+                  <div className="mt-2 space-y-2">
+                    <Textarea
+                      className="min-h-[56px] rounded-xl bg-background px-3 py-2 text-sm"
+                      value={editDraft}
+                      onChange={(e) => setEditDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }
+                        if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+                          e.preventDefault();
+                          const trimmed = editDraft.trim();
+                          if (trimmed) onEditMessage?.(message.id, trimmed);
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }
+                      }}
+                      autoFocus
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const trimmed = editDraft.trim();
+                          if (trimmed) onEditMessage?.(message.id, trimmed);
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : shouldHideText ? null : <p className="mt-2 text-foreground">{message.text}</p>}
                 {message.reactions?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {message.reactions.map((reaction) => (
@@ -370,18 +443,20 @@ export function ConversationPanel({
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
-                  {COMMON_REACTION_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
-                      onClick={() => onReact?.(message.id, emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+                {!isEditing ? (
+                  <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
+                    {COMMON_REACTION_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+                        onClick={() => onReact?.(message.id, emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 {isCoach ? (
                   <div className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
                     {message.status === "read" ? (

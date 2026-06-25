@@ -66,6 +66,10 @@ import {
   useGetUsersQuery,
   useMarkChatGroupReadMutation,
   useMarkThreadReadMutation,
+  useDeleteMessageMutation,
+  useDeleteGroupMessageMutation,
+  useEditMessageMutation,
+  useEditGroupMessageMutation,
   useSendChatGroupMessageMutation,
   useSendMessageMutation,
   useToggleChatGroupMessageReactionMutation,
@@ -751,6 +755,10 @@ function MessagingPageInner() {
     useAddChatGroupMembersMutation();
   const [toggleDirectReaction] = useToggleMessageReactionMutation();
   const [toggleGroupReaction] = useToggleChatGroupMessageReactionMutation();
+  const [deleteMessage] = useDeleteMessageMutation();
+  const [deleteGroupMessage] = useDeleteGroupMessageMutation();
+  const [editMessage] = useEditMessageMutation();
+  const [editGroupMessage] = useEditGroupMessageMutation();
   const [createGroup, { isLoading: isCreatingGroup }] =
     useCreateChatGroupMutation();
 
@@ -2810,6 +2818,8 @@ function MessagingPageInner() {
               messages={directMessages}
               onReact={handleDirectReaction}
               onReply={(payload) => setDirectReplyTo(payload)}
+              onDelete={(messageId) => void deleteMessage({ messageId }).catch(() => {})}
+              onEdit={(messageId, content) => void editMessage({ messageId, content }).catch(() => {})}
               formatTime={formatTime}
               currentUserId={currentUserId}
               resolveUserName={resolveUserName}
@@ -2868,6 +2878,8 @@ function MessagingPageInner() {
               messages={groupMessages}
               onReact={handleGroupReaction}
               onReply={(payload) => setGroupReplyTo(payload)}
+              onDelete={(messageId) => groupId != null ? void deleteGroupMessage({ groupId, messageId }).catch(() => {}) : undefined}
+              onEdit={(messageId, content) => groupId != null ? void editGroupMessage({ groupId, messageId, content }).catch(() => {}) : undefined}
               formatTime={formatTime}
               currentUserId={currentUserId}
               resolveUserName={resolveUserName}

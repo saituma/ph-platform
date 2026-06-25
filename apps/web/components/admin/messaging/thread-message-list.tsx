@@ -2,7 +2,7 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { ArrowDown, CornerUpLeft, Plus } from "lucide-react";
+import { ArrowDown, CornerUpLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ScrollArea } from "../../ui/scroll-area";
@@ -26,6 +26,8 @@ type ThreadMessageListProps = {
   messages: ChatMessage[];
   onReact: (messageId: number, emoji: string) => void;
   onReply?: (payload: { messageId: number; preview: string }) => void;
+  onDelete?: (messageId: number) => void;
+  onEdit?: (messageId: number, content: string) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
   resolveUserName?: (userId: number) => string;
@@ -89,6 +91,8 @@ export function ThreadMessageList({
   messages,
   onReact,
   onReply,
+  onDelete,
+  onEdit,
   formatTime,
   currentUserId,
   resolveUserName,
@@ -99,6 +103,8 @@ export function ThreadMessageList({
   openScrollKey = null,
 }: ThreadMessageListProps) {
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     number | null
   >(null);
@@ -495,7 +501,38 @@ export function ThreadMessageList({
                         className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full" : "max-h-64 w-full"}`}
                       />
                     ) : null}
-                    {showText ? (
+                    {editingId === Number(message.id) ? (
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                          rows={3}
+                          value={editDraft}
+                          onChange={(e) => setEditDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") { setEditingId(null); setEditDraft(""); }
+                            if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
+                              e.preventDefault();
+                              const t = editDraft.trim();
+                              if (t) onEdit?.(Number(message.id), t);
+                              setEditingId(null); setEditDraft("");
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                            onClick={() => { const t = editDraft.trim(); if (t) onEdit?.(Number(message.id), t); setEditingId(null); setEditDraft(""); }}
+                          >Save</button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-secondary"
+                            onClick={() => { setEditingId(null); setEditDraft(""); }}
+                          >Cancel</button>
+                        </div>
+                      </div>
+                    ) : showText ? (
                       <p className="whitespace-pre-wrap text-sm">
                         {parsed.text}
                       </p>
@@ -515,6 +552,26 @@ export function ThreadMessageList({
                   data-reaction-picker-root="true"
                   className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end`}
                 >
+                  {onEdit && !hasMedia && editingId !== Number(message.id) ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs hover:bg-secondary"
+                      onClick={() => { setEditingId(Number(message.id)); setEditDraft(String(parsed.text ?? "")); setPickerMessageId(null); }}
+                      aria-label="Edit message"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                  {onDelete ? (
+                    <button
+                      type="button"
+                      className="rounded-full border border-border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+                      onClick={() => { if (window.confirm("Delete this message?")) onDelete(Number(message.id)); }}
+                      aria-label="Delete message"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                   {onReply ? (
                     <button
                       type="button"

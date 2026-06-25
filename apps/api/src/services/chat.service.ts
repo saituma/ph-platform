@@ -952,7 +952,28 @@ export async function createGroupMessage(input: {
   };
 }
 
-export async function deleteGroupMessage(input: { groupId: number; messageId: number; userId: number }) {
+export async function editGroupMessage(input: { groupId: number; messageId: number; userId: number; content: string; isAdmin?: boolean }) {
+  const rows = await db
+    .select()
+    .from(chatGroupMessageTable)
+    .where(and(eq(chatGroupMessageTable.id, input.messageId), eq(chatGroupMessageTable.groupId, input.groupId)))
+    .limit(1);
+  const message = rows[0];
+  if (!message) throw new Error("Message not found");
+  if (!input.isAdmin && message.senderId !== input.userId) throw new Error("Forbidden");
+  await db
+    .update(chatGroupMessageTable)
+    .set({ content: input.content, editedAt: new Date() })
+    .where(eq(chatGroupMessageTable.id, input.messageId));
+  const io = getSocketServer();
+  if (io) {
+    const payload = { messageId: input.messageId, groupId: input.groupId, content: input.content };
+    io.to("admin:all").emit("group:message:edited", payload);
+  }
+  return { edited: true };
+}
+
+export async function deleteGroupMessage(input: { groupId: number; messageId: number; userId: number; isAdmin?: boolean }) {
   const rows = await db
     .select()
     .from(chatGroupMessageTable)
@@ -962,7 +983,7 @@ export async function deleteGroupMessage(input: { groupId: number; messageId: nu
   if (!message) {
     throw new Error("Message not found");
   }
-  if (message.senderId !== input.userId) {
+  if (!input.isAdmin && message.senderId !== input.userId) {
     throw new Error("Forbidden");
   }
   await db.delete(chatGroupMessageReactionTable).where(eq(chatGroupMessageReactionTable.messageId, input.messageId));

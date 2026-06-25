@@ -1,0 +1,3 @@
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;
+ALTER TABLE chat_group_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;
+ALTER TABLE conversation_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP;
