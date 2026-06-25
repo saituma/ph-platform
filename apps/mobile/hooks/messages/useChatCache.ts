@@ -1,5 +1,6 @@
 import { MessageThread, TypingStatus } from "@/types/messages";
 import { ChatMessage } from "@/constants/messages";
+import { loadCacheSync, saveCacheToDb } from "@/lib/db/messageDb";
 
 export type MessagesControllerCache = {
   threads: MessageThread[];
@@ -28,22 +29,46 @@ function pruneExpiredCacheEntries(now = Date.now()) {
   }
 }
 
-export function getInitialCache(profileId: number) {
+export function getInitialCache(profileId: number): MessagesControllerCache | null {
   const now = Date.now();
-  const cached = messagesControllerCacheByProfileId.get(profileId);
-  if (!cached) return null;
-  if (now - cached.updatedAtMs > MESSAGES_CACHE_TTL_MS) {
-    messagesControllerCacheByProfileId.delete(profileId);
-    return null;
+
+  // 1. In-memory Map — fastest, same JS session.
+  const mem = messagesControllerCacheByProfileId.get(profileId);
+  if (mem && now - mem.updatedAtMs < MESSAGES_CACHE_TTL_MS) return mem;
+
+  // 2. SQLite synchronous read — survives app kills.
+  //    This is the "WhatsApp trick": data is available before the first render
+  //    so isLoading starts false and threads appear instantly on cold start.
+  const dbData = loadCacheSync(profileId);
+  if (dbData) {
+    const cache: MessagesControllerCache = {
+      ...dbData,
+      typingStatus: {},
+      selectedThread: null,
+      draft: "",
+      // Mark slightly stale so TanStack Query triggers a background API sync.
+      updatedAtMs: now - 60_000,
+    };
+    messagesControllerCacheByProfileId.set(profileId, cache);
+    return cache;
   }
-  return cached;
+
+  return null;
 }
 
 export function saveToCache(profileId: number, data: Omit<MessagesControllerCache, "updatedAtMs">) {
   if (!Number.isFinite(profileId) || profileId <= 0) return;
   pruneExpiredCacheEntries();
-  messagesControllerCacheByProfileId.set(profileId, {
-    ...data,
-    updatedAtMs: Date.now(),
+
+  const entry: MessagesControllerCache = { ...data, updatedAtMs: Date.now() };
+
+  // 1. Update in-memory immediately.
+  messagesControllerCacheByProfileId.set(profileId, entry);
+
+  // 2. Persist to SQLite — fire-and-forget so it never blocks the UI.
+  void saveCacheToDb(profileId, {
+    threads: data.threads,
+    messages: data.messages,
+    groupMembers: data.groupMembers,
   });
 }

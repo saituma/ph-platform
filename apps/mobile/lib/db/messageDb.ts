@@ -1,0 +1,137 @@
+import * as SQLite from "expo-sqlite";
+
+import type { MessagesControllerCache } from "@/hooks/messages/useChatCache";
+
+const DB_NAME = "ph_messages_v1.db";
+const MAX_MESSAGES = 500;
+
+// Single DB handle — supports both sync and async methods (expo-sqlite SDK 55).
+// Opened lazily on first access so startup time is not affected.
+let _db: SQLite.SQLiteDatabase | null = null;
+
+function getDb(): SQLite.SQLiteDatabase {
+  if (_db) return _db;
+  _db = SQLite.openDatabaseSync(DB_NAME);
+  _db.execSync(`
+    PRAGMA journal_mode = WAL;
+
+    CREATE TABLE IF NOT EXISTS message_threads (
+      id         TEXT    NOT NULL,
+      profile_id INTEGER NOT NULL,
+      raw_json   TEXT    NOT NULL,
+      sort_key   INTEGER DEFAULT 0,
+      PRIMARY KEY (id, profile_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id         TEXT    NOT NULL,
+      profile_id INTEGER NOT NULL,
+      thread_id  TEXT    NOT NULL,
+      raw_json   TEXT    NOT NULL,
+      created_ts INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (id, profile_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_msgs_thread
+      ON chat_messages (profile_id, thread_id, created_ts DESC);
+
+    CREATE TABLE IF NOT EXISTS group_member_snapshots (
+      profile_id INTEGER NOT NULL,
+      group_id   INTEGER NOT NULL,
+      raw_json   TEXT    NOT NULL,
+      PRIMARY KEY (profile_id, group_id)
+    );
+  `);
+  return _db;
+}
+
+type CacheData = Pick<MessagesControllerCache, "threads" | "messages" | "groupMembers">;
+
+/**
+ * Synchronous read called during React initialization.
+ * Runs on the JS thread — fast for small datasets (<10 ms on modern devices).
+ */
+export function loadCacheSync(profileId: number): CacheData | null {
+  try {
+    const db = getDb();
+
+    const threadRows = db.getAllSync<{ raw_json: string }>(
+      "SELECT raw_json FROM message_threads WHERE profile_id = ? ORDER BY sort_key DESC LIMIT 100",
+      [profileId],
+    );
+    if (!threadRows.length) return null;
+
+    const threads = threadRows.map((r) => JSON.parse(r.raw_json));
+
+    const msgRows = db.getAllSync<{ raw_json: string }>(
+      `SELECT raw_json FROM chat_messages
+       WHERE profile_id = ?
+       ORDER BY created_ts DESC
+       LIMIT ${MAX_MESSAGES}`,
+      [profileId],
+    );
+    const messages = msgRows.map((r) => JSON.parse(r.raw_json));
+
+    const gmRows = db.getAllSync<{ group_id: number; raw_json: string }>(
+      "SELECT group_id, raw_json FROM group_member_snapshots WHERE profile_id = ?",
+      [profileId],
+    );
+    const groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>> = {};
+    for (const row of gmRows) {
+      groupMembers[row.group_id] = JSON.parse(row.raw_json);
+    }
+
+    return { threads, messages, groupMembers };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Async write — called after API sync or socket events.
+ * Fire-and-forget; errors are swallowed to never block the UI.
+ */
+export async function saveCacheToDb(profileId: number, data: CacheData): Promise<void> {
+  try {
+    const db = getDb();
+
+    await db.withTransactionAsync(async () => {
+      for (const thread of data.threads) {
+        await db.runAsync(
+          "INSERT OR REPLACE INTO message_threads (id, profile_id, raw_json, sort_key) VALUES (?, ?, ?, ?)",
+          [thread.id, profileId, JSON.stringify(thread), thread.unread ?? 0],
+        );
+      }
+
+      for (const msg of data.messages) {
+        const ts = msg.createdAt ? new Date(msg.createdAt).getTime() : 0;
+        await db.runAsync(
+          "INSERT OR REPLACE INTO chat_messages (id, profile_id, thread_id, raw_json, created_ts) VALUES (?, ?, ?, ?, ?)",
+          [msg.id, profileId, msg.threadId, JSON.stringify(msg), ts],
+        );
+      }
+
+      // Keep only the most recent MAX_MESSAGES entries per profile to bound disk usage.
+      await db.runAsync(
+        `DELETE FROM chat_messages
+         WHERE profile_id = ?
+           AND id NOT IN (
+             SELECT id FROM chat_messages
+             WHERE profile_id = ?
+             ORDER BY created_ts DESC
+             LIMIT ?
+           )`,
+        [profileId, profileId, MAX_MESSAGES],
+      );
+
+      for (const [groupId, members] of Object.entries(data.groupMembers)) {
+        await db.runAsync(
+          "INSERT OR REPLACE INTO group_member_snapshots (profile_id, group_id, raw_json) VALUES (?, ?, ?)",
+          [profileId, Number(groupId), JSON.stringify(members)],
+        );
+      }
+    });
+  } catch (e) {
+    if (__DEV__) console.warn("[messageDb] save failed:", e);
+  }
+}
