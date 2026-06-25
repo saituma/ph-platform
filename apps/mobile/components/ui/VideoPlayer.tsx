@@ -64,6 +64,7 @@ export interface VideoPlayerProps {
   autoPlay?: boolean;
   videoId?: string; // for watch history tracking
   durationSec?: number;
+  isFocused?: boolean;
 }
 
 export interface VideoPlayerRef {
@@ -95,6 +96,7 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
   autoPlay = false,
   videoId,
   durationSec = 0,
+  isFocused = true,
 }: VideoPlayerProps, ref) {
   const width = useContentWidth();
   const { colors, isDark } = useAppTheme();
@@ -171,6 +173,11 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
     });
     return () => sub.remove();
   }, [isPlaying]);
+
+  // ── Tab blur pause ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isFocused && isPlaying) setIsPlaying(false);
+  }, [isFocused, isPlaying]);
 
   // ── Android Fullscreen Back Handler ───────────────────────────────
   useEffect(() => {

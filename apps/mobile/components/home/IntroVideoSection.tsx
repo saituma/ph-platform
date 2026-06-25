@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -23,6 +24,14 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
 }: IntroVideoSectionProps) {
   const p = useAdminPastel();
   const width = useContentWidth();
+  const [isFocused, setIsFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, []),
+  );
 
   useEffect(() => {
     if (posterUrl) {
@@ -49,6 +58,7 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
           source={introVideoUrl!}
           thumbnail={posterUrl ?? undefined}
           autoPlay={false}
+          isFocused={isFocused}
         />
       )}
     </View>
