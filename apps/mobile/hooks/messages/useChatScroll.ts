@@ -28,14 +28,30 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
   const previousLengthRef = useRef(0);
   const [newIncomingCount, setNewIncomingCount] = useState(0);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
+  // Stays false until after the initial scroll-to-bottom so the list is hidden
+  // during the first frame (prevents the "bubbles pop from top" flash).
+  const [isReady, setIsReady] = useState(false);
+  const prevThreadIdRef = useRef(threadId);
+  if (prevThreadIdRef.current !== threadId) {
+    prevThreadIdRef.current = threadId;
+    hasInitialScrolled.current = null;
+  }
 
   useEffect(() => {
     if (hasInitialScrolled.current === threadId) return;
+    // No messages yet — show the empty/loading state immediately and wait.
+    if (messages.length === 0) {
+      setIsReady(true);
+      return;
+    }
     hasInitialScrolled.current = threadId;
     previousLengthRef.current = messages.length;
     setNewIncomingCount(0);
+    // Hide list, scroll to bottom, then reveal — prevents the "pop from top" flash.
+    setIsReady(false);
     requestAnimationFrame(() => {
       scrollListToEnd(listRef.current, false);
+      requestAnimationFrame(() => setIsReady(true));
     });
   }, [threadId, messages.length]);
 
@@ -91,5 +107,6 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
     newIncomingCount,
     setNewIncomingCount,
     highlightedId,
+    isReady,
   };
 }
