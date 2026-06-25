@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -35,34 +35,18 @@ const MemoizedVideoPlayer = React.memo(function MemoizedVideoPlayer({
 });
 
 function RestTimerDisplay({
-  restLeft,
-  stopRest,
-  startRest,
   restSeconds,
+  onStartRest,
   p,
 }: {
-  restLeft: number | null;
-  stopRest: () => void;
-  startRest: () => void;
   restSeconds: number | null;
+  onStartRest: () => void;
   p: ReturnType<typeof useAdminPastel>;
 }) {
-  if (restLeft != null) {
-    return (
-      <View className="rounded-2xl py-6 items-center bg-accent/12 border border-accent/25">
-        <Text className="text-xs font-outfit text-secondary mb-1">Rest</Text>
-        <Text className="text-4xl font-clash text-accent font-bold">{restLeft}</Text>
-        <Text className="text-xs font-outfit text-secondary mt-1">seconds</Text>
-        <Pressable onPress={stopRest} className="mt-4 px-4 py-2 rounded-full bg-app/10">
-          <Text className="text-sm font-outfit text-app">Skip</Text>
-        </Pressable>
-      </View>
-    );
-  }
   if (restSeconds) {
     return (
       <Pressable
-        onPress={startRest}
+        onPress={onStartRest}
         className="rounded-2xl py-4 flex-row items-center justify-center gap-2 bg-accent"
       >
         <Feather name="clock" size={18} color="#fff" />
@@ -71,6 +55,45 @@ function RestTimerDisplay({
     );
   }
   return null;
+}
+
+function RestTimerCountdown({
+  startTime,
+  totalSeconds,
+  onTimerEnd,
+  onSkip,
+}: {
+  startTime: number;
+  totalSeconds: number;
+  onTimerEnd: () => void;
+  onSkip: () => void;
+}) {
+  const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const remaining = Math.max(0, totalSeconds - elapsed);
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+        onTimerEnd();
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [startTime, totalSeconds, onTimerEnd]);
+
+  return (
+    <View className="rounded-2xl py-6 items-center bg-accent/12 border border-accent/25">
+      <Text className="text-xs font-outfit text-secondary mb-1">Rest</Text>
+      <Text className="text-4xl font-clash text-accent font-bold">{secondsLeft}</Text>
+      <Text className="text-xs font-outfit text-secondary mt-1">seconds</Text>
+      <Pressable onPress={onSkip} className="mt-4 px-4 py-2 rounded-full bg-app/10">
+        <Text className="text-sm font-outfit text-app">Skip</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function parseRestSeconds(ex: ExerciseItem): number | null {
@@ -102,8 +125,7 @@ export function SessionRunnerModal({
 }) {
   const p = useAdminPastel();
   const [index, setIndex] = useState(0);
-  const [restLeft, setRestLeft] = useState<number | null>(null);
-  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [timerState, setTimerState] = useState<{ startTime: number; totalSeconds: number } | null>(null);
 
   const safeExercises = useMemo(
     () => (Array.isArray(exercises) ? exercises.filter(Boolean) : []),
@@ -115,48 +137,23 @@ export function SessionRunnerModal({
   useEffect(() => {
     if (!visible) {
       setIndex(0);
-      setRestLeft(null);
-      if (restTimerRef.current) {
-        clearInterval(restTimerRef.current);
-        restTimerRef.current = null;
-      }
+      setTimerState(null);
     }
   }, [visible]);
 
-  useEffect(() => {
-    return () => {
-      if (restTimerRef.current) clearInterval(restTimerRef.current);
-    };
-  }, []);
-
   const stopRest = useCallback(() => {
-    if (restTimerRef.current) {
-      clearInterval(restTimerRef.current);
-      restTimerRef.current = null;
-    }
-    setRestLeft(null);
+    setTimerState(null);
   }, []);
 
   const startRest = useCallback(() => {
     if (!current) return;
     const sec = parseRestSeconds(current);
     if (sec == null || sec <= 0) return;
-    stopRest();
-    setRestLeft(sec);
-    restTimerRef.current = setInterval(() => {
-      setRestLeft((prev) => {
-        if (prev == null) return null;
-        if (prev <= 1) {
-          if (restTimerRef.current) {
-            clearInterval(restTimerRef.current);
-            restTimerRef.current = null;
-          }
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [current, stopRest]);
+    setTimerState({
+      startTime: Date.now(),
+      totalSeconds: sec,
+    });
+  }, [current]);
 
   const goNext = useCallback(() => {
     stopRest();
@@ -237,13 +234,20 @@ export function SessionRunnerModal({
                 </View>
               ) : null}
 
-              <RestTimerDisplay
-                restLeft={restLeft}
-                stopRest={stopRest}
-                startRest={startRest}
-                restSeconds={parseRestSeconds(current)}
-                p={p}
-              />
+              {timerState ? (
+                <RestTimerCountdown
+                  startTime={timerState.startTime}
+                  totalSeconds={timerState.totalSeconds}
+                  onTimerEnd={stopRest}
+                  onSkip={stopRest}
+                />
+              ) : (
+                <RestTimerDisplay
+                  restSeconds={parseRestSeconds(current)}
+                  onStartRest={startRest}
+                  p={p}
+                />
+              )}
 
               {current.videoUrl ? (
                 <MemoizedVideoPlayer
