@@ -332,6 +332,17 @@ export default function TrackingHomeScreen() {
     return buckets.map((v) => Number(v.toFixed(1)));
   }, [runs]);
 
+  const personalBests = useMemo(() => {
+    if (runs.length === 0) return null;
+    const bestDist = runs.reduce((b, r) => r.distance_meters > b.distance_meters ? r : b, runs[0]!);
+    const pacedRuns = runs.filter((r) => r.avg_pace && r.avg_pace > 0);
+    const bestPace = pacedRuns.length > 0
+      ? pacedRuns.reduce<RunRecord>((b, r) => r.avg_pace! < b.avg_pace! ? r : b, pacedRuns[0]!)
+      : null;
+    const bestDur = runs.reduce((b, r) => r.duration_seconds > b.duration_seconds ? r : b, runs[0]!);
+    return { bestDist, bestPace, bestDur };
+  }, [runs]);
+
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const capabilitiesLoaded = useAppSelector((s) => s.user.capabilitiesLoaded);
   const canAccessTracking = canAccessTrackingTab({
@@ -450,17 +461,17 @@ export default function TrackingHomeScreen() {
   const bentoGap = 10;
   const bentoHalf = (screenWidth - spacing.xl * 2 - bentoGap) / 2;
 
-  const PASTEL_MINT = p.cardWhite;
+  const PASTEL_MINT = p.cardMint;
   const PASTEL_MINT_TEXT = p.textPrimary;
-  const PASTEL_PEACH = p.cardWhite;
+  const PASTEL_PEACH = p.cardPeach;
   const PASTEL_PEACH_TEXT = p.textPrimary;
-  const PASTEL_LAVENDER = p.cardWhite;
+  const PASTEL_LAVENDER = p.cardLavender;
   const PASTEL_LAVENDER_TEXT = p.textPrimary;
-  const PASTEL_SKY = p.cardWhite;
+  const PASTEL_SKY = p.cardSage;
   const PASTEL_SKY_TEXT = p.textPrimary;
-  const PASTEL_ROSE = p.cardWhite;
+  const PASTEL_ROSE = p.cardYellow;
   const PASTEL_ROSE_TEXT = p.textPrimary;
-  const BENTO_BORDER = {} as const;
+  const BENTO_BORDER = { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" } as const;
 
   return (
     <>
@@ -482,8 +493,8 @@ export default function TrackingHomeScreen() {
         <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
           <Image source={TRACKING_BG} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
-            locations={[0.25, 0.65, 1]}
+            colors={["transparent", "rgba(0,0,0,0.55)", isDark ? "rgba(0,0,0,0.95)" : p.pageBg]}
+            locations={[0.2, 0.62, 1]}
             style={{ position: "absolute", width: "100%", height: "100%" }}
           />
 
@@ -616,8 +627,8 @@ export default function TrackingHomeScreen() {
                     : `${Math.round(progress)} / ${goal.targetValue} sec`
                   : null;
 
-                const RING_SIZE = 90;
-                const RING_STROKE = 7;
+                const RING_SIZE = 56;
+                const RING_STROKE = 5;
                 const ringRadius = (RING_SIZE - RING_STROKE) / 2;
                 const ringCircumference = 2 * Math.PI * ringRadius;
                 const ringOffset = pct != null ? ringCircumference * (1 - pct) : ringCircumference;
@@ -628,90 +639,83 @@ export default function TrackingHomeScreen() {
                     key={goal.id}
                     entering={FadeInDown.delay(gi * 60).springify().damping(18)}
                     style={{
-                      backgroundColor: cardBg,
-                      borderRadius: 28,
-                      padding: 20,
-                      alignItems: "center",
-                      gap: 14,
-                      ...(done ? BENTO_BORDER : {}),
+                      backgroundColor: done ? p.cardMint : p.cardWhite,
+                      borderRadius: 22,
+                      padding: 16,
+                      gap: 12,
+                      ...BENTO_BORDER,
                     }}
                   >
-                    <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center" }}>
-                      <Svg width={RING_SIZE} height={RING_SIZE}>
-                        <Circle
-                          cx={RING_SIZE / 2}
-                          cy={RING_SIZE / 2}
-                          r={ringRadius}
-                          stroke={ringTrackColor}
-                          strokeWidth={RING_STROKE}
-                          fill="none"
-                        />
-                        {pct != null && (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                      <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Svg width={RING_SIZE} height={RING_SIZE}>
                           <Circle
                             cx={RING_SIZE / 2}
                             cy={RING_SIZE / 2}
                             r={ringRadius}
-                            stroke={barColor}
+                            stroke={ringTrackColor}
                             strokeWidth={RING_STROKE}
                             fill="none"
-                            strokeDasharray={ringCircumference}
-                            strokeDashoffset={ringOffset}
-                            strokeLinecap="round"
-                            rotation={-90}
-                            origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
                           />
-                        )}
-                      </Svg>
-                      <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-                        {done ? (
-                          <CheckCircle size={32} color={PASTEL_MINT_TEXT} />
-                        ) : pct != null ? (
-                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: barColor, letterSpacing: -0.5 }}>
-                            {Math.round(pct * 100)}%
+                          {pct != null && (
+                            <Circle
+                              cx={RING_SIZE / 2}
+                              cy={RING_SIZE / 2}
+                              r={ringRadius}
+                              stroke={barColor}
+                              strokeWidth={RING_STROKE}
+                              fill="none"
+                              strokeDasharray={ringCircumference}
+                              strokeDashoffset={ringOffset}
+                              strokeLinecap="round"
+                              rotation={-90}
+                              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+                            />
+                          )}
+                        </Svg>
+                        <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
+                          {done ? (
+                            <CheckCircle size={20} color={p.accent} />
+                          ) : pct != null ? (
+                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: barColor, letterSpacing: -0.3 }}>
+                              {Math.round(pct * 100)}%
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, letterSpacing: -0.3, flex: 1 }} numberOfLines={1}>
+                            {goal.title}
                           </Text>
-                        ) : null}
+                          {done && (
+                            <View style={{ backgroundColor: "rgba(46,125,50,0.12)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 100, marginLeft: 8 }}>
+                              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>Done</Text>
+                            </View>
+                          )}
+                        </View>
+                        {!done && (
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: barColor }}>
+                            {goal.targetValue} {unitLabel}
+                          </Text>
+                        )}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                          {dueLabel && <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>{dueLabel}</Text>}
+                          {goal.coachName && <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>· {goal.coachName}</Text>}
+                        </View>
                       </View>
                     </View>
 
-                    <View style={{ alignItems: "center", gap: 4 }}>
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.4, textAlign: "center" }}>
-                        {goal.title}
-                      </Text>
-                      {goal.description ? (
-                        <Text numberOfLines={2} style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, textAlign: "center" }}>
-                          {goal.description}
-                        </Text>
-                      ) : null}
-                      {progressLabel ? (
-                        <Text style={{ fontFamily: "Outfit-Medium", fontSize: 13, color: barColor, marginTop: 2 }}>
-                          {progressLabel}
-                        </Text>
-                      ) : null}
-                      {!done && (
-                        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: barColor, letterSpacing: -0.5, marginTop: 2 }}>
-                          {goal.targetValue} {unitLabel}
-                        </Text>
-                      )}
-                      {done && (
-                        <View style={{ backgroundColor: "rgba(46,125,50,0.12)", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100, marginTop: 4 }}>
-                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: PASTEL_MINT_TEXT }}>Completed</Text>
+                    {hasMeasurableProgress && pct != null && (
+                      <View style={{ gap: 5 }}>
+                        <View style={{ height: 5, borderRadius: 3, backgroundColor: p.accentSoft, overflow: "hidden" }}>
+                          <View style={{ height: 5, borderRadius: 3, backgroundColor: barColor, width: `${Math.min(100, pct * 100)}%` }} />
                         </View>
-                      )}
-                    </View>
-
-                    {(dueLabel || goal.coachName) && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                      {dueLabel && (
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-                          {dueLabel}
-                        </Text>
-                      )}
-                      {goal.coachName && (
-                        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-                          by {goal.coachName}
-                        </Text>
-                      )}
-                    </View>
+                        {progressLabel && (
+                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>{progressLabel}</Text>
+                        )}
+                      </View>
                     )}
                   </Animated.View>
                 );
@@ -908,7 +912,7 @@ export default function TrackingHomeScreen() {
                 </Text>
               </View>
             </View>
-            <LineChart
+            <BarChart
               width={Math.max(260, screenWidth - spacing.xl * 2 - 44)}
               height={110}
               points={last12WeeksKm}
@@ -916,6 +920,46 @@ export default function TrackingHomeScreen() {
               gridColor={p.divider}
             />
           </Animated.View>
+
+          {/* ── Personal Bests ── */}
+          {personalBests && (
+            <Animated.View
+              entering={FadeInDown.delay(320).springify().damping(18)}
+              style={{
+                backgroundColor: p.cardLavender,
+                borderRadius: 28,
+                padding: 20,
+                gap: 14,
+                ...BENTO_BORDER,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
+                  Personal Bests
+                </Text>
+                <Trophy size={16} color={p.accent} />
+              </View>
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <PersonalBestPill
+                  label="Longest"
+                  value={`${(personalBests.bestDist.distance_meters / 1000).toFixed(1)} km`}
+                  p={p}
+                />
+                {personalBests.bestPace && (
+                  <PersonalBestPill
+                    label="Best Pace"
+                    value={formatRunPace(personalBests.bestPace)}
+                    p={p}
+                  />
+                )}
+                <PersonalBestPill
+                  label="Duration"
+                  value={formatDurationClock(personalBests.bestDur.duration_seconds)}
+                  p={p}
+                />
+              </View>
+            </Animated.View>
+          )}
 
           {/* ── Progress Shortcut (bento link card) ── */}
           {capabilities?.progressTracking !== false && <Animated.View entering={FadeInDown.delay(360).springify().damping(18)}>
@@ -1303,9 +1347,9 @@ function RoutePreview({
   );
 }
 
-// ── LineChart ────────────────────────────────────────────────────────────────
+// ── BarChart ─────────────────────────────────────────────────────────────────
 
-function LineChart({
+function BarChart({
   width,
   height,
   points,
@@ -1318,39 +1362,60 @@ function LineChart({
   color: string;
   gridColor: string;
 }) {
-  const pad = 8;
-  const chartW = width - pad * 2;
-  const chartH = height - pad * 2;
+  const padX = 4;
+  const padY = 8;
+  const gap = 4;
+  const n = points.length;
+  const barW = Math.max(4, (width - padX * 2 - gap * (n - 1)) / n);
+  const chartH = height - padY * 2;
   const max = Math.max(1, ...points);
-  const stepX = points.length > 1 ? chartW / (points.length - 1) : chartW;
-  const toX = (i: number) => pad + i * stepX;
-  const toY = (v: number) => pad + (1 - v / max) * chartH;
-  const d = points
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(v).toFixed(1)}`)
-    .join(" ");
+  const currentWeekIdx = n - 1;
 
   return (
     <Svg width={width} height={height}>
-      {/* Grid baseline */}
       <Path
-        d={`M ${pad} ${height - pad} L ${width - pad} ${height - pad}`}
+        d={`M ${padX} ${height - padY} L ${width - padX} ${height - padY}`}
         stroke={gridColor}
         strokeWidth={1}
       />
-      {/* Line */}
-      <Path d={d} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Dots */}
-      {points.map((v, i) => (
-        <Circle
-          key={i}
-          cx={toX(i)}
-          cy={toY(v)}
-          r={3}
-          fill={color}
-          opacity={v === 0 ? 0.2 : 1}
-        />
-      ))}
+      {points.map((v, i) => {
+        const barH = Math.max(3, (v / max) * chartH);
+        const x = padX + i * (barW + gap);
+        const y = padY + chartH - barH;
+        const isCurrent = i === currentWeekIdx;
+        return (
+          <Path
+            key={i}
+            d={`M ${x + 3} ${y + 3} Q ${x} ${y} ${x} ${y + 3} L ${x} ${height - padY} L ${x + barW} ${height - padY} L ${x + barW} ${y + 3} Q ${x + barW} ${y} ${x + barW - 3} ${y + 3} Z`}
+            fill={color}
+            opacity={isCurrent ? 1 : v === 0 ? 0.12 : 0.35}
+          />
+        );
+      })}
     </Svg>
+  );
+}
+
+// ── PersonalBestPill ─────────────────────────────────────────────────────────
+
+function PersonalBestPill({
+  label,
+  value,
+  p,
+}: {
+  label: string;
+  value: string;
+  p: ReturnType<typeof useAdminPastel>;
+}) {
+  return (
+    <View style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 16, padding: 12, gap: 4, alignItems: "center" }}>
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, letterSpacing: -0.3 }} numberOfLines={1}>
+        {value}
+      </Text>
+      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textMuted, letterSpacing: 0.4, textTransform: "uppercase" }}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
