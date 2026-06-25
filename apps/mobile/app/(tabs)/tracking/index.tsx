@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
@@ -149,22 +149,6 @@ function sportLabel(sport: string | null | undefined): string {
     default:
       return "Run";
   }
-}
-
-function effortScoreForRun(run: RunRecord): number {
-  if (run.effort_level != null && run.effort_level >= 0) {
-    return Math.min(100, Math.max(0, Math.round(run.effort_level * 10)));
-  }
-  const distanceKm = run.distance_meters / 1000;
-  const minutes = run.duration_seconds / 60;
-  return Math.min(100, Math.max(8, Math.round(distanceKm * 8 + minutes * 0.45)));
-}
-
-function effortLabel(score: number): string {
-  if (score >= 80) return "All-out";
-  if (score >= 60) return "Hard";
-  if (score >= 35) return "Steady";
-  return "Easy";
 }
 
 // ── AnimatedStat — Strava-style count-up number ────────────────────────────
@@ -439,7 +423,7 @@ export default function TrackingHomeScreen() {
 
   useEffect(() => {
     if (!capabilitiesLoaded || appRole === null || canAccessTracking) return;
-    router.replace("/(tabs)");
+    router.replace("/(tabs)" as any);
   }, [capabilitiesLoaded, appRole, canAccessTracking, router]);
 
   if (!capabilitiesLoaded || appRole === null || !canAccessTracking) return null;
@@ -1129,6 +1113,102 @@ export default function TrackingHomeScreen() {
   );
 }
 
+// ── WorkoutRunCard helpers ───────────────────────────────────────────────────
+
+function effortScoreForRun(run: RunRecord): number {
+  if (run.effort_level != null && run.effort_level >= 0) {
+    return Math.min(100, Math.max(0, Math.round(run.effort_level * 10)));
+  }
+  const distanceKm = run.distance_meters / 1000;
+  const minutes = run.duration_seconds / 60;
+  return Math.min(100, Math.max(8, Math.round(distanceKm * 8 + minutes * 0.45)));
+}
+
+function effortLabel(score: number): string {
+  if (score >= 80) return "All-out";
+  if (score >= 60) return "Hard";
+  if (score >= 35) return "Steady";
+  return "Easy";
+}
+
+function RoutePreview({
+  coords,
+  isDark,
+  accent,
+}: {
+  coords: RunCoord[];
+  isDark: boolean;
+  accent: string;
+}) {
+  const path = useMemo(() => {
+    if (coords.length < 2) return "";
+    const thin = coords.length > 80
+      ? coords.filter((_, i) => i % Math.ceil(coords.length / 80) === 0)
+      : coords;
+    const sortedLats = [...thin.map((c) => c.latitude)].sort((a, b) => a - b);
+    const sortedLngs = [...thin.map((c) => c.longitude)].sort((a, b) => a - b);
+    const medLat = sortedLats[Math.floor(sortedLats.length / 2)]!;
+    const medLng = sortedLngs[Math.floor(sortedLngs.length / 2)]!;
+    const clean = thin.filter(
+      (c) => Math.abs(c.latitude - medLat) < 0.05 && Math.abs(c.longitude - medLng) < 0.05,
+    );
+    if (clean.length < 2) return "";
+    const lats = clean.map((c) => c.latitude);
+    const lngs = clean.map((c) => c.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latRange = maxLat - minLat || 0.0001;
+    const lngRange = maxLng - minLng || 0.0001;
+    return clean
+      .map((coord, index) => {
+        const x = 24 + ((coord.longitude - minLng) / lngRange) * 252;
+        const y = 24 + ((maxLat - coord.latitude) / latRange) * 142;
+        return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      })
+      .join(" ");
+  }, [coords]);
+
+  return (
+    <View
+      style={{
+        height: 190,
+        backgroundColor: isDark ? "#1a1a1a" : "#e8e8e8",
+        overflow: "hidden",
+      }}
+    >
+      <Svg width="100%" height="100%" viewBox="0 0 300 190">
+        {path ? (
+          <>
+            <Path d={path} stroke="rgba(0,0,0,0.12)" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            <Path d={path} stroke={accent} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          </>
+        ) : null}
+      </Svg>
+      <View
+        style={{
+          position: "absolute",
+          left: 12,
+          bottom: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 5,
+          backgroundColor: "rgba(0,0,0,0.52)",
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        }}
+      >
+        <MapPin size={12} color="#fff" />
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: "#fff" }}>
+          {path ? "Route Preview" : "No GPS data"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ── WorkoutRunCard ───────────────────────────────────────────────────────────
 
 function WorkoutRunCard({
@@ -1158,8 +1238,10 @@ function WorkoutRunCard({
     day: "numeric",
     year: "numeric",
   });
-  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)";
-  const mediaBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(47,159,61,0.08)";
+  const cardBg = isDark ? "#111" : "#f7f7f7";
+  const border = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)";
+  const fg = isDark ? "#fff" : "#1a1a1a";
+  const muted = isDark ? "#8b8b8b" : "#666";
 
   return (
     <Animated.View
@@ -1167,26 +1249,26 @@ function WorkoutRunCard({
       style={scaleStyle}
     >
       <Pressable
-        onPress={onPress}
-        onPressIn={() => {
-          scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress();
         }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 20, stiffness: 300 });
-        }}
+        onPressIn={() => { scale.value = withSpring(0.985, { damping: 20, stiffness: 300 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }); }}
         accessibilityRole="button"
         accessibilityLabel={`Open ${label} from ${date}`}
         style={{
-          backgroundColor: p.cardWhite,
+          backgroundColor: cardBg,
           borderColor: border,
-          borderRadius: 22,
+          borderRadius: 18,
           borderWidth: 1,
           overflow: "hidden",
         }}
       >
-        <RoutePreview coords={coords} p={p} backgroundColor={mediaBg} />
+        <RoutePreview coords={coords} isDark={isDark} accent={p.accent} />
 
         <View style={{ gap: 14, padding: 16 }}>
+          {/* Header: icon + You + date + share */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <View
               style={{
@@ -1195,16 +1277,14 @@ function WorkoutRunCard({
                 borderRadius: 13,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: p.accentSoft,
+                backgroundColor: `${p.accent}1F`,
               }}
             >
-              <Route size={20} color={p.accent} />
+              <Route size={21} color={p.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
-                {label}
-              </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: fg }}>You</Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: muted, marginTop: 1 }}>
                 {date}
               </Text>
             </View>
@@ -1212,37 +1292,47 @@ function WorkoutRunCard({
               accessibilityRole="button"
               accessibilityLabel={`Share ${label}`}
               hitSlop={10}
-              onPress={(event) => {
-                event.stopPropagation?.();
+              onPress={(e) => {
+                e.stopPropagation?.();
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onShare();
               }}
-              style={({ pressed }) => ({
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: pressed ? p.accentSoft : "transparent",
-              })}
             >
-              <Share2 size={20} color={p.textSecondary} />
+              <Share2 size={22} color={muted} />
             </Pressable>
           </View>
 
+          {/* Title + pills */}
           <View style={{ gap: 8 }}>
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary }}>
+            <Text
+              style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: fg, letterSpacing: 0 }}
+              numberOfLines={2}
+            >
               {formatKm(run.distance_meters)} km {label}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7 }}>
-              <View style={{ backgroundColor: p.accentSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 }}>
+              <View
+                style={{
+                  backgroundColor: `${p.accent}1F`,
+                  borderRadius: 999,
+                  paddingHorizontal: 9,
+                  paddingVertical: 6,
+                }}
+              >
                 <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
                   {effortLabel(score)} {score}/100
                 </Text>
               </View>
               {run.sport ? (
-                <View style={{ backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.06)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 }}>
-                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textSecondary }}>
+                <View
+                  style={{
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                    borderRadius: 999,
+                    paddingHorizontal: 9,
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: muted }}>
                     {run.sport.replace(/_/g, " ")}
                   </Text>
                 </View>
@@ -1250,110 +1340,52 @@ function WorkoutRunCard({
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <WorkoutStat label="Distance" value={`${formatKm(run.distance_meters)} km`} p={p} />
-            <WorkoutStat label="Pace" value={formatRunPace(run)} p={p} />
-            <WorkoutStat label="Time" value={formatDurationClock(run.duration_seconds)} p={p} />
+          {/* Stats: 3 columns */}
+          <View style={{ flexDirection: "row", gap: 14 }}>
+            {[
+              { label: "Distance", value: `${formatKm(run.distance_meters)} km` },
+              { label: "Pace", value: formatRunPace(run) },
+              { label: "Time", value: formatDurationClock(run.duration_seconds) },
+            ].map((stat) => (
+              <View key={stat.label} style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: muted }}>
+                  {stat.label}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 16,
+                    color: fg,
+                    marginTop: 2,
+                  }}
+                >
+                  {stat.value}
+                </Text>
+              </View>
+            ))}
           </View>
 
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: 1, borderTopColor: border, paddingTop: 12 }}>
+          {/* Bottom row */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              borderTopWidth: 1,
+              borderTopColor: border,
+              paddingTop: 14,
+            }}
+          >
             <Flame size={16} color={p.accent} />
-            <Text style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 12, lineHeight: 17, color: p.textSecondary }}>
-              {run.calories ? `${Math.round(run.calories)} kcal` : "Route saved"} · tap for full details
+            <Text style={{ flex: 1, fontFamily: "Outfit-Regular", fontSize: 12, lineHeight: 17, color: muted }}>
+              {run.calories ? `${Math.round(run.calories)} kcal burned` : "Route saved"} · tap to view map
             </Text>
-            <ChevronRight size={18} color={p.textMuted} />
+            <ChevronRight size={18} color={muted} />
           </View>
         </View>
       </Pressable>
     </Animated.View>
-  );
-}
-
-function WorkoutStat({
-  label,
-  value,
-  p,
-}: {
-  label: string;
-  value: string;
-  p: ReturnType<typeof useAdminPastel>;
-}) {
-  return (
-    <View style={{ flex: 1, minWidth: 0 }}>
-      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, letterSpacing: 0.5, color: p.textMuted, textTransform: "uppercase" }}>
-        {label}
-      </Text>
-      <Text numberOfLines={1} style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary, marginTop: 3 }}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-function RoutePreview({
-  coords,
-  p,
-  backgroundColor,
-}: {
-  coords: RunCoord[];
-  p: ReturnType<typeof useAdminPastel>;
-  backgroundColor: string;
-}) {
-  const path = useMemo(() => {
-    if (coords.length < 2) return "";
-    const thin = coords.length > 80 ? coords.filter((_, index) => index % Math.ceil(coords.length / 80) === 0) : coords;
-
-    // Remove GPS outliers: compute median lat/lng, discard points > 0.05° away
-    // (≈5 km), which skew the bounding box and collapse the real route to a corner.
-    const sortedLats = [...thin.map((c) => c.latitude)].sort((a, b) => a - b);
-    const sortedLngs = [...thin.map((c) => c.longitude)].sort((a, b) => a - b);
-    const medLat = sortedLats[Math.floor(sortedLats.length / 2)];
-    const medLng = sortedLngs[Math.floor(sortedLngs.length / 2)];
-    const clean = thin.filter(
-      (c) => Math.abs(c.latitude - medLat) < 0.05 && Math.abs(c.longitude - medLng) < 0.05,
-    );
-    if (clean.length < 2) return "";
-
-    const lats = clean.map((c) => c.latitude);
-    const lngs = clean.map((c) => c.longitude);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const latRange = maxLat - minLat || 0.0001;
-    const lngRange = maxLng - minLng || 0.0001;
-    return clean
-      .map((coord, index) => {
-        const x = 18 + ((coord.longitude - minLng) / lngRange) * 264;
-        const y = 18 + ((maxLat - coord.latitude) / latRange) * 104;
-        return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
-      .join(" ");
-  }, [coords]);
-
-  return (
-    <View style={{ height: 140, backgroundColor, overflow: "hidden" }}>
-      <LinearGradient
-        colors={["rgba(47,159,61,0.28)", "rgba(47,159,61,0.04)"]}
-        style={StyleSheet.absoluteFill}
-      />
-      <Svg width="100%" height="100%" viewBox="0 0 300 140">
-        <Circle cx="48" cy="34" r="42" fill={p.accent} opacity="0.08" />
-        <Circle cx="248" cy="112" r="58" fill={p.accent} opacity="0.1" />
-        {path ? (
-          <>
-            <Path d={path} stroke="rgba(15,23,42,0.16)" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <Path d={path} stroke={p.accent} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </>
-        ) : null}
-      </Svg>
-      <View style={{ position: "absolute", left: 16, bottom: 14, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.86)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
-        <MapPin size={13} color={path ? p.accent : p.textMuted} />
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: path ? p.accent : p.textMuted }}>
-          {path ? "Route captured" : "No GPS data"}
-        </Text>
-      </View>
-    </View>
   );
 }
 
