@@ -129,27 +129,237 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function JsonBlock({
-  value,
-  emptyLabel,
-}: {
-  value: unknown;
-  emptyLabel: string;
-}) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === "" ||
-    (Array.isArray(value) && value.length === 0) ||
-    (isObjectRecord(value) && Object.keys(value).length === 0)
-  ) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
-  }
+type ParqItem = { question: string; answer: boolean; details?: string };
 
+function PARQRow({ item }: { item: ParqItem }) {
   return (
-    <pre className="max-h-72 overflow-auto rounded-lg border border-border bg-muted/40 p-3 whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground">
-      {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
-    </pre>
+    <div className="flex items-start gap-3 border-b border-border/40 py-2.5 last:border-0">
+      <span
+        className={cn(
+          "mt-0.5 shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+          item.answer
+            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        )}
+      >
+        {item.answer ? "✗" : "✓"}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-foreground">{item.question}</p>
+        {item.details ? (
+          <p className="mt-0.5 text-xs text-muted-foreground italic">
+            {item.details}
+          </p>
+        ) : null}
+      </div>
+      <span
+        className={cn(
+          "shrink-0 text-xs font-semibold",
+          item.answer
+            ? "text-rose-600 dark:text-rose-400"
+            : "text-muted-foreground",
+        )}
+      >
+        {item.answer ? "Yes" : "No"}
+      </span>
+    </div>
+  );
+}
+
+function HealthFormBlock({ value }: { value: unknown }) {
+  if (!value || !isObjectRecord(value)) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No health form data has been saved.
+      </p>
+    );
+  }
+  const form = value as {
+    parq?: ParqItem[];
+    completedAt?: string;
+    emergencyContact?: {
+      name?: string;
+      phone?: string;
+      relationship?: string;
+    };
+    medicalConditions?: string | null;
+  };
+  return (
+    <div className="space-y-5">
+      {form.completedAt ? (
+        <p className="text-xs text-muted-foreground">
+          Completed {formatDateTime(form.completedAt)}
+        </p>
+      ) : null}
+      {form.parq?.length ? (
+        <div>
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            PAR-Q Health Screening
+          </p>
+          <div className="rounded-lg border border-border px-3">
+            {form.parq.map((item, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static ordered list
+              <PARQRow key={i} item={item} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {form.emergencyContact ? (
+        <div>
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Emergency Contact
+          </p>
+          <FieldGrid
+            items={[
+              { label: "Name", value: display(form.emergencyContact.name) },
+              { label: "Phone", value: display(form.emergencyContact.phone) },
+              {
+                label: "Relationship",
+                value: display(form.emergencyContact.relationship),
+              },
+            ]}
+          />
+        </div>
+      ) : null}
+      <div>
+        <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Medical Conditions
+        </p>
+        <p className="text-sm text-foreground">
+          {display(form.medicalConditions)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function InjuriesBlock({ value }: { value: unknown }) {
+  if (!value || (Array.isArray(value) && value.length === 0)) {
+    return (
+      <p className="text-sm text-muted-foreground">No injuries saved.</p>
+    );
+  }
+  if (Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {(value as unknown[]).map((injury, i) => {
+          if (isObjectRecord(injury)) {
+            return (
+              <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: ordered list
+                key={i}
+                className="rounded-lg border border-border bg-muted/30 p-3"
+              >
+                <FieldGrid
+                  items={Object.entries(injury)
+                    .filter(([, v]) => v !== null && v !== undefined)
+                    .map(([k, v]) => ({
+                      label: k.replace(/([A-Z])/g, " $1").trim(),
+                      value: display(v),
+                    }))}
+                />
+              </div>
+            );
+          }
+          // biome-ignore lint/suspicious/noArrayIndexKey: ordered list
+          return <p key={i} className="text-sm text-foreground">{display(injury)}</p>;
+        })}
+      </div>
+    );
+  }
+  if (isObjectRecord(value)) {
+    return (
+      <FieldGrid
+        items={Object.entries(value).map(([k, v]) => ({
+          label: k.replace(/([A-Z])/g, " $1").trim(),
+          value: display(v),
+        }))}
+      />
+    );
+  }
+  return <p className="text-sm text-foreground">{display(value)}</p>;
+}
+
+function LegalBlock({ value }: { value: unknown }) {
+  if (!value) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No legal acceptance has been saved.
+      </p>
+    );
+  }
+  if (isObjectRecord(value)) {
+    const entries = Object.entries(value).filter(
+      ([, v]) => v !== null && v !== undefined,
+    );
+    return (
+      <FieldGrid
+        items={entries.map(([k, v]) => ({
+          label: k.replace(/([A-Z])/g, " $1").trim(),
+          value: Array.isArray(v) ? (v as unknown[]).join(", ") : display(v),
+        }))}
+      />
+    );
+  }
+  return <p className="text-sm text-foreground">{display(value)}</p>;
+}
+
+function PlanBlock({ value }: { value: unknown }) {
+  if (!value) {
+    return (
+      <p className="text-sm text-muted-foreground">No plan record is linked.</p>
+    );
+  }
+  if (isObjectRecord(value)) {
+    const entries = Object.entries(value).filter(
+      ([, v]) => v !== null && v !== undefined,
+    );
+    if (!entries.length) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          No plan record is linked.
+        </p>
+      );
+    }
+    return (
+      <FieldGrid
+        items={entries.map(([k, v]) => ({
+          label: k.replace(/([A-Z])/g, " $1").trim(),
+          value: display(v),
+        }))}
+      />
+    );
+  }
+  return <p className="text-sm text-foreground">{display(value)}</p>;
+}
+
+function ExtraResponsesBlock({ value }: { value: unknown }) {
+  if (!value || !isObjectRecord(value)) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No additional onboarding responses saved.
+      </p>
+    );
+  }
+  // Skip healthForm — already rendered in the Health section
+  const entries = Object.entries(value).filter(
+    ([key, v]) =>
+      key !== "healthForm" && v !== null && v !== undefined && v !== "",
+  );
+  if (!entries.length) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No additional onboarding responses saved.
+      </p>
+    );
+  }
+  return (
+    <FieldGrid
+      items={entries.map(([k, v]) => ({
+        label: k.replace(/([A-Z])/g, " $1").trim(),
+        value: display(v),
+      }))}
+    />
   );
 }
 
@@ -494,31 +704,19 @@ function DetailPanel({
             ]}
           />
           <div className="mt-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               Injuries
             </p>
-            <JsonBlock value={detail.athlete.injuries} emptyLabel="No injuries saved." />
+            <InjuriesBlock value={detail.athlete.injuries} />
           </div>
         </DetailSection>
 
         <DetailSection title="Health" icon={HeartPulse}>
-          <JsonBlock
-            value={detail.healthForm}
-            emptyLabel="No health form data has been saved."
-          />
+          <HealthFormBlock value={detail.healthForm} />
         </DetailSection>
 
         <DetailSection title="Legal Acceptance" icon={ShieldCheck}>
-          {detail.legalAcceptance ? (
-            <JsonBlock
-              value={detail.legalAcceptance}
-              emptyLabel="No legal acceptance saved."
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No legal acceptance has been saved.
-            </p>
-          )}
+          <LegalBlock value={detail.legalAcceptance} />
         </DetailSection>
 
         <DetailSection title="Billing" icon={ShieldCheck}>
@@ -537,19 +735,16 @@ function DetailPanel({
               { label: "Sponsored", value: display(detail.athlete.isSponsored) },
             ]}
           />
-          <div className="mt-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               Subscription Plan
             </p>
-            <JsonBlock value={detail.plan} emptyLabel="No plan record is linked." />
+            <PlanBlock value={detail.plan} />
           </div>
         </DetailSection>
 
         <DetailSection title="Additional Responses" icon={ClipboardList}>
-          <JsonBlock
-            value={detail.extraResponses}
-            emptyLabel="No additional onboarding responses saved."
-          />
+          <ExtraResponsesBlock value={detail.extraResponses} />
         </DetailSection>
       </CardContent>
     </Card>
