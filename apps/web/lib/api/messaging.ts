@@ -104,23 +104,48 @@ const messagingApi = apiSlice.injectEndpoints({
     }),
     editMessage: builder.mutation<
       { edited: boolean },
-      { messageId: number; content: string }
+      { messageId: number; content: string; userId: number }
     >({
       query: ({ messageId, content }) => ({
         url: `/messages/${messageId}`,
         method: "PUT",
         body: { content },
       }),
+      async onQueryStarted({ messageId, content, userId }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          messagingApi.util.updateQueryData("getMessages", userId, (draft) => {
+            const msg = draft.messages.find((m: any) => Number(m.id) === messageId);
+            if (msg) msg.content = content;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
       invalidatesTags: ["Threads"],
     }),
     deleteMessage: builder.mutation<
       { deleted: boolean },
-      { messageId: number }
+      { messageId: number; userId: number }
     >({
       query: ({ messageId }) => ({
         url: `/messages/${messageId}`,
         method: "DELETE",
       }),
+      async onQueryStarted({ messageId, userId }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          messagingApi.util.updateQueryData("getMessages", userId, (draft) => {
+            draft.messages = draft.messages.filter((m: any) => Number(m.id) !== messageId);
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
       invalidatesTags: ["Threads"],
     }),
     editGroupMessage: builder.mutation<
@@ -132,6 +157,19 @@ const messagingApi = apiSlice.injectEndpoints({
         method: "PUT",
         body: { content },
       }),
+      async onQueryStarted({ groupId, messageId, content }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          messagingApi.util.updateQueryData("getChatGroupMessages", groupId, (draft) => {
+            const msg = draft.messages.find((m: any) => Number(m.id) === messageId);
+            if (msg) msg.content = content;
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
       invalidatesTags: ["ChatGroups"],
     }),
     deleteGroupMessage: builder.mutation<
@@ -142,6 +180,18 @@ const messagingApi = apiSlice.injectEndpoints({
         url: `/chat/groups/${groupId}/messages/${messageId}`,
         method: "DELETE",
       }),
+      async onQueryStarted({ groupId, messageId }, { dispatch, queryFulfilled }) {
+        const patch = dispatch(
+          messagingApi.util.updateQueryData("getChatGroupMessages", groupId, (draft) => {
+            draft.messages = draft.messages.filter((m: any) => Number(m.id) !== messageId);
+          }),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patch.undo();
+        }
+      },
       invalidatesTags: ["ChatGroups"],
     }),
     getChatGroups: builder.query<

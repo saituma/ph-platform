@@ -23,6 +23,8 @@ import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
 import { SkeletonThreadScreen } from "@/components/ui/legacy-skeleton";
 import { useThreadMute } from "@/hooks/messages/useThreadMute";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ThreadOptionsSheet } from "@/components/messages/ThreadOptionsSheet";
 
 export default function ThreadScreen() {
   const p = useAdminPastel();
@@ -98,6 +100,17 @@ export default function ThreadScreen() {
       toast.success("Notifications muted", "You won't be notified for this conversation.");
     }
   }, [threadMute, toast]);
+
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  const [bannerDismissed, setBannerDismissed] = React.useState(false);
+  const jumpToRef = React.useRef<((id: number) => void) | null>(null);
+
+  React.useEffect(() => {
+    if (!currentThread?.id) return;
+    AsyncStorage.getItem(`ph_coaching_banner_${currentThread.id}`)
+      .then(v => { if (v === "1") setBannerDismissed(true); })
+      .catch(() => {});
+  }, [currentThread?.id]);
 
   const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
   const [reactionEmojiTarget, setReactionEmojiTarget] =
@@ -253,11 +266,29 @@ export default function ThreadScreen() {
         onBack={clearThread}
         onSearch={() => setSearchOpen(true)}
         onMore={() => setReportModalOpen(true)}
+        onOptionsPress={() => setOptionsOpen(true)}
         onHeaderPress={handleHeaderPress}
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
         isMuted={threadMute.isMuted}
         onToggleMute={handleToggleMute}
+        memberCount={(() => {
+          if (!currentThread.id.startsWith("group:")) return undefined;
+          const gid = Number(currentThread.id.replace("group:", ""));
+          const members = groupMembers[gid];
+          return members ? Object.keys(members).length : undefined;
+        })()}
+      />
+      <ThreadOptionsSheet
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        onViewProfile={handleHeaderPress}
+        onSearch={() => { setOptionsOpen(false); setSearchOpen(true); }}
+        isMuted={threadMute.isMuted}
+        onToggleMute={() => { setOptionsOpen(false); handleToggleMute(); }}
+        onReport={() => { setOptionsOpen(false); setReportModalOpen(true); }}
+        isGroup={currentThread.id.startsWith("group:")}
+        threadName={currentThread.name}
       />
       {pinnedMessage && (
         <View
@@ -273,7 +304,9 @@ export default function ThreadScreen() {
           }}
         >
           <Pin size={14} color={p.accent} />
-          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => {}}>
+          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => {
+              if (jumpToRef.current) jumpToRef.current(Number(pinnedMessage.id));
+            }}>
             <Text
               numberOfLines={1}
               style={{
@@ -293,14 +326,16 @@ export default function ThreadScreen() {
           </Pressable>
         </View>
       )}
-      {isYouthAthleteRole ? (
+      {isYouthAthleteRole && !bannerDismissed ? (
         <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
           <View
             style={{
               borderRadius: 16,
               paddingHorizontal: 16,
               paddingVertical: 12,
+              paddingRight: 40,
               backgroundColor: p.accentSoft,
+              position: "relative",
             }}
           >
             <Text
@@ -325,6 +360,16 @@ export default function ThreadScreen() {
               Keep {focusName}&apos;s progress updates in one thread for faster
               coach feedback.
             </Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                setBannerDismissed(true);
+                AsyncStorage.setItem(`ph_coaching_banner_${currentThread?.id}`, "1").catch(() => {});
+              }}
+              style={{ position: "absolute", top: 10, right: 12 }}
+            >
+              <X size={14} color={p.accent} />
+            </Pressable>
           </View>
         </View>
       ) : null}
@@ -355,6 +400,7 @@ export default function ThreadScreen() {
         onRemovePendingAttachment={handleRemovePendingAttachment}
         isUploadingAttachment={isUploadingAttachment}
         coachingContextLabel={isYouthAthleteRole ? focusName : undefined}
+        jumpToRef={jumpToRef}
       />
       <ReactionPickerModal
         reactionTarget={reactionTarget}

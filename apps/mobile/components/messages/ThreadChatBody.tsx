@@ -63,6 +63,7 @@ type ThreadChatBodyProps = {
 	isUploadingAttachment?: boolean;
 	coachingContextLabel?: string;
 	avoidKeyboardWithPadding?: boolean;
+	jumpToRef?: React.MutableRefObject<((id: number) => void) | null>;
 };
 
 type MessageListSectionProps = {
@@ -85,6 +86,7 @@ type MessageListSectionProps = {
 	onReplyMessage: (message: ChatMessage) => void;
 	onAvatarPress?: (senderId: number, name: string, avatar?: string | null) => void;
 	coachingContextLabel?: string;
+	jumpToRef?: React.MutableRefObject<((id: number) => void) | null>;
 };
 
 const MessageListSection = React.memo(function MessageListSection({
@@ -104,12 +106,17 @@ const MessageListSection = React.memo(function MessageListSection({
 	onReplyMessage,
 	onAvatarPress,
 	coachingContextLabel,
+	jumpToRef,
 }: MessageListSectionProps) {
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
 	const isGroupThread = useMemo(() => thread.id.startsWith("group:"), [thread.id]);
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
+
+	useEffect(() => {
+		if (jumpToRef) jumpToRef.current = jumpTo;
+	}, [jumpTo, jumpToRef]);
 
 	const groupingMapRef = useRef<Map<string | number, MessageGroupMeta>>(new Map());
 	groupingMapRef.current = useMemo(() => computeGroupingMap(messages), [messages]);
@@ -342,6 +349,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 	isUploadingAttachment,
 	coachingContextLabel,
 	avoidKeyboardWithPadding = true,
+	jumpToRef,
 }: ThreadChatBodyProps) {
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
@@ -400,6 +408,7 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 				onReplyMessage={onReplyMessage}
 				onAvatarPress={onAvatarPress}
 				coachingContextLabel={coachingContextLabel}
+				jumpToRef={jumpToRef}
 			/>
 
 			<View

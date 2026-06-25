@@ -1029,10 +1029,10 @@ export function InboxTab({
               onReact={handleDirectReaction}
               onReply={(payload) => setDirectReplyTo(payload)}
               onDelete={(messageId) =>
-                void deleteMessage({ messageId }).catch(() => {})
+                void deleteMessage({ messageId, userId: threadUserId ?? 0 }).catch(() => {})
               }
               onEdit={(messageId, content) =>
-                void editMessage({ messageId, content }).catch(() => {})
+                void editMessage({ messageId, content, userId: threadUserId ?? 0 }).catch(() => {})
               }
               formatTime={formatTime}
               currentUserId={currentUserId}
