@@ -483,8 +483,8 @@ export default function ClientDataDetailPage() {
           />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="rounded-lg border border-border bg-card p-2">
+        <section className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
+          <div className="rounded-lg border border-border bg-card p-2 xl:sticky xl:top-6 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto">
             <div className="grid gap-1">
               {SECTIONS.map((section) => {
                 const Icon = section.icon;
@@ -511,7 +511,7 @@ export default function ClientDataDetailPage() {
             </div>
           </div>
 
-          <div className="min-w-0 rounded-lg border border-border bg-background p-4">
+          <div className="min-w-0 rounded-lg border border-border bg-background p-4 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-black text-foreground">{SECTIONS.find((section) => section.key === active)?.label}</h2>
