@@ -126,19 +126,19 @@ function getGreeting(): string {
 }
 
 const KPI_CARDS: { label: string; icon: any; color: AdminCardColor; iconColor: string }[] = [
-    { label: "Athletes", icon: Users, color: "sage", iconColor: "#5BA67A" },
-    { label: "Teams", icon: Shield, color: "mint", iconColor: "#4A9B8A" },
-    { label: "Premium", icon: Trophy, color: "yellow", iconColor: "#D4A04A" },
-    { label: "Unread", icon: MessageCircle, color: "pink", iconColor: "#D4686A" },
-    { label: "Bookings", icon: Calendar, color: "lavender", iconColor: "#7C6FA0" },
+    { label: "Athletes", icon: Users, color: "sage", iconColor: "#68C200" },
+    { label: "Teams", icon: Shield, color: "mint", iconColor: "#50A000" },
+    { label: "Premium", icon: Trophy, color: "yellow", iconColor: "#78B800" },
+    { label: "Unread", icon: MessageCircle, color: "pink", iconColor: "#7A8070" },
+    { label: "Bookings", icon: Calendar, color: "lavender", iconColor: "#8A9084" },
 ];
 
 const ACTION_CONFIG = [
-    { id: "users", label: "Directory", icon: Users, color: "lavender" as AdminCardColor, iconColor: "#7C6FA0" },
-    { id: "videos", label: "Analysis", icon: Activity, color: "mint" as AdminCardColor, iconColor: "#5BA67A" },
-    { id: "content", label: "Library", icon: Layers, color: "yellow" as AdminCardColor, iconColor: "#D4A04A" },
-    { id: "schedule", label: "Planner", icon: Calendar, color: "pink" as AdminCardColor, iconColor: "#D4686A" },
-    { id: "ops", label: "System", icon: LayoutGrid, color: "peach" as AdminCardColor, iconColor: "#B07A5A" },
+    { id: "users", label: "Directory", icon: Users, color: "lavender" as AdminCardColor, iconColor: "#8A9084" },
+    { id: "videos", label: "Analysis", icon: Activity, color: "mint" as AdminCardColor, iconColor: "#50A000" },
+    { id: "content", label: "Library", icon: Layers, color: "yellow" as AdminCardColor, iconColor: "#78B800" },
+    { id: "schedule", label: "Planner", icon: Calendar, color: "pink" as AdminCardColor, iconColor: "#7A8070" },
+    { id: "ops", label: "System", icon: LayoutGrid, color: "peach" as AdminCardColor, iconColor: "#909480" },
 ];
 
 export default function AdminHomeScreen() {
