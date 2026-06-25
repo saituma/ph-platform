@@ -83,8 +83,6 @@ export default function ThreadScreen() {
     handleAttachImage,
     handleAttachVideo,
     handleTakePhoto,
-    handleRecordVideo,
-    handleSendGif,
     handleToggleReaction,
     handleDeleteMessage,
     removeMessagesBySender,

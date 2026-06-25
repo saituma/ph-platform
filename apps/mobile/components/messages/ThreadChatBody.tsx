@@ -63,7 +63,7 @@ type ThreadChatBodyProps = {
 	isUploadingAttachment?: boolean;
 	coachingContextLabel?: string;
 	avoidKeyboardWithPadding?: boolean;
-	jumpToRef?: React.MutableRefObject<((id: number) => void) | null>;
+	jumpToRef?: React.RefObject<((id: number) => void) | null>;
 };
 
 type MessageListSectionProps = {
@@ -86,7 +86,7 @@ type MessageListSectionProps = {
 	onReplyMessage: (message: ChatMessage) => void;
 	onAvatarPress?: (senderId: number, name: string, avatar?: string | null) => void;
 	coachingContextLabel?: string;
-	jumpToRef?: React.MutableRefObject<((id: number) => void) | null>;
+	jumpToRef?: React.RefObject<((id: number) => void) | null>;
 };
 
 const MessageListSection = React.memo(function MessageListSection({
