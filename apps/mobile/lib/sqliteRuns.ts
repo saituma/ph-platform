@@ -136,6 +136,12 @@ export function saveActiveRunDraft(run: {
   );
 }
 
+export function getRunById(id: string): RunRecord | null {
+  ensureInitialized();
+  const rows = db.getAllSync<RunRecord>("SELECT * FROM runs WHERE id = ? LIMIT 1", [id]);
+  return rows[0] ?? null;
+}
+
 export function getRecentRuns(limit: number = 3, userId?: string | null): RunRecord[] {
   ensureInitialized();
   if (userId) {

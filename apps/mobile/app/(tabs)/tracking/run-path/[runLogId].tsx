@@ -11,6 +11,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSelector } from "@/store/hooks";
 import { useAppToast } from "@/hooks/useAppToast";
 import { fetchRunDetail } from "@/services/tracking/socialService";
+import { getRunById, initSQLiteRuns } from "@/lib/sqliteRuns";
 import { TrackingMapView } from "@/components/tracking/TrackingMapView";
 import { MapStyleSwitcher } from "@/components/tracking/MapStyleSwitcher";
 import type { TrackingMapLayer, TrackingMapStyle } from "@/components/tracking/trackingMapLayers";
@@ -19,6 +20,20 @@ import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 
 type LatLng = { latitude: number; longitude: number };
 
+function parseLocalCoords(value: string | null | undefined): LatLng[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (p): p is LatLng =>
+        p && typeof p.latitude === "number" && typeof p.longitude === "number",
+    );
+  } catch {
+    return [];
+  }
+}
+
 export default function RunPathScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
@@ -26,6 +41,7 @@ export default function RunPathScreen() {
   const p = useAdminPastel();
   const { colors } = useAppTheme();
   const token = useAppSelector((s) => s.user.token);
+  const profile = useAppSelector((s) => s.user.profile);
   const appRole = useAppSelector((s) => s.user.appRole);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
@@ -45,6 +61,9 @@ export default function RunPathScreen() {
     return Number.isFinite(n) ? Math.floor(n) : null;
   }, [params.runLogId]);
 
+  // UUID from local SQLite (non-numeric param = local-only run, no server ID yet)
+  const localRunId = runLogId == null ? (params.runLogId ?? null) : null;
+
   const [loading, setLoading] = useState(true);
   const [item, setItem] = useState<{
     runLogId: number;
@@ -58,6 +77,28 @@ export default function RunPathScreen() {
     path: LatLng[] | null;
   } | null>(null);
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
+
+  // Local-only run: read from SQLite directly (no server ID)
+  useEffect(() => {
+    if (localRunId == null) return;
+    initSQLiteRuns();
+    const run = getRunById(localRunId);
+    if (run) {
+      const coords = parseLocalCoords(run.coordinates);
+      setItem({
+        runLogId: 0,
+        userId: 0,
+        name: profile?.name ?? "Me",
+        avatarUrl: profile?.avatar ?? null,
+        date: run.date,
+        distanceMeters: run.distance_meters,
+        durationSeconds: run.duration_seconds,
+        avgPace: run.avg_pace ?? null,
+        path: coords.length > 0 ? coords : null,
+      });
+    }
+    setLoading(false);
+  }, [localRunId, profile]);
 
   useEffect(() => {
     if (!token) return;
@@ -141,7 +182,7 @@ export default function RunPathScreen() {
     await Share.share({ message: `${item.name} ran ${km} km in ${time}.` }).catch(() => {});
   };
 
-  if (!token) {
+  if (!token && localRunId == null) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 20 }}>
@@ -153,7 +194,7 @@ export default function RunPathScreen() {
     );
   }
 
-  if (runLogId == null) {
+  if (runLogId == null && localRunId == null) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>
         <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 20 }}>
