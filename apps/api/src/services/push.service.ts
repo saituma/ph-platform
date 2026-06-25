@@ -109,38 +109,62 @@ async function sendToAdditionalDevices(
     data: Record<string, string>;
     channelId: string;
     categoryId: string | undefined;
+    imageUrl?: string;
   },
 ) {
   try {
     const deviceRows = await db
-      .select({ expoPushToken: userDeviceTokensTable.expoPushToken })
+      .select({
+        expoPushToken: userDeviceTokensTable.expoPushToken,
+        devicePushToken: userDeviceTokensTable.devicePushToken,
+        devicePushTokenType: userDeviceTokensTable.devicePushTokenType,
+      })
       .from(userDeviceTokensTable)
       .where(eq(userDeviceTokensTable.userId, userId));
 
-    const extraTokens = deviceRows
-      .map((r) => r.expoPushToken)
-      .filter((t): t is string => !!t && t !== alreadySentToken && Expo.isExpoPushToken(t));
+    const expoMessages: ExpoPushMessage[] = [];
 
-    if (extraTokens.length === 0) return;
+    for (const row of deviceRows) {
+      // Try FCM first for Android devices on extra device rows
+      if (row.devicePushToken && row.devicePushTokenType === "fcm" && isFcmEnabled()) {
+        const fcmData = payload.categoryId
+          ? { ...payload.data, categoryId: payload.categoryId, categoryIdentifier: payload.categoryId }
+          : payload.data;
+        await sendFcmPush({
+          token: row.devicePushToken,
+          title: payload.title,
+          body: payload.body,
+          data: fcmData,
+          android: { channelId: payload.channelId, priority: "high" },
+          imageUrl: payload.imageUrl,
+        }).catch((err) => log.error({ userId, err }, "Multi-device FCM send failed"));
+        continue;
+      }
 
-    const messages: ExpoPushMessage[] = extraTokens.map((to) => ({
-      to,
-      title: payload.title,
-      body: payload.body,
-      data: payload.data,
-      sound: "default",
-      channelId: payload.channelId,
-      categoryId: payload.categoryId,
-      priority: "high",
-      mutableContent: true,
-    }));
+      const token = row.expoPushToken;
+      if (token && token !== alreadySentToken && Expo.isExpoPushToken(token)) {
+        expoMessages.push({
+          to: token,
+          title: payload.title,
+          body: payload.body,
+          data: payload.data,
+          sound: "default",
+          channelId: payload.channelId,
+          categoryId: payload.categoryId,
+          priority: "high",
+          mutableContent: true,
+        });
+      }
+    }
 
-    const tickets = await expo.sendPushNotificationsAsync(messages);
-    logDebugPush({
-      location: "push.service.ts:sendToAdditionalDevices",
-      message: "multi_device_push_sent",
-      data: { userId, extraDeviceCount: extraTokens.length, ticketCount: tickets.length },
-    });
+    if (expoMessages.length > 0) {
+      const tickets = await expo.sendPushNotificationsAsync(expoMessages);
+      logDebugPush({
+        location: "push.service.ts:sendToAdditionalDevices",
+        message: "multi_device_push_sent",
+        data: { userId, extraDeviceCount: expoMessages.length, ticketCount: tickets.length },
+      });
+    }
   } catch (err) {
     log.error({ userId, err }, "Multi-device push send failed");
   }
@@ -225,6 +249,7 @@ export async function sendPushNotification(userId: number, title: string, body: 
           body,
           data: fcmData,
           android: { channelId, priority: "high" },
+          imageUrl: data?.senderAvatar ?? undefined,
         });
         return;
       } catch (err) {
@@ -303,20 +328,24 @@ export async function sendPushNotification(userId: number, title: string, body: 
       (message as any).threadIdentifier = String(threadId);
     }
 
-    // Media Preview Support (Images/Videos)
-    if (data?.mediaUrl && typeof data.mediaUrl === "string") {
-      const url = data.mediaUrl.trim();
-      if (url.startsWith("http")) {
-        // Expo supports basic attachments for rich notifications
-        (message as any).attachments = [{ url }];
-      }
+    // Rich notification image: prefer the media attachment, fall back to sender avatar.
+    // iOS displays this as the notification thumbnail; Android shows it in the expanded view.
+    const richImageUrl = (() => {
+      const media = typeof data?.mediaUrl === "string" ? data.mediaUrl.trim() : "";
+      const avatar = typeof data?.senderAvatar === "string" ? data.senderAvatar.trim() : "";
+      const url = media.startsWith("http") ? media : avatar.startsWith("http") ? avatar : "";
+      return url || null;
+    })();
+    if (richImageUrl) {
+      (message as any).attachments = [{ url: richImageUrl }];
     }
 
     const tickets = await expo.sendPushNotificationsAsync([message]);
     await applyPushTickets(userId, tickets);
 
     // Send to any additional devices registered via the per-device token table.
-    await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId });
+    const richImage = data?.senderAvatar ?? undefined;
+    await sendToAdditionalDevices(userId, token, { title, body, data: dataForDevice, channelId, categoryId, imageUrl: richImage });
   } catch (err) {
     log.error({ userId, err }, "Failed to send push notification");
     logDebugPush({

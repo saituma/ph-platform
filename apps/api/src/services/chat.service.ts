@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
-import { createPushIntent } from "./outbox.service";
 import { getManagedTeamIds } from "./team-membership";
 import { performance } from "node:perf_hooks";
 
@@ -18,6 +17,7 @@ import {
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { attachGroupMessageReactions } from "./reaction.service";
+import { batchedPush } from "../lib/notification-batcher";
 import { resolveMessageMediaType } from "../lib/media-message-type";
 import { withTransientDbRetryConfigured } from "../lib/db-connectivity";
 import { createLogger } from "../lib/logger";
@@ -117,16 +117,12 @@ export async function createDirectMessage(input: {
     const title = `New message from ${senderName}`;
     const body = (input.contentType ?? "text") === "text" ? safeContent : `Sent a ${input.contentType ?? "message"}`;
 
-    await createPushIntent({
-      userId: input.receiverId,
-      title,
-      body,
-      data: {
-        type: "message",
-        threadId: String(input.senderId),
-        url: `/messages/${String(input.senderId)}`,
-        mediaUrl: input.mediaUrl ?? null,
-      },
+    const dmThreadId = String(input.senderId);
+    await batchedPush(input.receiverId, dmThreadId, title, body, {
+      type: "message",
+      threadId: dmThreadId,
+      url: `/messages/${dmThreadId}`,
+      mediaUrl: input.mediaUrl ?? null,
     });
   } catch (error) {
     log.error({ err: error }, "Failed to send direct chat push notification");
@@ -899,21 +895,18 @@ export async function createGroupMessage(input: {
       async () => {
         for (const member of membersForPush) {
           try {
+            const groupThreadId = `group:${input.groupId}`;
             logRealtimeLatency(trace, "group.push.before_enqueue", {
               messageId: message.id,
               groupId: input.groupId,
               receiverId: member.id,
             });
-            await createPushIntent({
-              userId: member.id,
-              title,
-              body,
-              data: {
-                type: "group-message",
-                threadId: `group:${input.groupId}`,
-                url: `/messages/group:${input.groupId}`,
-                mediaUrl: input.mediaUrl ?? null,
-              },
+            await batchedPush(member.id, groupThreadId, title, body, {
+              type: "group-message",
+              threadId: groupThreadId,
+              url: `/messages/${groupThreadId}`,
+              mediaUrl: input.mediaUrl ?? null,
+              senderAvatar: senderProfilePicture ?? null,
             });
             logRealtimeLatency(trace, "group.push.after_enqueue", {
               messageId: message.id,

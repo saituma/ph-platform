@@ -76,19 +76,20 @@ export type SendFcmPushInput = {
     channelId?: string;
     priority?: "normal" | "high";
   };
+  imageUrl?: string;
 };
 
 export async function sendFcmPush(input: SendFcmPushInput) {
   ensureFirebaseInitialized();
 
-  // Pure data message: expo-notifications' FirebaseMessagingService handles display,
-  // action buttons (Reply/Mark Read via categoryIdentifier), and the PendingIntent
-  // that lets getLastNotificationResponseAsync() work on cold start.
-  // A top-level notification field bypasses expo-notifications when the app is killed.
-  // expo-notifications renders a data-only message from these keys: `title` and
-  // `message` (the displayed body). It treats `body` as the custom data payload, NOT
-  // as text — so the message text MUST go in `message` or the notification shows blank.
-  // (See expo-notifications RemoteNotificationContent: text = notification?.body ?: data.message.)
+  // Send notification + data together:
+  // - notification field: FCM system service delivers it even through Android Doze/killed-app
+  //   state, bypassing per-app battery optimisation restrictions.
+  // - data field: expo-notifications' FirebaseMessagingService reads title/message/body/channelId
+  //   for in-foreground display and interactive action buttons (Reply/Mark Read).
+  // When the app is foregrounded, expo-notifications intercepts via addNotificationReceivedListener.
+  // When backgrounded/killed, the system notification guarantees delivery; expo-notifications
+  // still processes the data payload for badge updates and getLastNotificationResponseAsync.
   const messageData: Record<string, string> = {
     ...input.data,
     title: input.title,
@@ -99,12 +100,28 @@ export async function sendFcmPush(input: SendFcmPushInput) {
     messageData.channelId = input.android.channelId;
   }
 
+  const channelId = input.android?.channelId ?? "default";
+  const priority = input.android?.priority ?? "high";
+
   return firebaseBreaker.fire(() =>
     admin.messaging().send({
       token: input.token,
+      notification: {
+        title: input.title,
+        body: input.body,
+        ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
+      },
       data: messageData,
       android: {
-        priority: input.android?.priority ?? "high",
+        priority,
+        ttl: 60 * 60 * 1000, // 1 hour — drop stale messages after that
+        notification: {
+          channelId,
+          sound: "default",
+          defaultSound: true,
+          defaultVibrateTimings: true,
+          ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
+        },
       },
     }),
   );

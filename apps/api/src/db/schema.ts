@@ -183,6 +183,24 @@ export const userDeviceTokensTable = pgTable(
   ],
 );
 
+export const conversationMutesTable = pgTable(
+  "conversation_mutes",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userId: integer()
+      .notNull()
+      .references(() => userTable.id, { onDelete: "cascade" }),
+    threadId: varchar({ length: 255 }).notNull(),
+    mutedUntil: timestamp(),
+    createdAt: timestamp().notNull().defaultNow(),
+    updatedAt: timestamp().notNull().defaultNow(),
+  },
+  (t) => [
+    index("conversation_mutes_user_id_idx").on(t.userId),
+    unique("conversation_mutes_user_id_thread_id_unique").on(t.userId, t.threadId),
+  ],
+);
+
 export const userBlockTable = pgTable(
   "user_blocks",
   {

@@ -1,6 +1,6 @@
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
-import { ChevronLeft, EllipsisVertical, Search } from "lucide-react-native";
+import { Bell, BellOff, ChevronLeft, EllipsisVertical, Search } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -17,6 +17,8 @@ type ThreadHeaderProps = {
 	onHeaderPress?: () => void;
 	sharedBoundTag?: string;
 	sharedAvatarTag?: string;
+	isMuted?: boolean;
+	onToggleMute?: () => void;
 };
 
 function getInitials(name: string) {
@@ -36,6 +38,8 @@ export function ThreadHeader({
 	onHeaderPress,
 	sharedBoundTag,
 	sharedAvatarTag,
+	isMuted,
+	onToggleMute,
 }: ThreadHeaderProps) {
 	const p = useAdminPastel();
 	const { isDark } = useAppTheme();
@@ -185,6 +189,30 @@ export function ThreadHeader({
 							]}
 						>
 							<Search size={18} color={p.textMuted} />
+						</Pressable>
+					)}
+					{onToggleMute && (
+						<Pressable
+							onPress={() => {
+								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+								onToggleMute();
+							}}
+							hitSlop={12}
+							style={({ pressed }) => [
+								styles.iconButton,
+								{
+									backgroundColor: isMuted
+										? (isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)")
+										: (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.03)"),
+									opacity: pressed ? 0.6 : 1,
+								},
+							]}
+						>
+							{isMuted ? (
+								<BellOff size={18} color={p.accent} />
+							) : (
+								<Bell size={18} color={p.textMuted} />
+							)}
 						</Pressable>
 					)}
 					{onMore && (

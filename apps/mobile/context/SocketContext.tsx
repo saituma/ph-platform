@@ -288,6 +288,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const handleSetActiveThreadId = (id: string | null) => {
     setActiveThreadId(id);
+    // Tell the server which thread is open so it can suppress push notifications
+    // for that thread while the user is actively reading.
+    socketRef.current?.emit("thread:focus", { threadId: id ?? "" });
   };
 
   const value = useMemo(

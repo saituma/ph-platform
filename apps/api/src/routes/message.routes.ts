@@ -13,6 +13,12 @@ import {
   sendMessageToCoach,
   toggleReaction,
 } from "../controllers/message.controller";
+import {
+  getMuteStatus,
+  listMutes,
+  muteThread,
+  unmuteThread,
+} from "../controllers/conversation-mute.controller";
 
 const router = Router();
 
@@ -26,5 +32,11 @@ router.put("/messages/:messageId/pin", requireAuth, pinMessage);
 router.post("/messages/forward", requireAuth, forwardMessage);
 router.post("/messages/:messageId/report", requireAuth, reportMessage);
 router.delete("/messages/:messageId", requireAuth, deleteMessage);
+
+// Conversation mute
+router.get("/messages/mutes", requireAuth, listMutes);
+router.get("/messages/mutes/:threadId", requireAuth, getMuteStatus);
+router.post("/messages/mutes", requireAuth, muteThread);
+router.delete("/messages/mutes/:threadId", requireAuth, unmuteThread);
 
 export default router;

@@ -162,4 +162,35 @@ export const messagesApi = {
       });
     },
   },
+
+  mutes: {
+    /** List all muted threads for the current user. */
+    list(options: RequestBase) {
+      return apiRequest<{ mutes: { threadId: string; mutedUntil: string | null }[] }>(
+        "/messages/mutes",
+        options,
+      );
+    },
+
+    /** Get mute status for a single thread. */
+    getStatus(threadId: string, options: RequestBase) {
+      return apiRequest<{ muted: boolean }>(`/messages/mutes/${encodeURIComponent(threadId)}`, options);
+    },
+
+    /** Mute a thread. Pass mutedUntil ISO string to set a timed mute; omit for indefinite. */
+    mute(threadId: string, mutedUntil: string | null, options: RequestBase) {
+      return apiRequest<{ ok: boolean; muted: boolean; mutedUntil: string | null }>(
+        "/messages/mutes",
+        { ...options, method: "POST", body: { threadId, mutedUntil } },
+      );
+    },
+
+    /** Unmute a thread. */
+    unmute(threadId: string, options: RequestBase) {
+      return apiRequest<{ ok: boolean; muted: boolean }>(
+        `/messages/mutes/${encodeURIComponent(threadId)}`,
+        { ...options, method: "DELETE" },
+      );
+    },
+  },
 };

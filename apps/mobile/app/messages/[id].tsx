@@ -22,6 +22,7 @@ import { useAppToast } from "@/hooks/useAppToast";
 import { useLocalSearchParams } from "expo-router";
 import { Text } from "@/components/ScaledText";
 import { SkeletonThreadScreen } from "@/components/ui/legacy-skeleton";
+import { useThreadMute } from "@/hooks/messages/useThreadMute";
 
 export default function ThreadScreen() {
   const p = useAdminPastel();
@@ -86,6 +87,17 @@ export default function ThreadScreen() {
     handleDeleteMessage,
     removeMessagesBySender,
   } = useMessagesController();
+
+  const threadMute = useThreadMute(currentThread?.id ?? "");
+  const handleToggleMute = React.useCallback(() => {
+    if (threadMute.isMuted) {
+      threadMute.unmute();
+      toast.success("Notifications on", "You'll get notifications for this conversation.");
+    } else {
+      threadMute.muteIndefinitely();
+      toast.success("Notifications muted", "You won't be notified for this conversation.");
+    }
+  }, [threadMute, toast]);
 
   const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
   const [reactionEmojiTarget, setReactionEmojiTarget] =
@@ -244,6 +256,8 @@ export default function ThreadScreen() {
         onHeaderPress={handleHeaderPress}
         sharedBoundTag={sharedBoundTag}
         sharedAvatarTag={sharedAvatarTag}
+        isMuted={threadMute.isMuted}
+        onToggleMute={handleToggleMute}
       />
       {pinnedMessage && (
         <View

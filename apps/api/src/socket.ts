@@ -21,6 +21,7 @@ import { db } from "./db";
 import { userTable } from "./db/schema";
 import { getRedisConnection } from "./jobs/connection";
 import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
+import { markOnline, markOffline, setActiveThread, getOnlineUserIds } from "./lib/presence";
 
 type AuthPayload = {
   sub?: string;
@@ -292,11 +293,6 @@ export function initSocket(server: HttpServer) {
 
   setSocketServer(io);
 
-  // Fix D: Presence is per-process. In multi-instance deployments, use Redis
-  // adapter for accurate presence. Without the adapter, each instance tracks
-  // only its own connected users and will emit stale presence:offline events.
-  const onlineUsers = new Set<number>();
-
   const log = createLogger({ component: "socket" });
 
   // Fix B: lastSeenAt debouncer — shared across all sockets in this process.
@@ -432,8 +428,8 @@ export function initSocket(server: HttpServer) {
     }
 
     // Presence: send snapshot to new socket, then delta to everyone.
-    onlineUsers.add(userId);
-    socket.emit("presence:snapshot", Array.from(onlineUsers));
+    markOnline(userId);
+    socket.emit("presence:snapshot", getOnlineUserIds());
     io.emit("presence:online", { userId });
 
     try {
@@ -678,6 +674,16 @@ export function initSocket(server: HttpServer) {
       }
     });
 
+    // Let the mobile tell the server which thread is currently open so push
+    // notifications can be suppressed for that thread while the user is reading.
+    socket.on("thread:focus", (payload: unknown) => {
+      const threadId =
+        payload && typeof payload === "object" && "threadId" in payload
+          ? String((payload as Record<string, unknown>).threadId ?? "").trim() || null
+          : null;
+      setActiveThread(userId, threadId);
+    });
+
     socket.on("disconnect", (reason) => {
       log.info(
         {
@@ -688,7 +694,7 @@ export function initSocket(server: HttpServer) {
         },
         "Socket disconnected",
       );
-      onlineUsers.delete(userId);
+      markOffline(userId);
       io.emit("presence:offline", { userId });
       // Fix B: Debounce lastSeenAt writes to prevent DB spam during mobile
       // reconnect storms. Write fires after LAST_SEEN_DEBOUNCE_MS unless the

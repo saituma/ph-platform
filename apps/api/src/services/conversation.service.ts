@@ -14,10 +14,10 @@ import {
 import { getSocketServer } from "../socket-hub";
 import { resolveMessageMediaType } from "../lib/media-message-type";
 import { hasUserBlockBetween } from "./user-block.service";
-import { createPushIntent } from "./outbox.service";
 import { createLogger } from "../lib/logger";
 import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
 import { runBestEffortBackgroundTask } from "../lib/background-task";
+import { batchedPush } from "../lib/notification-batcher";
 import { isSharedInboxViewer } from "../lib/messaging-access";
 import { getAdminCoachIds, getTeamManagersForUser } from "./message.service";
 import { publicDisplayName } from "../lib/display-name";
@@ -469,17 +469,20 @@ export async function sendDirectMessage(input: {
     "direct-message-push",
     { traceId: trace?.traceId, messageId: message.id, receiverId: input.receiverId, userId: input.receiverId },
     async () => {
-      await createPushIntent({
-        userId: input.receiverId,
-        title: `New message from ${senderMeta?.name ?? "Coach"}`,
-        body: input.contentType === "text" ? input.content : `Sent a ${input.contentType}`,
-        data: {
+      const threadId = String(input.senderId);
+      await batchedPush(
+        input.receiverId,
+        threadId,
+        `New message from ${senderMeta?.name ?? "Coach"}`,
+        input.contentType === "text" ? input.content : `Sent a ${input.contentType}`,
+        {
           type: "message",
-          threadId: String(input.senderId),
-          url: `/messages/${String(input.senderId)}`,
+          threadId,
+          url: `/messages/${threadId}`,
           mediaUrl: input.mediaUrl ?? null,
+          senderAvatar: senderMeta?.profilePicture ?? null,
         },
-      });
+      );
     },
   );
 

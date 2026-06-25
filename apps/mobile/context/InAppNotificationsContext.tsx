@@ -68,7 +68,7 @@ const InAppNotificationsContext = createContext<InAppNotificationsContextValue>(
   },
 );
 
-const AUTO_DISMISS_MS = 5200;
+const AUTO_DISMISS_MS = 8000;
 const GROUP_WINDOW_MS = 3 * 60 * 1000;
 const MAX_VISIBLE = 3;
 
@@ -190,9 +190,11 @@ export function InAppNotificationsProvider({
       if (existingTimer) {
         clearTimeout(existingTimer.timeout);
       }
+      const isMessage = item.type?.includes("message") || item.type?.includes("chat");
+      const baseDismiss = isMessage ? 10000 : AUTO_DISMISS_MS;
       const timeout = setTimeout(
         () => dismiss(item.id),
-        AUTO_DISMISS_MS + (item.count - 1) * 600,
+        baseDismiss + (item.count - 1) * 600,
       );
       timersRef.current.set(item.id, { timeout, updatedAt: item.updatedAt });
     });

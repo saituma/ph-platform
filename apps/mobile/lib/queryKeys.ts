@@ -26,6 +26,8 @@ export const queryKeys = {
       ["messages", "thread", profileId, threadId] as const,
     groups: (profileId: number) => ["messages", "groups", profileId] as const,
     group: (groupId: number) => ["messages", "group", groupId] as const,
+    mutes: () => ["messages", "mutes"] as const,
+    muteStatus: (threadId: string) => ["messages", "mutes", threadId] as const,
   },
 
   training: {
