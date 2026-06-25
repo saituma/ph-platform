@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronRight, Megaphone, Plus } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
@@ -65,13 +66,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		[sortedThreads],
 	);
 
-	const [announcementsLoading, setAnnouncementsLoading] = React.useState(true);
-	const [announcementsMeta, setAnnouncementsMeta] = React.useState<{
-		count: number;
-		title: string;
-		snippet: string;
-		when: string;
-	} | null>(null);
 	const [inboxFilter, setInboxFilter] = React.useState<InboxFilterKey>("all");
 
 	const inboxThreads = React.useMemo(() => {
@@ -90,68 +84,39 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		return sortedThreads;
 	}, [inboxFilter, mode, sortedThreads]);
 
-	React.useEffect(() => {
-		if (!isMessagesSurface || !token) {
-			setAnnouncementsLoading(false);
-			setAnnouncementsMeta(null);
-			return;
-		}
-		let active = true;
-		(async () => {
-			setAnnouncementsLoading(true);
-			try {
-				const headers = athleteUserId
-					? { "X-Acting-User-Id": String(athleteUserId) }
-					: undefined;
-				const res = await apiRequest<{ items?: AnnouncementItem[] }>(
-					"/content/announcements",
-					{
-						token,
-						headers,
-						skipCache: true,
-						forceRefresh: true,
-						suppressStatusCodes: [401, 403, 404],
-					},
-				);
-				const items = Array.isArray(res.items) ? res.items : [];
-				const latest = pickLatestAnnouncement(items);
-				if (!active) return;
-				if (!latest) {
-					setAnnouncementsMeta(null);
-					return;
-				}
-				const title = String(latest.title ?? "").trim() || "Announcement";
-				const rawBody =
-					typeof latest.body === "string"
-						? latest.body
-						: latest.body
-							? String(latest.body)
-							: String(latest.content ?? "");
-				const snippet = rawBody
-					.replace(/!\[[^\]]*\]\([^)]+\)/g, "")
-					.replace(/\[(.*?)\]\((.*?)\)/g, "$1")
-					.replace(/\s+/g, " ")
-					.trim()
-					.slice(0, 120);
-				const timestamp = latest.updatedAt ?? latest.createdAt ?? null;
-				const when = timestamp ? new Date(timestamp).toLocaleString() : "";
-				setAnnouncementsMeta({
-					count: items.length,
-					title,
-					snippet,
-					when,
-				});
-			} catch {
-				if (!active) return;
-				setAnnouncementsMeta(null);
-			} finally {
-				if (active) setAnnouncementsLoading(false);
-			}
-		})();
-		return () => {
-			active = false;
-		};
-	}, [athleteUserId, isMessagesSurface, token]);
+	const { data: announcementsMeta = null, isLoading: announcementsLoading } = useQuery({
+		queryKey: ["announcements-banner", token, athleteUserId],
+		queryFn: async () => {
+			const headers = athleteUserId
+				? { "X-Acting-User-Id": String(athleteUserId) }
+				: undefined;
+			const res = await apiRequest<{ items?: AnnouncementItem[] }>(
+				"/content/announcements",
+				{ token: token!, headers, suppressStatusCodes: [401, 403, 404] },
+			);
+			const items = Array.isArray(res.items) ? res.items : [];
+			const latest = pickLatestAnnouncement(items);
+			if (!latest) return null;
+			const title = String(latest.title ?? "").trim() || "Announcement";
+			const rawBody =
+				typeof latest.body === "string"
+					? latest.body
+					: latest.body
+						? String(latest.body)
+						: String(latest.content ?? "");
+			const snippet = rawBody
+				.replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+				.replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+				.replace(/\s+/g, " ")
+				.trim()
+				.slice(0, 120);
+			const timestamp = latest.updatedAt ?? latest.createdAt ?? null;
+			const when = timestamp ? new Date(timestamp).toLocaleString() : "";
+			return { count: items.length, title, snippet, when };
+		},
+		staleTime: 3 * 60 * 1000,
+		enabled: Boolean(token) && isMessagesSurface,
+	});
 
 	React.useEffect(() => {
 		if (!isMessagesSurface) return;
