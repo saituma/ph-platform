@@ -95,15 +95,25 @@ function formatDistance(meters?: number | null) {
   return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${Math.round(meters)} m`;
 }
 
+function camelToLabel(key: string): string {
+  return key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()).trim();
+}
+
 function human(value: unknown): string {
   if (value == null || value === "") return "-";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" || typeof value === "number") return String(value);
   if (value instanceof Date) return formatDateTime(value.toISOString());
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return "-";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "-";
+    return value.map((v) => human(v)).join(", ");
   }
+  if (typeof value === "object" && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
+    if (entries.length === 0) return "-";
+    return entries.map(([k, v]) => `${camelToLabel(k)}: ${human(v)}`).join(" · ");
+  }
+  return "-";
 }
 
 function stringValue(record: ClientDataRecord, key: string) {
@@ -210,7 +220,7 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
           .slice(0, 12)
           .map(([key, value]) => (
             <div key={key} className="min-w-0 rounded-md bg-secondary/30 px-2 py-1.5">
-              <span className="font-semibold text-foreground">{key}: </span>
+              <span className="font-semibold text-foreground">{camelToLabel(key)}: </span>
               <span className="break-words">{human(value)}</span>
             </div>
           ))}
