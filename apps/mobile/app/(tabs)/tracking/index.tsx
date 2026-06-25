@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
@@ -85,7 +86,7 @@ import {
   Share2,
 } from "lucide-react-native";
 import { useStreakStore } from "@/lib/streakStore";
-import { RunShareCard } from "@/components/tracking/RunShareCard";
+import { WorkoutShareSheet } from "@/components/tracking/WorkoutShareSheet";
 import { RunDetailOverlay } from "@/components/tracking/RunDetailOverlay";
 
 const TRACKING_BG = require("@/assets/images/trakcing-bg.png");
@@ -1112,11 +1113,12 @@ export default function TrackingHomeScreen() {
       colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
     />
     {shareRun ? (
-      <RunShareCard
+      <WorkoutShareSheet
         visible={!!shareRun}
         distanceMeters={shareRun.distance_meters}
         elapsedSeconds={shareRun.duration_seconds}
         coordinates={shareRunCoords}
+        sport={shareRun.sport}
         onClose={() => setShareRun(null)}
       />
     ) : null}
@@ -1262,25 +1264,34 @@ function WorkoutRunCard({
   const fg = isDark ? "#fff" : "#1a1a1a";
   const muted = isDark ? "#8b8b8b" : "#666";
 
+  const cardTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onPress)();
+    }), [onPress]);
+
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).duration(250)}>
-      <Animated.View style={scaleStyle}>
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onPress();
-        }}
-        onPressIn={() => { scale.value = withSpring(0.985, { damping: 20, stiffness: 300 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 20, stiffness: 300 }); }}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${label} from ${date}`}
-        style={{
+      <GestureDetector gesture={cardTap}>
+      <Animated.View
+        style={[scaleStyle, {
           backgroundColor: cardBg,
           borderColor: border,
           borderRadius: 18,
           borderWidth: 1,
           overflow: "hidden",
-        }}
+        }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${label} from ${date}`}
       >
         <RoutePreview coords={coords} isDark={isDark} accent={p.accent} />
 
@@ -1401,8 +1412,8 @@ function WorkoutRunCard({
             <ChevronRight size={18} color={muted} />
           </View>
         </View>
-      </Pressable>
       </Animated.View>
+      </GestureDetector>
     </Animated.View>
   );
 }
@@ -1708,37 +1719,30 @@ function ManagerDashboard({
   const [innerTab, setInnerTab] = useState<"running" | "team">("running");
   const [filter, setFilter] = useState<ManagerFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
-  const [liveLocations, setLiveLocations] = useState<UserLocation[]>([]);
 
-  const fetchData = useCallback(async () => {
-    if (!token) return;
-    setFetchError(false);
-    try {
-      const [lb, locs] = await Promise.all([
-        fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
-        fetchTeamLocations(token).catch(() => ({ locations: [] as UserLocation[] })),
-      ]);
-      setLeaderboard(lb?.items ?? []);
-      setLiveLocations(locs?.locations ?? []);
-    } catch {
-      setFetchError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const { data: leaderboardData, isLoading, isError: fetchError, refetch: refetchLb } = useQuery({
+    queryKey: ["team-tracking-leaderboard", token],
+    queryFn: () => fetchLeaderboard(token!, { windowDays: 7, limit: 100, useTeamFeed: true }),
+    staleTime: 2 * 60 * 1000,
+    enabled: Boolean(token),
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: locationsData, refetch: refetchLocs } = useQuery({
+    queryKey: ["team-tracking-live-locations", token],
+    queryFn: () => fetchTeamLocations(token!).catch(() => ({ locations: [] as UserLocation[] })),
+    staleTime: 30 * 1000,
+    enabled: Boolean(token),
+  });
+
+  const leaderboard = leaderboardData?.items ?? [];
+  const liveLocations = locationsData?.locations ?? [];
+  const loading = isLoading;
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([refetchLb(), refetchLocs()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [refetchLb, refetchLocs]);
 
   const athletes: AthleteWithStats[] = useMemo(() => {
     const lbMap = new Map<number, SocialLeaderboardItem>();
