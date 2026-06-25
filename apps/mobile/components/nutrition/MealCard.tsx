@@ -10,7 +10,7 @@ type MealCardProps = {
   onPressAdd?: (() => void) | undefined;
 };
 
-export function MealCard({ slot, onPressAdd }: MealCardProps) {
+export const MealCard = React.memo(function MealCard({ slot, onPressAdd }: MealCardProps) {
   const p = useNutritionTheme();
   const totalEaten = slot.items.reduce((sum, item) => sum + item.calories, 0);
   const hasItems = slot.items.length > 0;
@@ -68,4 +68,4 @@ export function MealCard({ slot, onPressAdd }: MealCardProps) {
       )}
     </Pressable>
   );
-}
+});

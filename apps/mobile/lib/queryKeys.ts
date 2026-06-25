@@ -125,4 +125,9 @@ export const queryKeys = {
     all: () => ["notifications"] as const,
     infinite: () => ["notifications", "infinite"] as const,
   },
+
+  profile: {
+    all: () => ["profile"] as const,
+    managedAthletes: () => ["profile", "managedAthletes"] as const,
+  },
 } as const;

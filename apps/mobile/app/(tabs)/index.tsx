@@ -662,34 +662,6 @@ const s = StyleSheet.create({
     lineHeight: 48,
   },
 
-  // ── Glass pills ──
-  glassPillsWrap: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 12,
-  },
-  glassPill: {
-    borderRadius: 14,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  glassPillInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  glassPillValue: {
-    fontFamily: "Outfit-Bold",
-    fontSize: 15,
-  },
-  glassPillLabel: {
-    fontFamily: "Outfit-Regular",
-    fontSize: 12,
-  },
-
   // ── Content ──
   content: {
     paddingHorizontal: 20,

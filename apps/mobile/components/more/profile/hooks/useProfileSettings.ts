@@ -8,6 +8,8 @@ import { apiRequest } from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { updateProfile } from "@/store/slices/userSlice";
 import { registerDevicePushToken } from "@/lib/pushRegistration";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type ManagedAthlete = {
   id?: number;
@@ -40,10 +42,6 @@ export function useProfileSettings() {
       setPendingAvatarMimeType(null);
     }
   }, []);
-  const [managedAthletes, setManagedAthletes] = useState<ManagedAthlete[]>([]);
-  const [managedAthleteCount, setManagedAthleteCount] = useState(0);
-  const [activeAthleteId, setActiveAthleteId] = useState<number | null>(null);
-
   const [name, setName] = useState(profile.name ?? "");
   const [email, setEmail] = useState(profile.email ?? "");
 
@@ -69,28 +67,21 @@ export function useProfileSettings() {
     });
   }, [dispatch, token]);
 
-  const loadAthletes = useCallback(async () => {
-    if (!token) return;
-    try {
-      const data = await apiRequest<{
+  const { data: athleteData } = useQuery({
+    queryKey: queryKeys.profile.managedAthletes(),
+    queryFn: () =>
+      apiRequest<{
         guardian?: { activeAthleteId?: number | null } | null;
         athletes?: ManagedAthlete[];
-      }>("/onboarding/athletes", { token });
-      const athleteList = data.athletes ?? [];
-      setManagedAthletes(athleteList);
-      const activeAthlete =
-        athleteList.find((item) => item.id === data.guardian?.activeAthleteId) ?? athleteList[0] ?? null;
-      setActiveAthleteId(activeAthlete?.id ?? null);
-      setManagedAthleteCount(athleteList.length);
-    } catch {
-      setManagedAthletes([]);
-      setManagedAthleteCount(0);
-    }
-  }, [token]);
+      }>("/onboarding/athletes", { token: token! }),
+    enabled: !!token,
+  });
 
-  useEffect(() => {
-    loadAthletes();
-  }, [loadAthletes]);
+  const managedAthletes = athleteData?.athletes ?? [];
+  const managedAthleteCount = managedAthletes.length;
+  const activeAthleteId =
+    (managedAthletes.find((item) => item.id === athleteData?.guardian?.activeAthleteId) ??
+      managedAthletes[0] ?? null)?.id ?? null;
 
   const handlePickAvatar = async () => {
     if (!token || isUploadingAvatar) return;

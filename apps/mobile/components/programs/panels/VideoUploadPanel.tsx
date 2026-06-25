@@ -53,7 +53,7 @@ function formatMb(bytes: number | undefined) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function VideoUploadPanel({
+export const VideoUploadPanel = React.memo(function VideoUploadPanel({
   refreshToken = 0,
   sectionContentId,
   sectionTitle,
@@ -428,4 +428,4 @@ export function VideoUploadPanel({
       </Modal>
     </ProgramPanelCard>
   );
-}
+});

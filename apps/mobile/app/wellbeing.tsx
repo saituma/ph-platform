@@ -10,14 +10,7 @@ import { FlashList } from "@shopify/flash-list";
 import Animated, {
   FadeInDown,
   FadeInUp,
-  FadeIn,
-  ZoomIn,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
 } from "react-native-reanimated";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Svg, { Circle } from "react-native-svg";
 import {
   ArrowLeft,
@@ -25,7 +18,6 @@ import {
   Zap,
   AlertTriangle,
   Check,
-  ChevronRight,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
@@ -44,8 +36,6 @@ const { width: _SCREEN_W } = Dimensions.get("window");
 const SCREEN_W = Platform.isPad ? Math.min(_SCREEN_W, 560) : _SCREEN_W;
 const RING_SIZE = Math.min(Math.floor((SCREEN_W - 80) / 3), 100);
 const STROKE_WIDTH = 10;
-const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 function todayKey(): string {
   const d = new Date();
@@ -64,7 +54,6 @@ type MetricConfig = {
 function RoundSlider({
   value,
   max,
-  onChange,
   color,
   bgColor,
   size,
@@ -72,7 +61,7 @@ function RoundSlider({
 }: {
   value: number;
   max: number;
-  onChange: (v: number) => void;
+  onChange?: (v: number) => void;
   color: string;
   bgColor: string;
   size: number;
@@ -83,19 +72,6 @@ function RoundSlider({
   const circ = 2 * Math.PI * r;
   const progress = value / max;
   const strokeDashoffset = circ * (1 - progress);
-
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  const handleTap = useCallback(
-    (newVal: number) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onChange(newVal);
-    },
-    [onChange],
-  );
 
   return (
     <View style={{ alignItems: "center", gap: 8 }}>
