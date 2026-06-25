@@ -33,72 +33,6 @@ type InboxScreenProps = {
   headerContent?: React.ReactNode;
 };
 
-type InboxFilter = "all" | "unread";
-
-interface FilterPillProps {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  count?: number;
-}
-
-const FilterPill = function FilterPill({
-  label,
-  active,
-  onPress,
-  count,
-}: FilterPillProps) {
-  const p = useAdminPastel();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }: { pressed: boolean }) => [
-        styles.filterPill,
-        {
-          backgroundColor: active ? p.accent : p.inputBg,
-          transform: [{ scale: pressed ? 0.95 : 1 }],
-        },
-      ]}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={`Filter by ${label}`}
-    >
-      <Text
-        style={{
-          fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
-          fontSize: 15,
-          color: active ? p.buttonPrimaryText : p.textSecondary,
-        }}
-      >
-        {label}
-      </Text>
-      {count !== undefined && count > 0 && (
-        <View
-          style={[
-            styles.pillBadge,
-            {
-              backgroundColor: active
-                ? "rgba(255,255,255,0.22)"
-                : p.accentSoft,
-            },
-          ]}
-        >
-          <Text
-            style={{
-              fontFamily: "Outfit-Bold",
-              fontSize: 12,
-              color: active ? p.buttonPrimaryText : p.accent,
-            }}
-          >
-            {count}
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  );
-};
-
 const InboxEmptyState = function InboxEmptyState() {
   const p = useAdminPastel();
   return (
@@ -149,44 +83,31 @@ function InboxScreenBase({
   const p = useAdminPastel();
 
   const [searchText, setSearchText] = useState("");
-  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
   const deferredSearch = useDeferredValue(searchText);
-
-  const unreadThreadsCount = React.useMemo(
-    () => threads.filter((t) => (t.unread ?? 0) > 0).length,
-    [threads],
-  );
 
   const filteredThreads = React.useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
-
-    return threads.filter((thread) => {
-      const matchesFilter =
-        activeFilter === "all" ? true : (thread.unread ?? 0) > 0;
-      if (!matchesFilter) return false;
-      if (!query) return true;
-
-      return (
+    if (!query) return threads;
+    return threads.filter(
+      (thread) =>
         thread.name?.toLowerCase().includes(query) ||
-        thread.preview?.toLowerCase().includes(query)
-      );
-    });
-  }, [threads, deferredSearch, activeFilter]);
+        thread.preview?.toLowerCase().includes(query),
+    );
+  }, [threads, deferredSearch]);
 
+  // Always sort unread first within the filtered set
   const listData = React.useMemo(() => {
-    if (activeFilter === "unread") return filteredThreads;
-
     const unread = filteredThreads.filter((t) => (t.unread ?? 0) > 0);
     const read = filteredThreads.filter((t) => !(t.unread ?? 0));
     return [...unread, ...read];
-  }, [filteredThreads, activeFilter]);
+  }, [filteredThreads]);
 
   const clearSearch = useCallback(() => {
     setSearchText("");
   }, []);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: MessageThread; index: number; }) => (
+    ({ item, index }: { item: MessageThread; index: number }) => (
       <ThreadListItem
         thread={item}
         typingStatus={typingStatus[item.id.startsWith("group:") ? item.id : `user:${item.id}`]}
@@ -204,12 +125,7 @@ function InboxScreenBase({
         {headerContent}
         <View style={styles.headerBlock}>
           <View style={styles.searchWrap}>
-            <View
-              style={[
-                styles.searchInner,
-                { backgroundColor: p.inputBg },
-              ]}
-            >
+            <View style={[styles.searchInner, { backgroundColor: p.inputBg }]}>
               <Search size={18} color={p.textMuted} strokeWidth={2} />
               <TextInput
                 placeholder="Search conversations..."
@@ -231,24 +147,10 @@ function InboxScreenBase({
               )}
             </View>
           </View>
-
-          <View style={styles.filterTabs}>
-            <FilterPill
-              label="All Messages"
-              active={activeFilter === "all"}
-              onPress={() => setActiveFilter("all")}
-            />
-            <FilterPill
-              label="Unread"
-              active={activeFilter === "unread"}
-              onPress={() => setActiveFilter("unread")}
-              count={unreadThreadsCount}
-            />
-          </View>
         </View>
       </View>
     ),
-    [headerContent, p, searchText, setSearchText, clearSearch, activeFilter, unreadThreadsCount],
+    [headerContent, p, searchText, setSearchText, clearSearch],
   );
 
   if (isLoading) {
@@ -306,7 +208,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   searchWrap: {
-    marginBottom: 12,
+    marginBottom: 4,
   },
   searchInner: {
     height: 44,
@@ -326,27 +228,6 @@ const styles = StyleSheet.create({
   },
   clearBtn: {
     padding: 4,
-  },
-  filterTabs: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  filterPill: {
-    height: 38,
-    borderRadius: 100,
-    flexDirection: "row",
-    paddingHorizontal: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  pillBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   emptyContainer: {
     flex: 1,

@@ -1,7 +1,8 @@
 import React, { useCallback } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Megaphone } from "lucide-react-native";
+import { ChevronRight, Megaphone, Plus } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { AgeGate } from "@/components/AgeGate";
 import { InboxScreen } from "@/components/messages/InboxScreen";
@@ -161,6 +162,12 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 		router?.push("/announcements");
 	}, [router]);
 
+	const handleCompose = useCallback(() => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+		// Navigate to messages tab (new-conversation screen not yet built)
+		router?.push("/(tabs)/messages" as any);
+	}, [router]);
+
 	if (isSectionHidden("messages")) {
 		return (
 			<AgeGate
@@ -186,160 +193,175 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 				] as const);
 
 	return (
-		<SafeAreaView
-			edges={["top"]}
-			style={{ flex: 1, backgroundColor: p.pageBg }}
-		>
-			<View style={styles.header}>
-				<Text
-					style={{
-						fontFamily: "Outfit-Bold",
-						fontSize: 28,
-						letterSpacing: -0.5,
-						color: p.textPrimary,
-					}}
-				>
-					Messages
-				</Text>
-
-				<View style={styles.headerRight}>
-					{unreadCount > 0 && (
-						<View
-							style={[styles.unreadPill, { backgroundColor: p.accent }]}
-						>
-							<Text
-								style={{
-									fontFamily: "Outfit-Bold",
-									fontSize: 13,
-									color: p.buttonPrimaryText,
-								}}
-							>
-								{unreadCount}
-							</Text>
-						</View>
-					)}
-				</View>
-			</View>
-
-			<View
-				style={[
-					styles.switcherWrap,
-					{ backgroundColor: p.inputBg },
-				]}
+		<View style={{ flex: 1 }}>
+			<SafeAreaView
+				edges={["top"]}
+				style={{ flex: 1, backgroundColor: p.pageBg }}
 			>
-				{filterItems.map((item) => {
-					const isActive = inboxFilter === item.key;
-					const hasUnread =
-						item.key === "direct" && mode !== "team" && unreadCount > 0;
-					return (
-						<Pressable
-							key={item.key}
-							onPress={() => setInboxFilter(item.key)}
-							style={[
-								styles.switcherItem,
-								{
-									backgroundColor: isActive ? p.cardWhite : "transparent",
-								},
-							]}
-						>
-							<Text
-								style={{
-									fontFamily: isActive ? "Outfit-Bold" : "Outfit-Regular",
-									fontSize: 14,
-									letterSpacing: -0.1,
-									color: hasUnread
-										? p.accent
-										: isActive
-											? p.textPrimary
-											: p.textSecondary,
-								}}
-							>
-								{item.label}
-							</Text>
-						</Pressable>
-					);
-				})}
-			</View>
+				<View style={styles.header}>
+					<Text
+						style={{
+							fontFamily: "Outfit-Bold",
+							fontSize: 28,
+							letterSpacing: -0.5,
+							color: p.textPrimary,
+						}}
+					>
+						Messages
+					</Text>
 
-			<InboxScreen
-				threads={inboxThreads}
-				typingStatus={typingStatus}
-				isLoading={isLoading}
-				openingThreadId={openingThreadId}
-				onRefresh={loadMessages}
-				onOpenThread={openThread}
-				variant={mode === "team" ? "team" : "default"}
-				showEmptySections={mode === "team"}
-				headerContent={
-					<>
-						{stories.length > 0 && <StoriesRow stories={stories} />}
-						{!announcementsLoading && announcementsMeta && (
-							<View style={styles.announcementWrapper}>
-								<Pressable
-									onPress={handleOpenAnnouncements}
-									style={[
-										styles.announcementBtn,
-										{ backgroundColor: p.cardWhite },
-									]}
+					<View style={styles.headerRight}>
+						{unreadCount > 0 && (
+							<View
+								style={[styles.unreadPill, { backgroundColor: p.accent }]}
+							>
+								<Text
+									style={{
+										fontFamily: "Outfit-Bold",
+										fontSize: 13,
+										color: p.buttonPrimaryText,
+									}}
 								>
-									<View style={styles.announcementLeft}>
-										<View
-											style={[
-												styles.announcementIcon,
-												{ backgroundColor: p.accentSoft },
-											]}
-										>
-											<Megaphone size={22} color={p.accent} strokeWidth={2} />
-										</View>
-										<View style={styles.announcementContent}>
-											<Text
-												style={{
-													fontFamily: "Outfit-Bold",
-													fontSize: 16,
-													letterSpacing: -0.3,
-													color: p.textPrimary,
-												}}
-												numberOfLines={1}
+									{unreadCount}
+								</Text>
+							</View>
+						)}
+					</View>
+				</View>
+
+				<View
+					style={[
+						styles.switcherWrap,
+						{ backgroundColor: p.inputBg },
+					]}
+				>
+					{filterItems.map((item) => {
+						const isActive = inboxFilter === item.key;
+						const hasUnread =
+							item.key === "direct" && mode !== "team" && unreadCount > 0;
+						return (
+							<Pressable
+								key={item.key}
+								onPress={() => setInboxFilter(item.key)}
+								style={[
+									styles.switcherItem,
+									{
+										backgroundColor: isActive ? p.cardWhite : "transparent",
+									},
+								]}
+							>
+								<Text
+									style={{
+										fontFamily: isActive ? "Outfit-Bold" : "Outfit-Regular",
+										fontSize: 14,
+										letterSpacing: -0.1,
+										color: hasUnread
+											? p.accent
+											: isActive
+												? p.textPrimary
+												: p.textSecondary,
+									}}
+								>
+									{item.label}
+								</Text>
+							</Pressable>
+						);
+					})}
+				</View>
+
+				<InboxScreen
+					threads={inboxThreads}
+					typingStatus={typingStatus}
+					isLoading={isLoading}
+					openingThreadId={openingThreadId}
+					onRefresh={loadMessages}
+					onOpenThread={openThread}
+					variant={mode === "team" ? "team" : "default"}
+					showEmptySections={mode === "team"}
+					headerContent={
+						<>
+							{stories.length > 0 && <StoriesRow stories={stories} />}
+							{!announcementsLoading && announcementsMeta && (
+								<View style={styles.announcementWrapper}>
+									<Pressable
+										onPress={handleOpenAnnouncements}
+										style={[
+											styles.announcementBtn,
+											{ backgroundColor: p.cardWhite },
+										]}
+									>
+										<View style={styles.announcementLeft}>
+											<View
+												style={[
+													styles.announcementIcon,
+													{ backgroundColor: p.accentSoft },
+												]}
 											>
-												{announcementsMeta.title}
-											</Text>
-											<Text
-												style={{
-													fontFamily: "Outfit-Regular",
-													fontSize: 13,
-													color: p.textMuted,
-												}}
-												numberOfLines={1}
-											>
-												{announcementsMeta.snippet}
-											</Text>
+												<Megaphone size={22} color={p.accent} strokeWidth={2} />
+											</View>
+											<View style={styles.announcementContent}>
+												<Text
+													style={{
+														fontFamily: "Outfit-Bold",
+														fontSize: 16,
+														letterSpacing: -0.3,
+														color: p.textPrimary,
+													}}
+													numberOfLines={1}
+												>
+													{announcementsMeta.title}
+												</Text>
+												<Text
+													style={{
+														fontFamily: "Outfit-Regular",
+														fontSize: 13,
+														color: p.textMuted,
+													}}
+													numberOfLines={1}
+												>
+													{announcementsMeta.snippet}
+												</Text>
+												{announcementsMeta.when ? (
+													<Text
+														style={{
+															fontFamily: "Outfit-Regular",
+															fontSize: 11,
+															color: p.textMuted,
+															marginTop: 2,
+														}}
+														numberOfLines={1}
+													>
+														{announcementsMeta.when}
+													</Text>
+												) : null}
+											</View>
 										</View>
-									</View>
-								</Pressable>
-								{announcementsMeta.count > 0 && (
+										<ChevronRight size={18} color={p.textMuted} style={{ flexShrink: 0, marginLeft: 8 }} />
+									</Pressable>
 									<View
 										style={[
 											styles.announcementBadge,
 											{ backgroundColor: p.accent },
 										]}
-									>
-										<Text
-											style={{
-												fontFamily: "Outfit-Bold",
-												fontSize: 12,
-												color: p.buttonPrimaryText,
-											}}
-										>
-											{announcementsMeta.count}
-										</Text>
-									</View>
-								)}
-							</View>
-						)}
-					</>
-				}
-			/>
-		</SafeAreaView>
+									/>
+								</View>
+							)}
+						</>
+					}
+				/>
+			</SafeAreaView>
+
+			{/* Compose FAB */}
+			<Pressable
+				onPress={handleCompose}
+				style={({ pressed }) => [
+					styles.fab,
+					{ backgroundColor: p.accent, opacity: pressed ? 0.85 : 1 },
+				]}
+			>
+				<Plus size={24} color={p.buttonPrimaryText} />
+			</Pressable>
+		</View>
 	);
 }
 
@@ -415,14 +437,32 @@ const styles = StyleSheet.create({
 	},
 	announcementBadge: {
 		position: "absolute",
-		top: -8,
+		top: -4,
 		left: 50,
-		minWidth: 22,
-		height: 22,
-		borderRadius: 11,
+		width: 10,
+		height: 10,
+		borderRadius: 5,
+		zIndex: 10,
+	},
+	fab: {
+		position: "absolute",
+		bottom: Platform.OS === "ios" ? 100 : 80,
+		right: 20,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
 		alignItems: "center",
 		justifyContent: "center",
-		paddingHorizontal: 6,
-		zIndex: 10,
+		...Platform.select({
+			ios: {
+				shadowColor: "#000",
+				shadowOffset: { width: 0, height: 4 },
+				shadowOpacity: 0.18,
+				shadowRadius: 8,
+			},
+			android: {
+				elevation: 6,
+			},
+		}),
 	},
 });
