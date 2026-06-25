@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../ui/button";
 import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogClose,
+} from "../../ui/alert-dialog";
 import { Textarea } from "../../ui/textarea";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
@@ -54,6 +63,8 @@ export function ConversationPanel({
   typingLabel,
 }: ConversationPanelProps) {
   const [draft, setDraft] = useState("");
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [deletingMessagePreview, setDeletingMessagePreview] = useState<string>("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null);
@@ -228,9 +239,13 @@ export function ConversationPanel({
   }, [draft, onTypingChange]);
 
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages.length, name]);
+    const el = scrollRef.current;
+    if (!el || !messages.length) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (dist < 120) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages.length]);
 
   const submitDraft = () => {
     const text = draft.trim();
@@ -289,14 +304,18 @@ export function ConversationPanel({
               className={`relative overflow-visible flex ${isCoach ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`group relative max-w-[75%] rounded-2xl p-3 text-sm shadow-sm ${
-                  isCoach
-                    ? "bg-primary/10 text-foreground dark:bg-primary/20"
-                    : "bg-white text-foreground dark:bg-slate-900"
+                className={`group relative rounded-2xl p-3 text-sm ${
+                  isEditing
+                    ? "w-full max-w-[86%] border border-primary/30 bg-background shadow-sm"
+                    : `max-w-[75%] shadow-sm ${
+                        isCoach
+                          ? "bg-primary/10 text-foreground dark:bg-primary/20"
+                          : "bg-white text-foreground dark:bg-slate-900"
+                      }`
                 }`}
               >
                 {(onDeleteMessage || onEditMessage) && !isEditing ? (
-                  <div className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 ${isCoach ? "right-0" : "left-0"}`}>
+                  <div className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${isCoach ? "right-0" : "left-0"}`}>
                     {onEditMessage && !message.mediaUrl ? (
                       <button
                         type="button"
@@ -316,7 +335,8 @@ export function ConversationPanel({
                         title="Delete message"
                         className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-red-600"
                         onClick={() => {
-                          if (window.confirm("Delete this message?")) onDeleteMessage(message.id);
+                          setDeletingMessageId(message.id);
+                          setDeletingMessagePreview((message.text ?? "").slice(0, 80));
                         }}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -377,9 +397,12 @@ export function ConversationPanel({
                   </p>
                 ) : null}
                 {isEditing ? (
-                  <div className="mt-2 space-y-2">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">
+                      Editing message
+                    </p>
                     <Textarea
-                      className="min-h-[56px] rounded-xl bg-background px-3 py-2 text-sm"
+                      className="min-h-[60px] w-full resize-none rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-0"
                       value={editDraft}
                       onChange={(e) => setEditDraft(e.target.value)}
                       onKeyDown={(e) => {
@@ -397,9 +420,20 @@ export function ConversationPanel({
                       }}
                       autoFocus
                     />
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                         onClick={() => {
                           const trimmed = editDraft.trim();
                           if (trimmed) onEditMessage?.(message.id, trimmed);
@@ -408,18 +442,9 @@ export function ConversationPanel({
                         }}
                       >
                         Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingMessageId(null);
-                          setEditDraft("");
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                      </button>
                     </div>
+                    <p className="text-right text-[10px] text-muted-foreground/60">Enter to save · Esc to cancel</p>
                   </div>
                 ) : shouldHideText ? null : <p className="mt-2 text-foreground">{message.text}</p>}
                 {message.reactions?.length ? (
@@ -470,6 +495,14 @@ export function ConversationPanel({
             </div>
           );
         })}
+        {messages.length === 0 ? (
+          <div className="flex h-48 flex-col items-center justify-center gap-2">
+            <p className="text-sm font-medium text-foreground">No messages yet</p>
+            <p className="text-xs text-muted-foreground">
+              This is the start of your conversation with {name}.
+            </p>
+          </div>
+        ) : null}
         </div>
       </div>
       {typingLabel ? (
@@ -661,6 +694,46 @@ export function ConversationPanel({
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={deletingMessageId !== null}
+        onOpenChange={(open: boolean) => { if (!open) setDeletingMessageId(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingMessagePreview ? (
+                <span className="block rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground italic">
+                  &ldquo;{deletingMessagePreview}{deletingMessagePreview.length >= 80 ? "…" : ""}&rdquo;
+                </span>
+              ) : null}
+              <span className="mt-2 block">This cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose
+              render={
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary/60 transition"
+                >
+                  Cancel
+                </button>
+              }
+            />
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-xl bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition"
+              onClick={() => {
+                if (deletingMessageId) onDeleteMessage?.(deletingMessageId);
+                setDeletingMessageId(null);
+              }}
+            >
+              Delete
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

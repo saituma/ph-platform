@@ -152,7 +152,7 @@ export default function StatsPage() {
   }, [newAthletesPerMonth, averageMonthlyPrice, averageCommitmentMonths]);
 
   return (
-    <AdminShell title="Stats" subtitle="Live revenue metrics pulled directly from Stripe.">
+    <AdminShell title="Revenue & Growth" subtitle="Live revenue metrics pulled directly from Stripe.">
       <div className="space-y-8">
 
         {/* Primary metrics */}
@@ -161,6 +161,7 @@ export default function StatsPage() {
             title="Revenue Snapshot"
             description={isLoading ? "Loading from Stripe…" : `${active.length + pastDue.length + cancelled.length} total subscriptions tracked`}
           />
+          <p className="text-xs text-muted-foreground">Live data from Stripe. Updates every page load.</p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="MRR (Active)" value={isLoading ? "—" : formatMoney(mrr)} sub={`${active.length} active subs`} loading={isLoading} accent="green" />
             <MetricCard label="ARR" value={isLoading ? "—" : formatMoney(arr)} loading={isLoading} />
@@ -193,6 +194,7 @@ export default function StatsPage() {
         )}
 
         {/* Calculator + Revenue by tier */}
+        <p className="text-sm font-semibold text-foreground">Growth Calculator</p>
         <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
           <CardFrame>
             <CardFrameHeader>

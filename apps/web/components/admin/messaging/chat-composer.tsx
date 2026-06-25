@@ -3,7 +3,7 @@
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { Film, Image as ImageIcon, Paperclip, Send, Smile, Video, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "../../ui/button";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "../../ui/input-group";
@@ -44,6 +44,7 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiContainerRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -66,10 +67,25 @@ export function ChatComposer({
     };
   }, []);
 
-  const handleEmojiSelect = (emoji: EmojiPick) => {
-    if (!emoji?.native) return;
-    onChange(`${value}${emoji.native}`);
-  };
+  const handleEmojiSelect = useCallback((emoji: EmojiPick) => {
+    const emojiStr = emoji?.native ?? "";
+    if (!emojiStr) return;
+    const el = textareaRef.current;
+    if (el) {
+      const start = el.selectionStart ?? value.length;
+      const end = el.selectionEnd ?? value.length;
+      const newValue = value.slice(0, start) + emojiStr + value.slice(end);
+      onChange(newValue);
+      requestAnimationFrame(() => {
+        el.selectionStart = start + emojiStr.length;
+        el.selectionEnd = start + emojiStr.length;
+        el.focus();
+      });
+    } else {
+      onChange(`${value}${emojiStr}`);
+    }
+    setShowEmojiPicker(false);
+  }, [value, onChange]);
 
   return (
     <div className="rounded-2xl border border-border p-3">
@@ -140,6 +156,7 @@ export function ChatComposer({
         {/* Message input with send button */}
         <InputGroup className="flex-1">
           <InputGroupTextarea
+            ref={textareaRef}
             value={value}
             onChange={(event) => onChange(event.target.value)}
             onKeyDown={(event) => {
@@ -166,6 +183,9 @@ export function ChatComposer({
           </InputGroupAddon>
         </InputGroup>
       </div>
+      <p className="text-right text-[10px] text-muted-foreground/60 pr-1">
+        Enter to send · Shift+Enter for new line
+      </p>
       {isUploading ? (
         <div className="mt-2 space-y-1">
           <div className="flex items-center justify-between">

@@ -75,7 +75,7 @@ export default function BillingOverviewPage() {
     {
       title: "Subscription Plans",
       description:
-        "Review live pricing, tiers, and active plan configuration used across the app.",
+        "What you sell — pricing tiers and features.",
       href: "/billing/plans",
       icon: CreditCard,
       badge: isLoading ? null : `${summary.planCount} plans`,
@@ -100,18 +100,18 @@ export default function BillingOverviewPage() {
       badgeDetail: null,
     },
     {
-      title: "Launch Discount Codes",
+      title: "Promotions",
       description:
-        "Generate one-time promo codes for existing clients. Each email gets a unique code they enter at checkout.",
+        "Discount codes and launch pricing.",
       href: "/billing/launch-promo",
       icon: Ticket,
       badge: null,
       badgeDetail: null,
     },
     {
-      title: "Payment Status",
+      title: "Subscriptions",
       description:
-        "Live Stripe subscription status for all paying users — card details, failure reasons, and retry dates.",
+        "Who's paying — active athlete subscriptions.",
       href: "/billing/subscriptions",
       icon: Activity,
       badge: null,

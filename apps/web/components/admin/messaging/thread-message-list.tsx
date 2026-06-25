@@ -5,6 +5,16 @@ import emojiData from "@emoji-mart/data";
 import { ArrowDown, CornerUpLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../ui/alert-dialog";
+import { Dialog, DialogContent } from "../../ui/dialog";
 import { ScrollArea } from "../../ui/scroll-area";
 import type { ChatMessage, ChatReaction } from "./types";
 import { OpenGraphPreview } from "./open-graph-preview";
@@ -117,6 +127,9 @@ export function ThreadMessageList({
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingPreview, setDeletingPreview] = useState<string>("");
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     number | null
   >(null);
@@ -520,12 +533,18 @@ export function ThreadMessageList({
                       )
                     ) : null}
                     {hasImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={message.mediaUrl ?? ""}
-                        alt="Message media"
-                        className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
-                      />
+                      <button
+                        type="button"
+                        className="mt-2 block w-full cursor-zoom-in"
+                        onClick={() => setLightboxUrl(message.mediaUrl ?? "")}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={message.mediaUrl ?? ""}
+                          alt={message.content ?? "Image"}
+                          className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
+                        />
+                      </button>
                     ) : null}
                     {hasVideo ? (
                       <video
@@ -583,7 +602,7 @@ export function ThreadMessageList({
                 </div>
                 <div
                   data-reaction-picker-root="true"
-                  className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end opacity-0 transition-opacity group-hover:opacity-100`}
+                  className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100`}
                 >
                   {onEdit && !hasMedia && editingId !== Number(message.id) ? (
                     <button
@@ -599,7 +618,10 @@ export function ThreadMessageList({
                     <button
                       type="button"
                       className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
-                      onClick={() => { if (window.confirm("Delete this message?")) onDelete(Number(message.id)); }}
+                      onClick={() => {
+                        setDeletingId(Number(message.id));
+                        setDeletingPreview((message.content ?? "").slice(0, 80));
+                      }}
                       aria-label="Delete message"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -717,7 +739,7 @@ export function ThreadMessageList({
         </div>
       </ScrollArea>
 
-      {newIncomingCount > 0 ? (
+      {(!isNearBottom || newIncomingCount > 0) ? (
         <button
           type="button"
           onClick={() => {
@@ -730,12 +752,61 @@ export function ThreadMessageList({
           aria-label="Scroll to newest message"
         >
           <ArrowDown className="h-4 w-4" />
-          <span>New</span>
-          <span className="rounded-full bg-black/20 px-2 py-0.5">
-            {downArrowLabel}
-          </span>
+          {newIncomingCount > 0 ? (
+            <>
+              <span>New</span>
+              <span className="rounded-full bg-black/20 px-2 py-0.5">
+                {downArrowLabel}
+              </span>
+            </>
+          ) : null}
         </button>
       ) : null}
+      <AlertDialog open={deletingId !== null} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingPreview ? (
+                <span className="block rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground italic mb-2">
+                  &ldquo;{deletingPreview}{deletingPreview.length >= 80 ? "…" : ""}&rdquo;
+                </span>
+              ) : null}
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-secondary"
+            >
+              Cancel
+            </AlertDialogClose>
+            <button
+              type="button"
+              className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deletingId !== null) onDelete?.(deletingId);
+                setDeletingId(null);
+              }}
+            >
+              Delete
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={lightboxUrl !== null} onOpenChange={(open) => { if (!open) setLightboxUrl(null); }}>
+        <DialogContent className="max-w-3xl border-none bg-black/90 p-2">
+          {lightboxUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={lightboxUrl}
+              alt="Full size"
+              className="max-h-[80vh] w-full rounded-xl object-contain"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

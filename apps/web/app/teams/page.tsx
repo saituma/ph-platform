@@ -57,7 +57,7 @@ function billingLabel(team: TeamSummary): { text: string; color: string } {
   }
   if (status === "cancelled") return { text: "Cancelled", color: "border-red-500/30 bg-red-500/10 text-red-200" };
   if (status === "past_due") return { text: "Past due", color: "border-red-500/30 bg-red-500/10 text-red-200" };
-  return { text: "Waiting payment", color: "border-amber-500/30 bg-amber-500/10 text-amber-200" };
+  return { text: "Payment pending", color: "border-amber-500/30 bg-amber-500/10 text-amber-200" };
 }
 
 function formatDate(value: string | Date | null) {
@@ -161,8 +161,9 @@ function TeamsPageContent() {
           </div>
         )}
         {error ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-            {error}
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200 flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void loadTeams()}>Retry</Button>
           </div>
         ) : null}
         <Card>
@@ -176,9 +177,10 @@ function TeamsPageContent() {
             {isLoading ? (
               <p className="text-sm text-muted-foreground">Loading teams...</p>
             ) : teams.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No teams yet. Create one from Add team.
-              </p>
+              <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
+                <p className="text-sm font-medium text-foreground">No teams yet</p>
+                <p className="mt-1 text-xs text-muted-foreground">Teams appear here once athletes register with a team code.</p>
+              </div>
             ) : (
               <div className="grid gap-3">
                 {teams.map((team) => (

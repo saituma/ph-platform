@@ -756,6 +756,12 @@ export default function NutritionAdminPage() {
       title="Nutrition"
       subtitle="Review athlete logs and coach responses."
     >
+      {!selectedUserId && (
+        <div className="mb-4 rounded-xl border border-border bg-secondary/30 px-4 py-3">
+          <p className="text-sm font-medium text-foreground">Review nutrition logs</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Select an athlete on the left to view and respond to their nutrition logs.</p>
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <Card>
           <CardHeader>
@@ -845,8 +851,9 @@ export default function NutritionAdminPage() {
                 key={`profile-${selectedUserId}`}
               />
             ) : (
-              <div className="py-20 text-sm text-muted-foreground">
-                Select an athlete on the left.
+              <div className="py-16 flex flex-col items-center justify-center gap-2 text-center">
+                <p className="text-sm font-medium text-foreground">No athlete selected</p>
+                <p className="text-xs text-muted-foreground max-w-xs">Pick an athlete from the list on the left to view their nutrition logs and leave coach feedback.</p>
               </div>
             )}
           </CardContent>

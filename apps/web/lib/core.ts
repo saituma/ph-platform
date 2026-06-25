@@ -36,6 +36,7 @@ export type AdminProfileUser = {
   id?: number;
   name?: string;
   email?: string;
+  role?: string | null;
   profilePicture?: string | null;
 };
 

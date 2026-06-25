@@ -86,7 +86,7 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 
 const NAV: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Client Data", href: "/client-data", icon: Database },
+  { label: "Athlete Data", href: "/client-data", icon: Database },
 
   {
     label: "People",
@@ -138,7 +138,7 @@ const NAV: NavEntry[] = [
   },
 
   {
-    label: "Health & Schedule",
+    label: "Nutrition & Health",
     icon: CalendarDays,
     children: [
       { label: "Bookings",    href: "/bookings",          icon: CalendarDays },
@@ -154,7 +154,7 @@ const NAV: NavEntry[] = [
     children: [
       { label: "Enquiries",     href: "/enquiries",    icon: Inbox },
       { label: "Billing",       href: "/billing",      icon: CreditCard },
-      { label: "Stats",         href: "/stats",        icon: Activity },
+      { label: "Revenue",        href: "/stats",        icon: Activity },
       { label: "Portal Config", href: "/portal-config",icon: SlidersHorizontal },
     ],
   },
@@ -282,7 +282,7 @@ function UserFooter() {
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-sidebar-foreground">{displayName}</p>
-            <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">Coach</p>
+            <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest">{data?.user?.role ?? "Admin"}</p>
           </div>
         )}
         {!collapsed && <ThemeToggle />}
@@ -353,7 +353,7 @@ export function AppSidebar() {
           />
           <div className="group-data-[collapsible=icon]:hidden border-l border-sidebar-border pl-3">
             <p className="text-sm font-black uppercase tracking-tighter text-sidebar-foreground leading-none">Performance</p>
-            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-primary">Operations Hub</p>
+            <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-primary">Admin</p>
           </div>
         </Link>
       </SidebarHeader>
