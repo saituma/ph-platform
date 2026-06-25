@@ -71,8 +71,8 @@ const TIER_LABELS: Record<string, string> = {
 	PHP_Pro: "PHP Pro",
 };
 
-function tierLabel(tier?: string | null) {
-	if (!tier) return "No active plan";
+function tierLabel(tier?: string | null, planName?: string | null) {
+	if (!tier) return planName ? String(planName).trim() : "Custom Plan";
 	return TIER_LABELS[tier] ?? tier.replace(/_/g, " ");
 }
 
@@ -125,11 +125,13 @@ function oneTimeDurationLabel(plan: BillingPlan) {
 function dedupePlansByTier(plans: BillingPlan[]) {
 	const best = new Map<string, BillingPlan>();
 	for (const plan of plans) {
-		const current = best.get(plan.tier);
-		if (!current || Number(plan.id) > Number(current.id)) best.set(plan.tier, plan);
+		// Null-tier plans (e.g. off-season) are kept individually by id — never collapsed.
+		const key = plan.tier ? `tier:${plan.tier}` : `id:${plan.id}`;
+		const current = best.get(key);
+		if (!current || Number(plan.id) > Number(current.id)) best.set(key, plan);
 	}
 	return [...best.values()].sort((a, b) => {
-		return (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99);
+		return (TIER_ORDER[a.tier ?? ""] ?? 99) - (TIER_ORDER[b.tier ?? ""] ?? 99);
 	});
 }
 
@@ -225,11 +227,14 @@ function BillingPage() {
 		[plans],
 	);
 
+	const isAdultUser = user?.athleteType === "adult";
+
 	const loadBilling = async () => {
 		setLoading(true);
 		try {
+			const audience = isAdultUser ? "adult" : undefined;
 			const [planResponse, statusResponse] = await Promise.all([
-				settingsService.getBillingPlans(billingCycle),
+				settingsService.getBillingPlans(billingCycle, audience),
 				settingsService.getBillingStatus().catch(() => null),
 			]);
 			setPlans(planResponse.plans ?? []);
@@ -243,7 +248,7 @@ function BillingPage() {
 
 	useEffect(() => {
 		void loadBilling();
-	}, [billingCycle]);
+	}, [billingCycle, isAdultUser]);
 
 	useEffect(() => {
 		setInvoicesLoading(true);
@@ -258,14 +263,15 @@ function BillingPage() {
 		if (!plan.id) return;
 		setBusyPlanId(plan.id);
 		try {
-			const currentRank = currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0;
-			const targetRank = TIER_ORDER[plan.tier] ?? 0;
+			// Null-tier plans (off-season etc.) are never downgrades — tier ladder doesn't apply.
+			const currentRank = plan.tier ? (currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0) : 0;
+			const targetRank = plan.tier ? (TIER_ORDER[plan.tier] ?? 0) : 0;
 			const isDowngrade = !isTeamBilling && currentRank > 0 && targetRank < currentRank;
 
-			if (isDowngrade) {
+			if (isDowngrade && plan.tier) {
 				await settingsService.downgradePlan(plan.tier);
 				await Promise.all([refreshUser(), loadBilling()]);
-				toast.success(`Plan changed to ${tierLabel(plan.tier)}`);
+				toast.success(`Plan changed to ${tierLabel(plan.tier, plan.name)}`);
 				return;
 			}
 
@@ -499,9 +505,13 @@ function BillingPage() {
 
 			<StaggerList className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 				{activePlans.map((plan) => {
-					const isCurrent = currentTier === plan.tier && subStatusVariant !== "none";
-					const currentRank = currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0;
-					const targetRank = TIER_ORDER[plan.tier] ?? 0;
+					// Null-tier plans (off-season) match by plan id against the latest request, not tier.
+					const isCurrent = plan.tier
+						? currentTier === plan.tier && subStatusVariant !== "none"
+						: Number(status?.latestRequest?.planId) === plan.id && subStatusVariant !== "none";
+					// Null-tier plans are never a downgrade — tier ladder doesn't apply to them.
+					const currentRank = plan.tier ? (currentTier ? (TIER_ORDER[currentTier] ?? 0) : 0) : 0;
+					const targetRank = plan.tier ? (TIER_ORDER[plan.tier] ?? 0) : 0;
 					const isDowngrade = !isTeamBilling && currentRank > 0 && targetRank < currentRank;
 					const isBusy = busyPlanId === plan.id;
 
@@ -521,9 +531,9 @@ function BillingPage() {
 										<div className="flex items-start justify-between gap-3">
 											<div>
 												<CardTitle className="text-lg font-black">
-													{tierLabel(plan.tier)}
+													{tierLabel(plan.tier, plan.name)}
 												</CardTitle>
-												<CardDescription>{plan.name}</CardDescription>
+												{plan.tier ? <CardDescription>{plan.name}</CardDescription> : null}
 											</div>
 											{isCurrent ? (
 												<motion.div

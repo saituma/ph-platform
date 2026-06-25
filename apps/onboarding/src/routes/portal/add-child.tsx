@@ -91,11 +91,12 @@ function planPrice(plan: BillingPlan) {
 function dedupePlansByTier(plans: BillingPlan[]) {
 	const best = new Map<string, BillingPlan>();
 	for (const plan of plans) {
-		const current = best.get(plan.tier);
-		if (!current || Number(plan.id) > Number(current.id)) best.set(plan.tier, plan);
+		const key = plan.tier ? `tier:${plan.tier}` : `id:${plan.id}`;
+		const current = best.get(key);
+		if (!current || Number(plan.id) > Number(current.id)) best.set(key, plan);
 	}
 	return [...best.values()].sort((a, b) => {
-		return (TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99);
+		return (TIER_ORDER[a.tier ?? ""] ?? 99) - (TIER_ORDER[b.tier ?? ""] ?? 99);
 	});
 }
 

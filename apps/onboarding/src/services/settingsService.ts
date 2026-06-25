@@ -34,7 +34,7 @@ export type BillingCycle = "weekly" | "monthly" | "six_months" | "yearly";
 export type BillingPlan = {
 	id: number;
 	name: string;
-	tier: string;
+	tier: string | null;
 	durationWeeks?: number | null;
 	durationDaysPerWeek?: number | null;
 	displayPrice?: string | null;
@@ -79,9 +79,9 @@ export const settingsService = {
 	// Billing
 	getBillingStatus: () => apiRequest<BillingStatus>("/billing/status"),
 
-	getBillingPlans: (billingCycle: BillingCycle) =>
+	getBillingPlans: (billingCycle: BillingCycle, audience?: "adult" | "youth") =>
 		apiRequest<{ plans: BillingPlan[] }>(
-			`/billing/plans?${new URLSearchParams({ billingCycle }).toString()}`,
+			`/billing/plans?${new URLSearchParams(audience ? { billingCycle, audience } : { billingCycle }).toString()}`,
 		),
 
 	createCheckout: (data: { planId: number; billingCycle: BillingCycle; successUrl?: string }) =>
