@@ -720,7 +720,7 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
   const [commentText, setCommentText] = useState("");
 
   const { data: likesData, isLoading: likesLoading } = useGetNewsPostLikesQuery(contentId);
-  const { data: commentsData, isLoading: commentsLoading } = useGetNewsPostCommentsQuery(contentId);
+  const { data: commentsData, isLoading: commentsLoading } = useGetNewsPostCommentsQuery(contentId, { pollingInterval: 10000 });
   const [postComment, { isLoading: posting }] = usePostNewsCommentMutation();
   const [deleteComment, { isLoading: deletingComment }] = useDeleteNewsCommentMutation();
 
@@ -775,43 +775,55 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
           ) : comments.length === 0 ? (
             <p className="py-2 text-xs text-muted-foreground">No comments yet. Be the first.</p>
           ) : (
-            <div className="mb-4 space-y-3">
-              {comments.map((comment) => (
-                <div key={comment.commentId} className="flex items-start gap-2.5">
-                  {comment.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={comment.avatarUrl}
-                      alt={comment.name}
-                      className="h-7 w-7 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                      {initials(comment.name)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1 rounded-lg bg-background px-3 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-foreground">{comment.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground">{relativeTime(comment.createdAt)}</span>
-                        {comment.canDelete ? (
-                          <button
-                            type="button"
-                            disabled={deletingComment}
-                            onClick={() => void deleteComment({ commentId: comment.commentId, contentId })}
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                            title="Delete comment"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        ) : null}
+            <div className="mb-4 space-y-2">
+              {comments.map((comment) => {
+                const isReply = comment.content.startsWith("@");
+                const replyMatch = isReply ? comment.content.match(/^(@\S+)\s*(.*)$/s) : null;
+                const mentionPart = replyMatch?.[1] ?? "";
+                const bodyPart = replyMatch?.[2] ?? comment.content;
+                return (
+                  <div key={comment.commentId} className={isReply ? "ml-9 border-l-2 border-border pl-3" : ""}>
+                    <div className="flex items-start gap-2.5">
+                      {comment.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={comment.avatarUrl}
+                          alt={comment.name}
+                          className="h-7 w-7 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                          {initials(comment.name)}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1 rounded-lg bg-background px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-foreground">{comment.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground">{relativeTime(comment.createdAt)}</span>
+                            {comment.canDelete ? (
+                              <button
+                                type="button"
+                                disabled={deletingComment}
+                                onClick={() => void deleteComment({ commentId: comment.commentId, contentId })}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                title="Delete comment"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className="mt-0.5 text-xs text-foreground">
+                          {isReply && mentionPart ? (
+                            <><span className="font-semibold text-primary">{mentionPart}</span>{" "}{bodyPart}</>
+                          ) : comment.content}
+                        </p>
                       </div>
                     </div>
-                    <p className="mt-0.5 text-xs text-foreground">{comment.content}</p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

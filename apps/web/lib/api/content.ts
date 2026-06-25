@@ -42,6 +42,7 @@ const contentApi = apiSlice.injectEndpoints({
     >({
       query: (contentId) => `/content/news/${contentId}/comments`,
       providesTags: (_r, _e, id) => [{ type: "Content", id: `comments-${id}` }],
+      keepUnusedDataFor: 0,
     }),
     postNewsComment: builder.mutation<{ item: any }, { contentId: number; content: string }>({
       query: ({ contentId, content }) => ({
