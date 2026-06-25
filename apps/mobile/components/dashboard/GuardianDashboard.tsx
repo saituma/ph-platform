@@ -92,7 +92,7 @@ export function GuardianDashboard() {
           <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.xl }}>
             <StatItem
               label="Sessions"
-              value="12"
+              value="--"
               icon="activity"
               color={colors.accent}
               isDark={isDark}
@@ -100,7 +100,7 @@ export function GuardianDashboard() {
             />
             <StatItem
               label="Streak"
-              value="5d"
+              value="--"
               icon="zap"
               color="#F59E0B"
               isDark={isDark}
@@ -108,7 +108,7 @@ export function GuardianDashboard() {
             />
             <StatItem
               label="Focus"
-              value="92%"
+              value="--"
               icon="target"
               color="#8B5CF6"
               isDark={isDark}

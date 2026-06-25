@@ -1,48 +1,36 @@
 import { Feather } from "@/components/ui/theme-icons";
-import { useRefreshContext, usePullToRefresh } from "@/context/RefreshContext";
+import { useRefreshContext } from "@/context/RefreshContext";
 import { apiRequest } from "@/lib/api";
 import { useAppSelector } from "@/store/hooks";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useEffect } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows, radius, spacing } from "@/constants/theme";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
 export function AthleteDashboard() {
-  const { isLoading, setIsLoading } = useRefreshContext();
+  const { isLoading: contextLoading } = useRefreshContext();
   const { token } = useAppSelector((state) => state.user);
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const [athlete, setAthlete] = useState<any | null>(null);
   const birthdayNotified = useRef(false);
 
-  const loadAthlete = useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    try {
+  const { data: athlete = null, isLoading: queryLoading } = useQuery({
+    queryKey: ["athlete", "me"],
+    queryFn: async () => {
       const data = await apiRequest<{ athlete: any | null }>("/onboarding/athletes/me", {
-        token,
+        token: token!,
         suppressStatusCodes: [401],
-        skipCache: true,
-        forceRefresh: true,
       });
-      setAthlete(data.athlete ?? null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-      if (!message.includes("401")) {
-        console.warn("Failed to load athlete data", error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setIsLoading, token]);
+      return data.athlete ?? null;
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    loadAthlete();
-  }, [loadAthlete]);
-
-  usePullToRefresh(loadAthlete);
+  const isLoading = contextLoading || queryLoading;
 
   useEffect(() => {
     if (!athlete?.isBirthday || birthdayNotified.current) return;
