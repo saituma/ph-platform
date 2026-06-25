@@ -159,7 +159,7 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 	}, [isMessagesSurface, resetOpeningThread]);
 
 	const handleOpenAnnouncements = useCallback(() => {
-		router?.push("/announcements");
+		router?.push("/announcements" as any);
 	}, [router]);
 
 	const handleCompose = useCallback(() => {
@@ -300,17 +300,25 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 												<Megaphone size={22} color={p.accent} strokeWidth={2} />
 											</View>
 											<View style={styles.announcementContent}>
-												<Text
-													style={{
-														fontFamily: "Outfit-Bold",
-														fontSize: 16,
-														letterSpacing: -0.3,
-														color: p.textPrimary,
-													}}
-													numberOfLines={1}
-												>
-													{announcementsMeta.title}
-												</Text>
+												<View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+													<Text
+														style={{
+															flex: 1,
+															fontFamily: "Outfit-Bold",
+															fontSize: 16,
+															letterSpacing: -0.3,
+															color: p.textPrimary,
+														}}
+														numberOfLines={1}
+													>
+														{announcementsMeta.title}
+													</Text>
+													<View style={{ backgroundColor: p.accent, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, flexShrink: 0 }}>
+														<Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.buttonPrimaryText }}>
+															NEW
+														</Text>
+													</View>
+												</View>
 												<Text
 													style={{
 														fontFamily: "Outfit-Regular",
@@ -338,12 +346,6 @@ export function MessagesHome({ mode }: { mode: MessagesHomeMode }) {
 										</View>
 										<ChevronRight size={18} color={p.textMuted} style={{ flexShrink: 0, marginLeft: 8 }} />
 									</Pressable>
-									<View
-										style={[
-											styles.announcementBadge,
-											{ backgroundColor: p.accent },
-										]}
-									/>
 								</View>
 							)}
 						</>
@@ -406,7 +408,6 @@ const styles = StyleSheet.create({
 	announcementWrapper: {
 		marginHorizontal: 16,
 		marginBottom: 16,
-		position: "relative",
 	},
 	announcementBtn: {
 		flexDirection: "row",
@@ -434,15 +435,6 @@ const styles = StyleSheet.create({
 		flex: 1,
 		gap: 4,
 		minWidth: 0,
-	},
-	announcementBadge: {
-		position: "absolute",
-		top: -4,
-		left: 50,
-		width: 10,
-		height: 10,
-		borderRadius: 5,
-		zIndex: 10,
 	},
 	fab: {
 		position: "absolute",
