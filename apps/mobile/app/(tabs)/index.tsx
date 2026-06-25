@@ -142,7 +142,7 @@ function StatCard({
 
   return (
     <Animated.View
-      entering={reduceMotion ? undefined : FadeInDown.delay(cardDelay).duration(400).springify().damping(16)}
+      entering={reduceMotion ? undefined : FadeInDown.delay(cardDelay).duration(350)}
       style={[half ? s.statCardHalf : s.statCardFull]}
     >
       <Pressable
@@ -501,12 +501,12 @@ const HomeScreen = memo(function HomeScreen() {
           )}
 
           {/* Quick links */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(500).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(500).duration(300)}>
             <QuickLinksSection appRole={appRole} capabilities={capabilities} programTier={programTier} />
           </Animated.View>
 
           {/* Intro video */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(560).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(560).duration(300)}>
             <IntroVideoSection
               introVideoUrl={pickIntroVideoForRole(homeContent?.introVideos, homeContent?.introVideoUrl, audienceFromAppRole(appRole))}
               posterUrl={homeContent?.heroImageUrl}
@@ -517,12 +517,12 @@ const HomeScreen = memo(function HomeScreen() {
           </Animated.View>
 
           {/* Coach story */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(620).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(620).duration(300)}>
             <AdminStorySection story={homeContent?.adminStory} photoUrl={homeContent?.professionalPhoto} loading={homeContentLoading} />
           </Animated.View>
 
           {/* Testimonials */}
-          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(680).duration(300).springify()}>
+          <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(680).duration(300)}>
             <TestimonialsSection items={homeContent?.testimonials} loading={homeContentLoading} />
           </Animated.View>
         </View>

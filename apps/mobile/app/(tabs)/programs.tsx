@@ -74,7 +74,7 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
 
   const entering = reduceMotion
     ? undefined
-    : FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15);
+    : FadeInDown.delay(Math.min(index, 10) * 50).duration(250);
 
   return (
     <Animated.View entering={entering}>
@@ -153,7 +153,7 @@ const ProgramContent = memo(function ProgramContent({
     ({ item: mod, index: modIdx }: { item: (typeof modules)[number]; index: number }) => {
       const entering = reduceMotion
         ? undefined
-        : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
+        : FadeInDown.delay(Math.min(modIdx, 8) * 40).duration(250);
       const cardBg = "transparent";
       const cardText = p.textPrimary;
       const cardSubText = p.textSecondary;
@@ -592,7 +592,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
 
                 {/* Glass stat pills — hidden when only preseason is assigned */}
                 {visiblePrograms.length > 0 ? (
-                  <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(400)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                     <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                         <BookOpen size={14} color={p.accent} />
@@ -622,7 +622,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
             <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: 10 }}>
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <Animated.View
-                  entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+                  entering={reduceMotion ? undefined : FadeInDown.delay(0).duration(280)}
                   style={{ flex: 2, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
                 >
                   <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
@@ -639,7 +639,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
                 </Animated.View>
 
                 <Animated.View
-                  entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+                  entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(280)}
                   style={{ flex: 1, backgroundColor: p.cardWhite, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
                 >
                   <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>

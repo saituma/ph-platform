@@ -520,7 +520,7 @@ export default function TrackingHomeScreen() {
               </Animated.Text>
 
               {/* Glass stat pills */}
-              <Animated.View entering={FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+              <Animated.View entering={FadeInRight.delay(500).duration(500).duration(300)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                 <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Route size={14} color={p.accent} />
@@ -623,7 +623,7 @@ export default function TrackingHomeScreen() {
                 return (
                   <Animated.View
                     key={goal.id}
-                    entering={FadeInDown.delay(gi * 60).springify().damping(18)}
+                    entering={FadeInDown.delay(gi * 60).duration(280)}
                     style={{
                       backgroundColor: done ? p.cardMint : p.cardWhite,
                       borderRadius: 22,
@@ -711,7 +711,7 @@ export default function TrackingHomeScreen() {
 
           {/* ── Bento Hero: Distance (full width, tall) ── */}
           <Animated.View
-            entering={FadeInDown.delay(0).springify().damping(18)}
+            entering={FadeInDown.delay(0).duration(280)}
             style={{
               backgroundColor: PASTEL_MINT,
               borderRadius: 28,
@@ -773,7 +773,7 @@ export default function TrackingHomeScreen() {
           {/* ── Bento Row: Time + Avg (two halves) ── */}
           <View style={{ flexDirection: "row", gap: bentoGap }}>
             <Animated.View
-              entering={FadeInDown.delay(60).springify().damping(18)}
+              entering={FadeInDown.delay(60).duration(280)}
               style={{
                 width: bentoHalf,
                 backgroundColor: PASTEL_PEACH,
@@ -798,7 +798,7 @@ export default function TrackingHomeScreen() {
             </Animated.View>
 
             <Animated.View
-              entering={FadeInDown.delay(120).springify().damping(18)}
+              entering={FadeInDown.delay(120).duration(280)}
               style={{
                 width: bentoHalf,
                 backgroundColor: PASTEL_LAVENDER,
@@ -826,7 +826,7 @@ export default function TrackingHomeScreen() {
           {/* ── Bento Row: Status + Runs count ── */}
           <View style={{ flexDirection: "row", gap: bentoGap }}>
             <Animated.View
-              entering={FadeInDown.delay(180).springify().damping(18)}
+              entering={FadeInDown.delay(180).duration(280)}
               style={{
                 flex: 2,
                 backgroundColor: PASTEL_SKY,
@@ -852,7 +852,7 @@ export default function TrackingHomeScreen() {
             </Animated.View>
 
             <Animated.View
-              entering={FadeInDown.delay(240).springify().damping(18)}
+              entering={FadeInDown.delay(240).duration(280)}
               style={{
                 flex: 1,
                 backgroundColor: PASTEL_ROSE,
@@ -875,7 +875,7 @@ export default function TrackingHomeScreen() {
 
           {/* ── Weekly Distance Chart (bento card) ── */}
           <Animated.View
-            entering={FadeInDown.delay(300).springify().damping(18)}
+            entering={FadeInDown.delay(300).duration(280)}
             style={{
               backgroundColor: p.cardWhite,
               borderRadius: 28,
@@ -910,7 +910,7 @@ export default function TrackingHomeScreen() {
           {/* ── Personal Bests ── */}
           {personalBests && (
             <Animated.View
-              entering={FadeInDown.delay(320).springify().damping(18)}
+              entering={FadeInDown.delay(320).duration(280)}
               style={{
                 backgroundColor: p.cardLavender,
                 borderRadius: 28,
@@ -948,7 +948,7 @@ export default function TrackingHomeScreen() {
           )}
 
           {/* ── Progress Shortcut (bento link card) ── */}
-          {capabilities?.progressTracking !== false && <Animated.View entering={FadeInDown.delay(360).springify().damping(18)}>
+          {capabilities?.progressTracking !== false && <Animated.View entering={FadeInDown.delay(360).duration(280)}>
             <Pressable
               onPress={() => router.push("/progress" as any)}
               style={({ pressed }) => ({
@@ -1254,7 +1254,7 @@ function WorkoutRunCard({
   const muted = isDark ? "#8b8b8b" : "#666";
 
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).springify().damping(15)}>
+    <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).duration(250)}>
       <Animated.View style={scaleStyle}>
       <Pressable
         onPress={() => {
@@ -1493,7 +1493,7 @@ function BackgroundLocationInfoCard({ p }: { p: ReturnType<typeof useAdminPastel
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(200).duration(400).springify().damping(18)}
+      entering={FadeInDown.delay(200).duration(400).duration(280)}
       style={{ paddingHorizontal: spacing.xl, paddingTop: 12 }}
     >
       <View
@@ -1611,7 +1611,7 @@ function TrackingEmptyState({
         gap: 12,
       }}
     >
-      <Animated.View entering={FadeInDown.duration(500).springify()}>
+      <Animated.View entering={FadeInDown.duration(350)}>
         <Svg width={96} height={96} viewBox="0 0 100 100" fill="none">
           <Circle cx="50" cy="20" r="10" fill={p.accent} opacity="0.85" />
           <Path d="M50 35 C58 50, 42 65, 48 85" stroke={p.accent} strokeWidth="8" strokeLinecap="round" opacity="0.75" />
@@ -1623,7 +1623,7 @@ function TrackingEmptyState({
         </Svg>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(80).duration(500).springify()} style={{ alignItems: "center", gap: 8 }}>
+      <Animated.View entering={FadeInDown.delay(80).duration(350)} style={{ alignItems: "center", gap: 8 }}>
         <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, textAlign: "center" }}>
           Ready to run?
         </Text>
@@ -1632,7 +1632,7 @@ function TrackingEmptyState({
         </Text>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(160).duration(500).springify()} style={{ width: "100%", paddingTop: 8 }}>
+      <Animated.View entering={FadeInDown.delay(160).duration(350)} style={{ width: "100%", paddingTop: 8 }}>
         <GestureDetector gesture={emptyStateTap}>
           <Animated.View
             style={[btnStyle, {

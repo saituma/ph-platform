@@ -283,7 +283,7 @@ const SessionCard = memo(function SessionCard({ event, index, onCancel, onCheckI
   const isPending  = event.status?.toLowerCase() === "pending";
 
   const entering = !reduceMotion
-    ? FadeInDown.delay(Math.min(index, 10) * 50).springify().damping(15)
+    ? FadeInDown.delay(Math.min(index, 10) * 50).duration(250)
     : undefined;
 
   return (
@@ -643,7 +643,7 @@ const WeekStrip = memo(function WeekStrip({
 
   return (
     <Animated.View
-      entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300).springify()}
+      entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300)}
       style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12 }}
     >
       {days.map((day) => {
@@ -1251,7 +1251,7 @@ export default memo(function ScheduleScreen() {
             </Animated.Text>
 
             {/* Glass stat pills */}
-            <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+            <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(400)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
               <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                   <CalendarCheck size={14} color={p.accent} />
@@ -1277,7 +1277,7 @@ export default memo(function ScheduleScreen() {
       <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: bentoGap }}>
         <View style={{ flexDirection: "row", gap: bentoGap }}>
           <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(0).duration(280)}
             style={{ flex: 2, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
           >
             <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
@@ -1294,7 +1294,7 @@ export default memo(function ScheduleScreen() {
           </Animated.View>
 
           <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(60).duration(280)}
             style={{ flex: 1, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
           >
             <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
@@ -1308,7 +1308,7 @@ export default memo(function ScheduleScreen() {
 
         {past.length > 0 && (
           <Animated.View
-            entering={reduceMotion ? undefined : FadeInDown.delay(120).springify().damping(18)}
+            entering={reduceMotion ? undefined : FadeInDown.delay(120).duration(280)}
             style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
           >
             <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>

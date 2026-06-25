@@ -1119,7 +1119,7 @@ function FeedTab({
       const itemIndex = Math.max(0, index - 3); // offset for header items
       if (feedItem._type === "run") {
         return (
-          <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
+          <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).duration(250)}>
             <RunCard
               item={feedItem}
               p={p}
@@ -1132,7 +1132,7 @@ function FeedTab({
         );
       }
       return (
-        <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).springify().damping(15)}>
+        <Animated.View entering={FadeInDown.delay(Math.min(itemIndex, 10) * 50).duration(250)}>
           <PostCard
             item={feedItem}
             p={p}
