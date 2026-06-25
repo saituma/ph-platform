@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { View } from "react-native";
-import { useFocusEffect } from "expo-router";
 import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text } from "@/components/ScaledText";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import VideoPlayer from "@/components/ui/VideoPlayer";
+import { useActiveTab } from "@/context/ActiveTabContext";
 
 type IntroVideoSectionProps = {
   introVideoUrl?: string | null;
@@ -23,14 +23,13 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
 }: IntroVideoSectionProps) {
   const p = useAdminPastel();
   const width = useContentWidth();
-  const [isFocused, setIsFocused] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      setIsFocused(true);
-      return () => setIsFocused(false);
-    }, []),
-  );
+  // Use the same active-tab signal the media VideoPlayer uses.
+  // useFocusEffect is unreliable with the native PagerView tab layout —
+  // setGlobalActiveTab fires synchronously from the native layer, so this
+  // is the earliest possible signal that the home tab is no longer visible.
+  const { activeTabIndex, currentTabIndex } = useActiveTab();
+  const isTabActive = activeTabIndex === currentTabIndex;
 
   useEffect(() => {
     if (posterUrl) {
@@ -52,17 +51,17 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
       </View>
       {loading ? (
         <SkeletonBox width={cardW} height={videoH} borderRadius={20} />
-      ) : isFocused ? (
+      ) : isTabActive ? (
         <VideoPlayer
           source={introVideoUrl!}
           thumbnail={posterUrl ?? undefined}
           autoPlay={false}
-          isFocused={isFocused}
+          isFocused={isTabActive}
         />
       ) : (
-        // Unmount VideoPlayer entirely when tab loses focus — releasing the
-        // native AVPlayer is the only guarantee audio stops immediately.
-        // A static poster holds the layout so there's no shift on return.
+        // Unmount VideoPlayer entirely when the tab is not active.
+        // Native AVPlayer/ExoPlayer is released immediately when the
+        // component tree is torn down — audio cannot continue.
         posterUrl ? (
           <Image
             source={{ uri: posterUrl }}
@@ -71,14 +70,7 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
             cachePolicy="memory-disk"
           />
         ) : (
-          <View
-            style={{
-              width: cardW,
-              height: videoH,
-              borderRadius: 20,
-              backgroundColor: "#111",
-            }}
-          />
+          <View style={{ width: cardW, height: videoH, borderRadius: 20, backgroundColor: "#111" }} />
         )
       )}
     </View>
