@@ -111,7 +111,7 @@ const MessageListSection = React.memo(function MessageListSection({
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
 	const isGroupThread = useMemo(() => thread.id.startsWith("group:"), [thread.id]);
-	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId, isReady } =
+	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
 
 	useEffect(() => {
@@ -247,12 +247,13 @@ const MessageListSection = React.memo(function MessageListSection({
 	);
 
 	return (
-		<View style={{ flex: 1, opacity: isReady ? 1 : 0 }}>
+		<View style={{ flex: 1 }}>
 			<FlashList
 				ref={listRef as never}
 				data={messages}
 				keyExtractor={keyExtractor}
 				estimatedItemSize={88}
+				initialScrollIndex={messages.length > 1 ? messages.length - 1 : undefined}
 				onScroll={handleScroll}
 				extraData={highlightedId}
 				scrollEventThrottle={16}
