@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
@@ -19,7 +19,6 @@ type IntroVideoSectionProps = {
 export const IntroVideoSection = React.memo(function IntroVideoSection({
   introVideoUrl,
   posterUrl,
-  tabIndex = 0,
   loading,
 }: IntroVideoSectionProps) {
   const p = useAdminPastel();
@@ -53,13 +52,34 @@ export const IntroVideoSection = React.memo(function IntroVideoSection({
       </View>
       {loading ? (
         <SkeletonBox width={cardW} height={videoH} borderRadius={20} />
-      ) : (
+      ) : isFocused ? (
         <VideoPlayer
           source={introVideoUrl!}
           thumbnail={posterUrl ?? undefined}
           autoPlay={false}
           isFocused={isFocused}
         />
+      ) : (
+        // Unmount VideoPlayer entirely when tab loses focus — releasing the
+        // native AVPlayer is the only guarantee audio stops immediately.
+        // A static poster holds the layout so there's no shift on return.
+        posterUrl ? (
+          <Image
+            source={{ uri: posterUrl }}
+            style={{ width: cardW, height: videoH, borderRadius: 20 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+          />
+        ) : (
+          <View
+            style={{
+              width: cardW,
+              height: videoH,
+              borderRadius: 20,
+              backgroundColor: "#111",
+            }}
+          />
+        )
       )}
     </View>
   );
