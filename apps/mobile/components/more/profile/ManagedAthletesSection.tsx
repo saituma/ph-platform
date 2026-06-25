@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Image, Modal, Pressable, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
+import { Image } from "expo-image";
 import { ChevronRight, Shield, User } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -112,6 +113,9 @@ export function ManagedAthletesSection({
                           <Image
                             source={{ uri: athlete.profilePicture }}
                             style={{ width: 48, height: 48 }}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={200}
                           />
                         </View>
                       ) : (

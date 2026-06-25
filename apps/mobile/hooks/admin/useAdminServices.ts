@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { ServiceType } from "@/types/admin";
 import { parseIntOrUndefined } from "@/lib/admin-utils";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAdminQuery, useAdminMutation } from "./useAdminQuery";
 
 export function useAdminServices(token: string | null, canLoad: boolean) {
@@ -9,11 +10,11 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
   const [serviceEditBusyId, setServiceEditBusyId] = useState<number | null>(null);
 
   const fetcher = useCallback(
-    async (forceRefresh: boolean) => {
+    async () => {
       if (!token) return [];
       const res = await apiRequest<{ items?: ServiceType[] }>(
         "/bookings/services?includeInactive=true",
-        { token, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+        { token, suppressStatusCodes: [403], forceRefresh: true },
       );
       return Array.isArray(res?.items) ? res.items : [];
     },
@@ -26,7 +27,7 @@ export function useAdminServices(token: string | null, canLoad: boolean) {
     error: servicesError,
     load: loadServices,
     setError: setServicesError,
-  } = useAdminQuery<ServiceType[]>(fetcher, [], enabled);
+  } = useAdminQuery<ServiceType[]>(queryKeys.admin.services(), fetcher, [], enabled);
 
   const createMutation = useAdminMutation<{
     name: string;

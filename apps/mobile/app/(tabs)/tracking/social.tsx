@@ -297,9 +297,8 @@ export default function TrackingSocialScreen() {
   const toggleLike = useCallback(
     async (r: SocialRunFeedItem) => {
       if (!token) return;
-      const oldFeed = [...feed];
-      setFeed((prev) =>
-        prev.map((item) =>
+      setFeed((prev) => {
+        const updated = prev.map((item) =>
           item.runLogId === r.runLogId
             ? {
                 ...item,
@@ -307,8 +306,9 @@ export default function TrackingSocialScreen() {
                 likeCount: (item.likeCount ?? 0) + (item.userLiked ? -1 : 1),
               }
             : item,
-        ),
-      );
+        );
+        return updated;
+      });
       try {
         if (r.userLiked) {
           await unlikeRun(token, r.runLogId, { useTeamFeed });
@@ -316,17 +316,26 @@ export default function TrackingSocialScreen() {
           await likeRun(token, r.runLogId, { useTeamFeed });
         }
       } catch (e: any) {
-        setFeed(oldFeed);
+        setFeed((prev) =>
+          prev.map((item) =>
+            item.runLogId === r.runLogId
+              ? {
+                  ...item,
+                  userLiked: r.userLiked,
+                  likeCount: r.likeCount ?? 0,
+                }
+              : item,
+          ),
+        );
         Alert.alert("Error", String(e?.message ?? "Error"));
       }
     },
-    [feed, token, useTeamFeed],
+    [token, useTeamFeed],
   );
 
   const onTogglePostLike = useCallback(
     async (post: SocialPostItem) => {
       if (!token) return;
-      const oldPostFeed = [...postFeed];
       setPostFeed((prev) =>
         prev.map((item) =>
           item.id === post.id
@@ -345,11 +354,21 @@ export default function TrackingSocialScreen() {
           await likeSocialPost(token, post.id, { useTeamFeed });
         }
       } catch (e: any) {
-        setPostFeed(oldPostFeed);
+        setPostFeed((prev) =>
+          prev.map((item) =>
+            item.id === post.id
+              ? {
+                  ...item,
+                  userLiked: post.userLiked,
+                  likeCount: post.likeCount,
+                }
+              : item,
+          ),
+        );
         Alert.alert("Error", String(e?.message ?? "Error"));
       }
     },
-    [postFeed, token, useTeamFeed],
+    [token, useTeamFeed],
   );
 
   // ── Initial load ──
@@ -1023,7 +1042,7 @@ function FeedTab({
   }, [loading, unifiedFeed]);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: ListItem; index: number }) => {
+    ({ item, index }: { item: ListItem; index: number; }) => {
       if (item._listType === "composer") {
         return (
           <View style={{ paddingHorizontal: spacing.xl }}>
@@ -1160,6 +1179,7 @@ function FeedTab({
         paddingBottom: bottomPad,
       }}
       showsVerticalScrollIndicator={false}
+      estimatedItemSize={300}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.4}
       refreshControl={
@@ -1293,6 +1313,7 @@ function LeaderboardTab({
         paddingBottom: bottomPad,
       }}
       showsVerticalScrollIndicator={false}
+      estimatedItemSize={80}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -1461,6 +1482,7 @@ function SquadTab({
         paddingBottom: bottomPad,
       }}
       showsVerticalScrollIndicator={false}
+      estimatedItemSize={80}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -1674,7 +1696,7 @@ const PostCard = memo(function PostCard({
               </View>
             </View>
           ) : (
-            <Image source={{ uri: item.mediaUrl }} style={{ width: "100%", aspectRatio: 1 }} contentFit="cover" transition={200} />
+            <Image source={{ uri: item.mediaUrl }} style={{ width: "100%", aspectRatio: 1 }} contentFit="cover" cachePolicy="disk" />
           )
         ) : null}
 
@@ -2383,13 +2405,14 @@ function ChallengesTab({
   return (
     <FlashList
       data={data}
-      keyExtractor={(item) => item._listType}
+      keyExtractor={(item: ListItem) => item._listType}
       contentContainerStyle={{
         paddingHorizontal: spacing.xl,
         paddingTop: spacing.sm,
         paddingBottom: bottomPad,
       }}
       showsVerticalScrollIndicator={false}
+      estimatedItemSize={200}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={p.accent} />
       }

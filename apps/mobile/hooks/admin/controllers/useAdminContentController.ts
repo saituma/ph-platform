@@ -79,7 +79,7 @@ export function useAdminContentController(token: string | null, bootstrapReady: 
   const [patchJson, setPatchJson] = useState("");
 
   const load = useCallback(
-    async (forceRefresh: boolean) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !bootstrapReady) return;
       setIsLoading(true);
       setError(null);
@@ -88,14 +88,12 @@ export function useAdminContentController(token: string | null, bootstrapReady: 
           apiRequest<{ programs?: ProgramTemplate[] }>("/admin/programs?limit=50", {
             token,
             suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
+            forceRefresh: true,
           }),
           apiRequest<{ exercises?: ExerciseItem[] }>("/admin/exercises", {
             token,
             suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
+            forceRefresh: true,
           }),
         ]);
 

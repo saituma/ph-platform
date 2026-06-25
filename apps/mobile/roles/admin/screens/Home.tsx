@@ -170,7 +170,7 @@ export default function AdminHomeScreen() {
     }, []);
 
     const loadDashboard = useCallback(
-        async (forceRefresh: boolean) => {
+        async (_forceRefresh?: boolean) => {
             if (!token || !bootstrapReady) return;
             setLoading(true);
             setError(null);
@@ -178,8 +178,7 @@ export default function AdminHomeScreen() {
                 const res = await apiRequest<AdminDashboard>("/admin/dashboard", {
                     token,
                     suppressStatusCodes: [403],
-                    skipCache: forceRefresh,
-                    forceRefresh,
+                    forceRefresh: true,
                 });
                 setData(res ?? null);
             } catch (e) {
@@ -204,11 +203,12 @@ export default function AdminHomeScreen() {
     const kpis = useMemo(
         () => [
             { label: "Athletes", value: data?.kpis?.totalAthletes ?? null },
+            { label: "Teams", value: teamsHook.teams.length || null },
             { label: "Premium", value: data?.kpis?.premiumClients ?? null },
             { label: "Unread", value: data?.kpis?.unreadMessages ?? null },
             { label: "Bookings", value: data?.kpis?.bookingsToday ?? null },
         ],
-        [data],
+        [data, teamsHook.teams.length],
     );
 
     const commandActions = useMemo(

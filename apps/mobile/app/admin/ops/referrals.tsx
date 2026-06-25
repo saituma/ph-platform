@@ -142,7 +142,7 @@ export default function AdminOpsReferralsScreen() {
 
   useEffect(() => {
     if (!canLoad) return;
-    void referralsHook.load({ limit: 50 }, true);
+    void referralsHook.load({ limit: 50 });
     void teamsHook.load(true);
     void loadReferralGroups();
   }, [canLoad]);
@@ -289,7 +289,7 @@ export default function AdminOpsReferralsScreen() {
 
       resetForm();
       setActiveTab("existing");
-      void referralsHook.load({ limit: 50 }, true);
+      void referralsHook.load({ limit: 50 });
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : "Failed to create referral.");
     }
@@ -927,7 +927,7 @@ export default function AdminOpsReferralsScreen() {
                             style: "destructive",
                             onPress: async () => {
                               await referralsHook.remove(item.id);
-                              void referralsHook.load({ limit: 50 }, true);
+                              void referralsHook.load({ limit: 50 });
                             },
                           },
                         ],

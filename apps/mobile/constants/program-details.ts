@@ -53,7 +53,6 @@ export const PROGRAM_TABS: Record<ProgramId, string[]> = {
     COOL_DOWN_TAB,
     "Stretching & Foam Rolling",
     "Off Season Program",
-    "Parent Education",
     "Nutrition & Food Diaries",
     "Referrals",
   ],

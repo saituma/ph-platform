@@ -30,9 +30,9 @@ export function useProgramContent(
   }, [programId]);
 
   const loadSectionContent = useCallback(
-    async (tab: string, force = false) => {
+    async (tab: string) => {
       if (!token || !hasAccess) return;
-      
+
       const types = getSessionTypesForTab(tab);
       if (types.length === 0) {
         setSectionContent([]);
@@ -43,13 +43,13 @@ export function useProgramContent(
       setError(null);
       try {
         const tier = programIdToTier(programId);
-        
+
         const responses = await Promise.all(
           types.map((type) =>
-            programsService.fetchSectionContent(token, type, tier, activeAthleteAge, force)
+            programsService.fetchSectionContent(token, type, tier, activeAthleteAge)
           ),
         );
-        
+
         setSectionContent(mapMergedSectionContent(responses));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load program content.");
@@ -61,7 +61,7 @@ export function useProgramContent(
   );
 
   const loadTrainingContentV2 = useCallback(
-    async (force = false) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !hasAccess) {
         setTrainingContentV2(null);
         setTrainingIsLoading(false);
@@ -74,7 +74,6 @@ export function useProgramContent(
         const workspace = await programsService.fetchTeamWorkspace(
           token,
           activeAthleteAge,
-          force,
         );
         setTrainingContentV2(mapTeamWorkspace(workspace as any));
       } catch {

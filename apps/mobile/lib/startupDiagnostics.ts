@@ -27,6 +27,10 @@ function shouldAlertOnFailure(): boolean {
  * - Set EXPO_PUBLIC_STARTUP_SELF_TEST=true in EAS env for QA builds to log + optional alert on failure.
  */
 export async function runStartupSelfTest(): Promise<StartupSelfTestResult> {
+  if (!shouldLogSelfTest() && !shouldAlertOnFailure()) {
+    return { allOk: true, checks: [] };
+  }
+
   const checks: StartupCheck[] = [];
 
   const base = getApiBaseUrl();

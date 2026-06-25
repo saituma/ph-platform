@@ -1,52 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchHomeContent, HomeContentPayload } from "@/services/home/homeService";
-import { runWhenIdle } from "@/lib/scheduling/idle";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchHomeContent } from "@/services/home/homeService";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type WelcomeHeroState = "loading" | "ready" | "fallback" | "error";
 
 export function useHomeContent(token: string | null, bootstrapReady: boolean) {
-  const [homeContent, setHomeContent] = useState<HomeContentPayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isMountedRef = useRef(true);
-  const hasLoadedRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async (forceRefresh = false) => {
-    if (!token || !bootstrapReady) return;
-    if (!forceRefresh) setIsLoading(true);
-    try {
-      const content = await fetchHomeContent(token, forceRefresh);
-      if (isMountedRef.current) {
-        setHomeContent(content);
-        setError(null);
-      }
-    } catch (err: any) {
-      if (isMountedRef.current) {
-        setError(err?.message ?? "Failed to load home content");
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        hasLoadedRef.current = true;
-      }
-    }
-  }, [bootstrapReady, token]);
+  const { data: homeContent = null, isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.home.content(),
+    queryFn: () => fetchHomeContent(token!),
+    enabled: Boolean(token) && bootstrapReady,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    if (bootstrapReady && token && !hasLoadedRef.current) {
-      const task = runWhenIdle(() => {
-        void load();
-      });
-      return () => {
-        task?.cancel?.();
-        isMountedRef.current = false;
-      };
-    }
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, [bootstrapReady, load, token]);
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load home content")
+    : null;
+
+  const load = useCallback(
+    async (_forceRefresh = false) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.home.content() });
+    },
+    [queryClient],
+  );
 
   const welcomeHeroState = ((): WelcomeHeroState => {
     if (isLoading && !homeContent && !error) return "loading";

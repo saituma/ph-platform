@@ -2,15 +2,12 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
-  Image as RNImage,
   Dimensions,
-  useColorScheme,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
+import { FlashList } from "@shopify/flash-list";
 import { AlertCircle, ChevronRight, Dumbbell, Layers, Flame, Bell, BookOpen, Library } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import Animated, {
@@ -90,10 +87,9 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
             {entry.thumbnail ? (
               <Image
                 source={{ uri: entry.thumbnail }}
-                style={StyleSheet.absoluteFill}
+                cachePolicy="disk"
                 contentFit="cover"
-                cachePolicy="memory-disk"
-                placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+                style={StyleSheet.absoluteFill}
               />
             ) : (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: p.inputBg }]} />
@@ -128,6 +124,12 @@ const WatchCard = memo(function WatchCard({ entry, index }: WatchCardProps) {
 
 const WatchListSeparator = () => <View style={{ width: 12 }} />;
 const watchListContentStyle = { paddingHorizontal: 20 };
+const ProgramTabSeparator = () => <View style={{ width: 8 }} />;
+const programTabContentStyle = {
+  paddingHorizontal: 20,
+  paddingTop: 8,
+  paddingBottom: 10,
+};
 
 // ── Program Content (flat module cards → tap to navigate) ───────────
 
@@ -140,10 +142,136 @@ const ProgramContent = memo(function ProgramContent({
 }) {
   const p = useAdminPastel();
   const router = useRouter();
-  const isDark = useColorScheme() === "dark";
   const { program, isLoading, error, loadProgram } = useMyProgramDetail(token);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const reduceMotion = useReducedMotion();
+
+  const modules = useMemo(() => program?.modules ?? [], [program?.modules]);
+  const moduleKeyExtractor = useCallback((mod: { id: number | string }) => String(mod.id), []);
+
+  const renderModule = useCallback(
+    ({ item: mod, index: modIdx }: { item: (typeof modules)[number]; index: number }) => {
+      const entering = reduceMotion
+        ? undefined
+        : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
+      const cardBg = "transparent";
+      const cardText = p.textPrimary;
+      const cardSubText = p.textSecondary;
+
+      return (
+        <Animated.View entering={entering}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push(`/programs/assigned/${programId}?moduleId=${mod.id}&moduleName=${encodeURIComponent(mod.title)}` as any);
+            }}
+            style={({ pressed }) => ({
+              marginBottom: 14,
+              transform: [{ scale: pressed ? 0.97 : 1 }],
+            })}
+          >
+            <View
+              style={{
+                borderRadius: 22,
+                backgroundColor: cardBg,
+                overflow: "hidden",
+              }}
+            >
+              <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
+                <View style={{ marginRight: 14 }}>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: p.accentSoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: cardText }}>
+                      {mod.order}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: 17,
+                      fontFamily: "Outfit-Bold",
+                      color: cardText,
+                      letterSpacing: -0.2,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {mod.title}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Layers size={13} color={cardSubText} />
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Outfit-Regular",
+                        color: cardSubText,
+                      }}
+                    >
+                      {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ marginLeft: 12 }}>
+                  <View
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      backgroundColor: p.accentSoft,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ChevronRight size={16} color={cardText} />
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        </Animated.View>
+      );
+    },
+    [p.accentSoft, p.textPrimary, p.textSecondary, programId, reduceMotion, router],
+  );
+
+  const listHeader = useMemo(
+    () =>
+      program?.description ? (
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, marginBottom: 16 }}>
+          {program.description}
+        </Text>
+      ) : null,
+    [p.textSecondary, program?.description],
+  );
+
+  const listEmpty = useMemo(
+    () =>
+      !isLoading ? (
+        <View
+          style={{
+            backgroundColor: p.cardWhite,
+            borderRadius: 20,
+            padding: 32,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
+            No modules in this program yet. Your coach will add content soon.
+          </Text>
+        </View>
+      ) : null,
+    [isLoading, p.cardWhite, p.textSecondary],
+  );
 
   useEffect(() => {
     loadProgram(programId);
@@ -176,125 +304,18 @@ const ProgramContent = memo(function ProgramContent({
   }
 
   return (
-    <ScrollView
+    <FlashList
+      data={modules}
+      renderItem={renderModule}
+      keyExtractor={moduleKeyExtractor}
+      estimatedItemSize={250}
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={p.accent} />}
       showsVerticalScrollIndicator={false}
-    >
-      {program?.description ? (
-        <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, marginBottom: 16 }}>
-          {program.description}
-        </Text>
-      ) : null}
-
-      {(program?.modules ?? []).map((mod, modIdx) => {
-        const entering = reduceMotion
-          ? undefined
-          : FadeInDown.delay(Math.min(modIdx, 8) * 40).springify().damping(15);
-        const cardBg = "transparent";
-        const cardText = p.textPrimary;
-        const cardSubText = p.textSecondary;
-        return (
-          <Animated.View key={mod.id} entering={entering}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push(`/programs/assigned/${programId}?moduleId=${mod.id}&moduleName=${encodeURIComponent(mod.title)}` as any);
-              }}
-              style={({ pressed }) => ({
-                marginBottom: 14,
-                transform: [{ scale: pressed ? 0.97 : 1 }],
-              })}
-            >
-              <View
-                style={{
-                  borderRadius: 22,
-                  backgroundColor: cardBg,
-                  overflow: "hidden",
-                }}
-              >
-
-                <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
-                  <View style={{ marginRight: 14 }}>
-                    <View
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 14,
-                        backgroundColor: p.accentSoft,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: cardText }}>
-                        {mod.order}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={{
-                        fontSize: 17,
-                        fontFamily: "Outfit-Bold",
-                        color: cardText,
-                        letterSpacing: -0.2,
-                      }}
-                      numberOfLines={1}
-                    >
-                      {mod.title}
-                    </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                      <Layers size={13} color={cardSubText} />
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontFamily: "Outfit-Regular",
-                          color: cardSubText,
-                        }}
-                      >
-                        {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={{ marginLeft: 12 }}>
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 10,
-                        backgroundColor: p.accentSoft,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <ChevronRight size={16} color={cardText} />
-                    </View>
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          </Animated.View>
-        );
-      })}
-
-      {(program?.modules ?? []).length === 0 && !isLoading ? (
-        <View
-          style={{
-            backgroundColor: p.cardWhite,
-            borderRadius: 20,
-            padding: 32,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary, textAlign: "center" }}>
-            No modules in this program yet. Your coach will add content soon.
-          </Text>
-        </View>
-      ) : null}
-    </ScrollView>
+      ListHeaderComponent={listHeader}
+      ListEmptyComponent={listEmpty}
+    />
   );
 });
 
@@ -410,6 +431,41 @@ const ProgramsScreen = memo(function ProgramsScreen() {
   const profilePic = profile?.avatar ?? null;
   const totalModules = visiblePrograms.reduce((sum, prog) => sum + (prog.moduleCount ?? 0), 0);
 
+  const programTabKeyExtractor = useCallback((prog: (typeof visiblePrograms)[number]) => String(prog.id), []);
+  const renderProgramTab = useCallback(
+    ({ item: prog }: { item: (typeof visiblePrograms)[number] }) => {
+      const active = effectiveProgramId === prog.id;
+      return (
+        <Pressable
+          onPress={() => {
+            setSelectedProgramId(prog.id);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={{
+            paddingHorizontal: 14,
+            height: 36,
+            borderRadius: 100,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: active ? p.accent : p.cardWhite,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
+              color: active ? p.buttonPrimaryText : p.textSecondary,
+            }}
+            numberOfLines={1}
+          >
+            {prog.name}
+          </Text>
+        </Pressable>
+      );
+    },
+    [effectiveProgramId, p.accent, p.buttonPrimaryText, p.cardWhite, p.textSecondary],
+  );
+
   if (isSectionHidden("programs")) {
     return <AgeGate title="Programs locked" message="Programs are restricted for this age." />;
   }
@@ -437,6 +493,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
               renderItem={renderWatchItem}
               horizontal
               keyExtractor={watchKeyExtractor}
+              estimatedItemSize={160}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={watchListContentStyle}
               ItemSeparatorComponent={WatchListSeparator}
@@ -491,7 +548,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
         <>
           {/* ── Hero Header ── */}
           <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
-            <RNImage source={PROGRAMS_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
+            <Image source={PROGRAMS_BG} contentFit="cover" style={{ position: "absolute", width: "100%", height: "100%" }} />
             <LinearGradient
               colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
               locations={[0.25, 0.65, 1]}
@@ -503,7 +560,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
               <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   {profilePic ? (
-                    <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+                    <Image source={{ uri: profilePic }} contentFit="cover" style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
                   ) : (
                     <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
                       <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
@@ -653,6 +710,7 @@ const ProgramsScreen = memo(function ProgramsScreen() {
                 renderItem={renderWatchItem}
                 horizontal
                 keyExtractor={watchKeyExtractor}
+                estimatedItemSize={160}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={watchListContentStyle}
                 ItemSeparatorComponent={WatchListSeparator}
@@ -664,53 +722,18 @@ const ProgramsScreen = memo(function ProgramsScreen() {
           {visiblePrograms.length > 0 ? (
             <>
               <View style={{ borderBottomWidth: 1, borderBottomColor: p.divider, flexDirection: "row", marginTop: watchHistory.length > 0 ? 0 : 16 }}>
-                <ScrollView
+                <FlashList
+                  data={visiblePrograms}
+                  renderItem={renderProgramTab}
                   horizontal
-                  nestedScrollEnabled
+                  keyExtractor={programTabKeyExtractor}
+                  estimatedItemSize={80}
                   showsHorizontalScrollIndicator={false}
                   bounces={false}
-                  contentContainerStyle={{
-                    paddingHorizontal: 20,
-                    paddingTop: 8,
-                    paddingBottom: 10,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
+                  contentContainerStyle={programTabContentStyle}
+                  ItemSeparatorComponent={ProgramTabSeparator}
                   style={{ flexGrow: 0 }}
-                >
-                  {visiblePrograms.map((prog) => {
-                    const active = effectiveProgramId === prog.id;
-                    return (
-                      <Pressable
-                        key={prog.id}
-                        onPress={() => {
-                          setSelectedProgramId(prog.id);
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        }}
-                        style={{
-                          paddingHorizontal: 14,
-                          height: 36,
-                          borderRadius: 100,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: active ? p.accent : p.cardWhite,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 14,
-                            fontFamily: active ? "Outfit-Bold" : "Outfit-Regular",
-                            color: active ? p.buttonPrimaryText : p.textSecondary,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {prog.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+                />
               </View>
 
               {effectiveProgramId ? (

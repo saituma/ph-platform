@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";

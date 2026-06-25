@@ -75,6 +75,88 @@ export default function ForwardMessageSheet({
     [message, token, onForwarded, onClose]
   );
 
+  const renderForwardItem = useCallback(
+    ({ item }: { item: MessageThread; }) => {
+      const isLoading = sending === item.id;
+      return (
+        <Pressable
+          disabled={!!sending}
+          onPress={() => handleForward(item)}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            opacity: isLoading ? 0.5 : pressed ? 0.7 : 1,
+            backgroundColor: pressed ? colors.card : "transparent",
+          })}
+        >
+          {item.avatarUrl ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+            />
+          ) : (
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: colors.accent,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontFamily: fonts.bodyBold,
+                  color: "#fff",
+                }}
+              >
+                {item.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 15,
+                fontFamily: fonts.bodyMedium,
+                color: colors.textPrimary,
+              }}
+            >
+              {item.name}
+            </Text>
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 13,
+                fontFamily: fonts.bodyRegular,
+                color: colors.textSecondary,
+                marginTop: 2,
+              }}
+            >
+              {item.role}
+            </Text>
+          </View>
+          {isLoading && (
+            <Ionicons
+              name="hourglass-outline"
+              size={18}
+              color={colors.textDim}
+            />
+          )}
+        </Pressable>
+      );
+    },
+    [sending, handleForward, colors, fonts],
+  );
+
   if (!message) return null;
 
   const Backdrop = Platform.OS === "ios" ? BlurView : View;
@@ -170,86 +252,10 @@ export default function ForwardMessageSheet({
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <FlashList
           data={filtered}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: MessageThread) => item.id}
+          estimatedItemSize={72}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => {
-            const isLoading = sending === item.id;
-            return (
-              <Pressable
-                disabled={!!sending}
-                onPress={() => handleForward(item)}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  opacity: isLoading ? 0.5 : pressed ? 0.7 : 1,
-                  backgroundColor: pressed ? colors.card : "transparent",
-                })}
-              >
-                {item.avatarUrl ? (
-                  <Image
-                    source={{ uri: item.avatarUrl }}
-                    style={{ width: 40, height: 40, borderRadius: 20 }}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    transition={200}
-                  />
-                ) : (
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: colors.accent,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontFamily: fonts.bodyBold,
-                        color: "#fff",
-                      }}
-                    >
-                      {item.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontSize: 15,
-                      fontFamily: fonts.bodyMedium,
-                      color: colors.textPrimary,
-                    }}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      fontSize: 13,
-                      fontFamily: fonts.bodyRegular,
-                      color: colors.textSecondary,
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.role}
-                  </Text>
-                </View>
-                {isLoading && (
-                  <Ionicons
-                    name="hourglass-outline"
-                    size={18}
-                    color={colors.textDim}
-                  />
-                )}
-              </Pressable>
-            );
-          }}
+          renderItem={renderForwardItem}
         />
         </KeyboardAvoidingView>
       </Animated.View>

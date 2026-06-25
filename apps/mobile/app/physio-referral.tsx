@@ -1,6 +1,7 @@
 import { MoreStackHeader } from "@/components/more/MoreStackHeader";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -224,7 +225,9 @@ export default function PhysioReferralScreen() {
                   <Image
                     source={{ uri: meta.imageUrl }}
                     style={{ width: "100%", height: 220 }}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={200}
                   />
                 </View>
               ) : null}

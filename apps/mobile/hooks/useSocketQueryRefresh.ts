@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/context/SocketContext";
 import { queryKeys } from "@/lib/queryKeys";
@@ -10,28 +10,40 @@ import { queryKeys } from "@/lib/queryKeys";
 export function useSocketQueryRefresh() {
   const { socket } = useSocket();
   const queryClient = useQueryClient();
+  const pendingInvalidationsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
     if (!socket) return;
 
+    const invalidateSoon = (key: readonly unknown[]) => {
+      const id = JSON.stringify(key);
+      if (pendingInvalidationsRef.current.has(id)) return;
+      const timer = setTimeout(() => {
+        pendingInvalidationsRef.current.delete(id);
+        queryClient.invalidateQueries({ queryKey: key });
+      }, 250);
+      pendingInvalidationsRef.current.set(id, timer);
+    };
+
     const invalidatePrograms = () => {
-      queryClient.invalidateQueries({ queryKey: ["programs"] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.training.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.programs() });
+      invalidateSoon(["programs"]);
+      invalidateSoon(queryKeys.training.all());
+      invalidateSoon(queryKeys.admin.programs());
+      invalidateSoon(queryKeys.preseason.all());
     };
 
     const invalidateSchedule = () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedule.all() });
-      queryClient.invalidateQueries({ queryKey: ["bookings"] });
-      queryClient.invalidateQueries({ queryKey: ["programs", "scheduled"] });
+      invalidateSoon(queryKeys.schedule.all());
+      invalidateSoon(["bookings"]);
+      invalidateSoon(["programs", "scheduled"]);
     };
 
     const invalidateTracking = () => {
-      queryClient.invalidateQueries({ queryKey: ["tracking"] });
+      invalidateSoon(["tracking"]);
     };
 
     const invalidateStories = () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.stories.all() });
+      invalidateSoon(queryKeys.stories.all());
     };
 
     socket.on("story:changed", invalidateStories);
@@ -56,6 +68,10 @@ export function useSocketQueryRefresh() {
       socket.off("schedule:changed", invalidateSchedule);
       socket.off("schedule:attendance:changed", invalidateSchedule);
       socket.off("tracking:goals:changed", invalidateTracking);
+      for (const timer of pendingInvalidationsRef.current.values()) {
+        clearTimeout(timer);
+      }
+      pendingInvalidationsRef.current.clear();
     };
   }, [socket, queryClient]);
 }

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import * as Crypto from "expo-crypto";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type MeasurementKind = "chest" | "waist" | "hips" | "arm" | "thigh" | "calf" | "neck" | "other";
 
@@ -50,36 +52,30 @@ export type NewBodyWeight = Omit<BodyWeightEntry, "id">;
 export type NewMeasurement = Omit<MeasurementEntry, "id">;
 
 export function useProgressData(token: string | null) {
-  const [entries, setEntries] = useState<ProgressEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const hasFetched = useRef(false);
+  const queryClient = useQueryClient();
+
+  const { data: entries = [], isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.progress.entries(),
+    queryFn: async () => {
+      const res = await apiRequest<{ entries?: ProgressEntry[] }>("/progress/entries", {
+        token: token!,
+      });
+      return res.entries ?? [];
+    },
+    enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load progress.")
+    : null;
 
   const reload = useCallback(
-    async (force = false) => {
-      if (!token) return;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ entries?: ProgressEntry[] }>("/progress/entries", {
-          token,
-          forceRefresh: force,
-        });
-        setEntries(res.entries ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load progress.");
-      } finally {
-        setIsLoading(false);
-      }
+    async (_force = false) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.progress.entries() });
     },
-    [token],
+    [queryClient],
   );
-
-  useEffect(() => {
-    if (!token || hasFetched.current) return;
-    hasFetched.current = true;
-    void reload(true);
-  }, [token, reload]);
 
   const save = useCallback(
     async (body: Record<string, unknown>) => {
@@ -90,14 +86,13 @@ export function useProgressData(token: string | null) {
           body: { clientId: Crypto.randomUUID(), ...body },
           token,
         });
-        await reload(true);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.progress.entries() });
         return true;
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to save.");
+      } catch {
         return false;
       }
     },
-    [token, reload],
+    [token, queryClient],
   );
 
   const addStrength = useCallback(
@@ -135,14 +130,17 @@ export function useProgressData(token: string | null) {
   const remove = useCallback(
     async (id: number) => {
       if (!token) return;
-      setEntries((prev) => prev.filter((entry) => entry.id !== id));
+      queryClient.setQueryData<ProgressEntry[]>(
+        queryKeys.progress.entries(),
+        (prev) => (prev ?? []).filter((entry) => entry.id !== id),
+      );
       try {
         await apiRequest(`/progress/entries/${id}`, { method: "DELETE", token });
       } catch {
-        void reload(true);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.progress.entries() });
       }
     },
-    [token, reload],
+    [token, queryClient],
   );
 
   const strength = useMemo<StrengthEntry[]>(

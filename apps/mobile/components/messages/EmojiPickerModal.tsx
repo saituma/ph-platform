@@ -35,9 +35,13 @@ const unifiedToEmoji = (unified: string) =>
     .map((hex) => String.fromCodePoint(parseInt(hex, 16)))
     .join("");
 
-const EMOJI_ITEMS: EmojiItem[] = (() => {
+let _emojiItemsCache: EmojiItem[] | null = null;
+let _categoriesCache: string[] | null = null;
+
+function getEmojiItems(): EmojiItem[] {
+  if (_emojiItemsCache) return _emojiItemsCache;
   const raw = require("emoji-datasource/emoji.json") as EmojiSourceItem[];
-  return raw
+  _emojiItemsCache = raw
     .filter(
       (item) =>
         Boolean(item?.unified) &&
@@ -58,9 +62,14 @@ const EMOJI_ITEMS: EmojiItem[] = (() => {
         search: names.toLowerCase(),
       };
     });
-})();
+  return _emojiItemsCache;
+}
 
-const CATEGORIES = Array.from(new Set(EMOJI_ITEMS.map((i) => i.category)));
+function getCategories(): string[] {
+  if (_categoriesCache) return _categoriesCache;
+  _categoriesCache = Array.from(new Set(getEmojiItems().map((i) => i.category)));
+  return _categoriesCache;
+}
 
 const CATEGORY_EMOJI: Record<string, string> = {
   "Smileys & Emotion": "😀",
@@ -88,16 +97,28 @@ export function EmojiPickerModal({
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
   const [query, setQuery] = React.useState("");
-  const [category, setCategory] = React.useState<string>(CATEGORIES[0] ?? "");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  const [category, setCategory] = React.useState<string>("");
   const inputRef = useRef<TextInput>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     setQuery("");
-    setCategory(CATEGORIES[0] ?? "");
+    setDebouncedQuery("");
+    const cats = getCategories();
+    setCategory(cats[0] ?? "");
   }, [open]);
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const handleQueryChange = useCallback((text: string) => {
+    setQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(text), 120);
+  }, []);
+
+  const normalizedQuery = debouncedQuery.trim().toLowerCase();
+  const EMOJI_ITEMS = getEmojiItems();
+  const CATEGORIES = getCategories();
   const items = React.useMemo(() => {
     if (normalizedQuery) {
       return EMOJI_ITEMS.filter((item) =>
@@ -105,10 +126,10 @@ export function EmojiPickerModal({
       ).slice(0, 200);
     }
     return EMOJI_ITEMS.filter((item) => item.category === category);
-  }, [category, normalizedQuery]);
+  }, [category, normalizedQuery, EMOJI_ITEMS]);
 
   const renderEmojiItem = useCallback(
-    ({ item }: { item: EmojiItem }) => (
+    ({ item }: { item: EmojiItem; }) => (
       <Pressable
         onPress={() => onSelectEmoji(item.emoji)}
         style={({ pressed }) => ({
@@ -205,7 +226,7 @@ export function EmojiPickerModal({
               placeholder="Search emoji…"
               placeholderTextColor={p.textMuted}
               value={query}
-              onChangeText={setQuery}
+              onChangeText={handleQueryChange}
               style={{
                 flex: 1,
                 color: p.textPrimary,
@@ -278,8 +299,9 @@ export function EmojiPickerModal({
         {/* Emoji grid */}
         <FlashList
           data={items}
-          keyExtractor={(item) => item.key}
+          keyExtractor={(item: EmojiItem) => item.key}
           numColumns={COLS}
+          estimatedItemSize={56}
           contentContainerStyle={{
             paddingHorizontal: 8,
             paddingBottom: Math.max(insets.bottom + 24, 28),

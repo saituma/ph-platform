@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAdminQuery } from "./useAdminQuery";
 
 export type Metadata = {
@@ -82,12 +83,14 @@ export type AudienceWorkspace = {
 };
 
 export function useAdminAudienceWorkspace(token: string | null, canLoad: boolean, audienceLabel: string) {
+  const qk = useMemo(() => [...queryKeys.admin.audienceWorkspace(), audienceLabel] as const, [audienceLabel]);
+
   const fetcher = useCallback(
-    async (forceRefresh: boolean) => {
+    async () => {
       if (!token || !audienceLabel) return null;
       const res = await apiRequest<AudienceWorkspace>(
         `/training-content-v2/admin?audienceLabel=${encodeURIComponent(audienceLabel)}`,
-        { token, forceRefresh, skipCache: forceRefresh, suppressStatusCodes: [403] },
+        { token, forceRefresh: true, suppressStatusCodes: [403] },
       );
       return res ?? null;
     },
@@ -95,6 +98,7 @@ export function useAdminAudienceWorkspace(token: string | null, canLoad: boolean
   );
 
   const { data: workspace, loading, error, load } = useAdminQuery<AudienceWorkspace | null>(
+    qk,
     fetcher,
     null,
     Boolean(token && canLoad && audienceLabel),

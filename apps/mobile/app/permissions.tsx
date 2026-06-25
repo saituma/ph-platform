@@ -77,7 +77,7 @@ export default function PermissionsScreen() {
           title="Permissions"
           subtitle="Control notification access with clearer status and less friction."
           badge="Access"
-          onBack={() => router.replace("/(tabs)/more")}
+          onBack={() => router.back()}
         />
 
         <View style={{ paddingHorizontal: 24, gap: 24 }}>

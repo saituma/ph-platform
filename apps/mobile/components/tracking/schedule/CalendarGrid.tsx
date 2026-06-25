@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Pressable, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
@@ -18,6 +18,146 @@ interface CalendarGridProps {
   onChangeMonth: (offset: number) => void;
   getEventTone: (type: ScheduleEvent["type"]) => any;
 }
+
+interface DayCellProps {
+  cellKey: string;
+  cellDate: Date;
+  isOutside: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  events: ScheduleEvent[];
+  availability: string[];
+  onSelectDate: (dateKey: string) => void;
+  getEventTone: (type: ScheduleEvent["type"]) => any;
+  accentSurface: string;
+  availabilitySurface: string;
+  mutedSurface: string;
+  borderSoft: string;
+  accentColor: string;
+  textSecondaryColor: string;
+  textColor: string;
+  getAvailabilityDotColor: (serviceType: string) => string;
+}
+
+const DayCell = React.memo(function DayCell({
+  cellKey,
+  cellDate,
+  isOutside,
+  isToday,
+  isSelected,
+  events,
+  availability,
+  onSelectDate,
+  getEventTone,
+  accentSurface,
+  availabilitySurface,
+  mutedSurface,
+  borderSoft,
+  accentColor,
+  textSecondaryColor,
+  textColor,
+  getAvailabilityDotColor,
+}: DayCellProps) {
+  const hasEvents = events.length > 0;
+  const hasAvailability = availability.length > 0;
+  return (
+    <Pressable
+      onPress={() => onSelectDate(cellKey)}
+      className="h-20"
+      style={{
+        width: `${100 / 7}%`,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: borderSoft,
+        backgroundColor: isSelected
+          ? accentSurface
+          : isOutside
+            ? mutedSurface
+            : hasAvailability
+              ? availabilitySurface
+              : "transparent",
+      }}
+    >
+      <View className="flex-1 px-2 pt-2">
+        <View className="flex-row items-center justify-between">
+          <View
+            className="h-6 w-6 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: isSelected
+                ? accentColor
+                : isToday
+                  ? accentSurface
+                  : "transparent",
+            }}
+          >
+            <Text
+              className={`text-[11px] font-outfit ${
+                isSelected ? "text-white font-bold" : "text-app"
+              }`}
+              style={
+                !isSelected && isToday
+                  ? { color: accentColor, fontWeight: "700" }
+                  : isOutside
+                    ? { color: textSecondaryColor, opacity: 0.5 }
+                    : undefined
+              }
+            >
+              {cellDate.getDate()}
+            </Text>
+          </View>
+          {hasEvents || hasAvailability ? (
+            <View className="flex-row items-center gap-1">
+              {availability.slice(0, 3).map((type) => (
+                <View
+                  key={`${cellKey}-avail-${type}`}
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: getAvailabilityDotColor(type) }}
+                />
+              ))}
+              {hasEvents ? (
+                <View
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: accentColor }}
+                />
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+
+        {events.slice(0, 2).map((event) => {
+          const tone = getEventTone(event.type);
+          return (
+            <View
+              key={`${cellKey}-${event.id}`}
+              className="mt-1 rounded-full px-2 py-0.5"
+              style={{
+                backgroundColor: isSelected ? "rgba(255,255,255,0.22)" : tone.pillBg,
+              }}
+            >
+              <Text
+                className="text-[10px] font-outfit"
+                style={{
+                  color: isSelected ? "#FFFFFF" : textColor,
+                }}
+                numberOfLines={1}
+              >
+                {event.timeStart} {event.title}
+              </Text>
+            </View>
+          );
+        })}
+        {events.length > 2 ? (
+          <Text
+            className="mt-1 text-[10px] font-outfit"
+            style={{ color: textSecondaryColor }}
+          >
+            +{events.length - 2} more
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+});
 
 export function CalendarGrid({
   calendarMonth,
@@ -87,7 +227,7 @@ export function CalendarGrid({
   const availabilitySurface = isDark ? "rgba(0,229,255,0.10)" : "rgba(8,145,178,0.10)";
   const borderSoft = isDark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
 
-  const getAvailabilityDotColor = (serviceType: string) => {
+  const getAvailabilityDotColor = useCallback((serviceType: string) => {
     const palette = colors as any;
     if (serviceType.includes("group_call")) return (palette.purple as string | undefined) ?? colors.accent;
     if (serviceType.includes("lift_lab")) return (palette.amber as string | undefined) ?? colors.accent;
@@ -96,7 +236,7 @@ export function CalendarGrid({
       return (palette.cyan as string | undefined) ?? colors.accent;
     }
     return (palette.cyan as string | undefined) ?? colors.accent;
-  };
+  }, [colors]);
 
   return (
     <View className="px-6 pb-4">
@@ -180,109 +320,29 @@ export function CalendarGrid({
         >
           <View className="flex-row flex-wrap">
             {calendarGrid.map((cell, index) => {
-              const isToday = cell.key === todayKey;
-              const isSelected = selectedCalendarDate === cell.key;
-              const eventsForDay = eventsByDate.get(cell.key) ?? [];
-              const hasEvents = eventsForDay.length > 0;
-              const availabilityForDay = availabilityByDate.get(cell.key) ?? [];
-              const hasAvailability = availabilityForDay.length > 0;
+              const EMPTY_EVENTS: ScheduleEvent[] = [];
+              const EMPTY_AVAILABILITY: string[] = [];
               return (
-                <Pressable
+                <DayCell
                   key={`${cell.key}-${index}`}
-                  onPress={() => onSelectDate(cell.key)}
-                  className="h-20"
-                  style={{
-                    width: `${100 / 7}%`,
-                    borderRightWidth: 1,
-                    borderBottomWidth: 1,
-                    borderColor: borderSoft,
-                    backgroundColor: isSelected
-                      ? accentSurface
-                      : cell.isOutside
-                        ? mutedSurface
-                        : hasAvailability
-                          ? availabilitySurface
-                        : "transparent",
-                  }}
-                >
-                  <View className="flex-1 px-2 pt-2">
-                    <View className="flex-row items-center justify-between">
-                      <View
-                        className="h-6 w-6 items-center justify-center rounded-full"
-                        style={{
-                          backgroundColor: isSelected
-                            ? colors.accent
-                            : isToday
-                              ? accentSurface
-                              : "transparent",
-                        }}
-                      >
-                        <Text
-                          className={`text-[11px] font-outfit ${
-                            isSelected ? "text-white font-bold" : "text-app"
-                          }`}
-                          style={
-                            !isSelected && isToday
-                              ? { color: colors.accent, fontWeight: "700" }
-                              : cell.isOutside
-                                ? { color: colors.textSecondary, opacity: 0.5 }
-                                : undefined
-                          }
-                        >
-                          {cell.date.getDate()}
-                        </Text>
-                      </View>
-                      {hasEvents || hasAvailability ? (
-                        <View className="flex-row items-center gap-1">
-                          {availabilityForDay.slice(0, 3).map((type) => (
-                            <View
-                              key={`${cell.key}-avail-${type}`}
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: getAvailabilityDotColor(type) }}
-                            />
-                          ))}
-                          {hasEvents ? (
-                            <View
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: colors.accent }}
-                            />
-                          ) : null}
-                        </View>
-                      ) : null}
-                    </View>
-
-                    {eventsForDay.slice(0, 2).map((event) => {
-                      const tone = getEventTone(event.type);
-                      return (
-                        <View
-                          key={`${cell.key}-${event.id}`}
-                          className="mt-1 rounded-full px-2 py-0.5"
-                          style={{
-                            backgroundColor: isSelected ? "rgba(255,255,255,0.22)" : tone.pillBg,
-                          }}
-                        >
-                          <Text
-                            className="text-[10px] font-outfit"
-                            style={{
-                              color: isSelected ? "#FFFFFF" : colors.text,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {event.timeStart} {event.title}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                    {eventsForDay.length > 2 ? (
-                      <Text
-                        className="mt-1 text-[10px] font-outfit"
-                        style={{ color: colors.textSecondary }}
-                      >
-                        +{eventsForDay.length - 2} more
-                      </Text>
-                    ) : null}
-                  </View>
-                </Pressable>
+                  cellKey={cell.key}
+                  cellDate={cell.date}
+                  isOutside={cell.isOutside}
+                  isToday={cell.key === todayKey}
+                  isSelected={selectedCalendarDate === cell.key}
+                  events={eventsByDate.get(cell.key) ?? EMPTY_EVENTS}
+                  availability={availabilityByDate.get(cell.key) ?? EMPTY_AVAILABILITY}
+                  onSelectDate={onSelectDate}
+                  getEventTone={getEventTone}
+                  accentSurface={accentSurface}
+                  availabilitySurface={availabilitySurface}
+                  mutedSurface={mutedSurface}
+                  borderSoft={borderSoft}
+                  accentColor={colors.accent}
+                  textSecondaryColor={colors.textSecondary}
+                  textColor={colors.text}
+                  getAvailabilityDotColor={getAvailabilityDotColor}
+                />
               );
             })}
           </View>

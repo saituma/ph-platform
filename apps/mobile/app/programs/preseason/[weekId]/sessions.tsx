@@ -1,11 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -55,49 +55,63 @@ function categoryColor(cat: string): string {
   return CATEGORY_COLOR[cat?.toUpperCase()] ?? "#555555";
 }
 
-function SessionCard({ session, index, onPress }: { session: PreseasonSession; index: number; onPress: () => void }) {
+const SessionSeparator = () => <View style={{ height: 10 }} />;
+
+const SessionCard = memo(function SessionCard({
+  session,
+  onPress,
+}: {
+  session: PreseasonSession;
+  onPress: () => void;
+}) {
   const color = categoryColor(session.category);
   const abbr = DAY_ABBR[session.dayOfWeek] ?? "---";
   const full = DAY_FULL[session.dayOfWeek] ?? "";
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 50).springify().damping(18)}>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [styles.sessionCard, pressed && { opacity: 0.8 }]}
-        accessibilityRole="button"
-      >
-        <View style={[styles.sessionTopBorder, { backgroundColor: color }]} />
-        <View style={styles.sessionBody}>
-          <View style={styles.dayCol}>
-            <Text style={[styles.dayNumber, { color }]}>{index + 1}</Text>
-            <Text style={styles.dayAbbr}>{abbr}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.categoryRow}>
-              <Text style={styles.dayFullLabel}>{full}</Text>
-              <View style={[styles.categoryBadge, { backgroundColor: color + "22", borderColor: color + "55" }]}>
-                <Text style={[styles.categoryText, { color }]}>
-                  {session.category}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.sessionTitle} numberOfLines={1}>
-              {session.title}
-            </Text>
-            <Text style={styles.sessionDesc} numberOfLines={2}>
-              {session.description}
-            </Text>
-          </View>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.sessionCard, pressed && { opacity: 0.8 }]}
+      accessibilityRole="button"
+    >
+      <View style={[styles.sessionTopBorder, { backgroundColor: color }]} />
+      <View style={styles.sessionBody}>
+        <View style={styles.dayCol}>
+          <Text style={[styles.dayAbbr, { color }]}>{abbr}</Text>
+          <Text style={styles.dayFull}>{full}</Text>
         </View>
-      </Pressable>
-    </Animated.View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.categoryRow}>
+            <View style={[styles.categoryBadge, { backgroundColor: color + "22", borderColor: color + "55" }]}>
+              <Text style={[styles.categoryText, { color }]}>
+                {session.category}
+              </Text>
+            </View>
+            {session.completed ? (
+              <View style={styles.completedBadge}>
+                <Text style={styles.completedText}>DONE</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.sessionTitle} numberOfLines={1}>
+            {session.title}
+          </Text>
+          <Text style={styles.sessionDesc} numberOfLines={2}>
+            {session.description}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
   );
-}
+});
 
 export default function PreseasonSessionsScreen() {
-  const { weekId: weekIdParam } = useLocalSearchParams<{ weekId: string }>();
+  const { weekId: weekIdParam, weekNumber: weekNumberParam } = useLocalSearchParams<{
+    weekId: string;
+    weekNumber?: string;
+  }>();
   const weekId = weekIdParam ? parseInt(weekIdParam, 10) : null;
+  const weekNumber = weekNumberParam ?? weekIdParam;
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
@@ -106,24 +120,63 @@ export default function PreseasonSessionsScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh(true);
+    await refresh();
     setRefreshing(false);
   }, [refresh]);
 
+  const sessionKeyExtractor = useCallback((session: PreseasonSession) => String(session.id), []);
+
+  const renderSession = useCallback(
+    ({ item, index }: { item: PreseasonSession; index: number }) => (
+      <Animated.View entering={FadeInDown.delay(index * 50).springify().damping(18)}>
+        <SessionCard
+          session={item}
+          onPress={() =>
+            router.push(`/programs/preseason/day-session/${item.id}` as any)
+          }
+        />
+      </Animated.View>
+    ),
+    [router],
+  );
+
+  const listEmpty = useMemo(() => {
+    if (loading) {
+      return (
+        <View style={{ gap: 10 }}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <SkeletonBox key={i} width="100%" height={110} borderRadius={14} />
+          ))}
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => refresh()} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return null;
+  }, [error, loading, refresh]);
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Navigation header */}
       <View style={styles.navRow}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Back">
           <ChevronLeft size={22} color={TEXT_PRIMARY} />
         </Pressable>
         <Text style={styles.navTitle}>
-          {weekType?.name ?? `WEEK ${weekIdParam}`}
+          {weekType?.name ? weekType.name.toUpperCase() : `WEEK ${weekNumber}`}
         </Text>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Sessions count badge */}
       {weekType && sessions.length > 0 ? (
         <View style={styles.countRow}>
           <Text style={styles.weekTypeName}>{weekType.name}</Text>
@@ -133,10 +186,16 @@ export default function PreseasonSessionsScreen() {
         </View>
       ) : null}
 
-      <ScrollView
+      <FlashList
+        data={sessions}
+        renderItem={renderSession}
+        keyExtractor={sessionKeyExtractor}
+        estimatedItemSize={120}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={listEmpty}
+        ItemSeparatorComponent={SessionSeparator}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -144,35 +203,7 @@ export default function PreseasonSessionsScreen() {
             tintColor={ACCENT}
           />
         }
-      >
-        {loading && sessions.length === 0 ? (
-          <View style={{ gap: 10 }}>
-            {Array.from({ length: 7 }).map((_, i) => (
-              <SkeletonBox key={i} width="100%" height={110} borderRadius={14} />
-            ))}
-          </View>
-        ) : error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={() => refresh(true)} style={styles.retryBtn}>
-              <Text style={styles.retryText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            {sessions.map((session, idx) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                index={idx}
-                onPress={() =>
-                  router.push(`/programs/preseason/day-session/${session.id}` as any)
-                }
-              />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      />
     </View>
   );
 }
@@ -256,31 +287,27 @@ const styles = StyleSheet.create({
   },
   dayCol: {
     alignItems: "center",
-    minWidth: 36,
-  },
-  dayNumber: {
-    fontSize: 28,
-    fontFamily: "Outfit-Bold",
-    letterSpacing: -1,
-    lineHeight: 30,
+    minWidth: 40,
+    paddingTop: 2,
   },
   dayAbbr: {
-    fontSize: 11,
+    fontSize: 18,
     fontFamily: "Outfit-Bold",
-    color: TEXT_MUTED,
     letterSpacing: 0.5,
+    lineHeight: 22,
+  },
+  dayFull: {
+    fontSize: 10,
+    fontFamily: "Outfit-Regular",
+    color: TEXT_MUTED,
     marginTop: 2,
+    letterSpacing: 0.2,
   },
   categoryRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 4,
-  },
-  dayFullLabel: {
-    fontSize: 11,
-    fontFamily: "Outfit-Regular",
-    color: TEXT_MUTED,
+    marginBottom: 6,
   },
   categoryBadge: {
     borderRadius: 6,
@@ -292,6 +319,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "Outfit-Bold",
     letterSpacing: 0.5,
+  },
+  completedBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderWidth: 1,
+    backgroundColor: ACCENT + "22",
+    borderColor: ACCENT + "55",
+  },
+  completedText: {
+    fontSize: 10,
+    fontFamily: "Outfit-Bold",
+    letterSpacing: 0.5,
+    color: ACCENT,
   },
   sessionTitle: {
     fontSize: 15,

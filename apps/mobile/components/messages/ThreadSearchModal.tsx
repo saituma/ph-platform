@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, Modal, Platform, Pressable, TextInput, View } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { FlashList } from "@shopify/flash-list";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -59,6 +60,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
   const insets = useAppSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -69,8 +71,12 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
   useEffect(() => {
     if (visible) {
       setQuery(""); setResults([]); setError(null); setSearched(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = setTimeout(() => inputRef.current?.focus(), 100);
     }
+    return () => {
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    };
   }, [visible]);
 
   const performSearch = useCallback(async (q: string) => {
@@ -90,7 +96,12 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
     debounceRef.current = setTimeout(() => performSearch(text), 300);
   }, [performSearch]);
 
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (focusTimerRef.current) clearTimeout(focusTimerRef.current);
+    };
+  }, []);
 
   const handleSelect = useCallback((id: number) => {
     Keyboard.dismiss(); onJumpToMessage(id); onClose();
@@ -101,7 +112,7 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
   const ts = colors.textSecondary;
   const ac = colors.accent;
 
-  const renderItem = useCallback(({ item }: { item: SearchResult }) => (
+  const renderItem = useCallback(({ item }: { item: SearchResult; }) => (
     <Pressable
       onPress={() => handleSelect(item.id)}
       style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: colors.borderSubtle }}
@@ -152,7 +163,8 @@ export default function ThreadSearchModal({ visible, threadId, token, onClose, o
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
         <FlashList
           data={results}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item: SearchResult) => String(item.id)}
+          estimatedItemSize={88}
           renderItem={renderItem}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

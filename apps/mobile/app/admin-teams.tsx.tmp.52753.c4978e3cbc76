@@ -14,14 +14,16 @@ import type { AdminCardColor } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 import { apiRequest } from "@/lib/api";
 import { isAdminRole } from "@/lib/isAdminRole";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Users } from "lucide-react-native";
+import { useQuery } from "@tanstack/react-query";
 
 type AdminTeam = {
   team: string;
@@ -115,7 +117,7 @@ export default function AdminTeamsListScreen() {
   }
 
   const renderTeam = useCallback(
-    ({ item: t }: { item: AdminTeam; }) => {
+    ({ item: t }: { item: AdminTeam }) => {
       const cardColor: AdminCardColor =
         t.athleteType === "youth" ? "sage" : "lavender";
       const badgeColor: AdminCardColor =
@@ -283,7 +285,7 @@ export default function AdminTeamsListScreen() {
       <FlashList
         data={teams}
         renderItem={renderTeam}
-        keyExtractor={(t: AdminTeam) => t.team}
+        keyExtractor={(t) => t.team}
         estimatedItemSize={120}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}

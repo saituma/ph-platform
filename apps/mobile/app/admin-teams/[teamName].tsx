@@ -14,7 +14,6 @@ import {
   AdminModalSubtitle,
   useAdminPastel,
 } from "@/components/admin/AdminUI";
-import type { AdminCardColor } from "@/constants/theme";
 import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { apiRequest } from "@/lib/api";
@@ -25,13 +24,17 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, Switch, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
-import { Users } from "lucide-react-native";
+import { Users, ChevronRight } from "lucide-react-native";
 
 type AdminTeamMember = {
   athleteId: number;
   athleteName: string | null;
   currentProgramTier: string | null;
   age: number | null;
+  sessionsCompleted: number | null;
+  modulesCompleted: number | null;
+  isSponsored: boolean | null;
+  trainingPerWeek: number | null;
 };
 
 type AdminTeamDetail = {
@@ -86,6 +89,158 @@ function asString(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+function getInitials(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function MemberRow({
+  member,
+  onPress,
+}: {
+  member: AdminTeamMember;
+  onPress: () => void;
+}) {
+  const p = useAdminPastel();
+  const initials = getInitials(member.athleteName);
+  const ageStr = member.age != null ? `${member.age}y` : null;
+  const tierStr = member.currentProgramTier || null;
+  const sessions = member.sessionsCompleted ?? 0;
+  const modules = member.modulesCompleted ?? 0;
+  const statsStr = `${sessions} sessions · ${modules} modules`;
+  const subtitle = [ageStr, tierStr].filter(Boolean).join(" · ");
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: p.inputBg,
+        borderRadius: 20,
+        padding: 14,
+        opacity: pressed ? 0.85 : 1,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: p.accentSoft,
+          marginRight: 12,
+        }}
+      >
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.accent }}>
+          {initials}
+        </Text>
+      </View>
+
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 14,
+              color: p.textPrimary,
+              flexShrink: 1,
+            }}
+            numberOfLines={1}
+          >
+            {member.athleteName ?? `Athlete #${member.athleteId}`}
+          </Text>
+          {member.isSponsored ? (
+            <View
+              style={{
+                backgroundColor: p.accentSoft,
+                borderRadius: 999,
+                paddingHorizontal: 7,
+                paddingVertical: 2,
+              }}
+            >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.accent }}>
+                Sponsored
+              </Text>
+            </View>
+          ) : null}
+        </View>
+        {subtitle ? (
+          <Text
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 12,
+              color: p.textSecondary,
+            }}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+        <Text
+          style={{
+            fontFamily: "Outfit-Regular",
+            fontSize: 11,
+            color: p.textMuted,
+          }}
+          numberOfLines={1}
+        >
+          {statsStr}
+        </Text>
+      </View>
+
+      <ChevronRight size={16} color={p.textMuted} />
+    </Pressable>
+  );
+}
+
+function StatBox({ value, label }: { value: string | number; label: string }) {
+  const p = useAdminPastel();
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 80,
+        backgroundColor: p.pageBg,
+        borderRadius: 16,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        gap: 4,
+      }}
+    >
+      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary }}>
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontFamily: "Outfit-SemiBold",
+          fontSize: 10,
+          color: p.textMuted,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+        }}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 export default function AdminTeamDetailScreen() {
   const p = useAdminPastel();
   const router = useRouter();
@@ -121,7 +276,7 @@ export default function AdminTeamDetailScreen() {
   const [attachError, setAttachError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (forceRefresh: boolean) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !bootstrapReady || !canAccess) return;
       if (!teamName) return;
       setLoading(true);
@@ -132,8 +287,7 @@ export default function AdminTeamDetailScreen() {
           {
             token,
             suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
+            forceRefresh: true,
           },
         );
         setDetail(res ?? null);
@@ -169,6 +323,13 @@ export default function AdminTeamDetailScreen() {
   const members = detail?.members ?? [];
   const athleteType = detail?.athleteType ?? "youth";
   const ageBandGroups = useMemo(() => groupByAgeBand(members), [members]);
+
+  const navigateToAthlete = useCallback(
+    (athleteId: number) => {
+      router.push(`/team-manager/athlete/${athleteId}` as any);
+    },
+    [router],
+  );
 
   const search = useCallback(async () => {
     if (!token || !bootstrapReady || !canAccess) return;
@@ -278,6 +439,13 @@ export default function AdminTeamDetailScreen() {
     return <ReplaceOnce href="/(tabs)" />;
   }
 
+  const ageRangeStr =
+    detail?.minAge != null && detail?.maxAge != null
+      ? `${detail.minAge}–${detail.maxAge}`
+      : detail?.minAge != null
+        ? `${detail.minAge}+`
+        : "—";
+
   return (
     <AdminScreen>
       <AdminHeader
@@ -305,6 +473,46 @@ export default function AdminTeamDetailScreen() {
               disabled={!canLoad || !teamName}
             />
           </Animated.View>
+
+          {/* Team summary card */}
+          {detail ? (
+            <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+              <AdminCard color="sage">
+                <Text
+                  style={{
+                    fontFamily: "Outfit-ExtraBold",
+                    fontSize: 15,
+                    color: p.textPrimary,
+                    marginBottom: 12,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  Team Overview
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <StatBox value={members.length} label="Members" />
+                  <StatBox
+                    value={athleteType === "youth" ? "Youth" : "Adult"}
+                    label="Type"
+                  />
+                  <StatBox value={ageRangeStr} label="Age Range" />
+                </View>
+                {detail.summary.createdAt ? (
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Regular",
+                      fontSize: 12,
+                      color: p.textMuted,
+                      marginTop: 10,
+                    }}
+                  >
+                    Created {fmtDate(detail.summary.createdAt)}
+                  </Text>
+                ) : null}
+              </AdminCard>
+            </Animated.View>
+          ) : null}
 
           {/* Members card */}
           <Animated.View entering={FadeInDown.duration(400).delay(200)}>
@@ -360,7 +568,6 @@ export default function AdminTeamDetailScreen() {
                         key={band}
                         entering={FadeInDown.duration(350).delay(250 + bandIdx * 80)}
                       >
-                        {/* Band header */}
                         <View
                           style={{
                             flexDirection: "row",
@@ -384,47 +591,15 @@ export default function AdminTeamDetailScreen() {
                               {ageBandGroups[band].length !== 1 ? "s" : ""}
                             </Text>
                           </View>
-                          <AdminButton
-                            label={`Post to ${band}`}
-                            variant="secondary"
-                            compact
-                            onPress={() => {/* navigate to post screen for this age group */}}
-                          />
                         </View>
 
-                        {/* Band members */}
                         <View style={{ gap: 8 }}>
                           {ageBandGroups[band].map((m) => (
-                            <View
+                            <MemberRow
                               key={m.athleteId}
-                              style={{
-                                backgroundColor: p.inputBg,
-                                borderRadius: 20,
-                                padding: 16,
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  fontFamily: "Outfit-Bold",
-                                  fontSize: 14,
-                                  color: p.textPrimary,
-                                }}
-                                numberOfLines={1}
-                              >
-                                {m.athleteName ?? `Athlete #${m.athleteId}`}
-                              </Text>
-                              <Text
-                                style={{
-                                  fontFamily: "Outfit-Regular",
-                                  fontSize: 12,
-                                  color: p.textSecondary,
-                                  marginTop: 2,
-                                }}
-                              >
-                                {m.age != null ? `Age ${m.age}` : "Age unknown"}
-                                {m.currentProgramTier ? ` · ${m.currentProgramTier}` : ""}
-                              </Text>
-                            </View>
+                              member={m}
+                              onPress={() => navigateToAthlete(m.athleteId)}
+                            />
                           ))}
                         </View>
                       </Animated.View>
@@ -437,44 +612,10 @@ export default function AdminTeamDetailScreen() {
                     <Animated.View
                       key={m.athleteId}
                       entering={FadeInDown.duration(300).delay(200 + idx * 50)}
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: p.inputBg,
-                        borderRadius: 20,
-                        padding: 16,
-                      }}
                     >
-                      <View style={{ flex: 1, marginRight: 12 }}>
-                        <Text
-                          style={{
-                            fontFamily: "Outfit-Bold",
-                            fontSize: 14,
-                            color: p.textPrimary,
-                          }}
-                          numberOfLines={1}
-                        >
-                          {m.athleteName ?? `Athlete #${m.athleteId}`}
-                        </Text>
-                        {m.currentProgramTier ? (
-                          <Text
-                            style={{
-                              fontFamily: "Outfit-Regular",
-                              fontSize: 12,
-                              color: p.textSecondary,
-                              marginTop: 2,
-                            }}
-                            numberOfLines={1}
-                          >
-                            {m.currentProgramTier}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <AdminButton
-                        label="Post"
-                        variant="secondary"
-                        compact
-                        onPress={() => {/* navigate to post screen for this athlete */}}
+                      <MemberRow
+                        member={m}
+                        onPress={() => navigateToAthlete(m.athleteId)}
                       />
                     </Animated.View>
                   ))}
@@ -496,7 +637,6 @@ export default function AdminTeamDetailScreen() {
           <AdminModalTitle>Assign Athlete</AdminModalTitle>
           <AdminModalSubtitle>{`Search for athletes and assign them to ${teamName || "this team"}.`}</AdminModalSubtitle>
 
-          {/* Search input */}
           <AdminInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -504,7 +644,6 @@ export default function AdminTeamDetailScreen() {
             onClear={() => setSearchQuery("")}
           />
 
-          {/* Action buttons */}
           <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
             <AdminButton
               label={searching ? "Searching..." : "Search"}
@@ -524,7 +663,6 @@ export default function AdminTeamDetailScreen() {
             />
           </View>
 
-          {/* Errors */}
           {searchError ? (
             <Text
               selectable
@@ -553,7 +691,6 @@ export default function AdminTeamDetailScreen() {
             </Text>
           ) : null}
 
-          {/* Include other teams toggle */}
           <View
             style={{
               flexDirection: "row",
@@ -594,7 +731,6 @@ export default function AdminTeamDetailScreen() {
             />
           </View>
 
-          {/* MOVE confirmation input */}
           {includeOtherTeams ? (
             <View style={{ marginTop: 14 }}>
               <AdminFormField
@@ -606,7 +742,6 @@ export default function AdminTeamDetailScreen() {
             </View>
           ) : null}
 
-          {/* Selected athlete card */}
           {selected ? (
             <AdminCard color="sage" style={{ marginTop: 16 }} padding={16}>
               <Text
@@ -648,7 +783,6 @@ export default function AdminTeamDetailScreen() {
             </AdminCard>
           ) : null}
 
-          {/* Search results */}
           {results.length ? (
             <View style={{ gap: 8, marginTop: 16 }}>
               {results.map((u) => {

@@ -1,5 +1,7 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type SessionItem = {
   id: number;
@@ -48,31 +50,32 @@ export type TrainingContentV2Workspace = {
 };
 
 export function useSessionData(token: string | null, age: number | null) {
-  const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async (force = false) => {
-    if (!token) return null;
-    setIsLoading(true);
-    try {
+  const { data: workspace = null, isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.programs.sessionData(age),
+    queryFn: async () => {
       const ageQ = age !== null ? `?age=${age}` : "";
-      const response = await apiRequest<TrainingContentV2Workspace>(`/training-content-v2/mobile${ageQ}`, { token, forceRefresh: force });
-      setWorkspace(response);
-      setError(null);
-      return response;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load session details.");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token, age]);
+      return apiRequest<TrainingContentV2Workspace>(
+        `/training-content-v2/mobile${ageQ}`,
+        { token: token! },
+      );
+    },
+    enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError ? (queryError instanceof Error ? queryError.message : "Failed to load session details.") : null;
+
+  const load = useCallback(async (_force = false) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.programs.sessionData(age) });
+    return workspace;
+  }, [queryClient, age, workspace]);
 
   const findModuleAndSession = useCallback((sessionId: number | null, moduleId: number | null) => {
     if (!workspace?.modules) return { module: null, session: null };
-    const mod = moduleId 
-      ? workspace.modules.find(m => m.id === moduleId) 
+    const mod = moduleId
+      ? workspace.modules.find(m => m.id === moduleId)
       : workspace.modules.find(m => m.sessions.some(s => s.id === sessionId));
     const sess = mod?.sessions.find(s => s.id === sessionId) ?? null;
     return { module: mod ?? null, session: sess };

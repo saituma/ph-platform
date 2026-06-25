@@ -1,5 +1,6 @@
 import React from "react";
-import { Image, Linking, TouchableOpacity, View } from "react-native";
+import { Linking, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
@@ -32,7 +33,9 @@ export const CoachSection = React.memo(function CoachSection({
                 accessibilityLabel="Coach profile photo"
                 source={{ uri: heroImageUrl }}
                 style={{ width: "100%", height: "100%" }}
-                resizeMode="cover"
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
               />
             ) : null}
           </View>

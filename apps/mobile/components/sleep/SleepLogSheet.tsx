@@ -89,9 +89,10 @@ function WheelColumn({
       const idx = data.indexOf(selected);
       if (idx >= 0 && idx !== lastReportedIdx.current) {
         lastReportedIdx.current = idx;
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           listRef.current?.scrollToOffset({ offset: idx * ITEM_HEIGHT, animated: true });
         }, 50);
+        return () => clearTimeout(timer);
       }
     }
   }, [selected, data]);

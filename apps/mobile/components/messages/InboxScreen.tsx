@@ -186,7 +186,7 @@ function InboxScreenBase({
   }, []);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: MessageThread; index: number }) => (
+    ({ item, index }: { item: MessageThread; index: number; }) => (
       <ThreadListItem
         thread={item}
         typingStatus={typingStatus[item.id.startsWith("group:") ? item.id : `user:${item.id}`]}
@@ -265,7 +265,8 @@ function InboxScreenBase({
         <FlashList
           data={listData}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: MessageThread) => item.id}
+          estimatedItemSize={88}
           ListHeaderComponent={listHeader}
           style={{ width: "100%" }}
           contentContainerStyle={{
@@ -276,7 +277,7 @@ function InboxScreenBase({
           }}
           refreshControl={
             <RefreshControl
-              refreshing={false}
+              refreshing={isLoading}
               onRefresh={onRefresh}
               tintColor={p.accent}
             />

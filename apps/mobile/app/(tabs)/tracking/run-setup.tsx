@@ -6,7 +6,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import type { Region } from "react-native-maps";
 import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";

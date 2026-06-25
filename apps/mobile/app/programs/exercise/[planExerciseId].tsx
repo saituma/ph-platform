@@ -11,6 +11,7 @@ import {
   Pressable,
   View,
 } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -42,6 +43,7 @@ import { MarkdownText } from "@/components/ui/MarkdownText";
 import { VideoPlayer, isYoutubeUrl } from "@/components/media/VideoPlayer";
 import { ProgramMetricGrid } from "@/components/programs/metrics/ProgramMetricGrid";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { SafeMaskedView } from "@/components/navigation/TransitionStack";
@@ -208,11 +210,7 @@ export default function PremiumExerciseDetailScreen() {
   const p = useAdminPastel();
   const insets = useSafeAreaInsets();
   const { isSectionHidden } = useAgeExperience();
-  const [item, setItem] = useState<PremiumExerciseDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isTogglingComplete, setIsTogglingComplete] = useState(false);
-  const lastLoadedRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,46 +230,23 @@ export default function PremiumExerciseDetailScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const load = useCallback(
-    async (force = false) => {
-      if (!token || !planExerciseId) {
-        setIsLoading(false);
-        setError("Exercise not available.");
-        return;
-      }
-      const key = `${token}:${planExerciseId}`;
-      if (!force && lastLoadedRef.current === key) return;
-      try {
-        setIsLoading(true);
-        const data = await apiRequest<{ item?: PremiumExerciseDetail }>(
-          `/premium-plan/exercises/${planExerciseId}`,
-          {
-            token,
-            forceRefresh: force,
-            skipCache: true,
-          },
-        );
-        if (!data.item) {
-          setError("Exercise not found.");
-          setItem(null);
-          return;
-        }
-        setItem(data.item);
-        setError(null);
-        lastLoadedRef.current = key;
-      } catch (err: any) {
-        setError(err?.message ?? "Failed to load exercise.");
-        setItem(null);
-      } finally {
-        setIsLoading(false);
-      }
+  const { data: item, isLoading, error, refetch } = useQuery({
+    queryKey: queryKeys.programs.contentDetail(planExerciseId || ""),
+    queryFn: async () => {
+      if (!planExerciseId) throw new Error("Exercise not available.");
+      const data = await apiRequest<{ item?: PremiumExerciseDetail }>(
+        `/premium-plan/exercises/${planExerciseId}`,
+        {
+          token,
+          forceRefresh: true,
+        },
+      );
+      if (!data.item) throw new Error("Exercise not found.");
+      return data.item;
     },
-    [planExerciseId, token],
-  );
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+    enabled: !!token && !!planExerciseId,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const activeAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
@@ -404,28 +379,35 @@ export default function PremiumExerciseDetailScreen() {
     router.replace("/(tabs)/programs");
   }, [router]);
 
+  const queryClient = useQueryClient();
+  const exerciseQueryKey = queryKeys.programs.contentDetail(planExerciseId || "");
+
   const toggleComplete = useCallback(async () => {
     if (!token || !item || isTogglingComplete) return;
     const nextCompleted = !item.completed;
     setIsTogglingComplete(true);
-    setItem((prev) => (prev ? { ...prev, completed: nextCompleted } : prev));
+    queryClient.setQueryData(exerciseQueryKey, (prev: PremiumExerciseDetail | undefined) =>
+      prev ? { ...prev, completed: nextCompleted } : prev,
+    );
     try {
       await apiRequest(`/premium-plan/exercises/${item.id}/complete`, {
         method: nextCompleted ? "POST" : "DELETE",
         token,
       });
     } catch {
-      setItem((prev) => (prev ? { ...prev, completed: !nextCompleted } : prev));
+      queryClient.setQueryData(exerciseQueryKey, (prev: PremiumExerciseDetail | undefined) =>
+        prev ? { ...prev, completed: !nextCompleted } : prev,
+      );
     } finally {
       setIsTogglingComplete(false);
     }
-  }, [isTogglingComplete, item, token]);
+  }, [isTogglingComplete, item, token, queryClient, exerciseQueryKey]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
-          onRefresh={() => load(true)}
+          onRefresh={() => { refetch(); }}
           contentContainerStyle={contentContainerStyle}
           style={{ backgroundColor: p.pageBg }}
         >
@@ -521,7 +503,7 @@ export default function PremiumExerciseDetailScreen() {
                 }}
               >
                 <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.buttonPrimaryText, textAlign: "center" }}>
-                  {error}
+                  {error?.message ?? "Something went wrong"}
                 </Text>
               </View>
             ) : item ? (

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   Dimensions,
   Modal,
@@ -151,8 +151,8 @@ export const StreakMilestoneModal = React.memo(function StreakMilestoneModal({
   useEffect(() => {
     if (visible) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 150);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 300);
+      const timer1 = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 150);
+      const timer2 = setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 300);
 
       if (!reduceMotion) {
         flameScale.value = withDelay(
@@ -167,6 +167,10 @@ export const StreakMilestoneModal = React.memo(function StreakMilestoneModal({
           ),
         );
       }
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
     }
   }, [visible, reduceMotion]);
 
@@ -223,18 +227,20 @@ export const StreakMilestoneModal = React.memo(function StreakMilestoneModal({
             entering={reduceMotion ? undefined : FadeInDown.delay(180).duration(400)}
             style={styles.fireContainer}
           >
-            {/* Particles */}
-            <View style={styles.particleContainer} pointerEvents="none">
-              {PARTICLES.map((particle, i) => (
-                <ParticleView
-                  key={i}
-                  particle={particle}
-                  visible={visible}
-                  delay={100 + i * 20}
-                  reduceMotion={reduceMotion}
-                />
-              ))}
-            </View>
+            {/* Particles — only mount when modal is visible */}
+            {visible && (
+              <View style={styles.particleContainer} pointerEvents="none">
+                {PARTICLES.map((particle, i) => (
+                  <ParticleView
+                    key={i}
+                    particle={particle}
+                    visible={visible}
+                    delay={100 + i * 20}
+                    reduceMotion={reduceMotion}
+                  />
+                ))}
+              </View>
+            )}
 
             <Svg width={RING_SIZE} height={RING_SIZE} style={styles.ring}>
               <Circle

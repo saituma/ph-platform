@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAdminQuery, useAdminMutation } from "./useAdminQuery";
 
 export type ProgramItem = {
@@ -73,50 +74,51 @@ export function useAdminProgramBuilder(token: string | null, canLoad: boolean) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Programs query uses useAdminQuery (simple forceRefresh pattern)
   const programsFetcher = useCallback(
-    async (forceRefresh: boolean) => {
+    async () => {
       if (!token) return [];
       const res = await apiRequest<{ programs?: ProgramItem[] }>("/admin/programs", {
         token,
-        forceRefresh,
-        skipCache: forceRefresh,
+        forceRefresh: true,
       });
       return Array.isArray(res?.programs) ? res.programs : [];
     },
     [token],
   );
-  const { data: programs, load: loadPrograms } = useAdminQuery<ProgramItem[]>(programsFetcher, [], enabled);
+  const { data: programs, load: loadPrograms } = useAdminQuery<ProgramItem[]>(
+    queryKeys.admin.programs(),
+    programsFetcher,
+    [],
+    enabled,
+  );
 
-  // Adult athletes query uses useAdminQuery
   const athletesFetcher = useCallback(
-    async (forceRefresh: boolean) => {
+    async () => {
       if (!token) return [];
       const res = await apiRequest<{ athletes?: AdultAthleteItem[] }>("/admin/adult-athletes", {
         token,
-        forceRefresh,
-        skipCache: forceRefresh,
+        forceRefresh: true,
       });
       return Array.isArray(res?.athletes) ? res.athletes : [];
     },
     [token],
   );
   const { data: adultAthletes, load: loadAdultAthletes } = useAdminQuery<AdultAthleteItem[]>(
+    queryKeys.admin.adultAthletes(),
     athletesFetcher,
     [],
     enabled,
   );
 
-  // Hierarchical loaders (take entity IDs, can't use useAdminQuery)
   const loadModules = useCallback(
-    async (programId: number, forceRefresh = false) => {
+    async (programId: number, _forceRefresh = false) => {
       if (!enabled) return;
       setLoading(true);
       setError(null);
       try {
         const res = await apiRequest<{ modules?: ModuleItem[] }>(
           `/admin/programs/${programId}/modules`,
-          { token: token!, forceRefresh, skipCache: forceRefresh },
+          { token: token!, forceRefresh: true },
         );
         setModules(Array.isArray(res?.modules) ? res.modules : []);
       } catch (e) {
@@ -129,14 +131,14 @@ export function useAdminProgramBuilder(token: string | null, canLoad: boolean) {
   );
 
   const loadSessions = useCallback(
-    async (moduleId: number, forceRefresh = false) => {
+    async (moduleId: number, _forceRefresh = false) => {
       if (!enabled) return;
       setLoading(true);
       setError(null);
       try {
         const res = await apiRequest<{ sessions?: SessionItem[] }>(
           `/admin/modules/${moduleId}/sessions`,
-          { token: token!, forceRefresh, skipCache: forceRefresh },
+          { token: token!, forceRefresh: true },
         );
         setSessions(Array.isArray(res?.sessions) ? res.sessions : []);
       } catch (e) {
@@ -149,14 +151,14 @@ export function useAdminProgramBuilder(token: string | null, canLoad: boolean) {
   );
 
   const loadSessionExercises = useCallback(
-    async (sessionId: number, forceRefresh = false) => {
+    async (sessionId: number, _forceRefresh = false) => {
       if (!enabled) return;
       setLoading(true);
       setError(null);
       try {
         const res = await apiRequest<{ exercises?: SessionExerciseItem[] }>(
           `/admin/sessions/${sessionId}/exercises`,
-          { token: token!, forceRefresh, skipCache: forceRefresh },
+          { token: token!, forceRefresh: true },
         );
         setSessionExercises(Array.isArray(res?.exercises) ? res.exercises : []);
       } catch (e) {
@@ -169,13 +171,12 @@ export function useAdminProgramBuilder(token: string | null, canLoad: boolean) {
   );
 
   const loadExerciseLibrary = useCallback(
-    async (forceRefresh = false) => {
+    async (_forceRefresh = false) => {
       if (!enabled) return;
       try {
         const res = await apiRequest<{ exercises?: ExerciseLibraryItem[] }>("/admin/exercises", {
           token: token!,
-          forceRefresh,
-          skipCache: forceRefresh,
+          forceRefresh: true,
         });
         setExerciseLibrary(Array.isArray(res?.exercises) ? res.exercises : []);
       } catch {

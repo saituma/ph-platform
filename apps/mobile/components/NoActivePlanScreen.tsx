@@ -3,8 +3,7 @@ import { View, TouchableOpacity, Linking, StyleSheet } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppDispatch } from "@/store/hooks";
-import { clearUser } from "@/store/slices/userSlice";
-import { clearAuthToken } from "@/lib/authStorage";
+import { logout } from "@/store/slices/userSlice";
 
 const ONBOARDING_URL = process.env.EXPO_PUBLIC_ONBOARDING_URL ?? "https://ph-platform-onboarding.vercel.app/";
 
@@ -17,9 +16,8 @@ export function NoActivePlanScreen() {
     Linking.openURL(url);
   };
 
-  const handleLogout = async () => {
-    await clearAuthToken();
-    dispatch(clearUser());
+  const handleLogout = () => {
+    dispatch(logout());
   };
 
   const bg = isDark ? "#0a0a0a" : "#f9f9f9";

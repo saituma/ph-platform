@@ -23,7 +23,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
   const [messagesError, setMessagesError] = useState<string | null>(null);
 
   const loadGroups = useCallback(
-    async (query: string, forceRefresh: boolean) => {
+    async (query: string, _forceRefresh?: boolean) => {
       if (!enabled || inFlightLoadRef.current) return;
       inFlightLoadRef.current = true;
       setGroupsLoading(true);
@@ -35,7 +35,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
         searchParams.set("limit", "100");
         const res = await apiRequest<{ groups?: ChatGroup[] }>(
           `/chat/groups?${searchParams.toString()}`,
-          { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [401, 403] },
+          { token: token!, forceRefresh: true, suppressStatusCodes: [401, 403] },
         );
         setGroups(Array.isArray(res?.groups) ? res.groups : []);
       } catch (e) {
@@ -50,7 +50,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
   );
 
   const loadMessages = useCallback(
-    async (groupId: number, forceRefresh: boolean) => {
+    async (groupId: number, _forceRefresh?: boolean) => {
       if (!enabled) return;
       const cached = getCachedAdminGroupMessages(groupId);
       if (cached) setMessages(cached);
@@ -59,7 +59,7 @@ export function useAdminGroups(token: string | null, canLoad: boolean) {
       try {
         const res = await apiRequest<{ messages?: GroupMessage[] }>(
           `/chat/groups/${groupId}/messages?limit=100`,
-          { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [401, 403] },
+          { token: token!, forceRefresh: true, suppressStatusCodes: [401, 403] },
         );
         const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
         setCachedAdminGroupMessages(groupId, nextMessages);

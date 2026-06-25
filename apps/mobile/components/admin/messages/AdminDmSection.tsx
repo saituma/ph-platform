@@ -199,7 +199,7 @@ export function AdminDmSection({
     [dms],
   );
 
-  const renderUserSearchItem = useCallback(({ item, index }: { item: { id: number; name: string; role: string }; index: number }) => {
+  const renderUserSearchItem = useCallback(({ item, index }: { item: { id: number; name: string; role: string }; index: number; }) => {
     const avatarBg = p[AVATAR_CARD_COLORS[index % AVATAR_CARD_COLORS.length]];
     return (
       <Pressable
@@ -706,7 +706,8 @@ export function AdminDmSection({
           ) : (
             <FlashList
               data={userResults}
-              keyExtractor={(item) => String(item.id)}
+              keyExtractor={(item: { id: number; name: string; role: string }) => String(item.id)}
+              estimatedItemSize={72}
               keyboardShouldPersistTaps="handled"
               renderItem={renderUserSearchItem}
               ListEmptyComponent={

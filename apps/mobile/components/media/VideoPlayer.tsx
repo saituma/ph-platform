@@ -189,6 +189,7 @@ function VideoPlayerYoutubeMode({
   const youtubePlaybackStartedRef = useRef(false);
   const [youtubeIsPlaying, setYoutubeIsPlaying] = useState(autoPlay);
   const [youtubeResumeTime, setYoutubeResumeTime] = useState(0);
+  const closeFullscreenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [appActive, setAppActive] = useState(
     AppState.currentState === "active",
@@ -223,7 +224,10 @@ function VideoPlayerYoutubeMode({
     const sub = AppState.addEventListener("change", (next) => {
       setAppActive(next === "active");
     });
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      if (closeFullscreenTimerRef.current) clearTimeout(closeFullscreenTimerRef.current);
+    };
   }, []);
 
   const containerSize = useMemo(() => {
@@ -280,7 +284,8 @@ function VideoPlayerYoutubeMode({
       const t = await modalYouTubeRef.current?.getCurrentTime();
       setYoutubeResumeTime(typeof t === "number" ? t : 0);
       setFullscreenOpen(false);
-      setTimeout(() => {
+      if (closeFullscreenTimerRef.current) clearTimeout(closeFullscreenTimerRef.current);
+      closeFullscreenTimerRef.current = setTimeout(() => {
         inlineYouTubeRef.current?.seekTo(typeof t === "number" ? t : 0);
       }, 50);
     })();

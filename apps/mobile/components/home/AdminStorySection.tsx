@@ -23,8 +23,8 @@ export const AdminStorySection = React.memo(function AdminStorySection({ story, 
 
   useEffect(() => {
     if (photo) {
-      RNImage.getSize(photo, (w, h) => {
-        if (w && h) setAspectRatio(w / h);
+      RNImage.getSize(photo, (width: number, height: number) => {
+        if (width && height) setAspectRatio(width / height);
       }, () => setAspectRatio(1));
     }
   }, [photo]);

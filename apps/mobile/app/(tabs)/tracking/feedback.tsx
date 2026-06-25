@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   TextInput,
   Platform,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -67,21 +67,30 @@ export default function FeedbackScreen() {
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-100);
   const scaleSaveBtn = useSharedValue(1);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
     translateY.value = withSpring(0, { damping: 20, stiffness: 150 });
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
     if (showToast) {
       toastTranslateY.value = withSpring(0, { damping: 15, stiffness: 200 });
-      setTimeout(() => {
+      toastTimerRef.current = setTimeout(() => {
         toastTranslateY.value = withSpring(-100, {
           damping: 15,
           stiffness: 200,
         });
       }, 2500);
+      return () => {
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      };
     }
   }, [showToast]);
 
@@ -110,7 +119,8 @@ export default function FeedbackScreen() {
       pushRunsToCloud();
 
       setShowToast(true);
-      setTimeout(() => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
         resetRun();
         router.replace("/(tabs)/tracking" as any);
       }, 1000);
@@ -133,6 +143,13 @@ export default function FeedbackScreen() {
   const animatedSaveBtnStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scaleSaveBtn.value }],
   }));
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   return (
     <>

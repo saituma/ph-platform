@@ -340,11 +340,13 @@ const HomeScreen = memo(function HomeScreen() {
   const [streakVisible, setStreakVisible] = useState(false);
   const [milestoneVisible, setMilestoneVisible] = useState(false);
   const [activeMilestoneDay, setActiveMilestoneDay] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Hydrate streak from server on boot, then open modal if needed
   useEffect(() => {
     if (!bootstrapReady || !token) return;
     let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
     const run = async () => {
       try {
@@ -372,9 +374,11 @@ const HomeScreen = memo(function HomeScreen() {
       const storeState = useStreakStore.getState();
       if (storeState.shouldShowMilestone()) {
         setActiveMilestoneDay(storeState.currentStreak);
-        setTimeout(() => { if (!cancelled) setMilestoneVisible(true); }, 800);
+        const timer = setTimeout(() => { if (!cancelled) setMilestoneVisible(true); }, 800);
+        timers.push(timer);
       } else if (storeState.shouldShowStreak()) {
-        setTimeout(() => { if (!cancelled) setStreakVisible(true); }, 600);
+        const timer = setTimeout(() => { if (!cancelled) setStreakVisible(true); }, 600);
+        timers.push(timer);
       }
 
       // Schedule daily local reminder
@@ -382,7 +386,10 @@ const HomeScreen = memo(function HomeScreen() {
     };
 
     void run();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+    };
   }, [bootstrapReady, token]);
 
   useFocusEffect(
@@ -392,10 +399,15 @@ const HomeScreen = memo(function HomeScreen() {
   );
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: queryKeys.home.all() }),
-      reloadHomeContent(true),
-    ]);
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: queryKeys.home.all() }),
+        reloadHomeContent(true),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [queryClient, reloadHomeContent]);
 
   const navigateToTracking = useCallback(() => {
@@ -492,7 +504,7 @@ const HomeScreen = memo(function HomeScreen() {
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={handleRefresh} tintColor={accentLime} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={accentLime} />}
         style={{ backgroundColor: isDark ? "#000000" : p.pageBg }}
       >
         {/* ── Hero with background image ── */}

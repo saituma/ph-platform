@@ -2,7 +2,7 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { Reply, Forward, Copy, Pin, Plus, Smile, Trash, Flag, Ban } from "lucide-react-native";
 import React from "react";
-import { Modal, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -80,6 +80,14 @@ export function MessageContextMenu({
 
 	const handleAction = (key: string) => {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+		if (key === "delete") {
+			onClose();
+			Alert.alert("Delete message", "Are you sure you want to delete this message?", [
+				{ text: "Cancel", style: "cancel" },
+				{ text: "Delete", style: "destructive", onPress: () => onDelete?.(message) },
+			]);
+			return;
+		}
 		switch (key) {
 			case "reply": onReply(message); break;
 			case "copy": onCopy(message); break;
@@ -87,7 +95,6 @@ export function MessageContextMenu({
 			case "pin": onPin?.(message); break;
 			case "report": onReport?.(message); break;
 			case "block": onBlock?.(message); break;
-			case "delete": onDelete?.(message); break;
 		}
 		onClose();
 	};

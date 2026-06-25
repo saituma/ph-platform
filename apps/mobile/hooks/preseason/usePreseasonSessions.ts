@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type PreseasonSession = {
   id: number;
@@ -19,39 +20,22 @@ export type PreseasonWeekTypeSummary = {
 };
 
 export function usePreseasonSessions(token: string | null, weekId: number | null) {
-  const [weekType, setWeekType] = useState<PreseasonWeekTypeSummary | null>(null);
-  const [sessions, setSessions] = useState<PreseasonSession[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const hasFetched = useRef(false);
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: queryKeys.preseason.sessions(weekId!),
+    queryFn: () =>
+      apiRequest<{ weekType: PreseasonWeekTypeSummary; sessions: PreseasonSession[] }>(
+        `/preseason-programme/mobile/weeks/${weekId}/sessions`,
+        { token: token! },
+      ),
+    enabled: Boolean(token) && Boolean(weekId),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const refresh = useCallback(
-    async (force = false) => {
-      if (!token || !weekId) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ weekType: PreseasonWeekTypeSummary; sessions: PreseasonSession[] }>(
-          `/preseason-programme/mobile/weeks/${weekId}/sessions`,
-          { token, forceRefresh: force },
-        );
-        setWeekType(res.weekType ?? null);
-        setSessions(res.sessions ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load sessions.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token, weekId],
-  );
-
-  useEffect(() => {
-    if (token && weekId && !hasFetched.current) {
-      hasFetched.current = true;
-      refresh();
-    }
-  }, [token, weekId, refresh]);
-
-  return { weekType, sessions, loading, error, refresh };
+  return {
+    weekType: data?.weekType ?? null,
+    sessions: data?.sessions ?? [],
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+    refresh: refetch,
+  };
 }

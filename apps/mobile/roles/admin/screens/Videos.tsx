@@ -118,7 +118,7 @@ export default function AdminVideosScreen() {
   const [sectionTab, setSectionTab] = useState<string>("all");
 
   const load = useCallback(
-    async (forceRefresh: boolean) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !bootstrapReady) return;
       setLoading(true);
       setError(null);
@@ -128,8 +128,7 @@ export default function AdminVideosScreen() {
           {
             token,
             suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
+            forceRefresh: true,
           },
         );
         setItems(Array.isArray(res?.items) ? res.items : []);

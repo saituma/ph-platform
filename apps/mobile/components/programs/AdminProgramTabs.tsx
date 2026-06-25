@@ -11,7 +11,6 @@ import {
   BookingsPanel, 
   FoodDiaryPanel, 
   PhysioReferralPanel, 
-  ParentEducationPanel, 
   VideoUploadPanel 
 } from "@/components/programs/ProgramPanels";
 
@@ -108,10 +107,6 @@ export function AdminProgramTabs({
 
   if (activeTab === "Video Upload") {
     return <VideoUploadPanel sectionContentId={null} />;
-  }
-
-  if (["Education", "Parent Education"].includes(activeTab)) {
-    return <ParentEducationPanel onOpen={() => onNavigate?.("/parent-platform")} />;
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, InteractionManager, type AppStateStatus } from "react-native";
 import * as Updates from "expo-updates";
 
 /**
@@ -31,14 +31,23 @@ export function useOtaUpdater() {
       }
     }
 
-    // Cold start: apply immediately and seamlessly.
-    void checkAndApply(true);
+    // Cold start: defer network/update work until the first screen has had a
+    // chance to settle. This keeps iPhone launch responsive while still applying
+    // a pending bundle before meaningful app use in release builds.
+    let startupTimer: ReturnType<typeof setTimeout> | null = null;
+    const startupTask = InteractionManager.runAfterInteractions(() => {
+      startupTimer = setTimeout(() => void checkAndApply(true), 1500);
+    });
 
     // Foreground while already running: fetch but leave pending for the banner.
     const sub = AppState.addEventListener("change", (state: AppStateStatus) => {
       if (state === "active") void checkAndApply(false);
     });
 
-    return () => sub.remove();
+    return () => {
+      startupTask.cancel();
+      if (startupTimer) clearTimeout(startupTimer);
+      sub.remove();
+    };
   }, []);
 }

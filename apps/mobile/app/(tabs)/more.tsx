@@ -39,6 +39,7 @@ import {
   logout,
   updateProfile,
   setCapabilities,
+  setExpiryBanner,
   setPlanFeatures,
   setProgramTier,
 } from "../../store/slices/userSlice";
@@ -103,10 +104,6 @@ export default function MoreScreen() {
   } = useAgeExperience();
   const { isLoading } = useRefreshContext();
   const transition = useSharedValue(1);
-  const isAdultUserRole =
-    appRole === "adult_athlete" || appRole === "adult_athlete_team";
-  const showParentPlatform =
-    isAuthenticated && Boolean(capabilities?.parentContent) && !isAdultUserRole;
   const canAccessFoodDiary = Boolean(capabilities?.nutrition);
   const showPhysioReferrals = Boolean(capabilities?.physioReferrals);
 
@@ -164,6 +161,7 @@ export default function MoreScreen() {
             dispatch(setCapabilities(me.user.capabilities ?? null));
             dispatch(setPlanFeatures(me.user.planFeatures ?? []));
             dispatch(setProgramTier(me.user.programTier ?? null));
+            dispatch(setExpiryBanner((me.user as any).expiryBanner ?? null));
           }
         } catch {
           /* keep existing profile */
@@ -401,16 +399,6 @@ export default function MoreScreen() {
                 p={p}
                 index={menuIndex++}
               />
-              {showParentPlatform ? (
-                <MenuItem
-                  Icon={BookOpen}
-                  label="Parent Platform"
-                  subtitle="Resources for parents"
-                  onPress={() => router.push("/parent-platform")}
-                  p={p}
-                  index={menuIndex++}
-                />
-              ) : null}
               {canAccessFoodDiary ? (
                 <MenuItem
                   Icon={Apple}

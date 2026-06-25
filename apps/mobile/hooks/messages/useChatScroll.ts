@@ -1,9 +1,28 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import { FlatList, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { ChatMessage } from "@/constants/messages";
 
+type ChatListRef = {
+  scrollToOffset: (params: { offset: number; animated?: boolean }) => void;
+  scrollToIndex: (params: {
+    index: number;
+    animated?: boolean;
+    viewPosition?: number;
+  }) => void;
+  scrollToEnd?: (params?: { animated?: boolean }) => void;
+};
+
+function scrollListToEnd(list: ChatListRef | null, animated: boolean) {
+  if (!list) return;
+  if (list.scrollToEnd) {
+    list.scrollToEnd({ animated });
+    return;
+  }
+  list.scrollToOffset({ offset: Number.MAX_SAFE_INTEGER, animated });
+}
+
 export function useChatScroll(messages: ChatMessage[], threadId: string) {
-  const listRef = useRef<FlatList<ChatMessage> | null>(null);
+  const listRef = useRef<ChatListRef | null>(null);
   const isNearBottomRef = useRef(true);
   const hasInitialScrolled = useRef<string | null>(null);
   const previousLengthRef = useRef(0);
@@ -15,9 +34,9 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
     hasInitialScrolled.current = threadId;
     previousLengthRef.current = messages.length;
     setNewIncomingCount(0);
-    requestAnimationFrame(() =>
-      listRef.current?.scrollToOffset({ offset: 0, animated: false }),
-    );
+    requestAnimationFrame(() => {
+      scrollListToEnd(listRef.current, false);
+    });
   }, [threadId, messages.length]);
 
   useEffect(() => {
@@ -26,10 +45,12 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
     if (messages.length <= previousLength) return;
     if (messages.length === 0) return;
     const latest = messages[messages.length - 1];
-    if (latest.from === "user" || isNearBottomRef.current) {
-      requestAnimationFrame(() =>
-        listRef.current?.scrollToOffset({ offset: 0, animated: true }),
-      );
+    if (latest.from === "user") {
+      requestAnimationFrame(() => {
+        scrollListToEnd(listRef.current, true);
+      });
+      setNewIncomingCount(0);
+    } else if (isNearBottomRef.current) {
       setNewIncomingCount(0);
     } else {
       setNewIncomingCount((prev) => Math.min(prev + 1, 99));
@@ -38,9 +59,12 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
 
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset } = event.nativeEvent;
-      isNearBottomRef.current = contentOffset.y < 60;
-      if (isNearBottomRef.current) setNewIncomingCount(0);
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      const wasNearBottom = isNearBottomRef.current;
+      isNearBottomRef.current = distanceFromBottom < 80;
+      if (isNearBottomRef.current && !wasNearBottom) setNewIncomingCount(0);
     },
     [],
   );
@@ -49,9 +73,8 @@ export function useChatScroll(messages: ChatMessage[], threadId: string) {
     (messageId: number) => {
       const chronoIndex = messages.findIndex((m) => Number(m.id) === messageId);
       if (chronoIndex < 0) return;
-      const index = messages.length - 1 - chronoIndex;
       listRef.current?.scrollToIndex({
-        index,
+        index: chronoIndex,
         animated: true,
         viewPosition: 0.5,
       });

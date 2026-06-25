@@ -194,18 +194,24 @@ export function SwipeableTabLayout({
   // Android + native pickers (camera/library) can trigger transient remounts where PagerView breaks
   // React Navigation context propagation, causing "Couldn't find a navigation context" crashes.
   // Fallback to a non-PagerView implementation on non-iOS platforms (press-to-switch only).
+  // Keep all children mounted to preserve state; use display to hide/show.
   if (Platform.OS !== "ios") {
-    const activeChild = childrenArray[activeIndex] ?? null;
-    const activeKey = tabs[activeIndex]?.key ?? `page-${activeIndex}`;
-
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.pager}>
-          <View key={activeKey} style={StyleSheet.absoluteFillObject}>
-            <ActiveTabProvider currentTabIndex={activeIndex}>
-              {activeChild}
-            </ActiveTabProvider>
-          </View>
+          {childrenArray.map((child, index) => {
+            const key = tabs[index]?.key ?? `page-${index}`;
+            return (
+              <View
+                key={key}
+                style={[StyleSheet.absoluteFillObject, { display: activeIndex === index ? "flex" : "none" }]}
+              >
+                <ActiveTabProvider currentTabIndex={index}>
+                  {child}
+                </ActiveTabProvider>
+              </View>
+            );
+          })}
         </View>
 
         {isTabBarVisible ? (

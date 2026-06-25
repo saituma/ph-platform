@@ -6,7 +6,7 @@ import MoreScreen from "@/app/(tabs)/more";
 import ProgramsScreen from "@/app/(tabs)/programs";
 import ScheduleScreen from "@/app/(tabs)/schedule";
 import TrackingHomeScreen from "@/app/(tabs)/tracking";
-import ParentPlatformScreen from "@/app/parent-platform/index";
+import NewsScreen from "@/app/news";
 
 export const SHARED_TAB_COMPONENTS: Record<
   string,
@@ -17,6 +17,6 @@ export const SHARED_TAB_COMPONENTS: Record<
   messages: React.memo(MessagesScreen),
   schedule: React.memo(ScheduleScreen),
   tracking: React.memo(TrackingHomeScreen),
-  "parent-platform": React.memo(ParentPlatformScreen),
+  news: React.memo(NewsScreen),
   more: React.memo(MoreScreen),
 };

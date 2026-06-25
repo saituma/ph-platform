@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, InteractionManager } from "react-native";
 import { useAppDispatch, useAppSelector } from "./hooks";
 import {
   selectBootstrapReady,
@@ -68,6 +68,8 @@ export function AuthPersist() {
   const lastSavedToken = useRef<string | null>(null);
   const lastSavedRefreshToken = useRef<string | null>(null);
   const lastPushToken = useRef<string | null>(null);
+  const lastForegroundProfileSyncAt = useRef(0);
+  const lastForegroundPushSyncAt = useRef(0);
 
   // ── Startup hydration ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -347,7 +349,7 @@ export function AuthPersist() {
     const isLoginFresh = Date.now() < _loginFreshUntil;
     if (isLoginFresh) _loginFreshUntil = 0;
 
-    const criticalWork = isLoginFresh ? [] : [syncProfile()];
+    const criticalWork = isLoginFresh ? [] : [syncProfile(), syncManagedAthletes()];
 
     void Promise.allSettled(criticalWork).then(() => {
       if (!active) return;
@@ -360,25 +362,35 @@ export function AuthPersist() {
         Sentry.setUser({ id: p.id ? String(p.id) : undefined, email: p.email ?? undefined });
       }
       dispatch(setBootstrapReady(true));
-      void syncManagedAthletes();
-      void syncPushToken();
+      const bootstrapCompletedAt = Date.now();
+      lastForegroundProfileSyncAt.current = bootstrapCompletedAt;
+      lastForegroundPushSyncAt.current = bootstrapCompletedAt;
+      InteractionManager.runAfterInteractions(() => {
+        if (!active) return;
+        void syncPushToken();
+      });
     });
 
     const appStateSub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        void syncProfile();
-        void syncPushToken();
+        InteractionManager.runAfterInteractions(() => {
+          if (!active) return;
+          const now = Date.now();
+          if (now - lastForegroundProfileSyncAt.current > 5 * 60 * 1000) {
+            lastForegroundProfileSyncAt.current = now;
+            void syncProfile();
+          }
+          if (now - lastForegroundPushSyncAt.current > 30 * 60 * 1000) {
+            lastForegroundPushSyncAt.current = now;
+            void syncPushToken();
+          }
+        });
       }
     });
-
-    const capabilityPoll = setInterval(() => {
-      void syncProfile();
-    }, 300_000);
 
     return () => {
       active = false;
       appStateSub.remove();
-      clearInterval(capabilityPoll);
     };
   }, [dispatch, hydrated, isAuthenticated, token]);
 

@@ -1,12 +1,12 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import {
   Dimensions,
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import Animated, {
   FadeInDown,
   FadeInUp,
@@ -220,6 +220,13 @@ export default function WellbeingScreen() {
   const [energy, setEnergy] = useState(todayLog?.energy ?? 3);
   const [pain, setPain] = useState(todayLog?.pain ?? 1);
   const [saved, setSaved] = useState(false);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (todayLog) {
@@ -278,119 +285,75 @@ export default function WellbeingScreen() {
       if (result) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => setSaved(false), 2000);
       }
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
   }, [mood, energy, pain, saveLog]);
 
-  const recentLogs = [...logs]
-    .sort((a, b) => (b.dateKey ?? "").localeCompare(a.dateKey ?? ""))
-    .slice(0, 7);
+  const recentLogs = useMemo(
+    () => [...logs].sort((a, b) => (b.dateKey ?? "").localeCompare(a.dateKey ?? "")).slice(0, 7),
+    [logs],
+  );
 
-  // Gate AFTER all hooks (incl. useWellbeingData) so the hook count is stable across
-  // the async capabilities hydration — otherwise React throws "rendered fewer hooks".
-  if (capabilities?.wellbeing === false) {
-    return (
-      <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <ArrowLeft
-          size={20}
-          color={p.textMuted}
-          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
-          onPress={() => router.back()}
-        />
-        <AlertTriangle size={32} color={p.textMuted} />
-        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
-          Not available on your plan
-        </Text>
-      </View>
-    );
-  }
+  const renderLogRow = useCallback(
+    ({ item: log, index: idx }: { item: typeof recentLogs[number]; index: number; }) => {
+      const d = new Date(log.dateKey + "T00:00:00");
+      const isToday = log.dateKey === todayKey();
+      const dayLabel = isToday
+        ? "Today"
+        : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
-  return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingBottom: 12,
-          paddingHorizontal: 16,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
+      return (
+        <View
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
-            backgroundColor: p.cardWhite,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
+            paddingVertical: 10,
+            borderBottomWidth: idx < recentLogs.length - 1 ? 1 : 0,
+            borderBottomColor: p.border,
           }}
         >
-          <ArrowLeft size={20} color={p.textPrimary} strokeWidth={2} />
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: "Outfit-Bold",
-            fontSize: 22,
-            color: p.textPrimary,
-            letterSpacing: -0.3,
-          }}
-        >
-          Wellbeing
-        </Text>
-      </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 14, color: p.textPrimary }}>
+              {dayLabel}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <MetricBadge label="Mood" value={log.mood} color="#FFB020" bgColor="rgba(255,176,32,0.12)" />
+              <MetricBadge label="Energy" value={log.energy} color="#9EF700" bgColor="rgba(158,247,0,0.12)" />
+              <MetricBadge label="Pain" value={log.pain} color="#FF6B6B" bgColor="rgba(255,107,107,0.12)" />
+            </View>
+          </View>
+          {log.coachFeedback && (
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: p.accent }} />
+          )}
+        </View>
+      );
+    },
+    [p, recentLogs.length],
+  );
 
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 32, gap: 20 }}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={() => loadLogs(true)} tintColor={p.accent} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
+  const ListHeader = useCallback(
+    () => (
+      <View style={{ gap: 20 }}>
         {error && logs.length === 0 ? (
           <InlineErrorBanner message={error} onRetry={() => loadLogs(true)} retrying={isLoading} />
         ) : null}
 
         {/* Today's Check-in Card */}
         <Animated.View entering={FadeInDown.duration(400).springify()}>
-          <View
-            style={{
-              backgroundColor: p.cardWhite,
-              borderRadius: 24,
-              padding: 24,
-              gap: 28,
-            }}
-          >
+          <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 24, gap: 28 }}>
             <View style={{ gap: 4 }}>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Bold",
-                  fontSize: 20,
-                  color: p.textPrimary,
-                  letterSpacing: -0.3,
-                }}
-              >
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 20, color: p.textPrimary, letterSpacing: -0.3 }}>
                 How are you feeling?
               </Text>
-              <Text
-                style={{
-                  fontFamily: "Satoshi-Regular",
-                  fontSize: 14,
-                  color: p.textSecondary,
-                }}
-              >
+              <Text style={{ fontFamily: "Satoshi-Regular", fontSize: 14, color: p.textSecondary }}>
                 {todayLog ? "Update today's check-in" : "Log your daily check-in"}
               </Text>
             </View>
 
-            {/* Ring indicators row */}
             <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
               {metrics.map((m) => (
                 <View key={m.key} style={{ alignItems: "center", gap: 8 }}>
@@ -403,27 +366,16 @@ export default function WellbeingScreen() {
                     size={RING_SIZE}
                     icon={m.icon}
                   />
-                  <Text
-                    style={{
-                      fontFamily: "Satoshi-Bold",
-                      fontSize: 13,
-                      color: p.textSecondary,
-                      letterSpacing: 0.3,
-                    }}
-                  >
+                  <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 13, color: p.textSecondary, letterSpacing: 0.3 }}>
                     {m.label}
                   </Text>
                 </View>
               ))}
             </View>
 
-            {/* Dot selectors */}
             <View style={{ gap: 20 }}>
               {metrics.map((m, idx) => (
-                <Animated.View
-                  key={m.key}
-                  entering={FadeInUp.delay(100 * idx).duration(300)}
-                >
+                <Animated.View key={m.key} entering={FadeInUp.delay(100 * idx).duration(300)}>
                   <View style={{ gap: 8 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                       <View
@@ -438,13 +390,7 @@ export default function WellbeingScreen() {
                       >
                         {m.icon}
                       </View>
-                      <Text
-                        style={{
-                          fontFamily: "Satoshi-Bold",
-                          fontSize: 15,
-                          color: p.textPrimary,
-                        }}
-                      >
+                      <Text style={{ fontFamily: "Satoshi-Bold", fontSize: 15, color: p.textPrimary }}>
                         {m.label}
                       </Text>
                     </View>
@@ -461,7 +407,6 @@ export default function WellbeingScreen() {
               ))}
             </View>
 
-            {/* Save button */}
             <Pressable
               onPress={handleSave}
               disabled={isSaving}
@@ -479,24 +424,10 @@ export default function WellbeingScreen() {
               {saved ? (
                 <>
                   <Check size={20} color="#000" strokeWidth={2.5} />
-                  <Text
-                    style={{
-                      fontFamily: "Outfit-Bold",
-                      fontSize: 16,
-                      color: "#000",
-                    }}
-                  >
-                    Saved!
-                  </Text>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#000" }}>Saved!</Text>
                 </>
               ) : (
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 16,
-                    color: p.buttonPrimaryText,
-                  }}
-                >
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.buttonPrimaryText }}>
                   {isSaving ? "Saving..." : todayLog ? "Update Check-in" : "Save Check-in"}
                 </Text>
               )}
@@ -504,12 +435,10 @@ export default function WellbeingScreen() {
           </View>
         </Animated.View>
 
-        {/* Daily reminder */}
         <Animated.View entering={FadeInDown.delay(120).duration(400).springify()}>
           <ReminderControl kind="wellbeing" />
         </Animated.View>
 
-        {/* 7-day trends */}
         {logs.length > 1 && (
           <Animated.View entering={FadeInDown.delay(150).duration(400).springify()}>
             <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 20, gap: 18 }}>
@@ -534,98 +463,78 @@ export default function WellbeingScreen() {
           </Animated.View>
         )}
 
-        {/* Recent History */}
         {recentLogs.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(200).duration(400).springify()}>
-            <View
-              style={{
-                backgroundColor: p.cardWhite,
-                borderRadius: 24,
-                padding: 20,
-                gap: 16,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: "Outfit-Bold",
-                  fontSize: 18,
-                  color: p.textPrimary,
-                  letterSpacing: -0.3,
-                }}
-              >
-                Recent History
-              </Text>
-
-              {recentLogs.map((log, idx) => {
-                const d = new Date(log.dateKey + "T00:00:00");
-                const isToday = log.dateKey === todayKey();
-                const dayLabel = isToday
-                  ? "Today"
-                  : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-
-                return (
-                  <Animated.View
-                    key={log.id}
-                    entering={FadeInUp.delay(50 * idx).duration(250)}
-                  >
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingVertical: 10,
-                        borderBottomWidth: idx < recentLogs.length - 1 ? 1 : 0,
-                        borderBottomColor: p.border,
-                      }}
-                    >
-                      <View style={{ flex: 1, gap: 4 }}>
-                        <Text
-                          style={{
-                            fontFamily: "Satoshi-Bold",
-                            fontSize: 14,
-                            color: p.textPrimary,
-                          }}
-                        >
-                          {dayLabel}
-                        </Text>
-                        <View style={{ flexDirection: "row", gap: 12 }}>
-                          <MetricBadge
-                            label="Mood"
-                            value={log.mood}
-                            color="#FFB020"
-                            bgColor="rgba(255,176,32,0.12)"
-                          />
-                          <MetricBadge
-                            label="Energy"
-                            value={log.energy}
-                            color="#9EF700"
-                            bgColor="rgba(158,247,0,0.12)"
-                          />
-                          <MetricBadge
-                            label="Pain"
-                            value={log.pain}
-                            color="#FF6B6B"
-                            bgColor="rgba(255,107,107,0.12)"
-                          />
-                        </View>
-                      </View>
-                      {log.coachFeedback && (
-                        <View
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor: p.accent,
-                          }}
-                        />
-                      )}
-                    </View>
-                  </Animated.View>
-                );
-              })}
-            </View>
-          </Animated.View>
+          <View style={{ backgroundColor: p.cardWhite, borderRadius: 24, padding: 20, paddingBottom: 4 }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.3, marginBottom: 8 }}>
+              Recent History
+            </Text>
+          </View>
         )}
-      </ScrollView>
+      </View>
+    ),
+    [error, handleSave, isLoading, isSaving, loadLogs, logs, metrics, p, recentLogs.length, saved, setters, todayLog, values],
+  );
+
+  if (capabilities?.wellbeing === false) {
+    return (
+      <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <ArrowLeft
+          size={20}
+          color={p.textMuted}
+          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
+          onPress={() => router.back()}
+        />
+        <AlertTriangle size={32} color={p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
+          Not available on your plan
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <View
+        style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: 12,
+          paddingHorizontal: 16,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            backgroundColor: p.cardWhite,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ArrowLeft size={20} color={p.textPrimary} strokeWidth={2} />
+        </Pressable>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, letterSpacing: -0.3 }}>
+          Wellbeing
+        </Text>
+      </View>
+
+      <FlashList
+        data={recentLogs}
+        renderItem={renderLogRow}
+        keyExtractor={(log: typeof recentLogs[number]) => String(log.id)}
+        estimatedItemSize={88}
+        ListHeaderComponent={ListHeader}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 32 }}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={() => loadLogs(true)} tintColor={p.accent} />
+        }
+      />
     </View>
   );
 }

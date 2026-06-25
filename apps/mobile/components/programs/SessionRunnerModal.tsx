@@ -12,6 +12,67 @@ import { VideoPlayer } from "@/components/media/VideoPlayer";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import type { ExerciseItem } from "@/constants/program-details";
 
+const MemoizedVideoPlayer = React.memo(function MemoizedVideoPlayer({
+  uri,
+  title,
+  posterUri,
+}: {
+  uri: string;
+  title: string;
+  posterUri?: string | null;
+}) {
+  return (
+    <View className="rounded-2xl overflow-hidden border border-app/10">
+      <VideoPlayer
+        uri={uri}
+        title={title}
+        posterUri={posterUri}
+        isLooping={false}
+        ignoreTabFocus
+      />
+    </View>
+  );
+});
+
+function RestTimerDisplay({
+  restLeft,
+  stopRest,
+  startRest,
+  restSeconds,
+  p,
+}: {
+  restLeft: number | null;
+  stopRest: () => void;
+  startRest: () => void;
+  restSeconds: number | null;
+  p: ReturnType<typeof useAdminPastel>;
+}) {
+  if (restLeft != null) {
+    return (
+      <View className="rounded-2xl py-6 items-center bg-accent/12 border border-accent/25">
+        <Text className="text-xs font-outfit text-secondary mb-1">Rest</Text>
+        <Text className="text-4xl font-clash text-accent font-bold">{restLeft}</Text>
+        <Text className="text-xs font-outfit text-secondary mt-1">seconds</Text>
+        <Pressable onPress={stopRest} className="mt-4 px-4 py-2 rounded-full bg-app/10">
+          <Text className="text-sm font-outfit text-app">Skip</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  if (restSeconds) {
+    return (
+      <Pressable
+        onPress={startRest}
+        className="rounded-2xl py-4 flex-row items-center justify-center gap-2 bg-accent"
+      >
+        <Feather name="clock" size={18} color="#fff" />
+        <Text className="text-white font-outfit font-semibold">Start rest timer</Text>
+      </Pressable>
+    );
+  }
+  return null;
+}
+
 function parseRestSeconds(ex: ExerciseItem): number | null {
   if (ex.restSeconds != null && Number.isFinite(ex.restSeconds)) {
     return Math.max(0, Math.round(ex.restSeconds));
@@ -176,35 +237,20 @@ export function SessionRunnerModal({
                 </View>
               ) : null}
 
-              {restLeft != null ? (
-                <View className="rounded-2xl py-6 items-center bg-accent/12 border border-accent/25">
-                  <Text className="text-xs font-outfit text-secondary mb-1">Rest</Text>
-                  <Text className="text-4xl font-clash text-accent font-bold">{restLeft}</Text>
-                  <Text className="text-xs font-outfit text-secondary mt-1">seconds</Text>
-                  <Pressable onPress={stopRest} className="mt-4 px-4 py-2 rounded-full bg-app/10">
-                    <Text className="text-sm font-outfit text-app">Skip</Text>
-                  </Pressable>
-                </View>
-              ) : parseRestSeconds(current) ? (
-                <Pressable
-                  onPress={startRest}
-                  className="rounded-2xl py-4 flex-row items-center justify-center gap-2 bg-accent"
-                >
-                  <Feather name="clock" size={18} color="#fff" />
-                  <Text className="text-white font-outfit font-semibold">Start rest timer</Text>
-                </Pressable>
-              ) : null}
+              <RestTimerDisplay
+                restLeft={restLeft}
+                stopRest={stopRest}
+                startRest={startRest}
+                restSeconds={parseRestSeconds(current)}
+                p={p}
+              />
 
               {current.videoUrl ? (
-                <View className="rounded-2xl overflow-hidden border border-app/10">
-                  <VideoPlayer
-                    uri={current.videoUrl}
-                    title={current.name}
-                    posterUri={current.posterUrl}
-                    isLooping={false}
-                    ignoreTabFocus
-                  />
-                </View>
+                <MemoizedVideoPlayer
+                  uri={current.videoUrl}
+                  title={current.name}
+                  posterUri={current.posterUrl}
+                />
               ) : null}
             </View>
           ) : null}

@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AppState, type AppStateStatus } from "react-native";
+import { AppState, InteractionManager, type AppStateStatus } from "react-native";
 import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/lib/apiBaseUrl";
 import { Sentry } from "@/lib/sentry";
@@ -42,6 +42,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
 
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [readyToConnect, setReadyToConnect] = useState(false);
   const [, setActiveThreadId] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const actingUserIdRef = useRef<number | null>(null);
@@ -52,9 +53,20 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     actingUserIdRef.current = isStaff ? null : actingUserId;
   }, [actingUserId, isStaff]);
 
+  useEffect(() => {
+    setReadyToConnect(false);
+    if (!token || !bootstrapReady) return;
+
+    const task = InteractionManager.runAfterInteractions(() => {
+      setReadyToConnect(true);
+    });
+
+    return () => task.cancel();
+  }, [bootstrapReady, token]);
+
   // ── Socket lifecycle ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!token || !bootstrapReady) {
+    if (!token || !bootstrapReady || !readyToConnect) {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -247,7 +259,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setSocket(null);
       dispatch(socketReset());
     };
-  }, [token, bootstrapReady, dispatch]);
+  }, [token, bootstrapReady, readyToConnect, dispatch]);
 
   // ── Disconnect on background, reconnect on foreground ──────────────────────
   useEffect(() => {

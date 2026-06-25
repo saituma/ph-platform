@@ -6,7 +6,7 @@ import { Lock, Shield, Trash2, Key, Eye, ChevronLeft, AlertTriangle } from "luci
 import { apiRequest } from "@/lib/api";
 import { fonts } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import { useAppToast } from "@/hooks/useAppToast";
 import {
   ActivityIndicator,
@@ -38,6 +38,13 @@ export default function PrivacySecurityScreen() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const deleteNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (deleteNavigateTimerRef.current) clearTimeout(deleteNavigateTimerRef.current);
+    };
+  }, []);
 
   const pageBg = p.pageBg;
   const textPrimary = p.textPrimary;
@@ -71,7 +78,8 @@ export default function PrivacySecurityScreen() {
       await SecureStore.deleteItemAsync(AUTH_REFRESH_KEY).catch(() => {});
       dispatch(logout());
       toast.success("Account closed", "Your account has been deleted.");
-      setTimeout(() => router.replace("/(auth)/login"), 800);
+      if (deleteNavigateTimerRef.current) clearTimeout(deleteNavigateTimerRef.current);
+      deleteNavigateTimerRef.current = setTimeout(() => router.replace("/(auth)/login"), 800);
     } catch (e: unknown) {
       const msg = String(e instanceof Error ? e.message : "Could not delete account").replace(/^\d+\s+/, "");
       toast.error("Could not delete", msg);
@@ -289,4 +297,10 @@ export default function PrivacySecurityScreen() {
       </Modal>
     </View>
   );
+
+useEffect(() => {
+  return () => {
+    if (deleteNavigateTimerRef.current) clearTimeout(deleteNavigateTimerRef.current);
+  };
+}, []);
 }

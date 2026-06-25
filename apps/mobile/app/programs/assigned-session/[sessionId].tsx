@@ -8,6 +8,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -46,6 +47,7 @@ import {
 import { useVideoUploadLogic } from "@/hooks/programs/useVideoUploadLogic";
 import { useStreakStore } from "@/lib/streakStore";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { LazyVideo } from "@/components/media/LazyVideo";
 import { useSessionVideoPrefetch } from "@/hooks/useSessionVideoPrefetch";
@@ -110,6 +112,10 @@ export default function AssignedSessionDetailScreen() {
     status: uploadStatus,
   } = useVideoUploadLogic(token, athleteUserId);
   const sessionStartTime = useRef<number>(Date.now());
+  const uploadStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nextSessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploadPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionFinished, setSessionFinished] = useState(false);
@@ -157,7 +163,8 @@ export default function AssignedSessionDetailScreen() {
 
         if (sessionIdNum) loadExercises(sessionIdNum, true);
 
-        setTimeout(() => {
+        if (uploadStateTimerRef.current) clearTimeout(uploadStateTimerRef.current);
+        uploadStateTimerRef.current = setTimeout(() => {
           setUploadStateByExId((prev) => {
             const next = { ...prev };
             delete next[exerciseId];
@@ -241,15 +248,24 @@ export default function AssignedSessionDetailScreen() {
     if (sessionIdNum) loadExercises(sessionIdNum);
   }, [sessionIdNum]);
 
+  const { data: completionData } = useQuery({
+    queryKey: queryKeys.programs.sessionExercises(sessionIdNum ?? 0),
+    queryFn: async () => {
+      const res = await apiRequest<{ completion: { completedAt: string | null } | null }>(
+        `/programs/my-sessions/${sessionIdNum!}/completion`,
+        { token },
+      );
+      return res;
+    },
+    enabled: !!sessionIdNum && !!token,
+    staleTime: 2 * 60 * 1000,
+  });
+
   useEffect(() => {
-    if (!sessionIdNum || !token) return;
-    apiRequest<{ completion: { completedAt: string | null } | null }>(
-      `/programs/my-sessions/${sessionIdNum}/completion`,
-      { token },
-    ).then((res) => {
-      if (res?.completion?.completedAt) setSessionAlreadyCompleted(true);
-    }).catch(() => {});
-  }, [sessionIdNum, token]);
+    if (completionData?.completion?.completedAt) {
+      setSessionAlreadyCompleted(true);
+    }
+  }, [completionData]);
 
   const handleRefresh = useCallback(async () => {
     if (!sessionIdNum) return;
@@ -273,18 +289,29 @@ export default function AssignedSessionDetailScreen() {
     if (result.nextSession) {
       const label = result.nextSession.title || `Session ${result.nextSession.sessionNumber}`;
       setFinishNextLabel(label);
-      setTimeout(() => {
+      if (nextSessionTimerRef.current) clearTimeout(nextSessionTimerRef.current);
+      nextSessionTimerRef.current = setTimeout(() => {
         router.replace(
           `/programs/assigned-session/${result.nextSession!.id}?title=${encodeURIComponent(label)}&programId=${programIdParam ?? ""}&moduleId=${moduleIdParam ?? ""}` as any,
         );
       }, 2500);
     } else {
-      setTimeout(() => {
+      if (backTimerRef.current) clearTimeout(backTimerRef.current);
+      backTimerRef.current = setTimeout(() => {
         if (router.canGoBack()) router.back();
         else router.replace("/(tabs)/programs" as any);
       }, 2500);
     }
   }, [sessionIdNum, sessionFinished, completeSession, programIdParam, moduleIdParam, router]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadStateTimerRef.current) clearTimeout(uploadStateTimerRef.current);
+      if (nextSessionTimerRef.current) clearTimeout(nextSessionTimerRef.current);
+      if (backTimerRef.current) clearTimeout(backTimerRef.current);
+      if (uploadPressTimerRef.current) clearTimeout(uploadPressTimerRef.current);
+    };
+  }, []);
 
   const exerciseCount = exercises.length;
   const totalSets = exercises.reduce((sum, ex) => sum + (ex.exercise.sets ?? 0), 0);
@@ -817,6 +844,7 @@ function ExerciseCard({
   onUploadPress: (source: "camera" | "library", sectionContentId?: number | null) => void;
 }) {
   const [isSourceMenuOpen, setIsSourceMenuOpen] = useState(false);
+  const uploadPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const effectiveSets = ex.setsOverride ?? ex.exercise.sets;
   const effectiveReps = ex.repsOverride ?? ex.exercise.reps;
   const effectiveDuration = ex.durationOverride ?? ex.exercise.duration;
@@ -1080,7 +1108,8 @@ function ExerciseCard({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setIsSourceMenuOpen(false);
-                      setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
+                      if (uploadPressTimerRef.current) clearTimeout(uploadPressTimerRef.current);
+                      uploadPressTimerRef.current = setTimeout(() => onUploadPress("camera", resolvedSectionContentId), 50);
                     }}
                     style={({ pressed }) => ({
                       minHeight: 42,
@@ -1098,7 +1127,8 @@ function ExerciseCard({
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setIsSourceMenuOpen(false);
-                      setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
+                      if (uploadPressTimerRef.current) clearTimeout(uploadPressTimerRef.current);
+                      uploadPressTimerRef.current = setTimeout(() => onUploadPress("library", resolvedSectionContentId), 50);
                     }}
                     style={({ pressed }) => ({
                       minHeight: 42,

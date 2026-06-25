@@ -78,10 +78,9 @@ export default function ActiveRunScreen() {
   const currentRunId = useRunStore((s) => s.currentRunId);
   const liveDistanceMeters = useRunStore((s) => s.distanceMeters);
   const liveElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
-  const liveCoordinates = useRunStore((s) => s.coordinates);
   const lastDraftSavedSecondsRef = React.useRef(-1);
 
-  const [bgLocationAllowed, setBgLocationAllowed] = useState(true);
+  const [, setBgLocationAllowed] = useState(true);
   const [backgroundTrackingEnabled, setBackgroundTrackingEnabled] =
     useState(false);
   const [osrmRoutingEnabled, setOsrmRoutingEnabled] = useState(false);
@@ -223,6 +222,14 @@ export default function ActiveRunScreen() {
     return () => clearInterval(interval);
   }, [status]);
 
+  const sqliteInitRef = React.useRef(false);
+  useEffect(() => {
+    if (!sqliteInitRef.current) {
+      try { initSQLiteRuns(); } catch {}
+      sqliteInitRef.current = true;
+    }
+  }, []);
+
   useEffect(() => {
     if (status !== "running" && status !== "paused") return;
     if (!currentRunId) return;
@@ -230,6 +237,7 @@ export default function ActiveRunScreen() {
     if (liveElapsedSeconds === lastDraftSavedSecondsRef.current) return;
     lastDraftSavedSecondsRef.current = liveElapsedSeconds;
 
+    const coords = useRunStore.getState().coordinates;
     const distanceKm = liveDistanceMeters / 1000;
     const avg_speed =
       distanceKm > 0 && liveElapsedSeconds > 0
@@ -241,7 +249,6 @@ export default function ActiveRunScreen() {
         : 0;
 
     try {
-      initSQLiteRuns();
       saveActiveRunDraft({
         id: currentRunId,
         date: new Date().toISOString(),
@@ -250,14 +257,14 @@ export default function ActiveRunScreen() {
         avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
         avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
         calories: estimateCalories(liveDistanceMeters),
-        coordinates: JSON.stringify(liveCoordinates ?? []),
+        coordinates: JSON.stringify(coords ?? []),
         user_id: userId,
         sport: selectedSport,
       });
     } catch (e) {
       console.warn("[active-run] failed to save active draft", e);
     }
-  }, [status, currentRunId, liveElapsedSeconds, liveDistanceMeters, liveCoordinates, selectedSport, userId]);
+  }, [status, currentRunId, liveElapsedSeconds, liveDistanceMeters, selectedSport, userId]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });

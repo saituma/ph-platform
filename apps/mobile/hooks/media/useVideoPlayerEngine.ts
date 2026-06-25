@@ -230,7 +230,9 @@ export function useVideoPlayerEngine({
   });
 
   // Fallback poll — keeps position in sync during buffering gaps when timeUpdate pauses.
+  // Only runs while actively playing to avoid flooding the JS thread when paused/off-screen.
   useEffect(() => {
+    if (!isPlaying) return;
     const id = setInterval(() => {
       try {
         const pos = player.currentTime ?? 0;
@@ -240,7 +242,7 @@ export function useVideoPlayerEngine({
       } catch {}
     }, 500);
     return () => clearInterval(id);
-  }, [player]);
+  }, [player, isPlaying]);
 
   const lastDurationRef = useRef(0);
   useEffect(() => {

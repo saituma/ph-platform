@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
-	FlatList,
 	Keyboard,
 	Platform,
 	Pressable,
@@ -16,7 +16,7 @@ import { useChatScroll } from "@/hooks/messages/useChatScroll";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import type { MessageThread, TypingStatus } from "@/types/messages";
 
-import { computeGroupingMap } from "@/lib/messages/messageGrouping";
+import { computeGroupingMap, type MessageGroupMeta } from "@/lib/messages/messageGrouping";
 import { ChatComposer } from "./ChatComposer";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
@@ -107,18 +107,12 @@ const MessageListSection = React.memo(function MessageListSection({
 }: MessageListSectionProps) {
 	const { colors, isDark } = useAppTheme();
 	const insets = useAppSafeAreaInsets();
-	const reversed = useMemo(() => [...messages].reverse(), [messages]);
-	const groupingMap = useMemo(() => computeGroupingMap(messages), [messages]);
 	const isGroupThread = useMemo(() => thread.id.startsWith("group:"), [thread.id]);
 	const { listRef, handleScroll, jumpTo, newIncomingCount, highlightedId } =
 		useChatScroll(messages, thread.id);
 
-	useEffect(() => {
-		if (!isKeyboardVisible) return;
-		requestAnimationFrame(() =>
-			listRef.current?.scrollToOffset({ offset: 0, animated: true }),
-		);
-	}, [isKeyboardVisible]);
+	const groupingMapRef = useRef<Map<string | number, MessageGroupMeta>>(new Map());
+	groupingMapRef.current = useMemo(() => computeGroupingMap(messages), [messages]);
 
 	const resolveReactionUserName = useCallback(
 		(userId: number) => {
@@ -144,51 +138,26 @@ const MessageListSection = React.memo(function MessageListSection({
 
 	const renderItem = useCallback(
 		({ item }: { item: ChatMessage }) => {
-			const meta = groupingMap.get(item.id);
+			const meta = groupingMapRef.current.get(item.id);
 			return (
-				<>
-					<MessageBubble
-						message={item}
-						selfUserId={effectiveProfileId}
-						isGroupThread={isGroupThread}
-						groupPosition={meta?.position}
-						showGroupAvatar={meta?.showAvatar}
-						showGroupSenderName={meta?.showSenderName}
-						token={token}
-						resolveReactionUserName={resolveReactionUserName}
-						onLongPress={onLongPressMessage}
-						onReactionPress={onReactionPress}
-						onOpenReactionPicker={onOpenReactionPicker}
-						onReply={onReplyMessage}
-						onJumpToMessage={jumpTo}
-						onAvatarPress={onAvatarPress}
-						isHighlighted={highlightedId === Number(item.id)}
-					/>
-					{meta?.dateSeparator && (
-						<View style={{ alignItems: "center", paddingVertical: 10 }}>
-							<View
-								style={{
-									backgroundColor: isDark
-										? "rgba(255,255,255,0.06)"
-										: "rgba(0,0,0,0.04)",
-									borderRadius: 10,
-									paddingHorizontal: 12,
-									paddingVertical: 4,
-								}}
-							>
-								<Text
-									style={{
-										fontSize: 12,
-										color: colors.textDim,
-										fontFamily: fonts.labelMedium,
-									}}
-								>
-									{meta.dateSeparator}
-								</Text>
-							</View>
-						</View>
-					)}
-				</>
+				<MessageBubble
+					message={item}
+					selfUserId={effectiveProfileId}
+					isGroupThread={isGroupThread}
+					groupPosition={meta?.position}
+					showGroupAvatar={meta?.showAvatar}
+					showGroupSenderName={meta?.showSenderName}
+					dateSeparator={meta?.dateSeparator ?? null}
+					token={token}
+					resolveReactionUserName={resolveReactionUserName}
+					onLongPress={onLongPressMessage}
+					onReactionPress={onReactionPress}
+					onOpenReactionPicker={onOpenReactionPicker}
+					onReply={onReplyMessage}
+					onJumpToMessage={jumpTo}
+					onAvatarPress={onAvatarPress}
+					isHighlighted={highlightedId === Number(item.id)}
+				/>
 			);
 		},
 		[
@@ -197,9 +166,6 @@ const MessageListSection = React.memo(function MessageListSection({
 			resolveReactionUserName,
 			jumpTo,
 			isGroupThread,
-			groupingMap,
-			isDark,
-			colors.textDim,
 			onLongPressMessage,
 			onReactionPress,
 			onOpenReactionPicker,
@@ -275,21 +241,23 @@ const MessageListSection = React.memo(function MessageListSection({
 
 	return (
 		<View style={{ flex: 1 }}>
-			<FlatList
-				ref={listRef}
-				data={reversed}
-				inverted
+			<FlashList
+				ref={listRef as never}
+				data={messages}
 				keyExtractor={keyExtractor}
+				estimatedItemSize={88}
 				onScroll={handleScroll}
 				extraData={highlightedId}
-				windowSize={11}
-				maxToRenderPerBatch={15}
+				scrollEventThrottle={16}
+				maintainVisibleContentPosition={{
+					startRenderingFromBottom: true,
+				}}
 				keyboardShouldPersistTaps="handled"
 				keyboardDismissMode="interactive"
 				contentContainerStyle={{
 					paddingHorizontal: 12,
-					paddingTop: listBottomPadding,
-					paddingBottom: 56,
+					paddingTop: 8,
+					paddingBottom: listBottomPadding + 56,
 				}}
 				renderItem={renderItem}
 				ListFooterComponent={footerComponent}
@@ -297,9 +265,16 @@ const MessageListSection = React.memo(function MessageListSection({
 
 			{newIncomingCount > 0 && (
 				<Pressable
-					onPress={() =>
-						listRef.current?.scrollToOffset({ offset: 0, animated: true })
-					}
+					onPress={() => {
+						if (listRef.current?.scrollToEnd) {
+							listRef.current.scrollToEnd({ animated: true });
+							return;
+						}
+						listRef.current?.scrollToOffset({
+							offset: Number.MAX_SAFE_INTEGER,
+							animated: true,
+						});
+					}}
 					style={{
 						position: "absolute",
 						left: 0,

@@ -142,7 +142,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
     [announcements],
   );
 
-  const renderItem = useCallback(({ item }: { item: AnnouncementItem }) => {
+  const renderItem = useCallback(({ item }: { item: AnnouncementItem; }) => {
     const parsed = parsedCache.get(item.id ?? item.title) ?? extractAnnouncements(item);
     const title = item.title?.trim() || "Announcement";
     const date = item.updatedAt || item.createdAt;
@@ -265,7 +265,7 @@ function AnnouncementsSectionBase({ items, isFocused }: AnnouncementsSectionProp
           ref={flatListRef}
           data={announcements}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: AnnouncementItem) => item.id}
           horizontal
           estimatedItemSize={300}
           pagingEnabled

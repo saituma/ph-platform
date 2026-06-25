@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
+import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Pressable,
   TextInput,
@@ -170,67 +170,15 @@ export function GifPickerModal({
           </View>
         </View>
 
-        <FlatList
-          data={results}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={{ justifyContent: "space-between" }}
-          contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingBottom: Math.max(insets.bottom + 24, 28),
-          }}
-          ListHeaderComponent={
-            <View className="mb-4">
-              <Text
-                className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
-                style={{ color: colors.textSecondary }}
-              >
-                {isTrending ? "Trending" : "Results"}
-              </Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => onSelectGif(item.url)}
-              onLongPress={() => setSelected(item)}
-              delayLongPress={220}
-              className="mb-3 overflow-hidden rounded-[18px] border"
-              style={{
-                width: "48%",
-                borderColor: colors.borderSubtle,
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.04)"
-                  : "rgba(15,23,42,0.03)",
-              }}
-            >
-              <ExpoImage
-                source={{ uri: item.previewUrl }}
-                style={{ width: "100%", height: 140 }}
-                contentFit="cover"
-                transition={180}
-              />
-            </Pressable>
-          )}
-          ListEmptyComponent={
-            loading ? (
-              <View className="flex-1 items-center justify-center pt-16">
-                <ActivityIndicator size="large" color={colors.accent} />
-              </View>
-            ) : (
-              <View className="flex-1 items-center justify-center px-8 pt-16">
-                <Text
-                  className="text-sm font-outfit text-center"
-                  style={{ color: colors.textSecondary }}
-                >
-                  {isTrending
-                    ? "No GIFs available right now."
-                    : "No matches. Try a different search."}
-                </Text>
-              </View>
-            )
-          }
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <GifGrid
+          results={results}
+          loading={loading}
+          isTrending={isTrending}
+          colors={colors}
+          isDark={isDark}
+          bottomInset={insets.bottom}
+          onSelectGif={onSelectGif}
+          onLongPress={setSelected}
         />
 
         <BottomSheet isOpen={optionsOpen} onOpenChange={(open) => { if (!open) setSelected(null); setOptionsOpen(open); }}>
@@ -352,4 +300,109 @@ export function GifPickerModal({
       </View>
     </Modal>
   );
+}
+
+const GifGrid = React.memo(function GifGrid({
+  results,
+  loading,
+  isTrending,
+  colors,
+  isDark,
+  bottomInset,
+  onSelectGif,
+  onLongPress,
+}: {
+  results: GifResult[];
+  loading: boolean;
+  isTrending: boolean;
+  colors: ReturnType<typeof useAppTheme>["colors"];
+  isDark: boolean;
+  bottomInset: number;
+  onSelectGif: (url: string) => void;
+  onLongPress: (item: GifResult) => void;
+}) {
+  const renderItem = useCallback(
+    ({ item }: { item: GifResult }) => (
+      <Pressable
+        onPress={() => onSelectGif(item.url)}
+        onLongPress={() => onLongPress(item)}
+        delayLongPress={220}
+        className="mb-3 overflow-hidden rounded-[18px] border"
+        style={{
+          flex: 1,
+          marginHorizontal: 6,
+          borderColor: colors.borderSubtle,
+          backgroundColor: isDark
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(15,23,42,0.03)",
+        }}
+      >
+        <ExpoImage
+          source={{ uri: item.previewUrl }}
+          style={{ width: "100%", height: 140 }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          autoplay
+        />
+      </Pressable>
+    ),
+    [onSelectGif, onLongPress, colors.borderSubtle, isDark],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View className="mb-4">
+        <Text
+          className="text-[11px] font-outfit font-bold uppercase tracking-[1.2px]"
+          style={{ color: colors.textSecondary }}
+        >
+          {isTrending ? "Trending" : "Results"}
+        </Text>
+      </View>
+    ),
+    [colors.textSecondary, isTrending],
+  );
+
+  const listEmpty = useMemo(
+    () =>
+      loading ? (
+        <View className="flex-1 items-center justify-center pt-16">
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      ) : (
+        <View className="flex-1 items-center justify-center px-8 pt-16">
+          <Text
+            className="text-sm font-outfit text-center"
+            style={{ color: colors.textSecondary }}
+          >
+            {isTrending
+              ? "No GIFs available right now."
+              : "No matches. Try a different search."}
+          </Text>
+        </View>
+      ),
+    [loading, colors.accent, colors.textSecondary, isTrending],
+  );
+
+  return (
+    <FlashList
+      data={results}
+      keyExtractor={gifKeyExtractor}
+      numColumns={2}
+      estimatedItemSize={160}
+      contentContainerStyle={{
+        paddingHorizontal: 14,
+        paddingBottom: Math.max(bottomInset + 24, 28),
+      }}
+      ListHeaderComponent={listHeader}
+      renderItem={renderItem}
+      ListEmptyComponent={listEmpty}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    />
+  );
+});
+
+function gifKeyExtractor(item: GifResult) {
+  return item.id;
 }

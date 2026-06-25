@@ -48,7 +48,7 @@ export function useAdminTeamController(token: string | null, bootstrapReady: boo
   const [attachError, setAttachError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (forceRefresh: boolean) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !bootstrapReady || !teamName) return;
       setIsLoading(true);
       setError(null);
@@ -58,8 +58,7 @@ export function useAdminTeamController(token: string | null, bootstrapReady: boo
           {
             token,
             suppressStatusCodes: [403],
-            skipCache: forceRefresh,
-            forceRefresh,
+            forceRefresh: true,
           },
         );
         setDetail(res ?? null);

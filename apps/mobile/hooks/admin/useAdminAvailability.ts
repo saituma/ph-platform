@@ -2,16 +2,16 @@ import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
 import { AdminAvailabilityBlock } from "@/types/admin";
 import { parseIntOrUndefined } from "@/lib/admin-utils";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAdminQuery, useAdminMutation } from "./useAdminQuery";
 
 export function useAdminAvailability(token: string | null, canLoad: boolean) {
   const fetcher = useCallback(
-    (forceRefresh: boolean) =>
+    () =>
       apiRequest<{ items?: AdminAvailabilityBlock[] }>("/admin/availability", {
         token,
         suppressStatusCodes: [403],
-        skipCache: forceRefresh,
-        forceRefresh,
+        forceRefresh: true,
       }).then((res) => (Array.isArray(res?.items) ? res.items : [])),
     [token],
   );
@@ -22,7 +22,7 @@ export function useAdminAvailability(token: string | null, canLoad: boolean) {
     error: availabilityError,
     load: loadAvailability,
     setError: setAvailabilityError,
-  } = useAdminQuery(fetcher, [] as AdminAvailabilityBlock[], Boolean(token) && canLoad);
+  } = useAdminQuery(queryKeys.admin.availability(), fetcher, [] as AdminAvailabilityBlock[], Boolean(token) && canLoad);
 
   const {
     run: createAvailabilityBlock,

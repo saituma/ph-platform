@@ -1,5 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useSocket } from "@/context/SocketContext";
 import { useAppSelector } from "@/store/hooks";
 
@@ -26,34 +28,34 @@ export type WellbeingLogInput = {
 };
 
 export function useWellbeingData(token: string | null, athleteUserIdOverride?: number | null) {
-  const [logs, setLogs] = useState<WellbeingLog[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { socket } = useSocket();
   const myUserId = useAppSelector((s) => s.user.profile.id);
-  const hasFetched = useRef(false);
+
+  const qk = queryKeys.wellbeing.logs(athleteUserIdOverride);
+
+  const { data: logs = [], isLoading, error: queryError } = useQuery({
+    queryKey: qk,
+    queryFn: async () => {
+      const res = await apiRequest<{ logs?: WellbeingLog[] }>(
+        athleteUserIdOverride != null
+          ? `/wellbeing/logs?userId=${athleteUserIdOverride}`
+          : "/wellbeing/logs",
+        { token: token! },
+      );
+      return res.logs ?? [];
+    },
+    enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000,
+  });
 
   const loadLogs = useCallback(
-    async (force = false) => {
-      if (!token) return;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ logs?: WellbeingLog[] }>(
-          athleteUserIdOverride != null
-            ? `/wellbeing/logs?userId=${athleteUserIdOverride}`
-            : "/wellbeing/logs",
-          { token, forceRefresh: force },
-        );
-        setLogs(res.logs ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load wellbeing logs.");
-      } finally {
-        setIsLoading(false);
-      }
+    async (_force = false) => {
+      await queryClient.invalidateQueries({ queryKey: qk });
     },
-    [token, athleteUserIdOverride],
+    [queryClient, qk],
   );
 
   const saveLog = useCallback(
@@ -66,7 +68,7 @@ export function useWellbeingData(token: string | null, athleteUserIdOverride?: n
           body: input,
           token,
         });
-        await loadLogs(true);
+        await queryClient.invalidateQueries({ queryKey: qk });
         return res.log;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to save.");
@@ -75,7 +77,7 @@ export function useWellbeingData(token: string | null, athleteUserIdOverride?: n
         setIsSaving(false);
       }
     },
-    [token, loadLogs],
+    [token, queryClient, qk],
   );
 
   const deleteLog = useCallback(
@@ -83,29 +85,21 @@ export function useWellbeingData(token: string | null, athleteUserIdOverride?: n
       if (!token) return;
       try {
         await apiRequest(`/wellbeing/logs/${logId}`, { method: "DELETE", token });
-        await loadLogs(true);
+        await queryClient.invalidateQueries({ queryKey: qk });
       } catch {
         // silent
       }
     },
-    [token, loadLogs],
+    [token, queryClient, qk],
   );
 
   useEffect(() => {
-    if (token && !hasFetched.current) {
-      hasFetched.current = true;
-      loadLogs();
-    }
-  }, [token, loadLogs]);
-
-  useEffect(() => {
     if (!socket || !token) return;
-    // Skip our own echo (saveLog already refetched); refresh for others' changes by actor.
     const refresh = (payload?: { actorUserId?: number | string }) => {
       if (payload?.actorUserId != null && myUserId != null && String(payload.actorUserId) === String(myUserId)) {
         return;
       }
-      void loadLogs(true);
+      queryClient.invalidateQueries({ queryKey: qk });
     };
     socket.on("wellbeing:log:updated", refresh);
     socket.on("wellbeing:log:deleted", refresh);
@@ -113,7 +107,11 @@ export function useWellbeingData(token: string | null, athleteUserIdOverride?: n
       socket.off("wellbeing:log:updated", refresh);
       socket.off("wellbeing:log:deleted", refresh);
     };
-  }, [socket, token, loadLogs, myUserId]);
+  }, [socket, token, queryClient, qk, myUserId]);
+
+  const combinedError = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load wellbeing logs.")
+    : error;
 
   const todayLog = logs.find((l) => {
     const d = new Date();
@@ -121,5 +119,5 @@ export function useWellbeingData(token: string | null, athleteUserIdOverride?: n
     return l.dateKey === key;
   });
 
-  return { logs, todayLog, isLoading, isSaving, error, loadLogs, saveLog, deleteLog };
+  return { logs, todayLog, isLoading, isSaving, error: combinedError, loadLogs, saveLog, deleteLog };
 }

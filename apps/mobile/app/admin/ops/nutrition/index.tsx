@@ -143,7 +143,10 @@ export default function AdminNutritionScreen() {
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
   useEffect(() => {
-    void loadUsers(searchQuery);
+    const id = setTimeout(() => {
+      void loadUsers(searchQuery);
+    }, 300);
+    return () => clearTimeout(id);
   }, [loadUsers, searchQuery]);
 
   useEffect(() => {
@@ -167,7 +170,7 @@ export default function AdminNutritionScreen() {
   }, [feedbackModalVisible, selectedLogId, selectedUserId]);
 
   const loadLogsForUser = useCallback(
-    async (userId: number, forceRefresh = false) => {
+    async (userId: number) => {
       if (!token || !bootstrapReady || !canAccess) return;
       setLogsLoading(true);
       setLogsError(null);
@@ -176,8 +179,7 @@ export default function AdminNutritionScreen() {
           `/nutrition/logs?userId=${userId}&limit=50`,
           {
             token,
-            forceRefresh,
-            skipCache: forceRefresh,
+            forceRefresh: true,
             suppressStatusCodes: [403],
           },
         );
@@ -220,7 +222,7 @@ export default function AdminNutritionScreen() {
 
   useEffect(() => {
     if (!selectedUserId) return;
-    void loadLogsForUser(selectedUserId, true);
+    void loadLogsForUser(selectedUserId);
     if (selectedUser && (selectedUser as any).athleteType === "adult") {
       void loadTargetsForUser(selectedUserId);
     }

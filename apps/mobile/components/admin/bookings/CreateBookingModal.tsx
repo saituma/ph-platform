@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Modal, Platform, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView } from "react-native";
+import { View, Modal, Platform, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Text } from "@/components/ScaledText";
 import { ThemedScrollView } from "@/components/ThemedScrollView";

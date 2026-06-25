@@ -1,5 +1,6 @@
 import React from "react";
-import { ActivityIndicator, Image, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { Feather } from "@/components/ui/theme-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
@@ -40,7 +41,7 @@ export function AvatarSection({
         <View className="relative">
           {avatar ? (
             <View className="w-20 h-20 rounded-full overflow-hidden border-2 border-accent">
-              <Image source={{ uri: avatar }} style={{ width: 80, height: 80 }} />
+              <Image source={{ uri: avatar }} style={{ width: 80, height: 80 }} contentFit="cover" cachePolicy="memory-disk" transition={200} />
             </View>
           ) : (
             <View className="w-20 h-20 bg-secondary rounded-full items-center justify-center border-2 border-accent">
@@ -104,7 +105,7 @@ export function AvatarSection({
             {pendingAvatarUri ? (
               <View className="items-center mb-6">
                 <View className="h-32 w-32 rounded-full overflow-hidden border-2 border-accent">
-                  <Image source={{ uri: pendingAvatarUri }} style={{ width: 128, height: 128 }} />
+                  <Image source={{ uri: pendingAvatarUri }} style={{ width: 128, height: 128 }} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                 </View>
               </View>
             ) : null}

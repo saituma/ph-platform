@@ -50,7 +50,7 @@ export default function AppThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const setColorScheme = (scheme: "light" | "dark") => Uniwind.setTheme(scheme);
+  const setColorScheme = React.useCallback((scheme: "light" | "dark") => Uniwind.setTheme(scheme), []);
   const { isAuthenticated, profile } = useAppSelector((state) => state.user);
   const [isSwitching, setIsSwitching] = useState(false);
   const [themeMode, setThemeMode] = useState<ColorSchemeName>("system");

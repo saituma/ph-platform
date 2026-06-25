@@ -1,5 +1,7 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type ExerciseMetadata = {
   sets?: number | null;
@@ -25,13 +27,24 @@ export type ContentItem = {
   metadata?: ExerciseMetadata | null;
 };
 
+function mapContentItem(raw: any): ContentItem | null {
+  if (!raw) return null;
+  return {
+    title: raw.title ?? "Program Content",
+    body: raw.body ?? "",
+    completed: Boolean(raw.completed),
+    videoUrl: raw.videoUrl ?? null,
+    posterUrl: (raw as { posterUrl?: string | null }).posterUrl ?? null,
+    durationSec: (raw as { durationSec?: number | null }).durationSec ?? null,
+    allowVideoUpload: raw.allowVideoUpload ?? false,
+    metadata: raw.metadata ?? null,
+  };
+}
+
 export function useContentDetail(token: string | null, contentId: string) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [item, setItem] = useState<ContentItem | null>(null);
+  const queryClient = useQueryClient();
   const [showCompleteModal, setShowCompleteModal] = useState(false);
 
-  // Check-in form state
   const [rpe, setRpe] = useState("");
   const [soreness, setSoreness] = useState("");
   const [fatigue, setFatigue] = useState("");
@@ -40,56 +53,27 @@ export function useContentDetail(token: string | null, contentId: string) {
   const [isSubmittingCheckin, setIsSubmittingCheckin] = useState(false);
   const [checkinSaved, setCheckinSaved] = useState(false);
 
-  const lastLoadedRef = useRef<string | null>(null);
-  const loadingRef = useRef(false);
-
-  const load = useCallback(async (force = false) => {
-    if (!token || !contentId) {
-      setIsLoading(false);
-      setError("Content not available.");
-      return;
-    }
-    const key = `${token}:${contentId}`;
-    if (!force && lastLoadedRef.current === key) return;
-    if (loadingRef.current) return;
-    
-    loadingRef.current = true;
-    try {
-      setIsLoading(true);
+  const { data: item = null, isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.programs.contentDetail(contentId),
+    queryFn: async () => {
       const data = await apiRequest<{ item?: any }>(`/program-section-content/${contentId}`, {
-        token,
-        forceRefresh: force,
-        skipCache: true,
+        token: token!,
       });
-      if (!data.item) {
-        setItem(null);
-        setError("Content not found.");
-        return;
-      }
-      setItem({
-        title: data.item.title ?? "Program Content",
-        body: data.item.body ?? "",
-        completed: Boolean(data.item.completed),
-        videoUrl: data.item.videoUrl ?? null,
-        posterUrl: (data.item as { posterUrl?: string | null }).posterUrl ?? null,
-        durationSec: (data.item as { durationSec?: number | null }).durationSec ?? null,
-        allowVideoUpload: data.item.allowVideoUpload ?? false,
-        metadata: data.item.metadata ?? null,
-      });
-      setError(null);
-      lastLoadedRef.current = key;
-    } catch (err: any) {
-      setItem(null);
-      setError(err?.message ?? "Failed to load content.");
-    } finally {
-      loadingRef.current = false;
-      setIsLoading(false);
-    }
-  }, [contentId, token]);
+      return mapContentItem(data.item);
+    },
+    enabled: Boolean(token) && Boolean(contentId),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load content.")
+    : (!isLoading && !item && Boolean(token) && Boolean(contentId))
+      ? "Content not found."
+      : null;
+
+  const load = useCallback(async (_force = false) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.programs.contentDetail(contentId) });
+  }, [queryClient, contentId]);
 
   const submitCheckin = useCallback(async () => {
     if (!token || !contentId || isSubmittingCheckin) return;
@@ -127,7 +111,10 @@ export function useContentDetail(token: string | null, contentId: string) {
         }
       );
       setCheckinSaved(true);
-      setItem((prev) => (prev ? { ...prev, completed: true } : prev));
+      queryClient.setQueryData<ContentItem | null>(
+        queryKeys.programs.contentDetail(contentId),
+        (prev) => prev ? { ...prev, completed: true } : prev,
+      );
       setTimeout(() => {
         setShowCompleteModal(false);
         setCheckinSaved(false);
@@ -141,7 +128,7 @@ export function useContentDetail(token: string | null, contentId: string) {
     } finally {
       setIsSubmittingCheckin(false);
     }
-  }, [contentId, rpe, soreness, fatigue, checkinNotes, isSubmittingCheckin, token]);
+  }, [contentId, rpe, soreness, fatigue, checkinNotes, isSubmittingCheckin, token, queryClient]);
 
   return {
     item,

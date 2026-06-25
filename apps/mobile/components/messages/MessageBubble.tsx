@@ -7,8 +7,8 @@ import {
 	Pressable,
 	View,
 } from "react-native";
-import { useContentWidth } from "@/lib/contentWidth";
 import { Image } from "expo-image";
+import { useContentWidth } from "@/lib/contentWidth";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, {
@@ -57,6 +57,7 @@ type MessageBubbleProps = {
 	groupPosition?: GroupPosition;
 	showGroupAvatar?: boolean;
 	showGroupSenderName?: boolean;
+	dateSeparator?: string | null;
 	resolveReactionUserName?: (userId: number) => string;
 	onLongPress: (message: ChatMessage) => void;
 	onReactionPress: (message: ChatMessage, emoji: string) => void;
@@ -77,6 +78,7 @@ function MessageBubbleComponent({
 	groupPosition = "solo",
 	showGroupAvatar,
 	showGroupSenderName,
+	dateSeparator,
 	resolveReactionUserName,
 	onLongPress,
 	onReactionPress,
@@ -260,6 +262,30 @@ function MessageBubbleComponent({
 
 	return (
 		<View style={{ marginBottom: groupGap, width: "100%" }}>
+			{dateSeparator ? (
+				<View style={{ alignItems: "center", paddingVertical: 10 }}>
+					<View
+						style={{
+							backgroundColor: isDark
+								? "rgba(255,255,255,0.06)"
+								: "rgba(0,0,0,0.04)",
+							borderRadius: 10,
+							paddingHorizontal: 12,
+							paddingVertical: 4,
+						}}
+					>
+						<Text
+							style={{
+								fontSize: 12,
+								color: colors.textDim,
+								fontFamily: fonts.labelMedium,
+							}}
+						>
+							{dateSeparator}
+						</Text>
+					</View>
+				</View>
+			) : null}
 			<View
 				style={{
 					flexDirection: "row",
@@ -284,6 +310,7 @@ function MessageBubbleComponent({
 							{message.authorAvatar ? (
 								<Image
 									source={{ uri: message.authorAvatar }}
+									cachePolicy="disk"
 									style={{ height: 28, width: 28, borderRadius: 14 }}
 									contentFit="cover"
 								/>
@@ -624,6 +651,7 @@ export const MessageBubble = React.memo(
 		if (prev.groupPosition !== next.groupPosition) return false;
 		if (prev.showGroupAvatar !== next.showGroupAvatar) return false;
 		if (prev.showGroupSenderName !== next.showGroupSenderName) return false;
+		if (prev.dateSeparator !== next.dateSeparator) return false;
 		const prevMessage = prev.message;
 		const nextMessage = next.message;
 		if (prevMessage === nextMessage) return true;

@@ -7,22 +7,23 @@ import {
   VideoPlayer,
   YouTubeEmbed,
 } from "@/components/media/VideoPlayer";
-import React from "react";
+import React, { useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
+  Image,
   Platform,
   Pressable,
-  ScrollView,
+  RefreshControl,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
+import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { useAppToast } from "@/hooks/useAppToast";
-import { Image as ExpoImage } from "expo-image";
 import { SkeletonAnnouncementsScreen } from "@/components/ui/legacy-skeleton";
 import { OpenGraphPreview } from "@/components/media/OpenGraphPreview";
 import { BottomSheet } from "heroui-native";
@@ -34,6 +35,8 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
 
 type AnnouncementItem = {
   id: number | string;
@@ -123,10 +126,277 @@ const extractAnnouncement = (item: AnnouncementItem): ParsedAnnouncement => {
   return { text, images, videos, links };
 };
 
+const AnnouncementCard = React.memo(function AnnouncementCard({
+  item,
+  token,
+  isAdmin,
+  p,
+  onOpenForm,
+  onDelete,
+}: {
+  item: AnnouncementItem;
+  token: string | null;
+  isAdmin: boolean;
+  p: ReturnType<typeof useAdminPastel>;
+  onOpenForm: (item: AnnouncementItem) => void;
+  onDelete: (id: number | string) => void;
+}) {
+  const parsed = extractAnnouncement(item);
+  const title = (item.title ?? "").trim() || "Announcement";
+  const timestamp = item.updatedAt ?? item.createdAt ?? null;
+  const when = timestamp ? new Date(timestamp).toLocaleString() : "";
+
+  return (
+    <View
+      style={{
+        borderRadius: 28,
+        paddingHorizontal: 20,
+        paddingVertical: 20,
+        overflow: "hidden",
+        backgroundColor: p.cardWhite,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary }}>
+              {title}
+            </Text>
+            {isAdmin && item.isActive === false ? (
+              <View
+                style={{
+                  borderRadius: 100,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  backgroundColor: p.dangerSoft,
+                }}
+              >
+                <Text style={{ fontSize: 10, color: p.danger, fontFamily: "Outfit-Bold", textTransform: "uppercase" }}>
+                  Inactive
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {when ? (
+            <Text style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+              {when}
+            </Text>
+          ) : null}
+        </View>
+        <View
+          style={{
+            height: 40,
+            width: 40,
+            borderRadius: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: p.accentSoft,
+          }}
+        >
+          <Radio size={18} color={p.accent} />
+        </View>
+      </View>
+
+      {parsed.text ? (
+        <View style={{ marginTop: 16 }}>
+          <MarkdownText text={parsed.text} />
+        </View>
+      ) : null}
+
+      {parsed.images.length ? (
+        <View style={{ marginTop: 16, gap: 12 }}>
+          {parsed.images.map((entry) => (
+            <View key={entry.url} style={{ gap: 8 }}>
+              <Image
+                source={{ uri: entry.url, cache: "force-cache" }}
+                style={{ width: "100%", height: 220, borderRadius: 18 }}
+                resizeMode="cover"
+              />
+              {entry.caption ? (
+                <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                  {entry.caption}
+                </Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {parsed.videos.length ? (
+        <View style={{ marginTop: 16, gap: 12 }}>
+          {parsed.videos.map((entry) =>
+            isYoutubeUrl(entry.url) ? (
+              <View key={entry.url} style={{ gap: 8 }}>
+                <View style={{ height: 220, borderRadius: 18, overflow: "hidden" }}>
+                  <YouTubeEmbed url={entry.url} shouldPlay={false} initialMuted />
+                </View>
+                {entry.caption ? (
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {entry.caption}
+                  </Text>
+                ) : null}
+              </View>
+            ) : (
+              <View key={entry.url} style={{ gap: 8 }}>
+                <View style={{ borderRadius: 18, overflow: "hidden" }}>
+                  <VideoPlayer uri={entry.url} height={220} autoPlay={false} initialMuted previewOnly />
+                </View>
+                {entry.caption ? (
+                  <Text style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}>
+                    {entry.caption}
+                  </Text>
+                ) : null}
+              </View>
+            ),
+          )}
+        </View>
+      ) : null}
+
+      {token && parsed.links.length ? (
+        <View style={{ marginTop: 16, gap: 12 }}>
+          {parsed.links.slice(0, 2).map((url) => (
+            <OpenGraphPreview key={url} url={url} token={token} />
+          ))}
+        </View>
+      ) : null}
+
+      {isAdmin ? (
+        <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderColor: p.divider, flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Pressable
+            onPress={() => onOpenForm(item)}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.inputBg,
+              flexDirection: "row",
+              gap: 8,
+            }}
+          >
+            <Pencil size={14} color={p.textSecondary} />
+            <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.textSecondary }}>
+              Edit
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => onDelete(item.id)}
+            style={{
+              flex: 1,
+              height: 40,
+              borderRadius: 16,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.dangerSoft,
+              flexDirection: "row",
+              gap: 8,
+            }}
+          >
+            <Trash2 size={14} color={p.danger} />
+            <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.danger }}>
+              Delete
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+});
+
+function AnnouncementList({
+  items,
+  isLoading,
+  error,
+  token,
+  isAdmin,
+  p,
+  onLoad,
+  onOpenForm,
+  onDelete,
+}: {
+  items: AnnouncementItem[];
+  isLoading: boolean;
+  error: string | null;
+  token: string | null;
+  isAdmin: boolean;
+  p: ReturnType<typeof useAdminPastel>;
+  onLoad: () => void;
+  onOpenForm: (item?: AnnouncementItem) => void;
+  onDelete: (id: number | string) => void;
+}) {
+  const renderItem = useCallback(
+    ({ item }: { item: AnnouncementItem; }) => (
+      <AnnouncementCard
+        item={item}
+        token={token}
+        isAdmin={isAdmin}
+        p={p}
+        onOpenForm={onOpenForm}
+        onDelete={onDelete}
+      />
+    ),
+    [token, isAdmin, p, onOpenForm, onDelete],
+  );
+
+  const ListEmpty = useCallback(
+    () => {
+      if (isLoading) return <SkeletonAnnouncementsScreen />;
+      if (error) {
+        return (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingTop: 60 }}>
+            <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}>
+              {error}
+            </Text>
+            <Pressable
+              onPress={() => void onLoad()}
+              style={{ marginTop: 24, borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
+            >
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
+                Try again
+              </Text>
+            </Pressable>
+          </View>
+        );
+      }
+      return (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingTop: 60 }}>
+          <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}>
+            No announcements yet.
+          </Text>
+        </View>
+      );
+    },
+    [error, isLoading, onLoad, p],
+  );
+
+  return (
+    <FlashList
+      data={items}
+      renderItem={renderItem}
+      keyExtractor={(item: AnnouncementItem) => String(item.id)}
+      ListEmptyComponent={ListEmpty}
+      ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
+      estimatedItemSize={120}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading && items.length > 0}
+          onRefresh={onLoad}
+          tintColor={p.accent}
+        />
+      }
+    />
+  );
+}
+
 export default function AnnouncementsScreen() {
   const p = useAdminPastel();
   const router = useRouter();
   const toast = useAppToast();
+  const queryClient = useQueryClient();
   const token = useAppSelector((state) => state.user.token);
   const athleteUserId = useAppSelector((state) => state.user.athleteUserId);
   const apiUserRole = useAppSelector((state) => state.user.apiUserRole);
@@ -135,9 +405,34 @@ export default function AnnouncementsScreen() {
     apiUserRole === "superAdmin" ||
     apiUserRole === "coach";
 
-  const [items, setItems] = React.useState<AnnouncementItem[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const {
+    data: items = [],
+    isPending: isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.announcements.list(athleteUserId),
+    queryFn: async () => {
+      const headers = athleteUserId
+        ? { "X-Acting-User-Id": String(athleteUserId) }
+        : undefined;
+      const res = await apiRequest<{ items?: AnnouncementItem[] }>(
+        "/content/announcements",
+        {
+          token: token!,
+          headers,
+          skipCache: true,
+          suppressStatusCodes: [401, 403, 404],
+        },
+      );
+      return Array.isArray(res.items) ? res.items : [];
+    },
+    enabled: !!token,
+    staleTime: 60 * 1000,
+  });
+
+  const error = queryError ? (queryError as Error).message ?? "Failed to load announcements" : null;
+  const load = useCallback(() => { void refetch(); }, [refetch]);
 
   // Form state
   const [editingId, setEditingId] = React.useState<number | string | null>(
@@ -149,32 +444,6 @@ export default function AnnouncementsScreen() {
   const [isSaving, setIsSaving] = React.useState(false);
 
   const [sheetOpen, setSheetOpen] = React.useState(false);
-
-  const load = React.useCallback(async () => {
-    if (!token) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const headers = athleteUserId
-        ? { "X-Acting-User-Id": String(athleteUserId) }
-        : undefined;
-      const res = await apiRequest<{ items?: AnnouncementItem[] }>(
-        "/content/announcements",
-        {
-          token,
-          headers,
-          skipCache: true,
-          suppressStatusCodes: [401, 403, 404],
-        },
-      );
-      setItems(Array.isArray(res.items) ? res.items : []);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load announcements");
-      setItems([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [athleteUserId, token]);
 
   const handleOpenForm = (item?: AnnouncementItem) => {
     if (item) {
@@ -212,19 +481,19 @@ export default function AnnouncementsScreen() {
 
       if (editingId) {
         await apiRequest(`/content/${editingId}`, {
-          token,
+          token: token!,
           method: "PUT",
           body: payload,
         });
       } else {
         await apiRequest("/content", {
-          token,
+          token: token!,
           method: "POST",
           body: payload,
         });
       }
       setSheetOpen(false);
-      load();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.all() });
     } catch (err) {
       toast.error("Error", "Failed to save announcement");
     } finally {
@@ -248,7 +517,7 @@ export default function AnnouncementsScreen() {
                 token,
                 method: "DELETE",
               });
-              load();
+              void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.all() });
             } catch (err) {
               toast.error("Error", "Failed to delete announcement");
             }
@@ -257,10 +526,6 @@ export default function AnnouncementsScreen() {
       ],
     );
   };
-
-  React.useEffect(() => {
-    load();
-  }, [load]);
 
   return (
     <SafeAreaView
@@ -322,243 +587,19 @@ export default function AnnouncementsScreen() {
         </View>
       </View>
 
-      {isLoading ? (
-        <SkeletonAnnouncementsScreen />
-      ) : error ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-          <Text
-            style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}
-          >
-            {error}
-          </Text>
-          <Pressable
-            onPress={() => void load()}
-            style={{ marginTop: 24, borderRadius: 100, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: p.accent }}
-          >
-            <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.buttonPrimaryText }}>
-              Try again
-            </Text>
-          </Pressable>
-        </View>
-      ) : items.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
-          <Text
-            style={{ fontSize: 15, fontFamily: "Outfit-Regular", textAlign: "center", color: p.textSecondary }}
-          >
-            No announcements yet.
-          </Text>
-        </View>
-      ) : (
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
-          style={{ flex: 1 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={{ gap: 16 }}>
-            {items.map((item) => {
-              const parsed = extractAnnouncement(item);
-              const title = (item.title ?? "").trim() || "Announcement";
-              const timestamp = item.updatedAt ?? item.createdAt ?? null;
-              const when = timestamp
-                ? new Date(timestamp).toLocaleString()
-                : "";
-
-              return (
-                <View
-                  key={String(item.id)}
-                  style={{
-                    borderRadius: 28,
-                    paddingHorizontal: 20,
-                    paddingVertical: 20,
-                    overflow: "hidden",
-                    backgroundColor: p.cardWhite,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        <Text
-                          style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: p.textPrimary }}
-                        >
-                          {title}
-                        </Text>
-                        {isAdmin && item.isActive === false ? (
-                          <View
-                            style={{
-                              borderRadius: 100,
-                              paddingHorizontal: 8,
-                              paddingVertical: 2,
-                              backgroundColor: p.dangerSoft,
-                            }}
-                          >
-                            <Text style={{ fontSize: 10, color: p.danger, fontFamily: "Outfit-Bold", textTransform: "uppercase" }}>
-                              Inactive
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      {when ? (
-                        <Text
-                          style={{ marginTop: 4, fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
-                        >
-                          {when}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View
-                      style={{
-                        height: 40,
-                        width: 40,
-                        borderRadius: 16,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: p.accentSoft,
-                      }}
-                    >
-                      <Radio size={18} color={p.accent} />
-                    </View>
-                  </View>
-
-                  {parsed.text ? (
-                    <View style={{ marginTop: 16 }}>
-                      <MarkdownText text={parsed.text} />
-                    </View>
-                  ) : null}
-
-                  {parsed.images.length ? (
-                    <View style={{ marginTop: 16, gap: 12 }}>
-                      {parsed.images.map((entry) => (
-                        <View key={entry.url} style={{ gap: 8 }}>
-                          <ExpoImage
-                            source={{ uri: entry.url }}
-                            style={{
-                              width: "100%",
-                              height: 220,
-                              borderRadius: 18,
-                            }}
-                            contentFit="cover"
-                          />
-                          {entry.caption ? (
-                            <Text
-                              style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
-                            >
-                              {entry.caption}
-                            </Text>
-                          ) : null}
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-
-                  {parsed.videos.length ? (
-                    <View style={{ marginTop: 16, gap: 12 }}>
-                      {parsed.videos.map((entry) =>
-                        isYoutubeUrl(entry.url) ? (
-                          <View key={entry.url} style={{ gap: 8 }}>
-                            <View
-                              style={{
-                                height: 220,
-                                borderRadius: 18,
-                                overflow: "hidden",
-                              }}
-                            >
-                              <YouTubeEmbed
-                                url={entry.url}
-                                shouldPlay={false}
-                                initialMuted
-                              />
-                            </View>
-                            {entry.caption ? (
-                              <Text
-                                style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
-                              >
-                                {entry.caption}
-                              </Text>
-                            ) : null}
-                          </View>
-                        ) : (
-                          <View key={entry.url} style={{ gap: 8 }}>
-                            <View
-                              style={{ borderRadius: 18, overflow: "hidden" }}
-                            >
-                              <VideoPlayer
-                                uri={entry.url}
-                                height={220}
-                                autoPlay={false}
-                                initialMuted
-                                previewOnly
-                              />
-                            </View>
-                            {entry.caption ? (
-                              <Text
-                                style={{ fontSize: 12, fontFamily: "Outfit-Regular", color: p.textSecondary }}
-                              >
-                                {entry.caption}
-                              </Text>
-                            ) : null}
-                          </View>
-                        ),
-                      )}
-                    </View>
-                  ) : null}
-
-                  {token && parsed.links.length ? (
-                    <View style={{ marginTop: 16, gap: 12 }}>
-                      {parsed.links.slice(0, 2).map((url) => (
-                        <OpenGraphPreview key={url} url={url} token={token} />
-                      ))}
-                    </View>
-                  ) : null}
-
-                  {isAdmin ? (
-                    <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderColor: p.divider, flexDirection: "row", alignItems: "center", gap: 12 }}>
-                      <Pressable
-                        onPress={() => handleOpenForm(item)}
-                        style={{
-                          flex: 1,
-                          height: 40,
-                          borderRadius: 16,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: p.inputBg,
-                          flexDirection: "row",
-                          gap: 8,
-                        }}
-                      >
-                        <Pencil size={14} color={p.textSecondary} />
-                        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.textSecondary }}>
-                          Edit
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleDelete(item.id)}
-                        style={{
-                          flex: 1,
-                          height: 40,
-                          borderRadius: 16,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: p.dangerSoft,
-                          flexDirection: "row",
-                          gap: 8,
-                        }}
-                      >
-                        <Trash2 size={14} color={p.danger} />
-                        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: p.danger }}>
-                          Delete
-                        </Text>
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-        </ScrollView>
-        </KeyboardAvoidingView>
-      )}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+        <AnnouncementList
+          items={items}
+          isLoading={isLoading}
+          error={error}
+          token={token}
+          isAdmin={isAdmin}
+          p={p}
+          onLoad={load}
+          onOpenForm={handleOpenForm}
+          onDelete={handleDelete}
+        />
+      </KeyboardAvoidingView>
 
       <BottomSheet isOpen={sheetOpen} onOpenChange={setSheetOpen}>
         <BottomSheet.Portal>

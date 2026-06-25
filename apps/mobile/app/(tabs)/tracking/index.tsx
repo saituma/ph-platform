@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, RefreshControl, ScrollView, View, Image as RNImage, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { Image } from "expo-image";
+import { FlashList } from "@shopify/flash-list";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useRouter, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -58,8 +59,6 @@ import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locat
 import { relativeTime } from "@/lib/tracking/relativeTime";
 import { apiRequest } from "@/lib/api";
 import { useSocket } from "@/context/SocketContext";
-import { useSafePathname } from "@/hooks/navigation/useSafeExpoRouter";
-import TrackingSocialScreen from "./social";
 import {
   Play,
   TrendingUp,
@@ -140,7 +139,6 @@ function AnimatedStat({
 
 export default function TrackingHomeScreen() {
   const router = useRouter();
-  const pathname = useSafePathname("");
   const insets = useAppSafeAreaInsets();
   const { width: _screenWidth } = useWindowDimensions();
   const screenWidth = Platform.isPad ? Math.min(_screenWidth, 560) : _screenWidth;
@@ -351,10 +349,6 @@ export default function TrackingHomeScreen() {
     router.replace("/(tabs)");
   }, [capabilitiesLoaded, canAccessTracking, router]);
 
-  if (pathname.includes("/tracking/social")) {
-    return <TrackingSocialScreen />;
-  }
-
   if (!capabilitiesLoaded || !canAccessTracking) return null;
 
   if (isTeamManager) {
@@ -404,7 +398,7 @@ export default function TrackingHomeScreen() {
       >
         {/* ── Hero Header ── */}
         <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
-          <RNImage source={TRACKING_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
+          <Image source={TRACKING_BG} style={{ position: "absolute", width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" transition={200} />
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
             locations={[0.25, 0.65, 1]}
@@ -416,7 +410,7 @@ export default function TrackingHomeScreen() {
             <Animated.View entering={FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 {profilePic ? (
-                  <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+                  <Image source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                 ) : (
                   <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
                     <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
@@ -1352,6 +1346,21 @@ type AthleteWithStats = ManagedAthlete & {
   lastRunDate: string | null;
 };
 
+type ManagerListItem =
+  | { type: "overview" }
+  | { type: "quick-actions" }
+  | { type: "live-header" }
+  | { type: "live-location"; location: UserLocation; index: number; total: number }
+  | { type: "filters" }
+  | { type: "athlete-header" }
+  | { type: "athlete-empty" }
+  | { type: "athlete"; athlete: AthleteWithStats; rank: number; isFirst: boolean; isLast: boolean }
+  | { type: "recent-header" }
+  | { type: "recent-run"; run: SocialRunFeedItem; index: number; total: number }
+  | { type: "manage-header" }
+  | { type: "manage-links" }
+  | { type: "spacer" };
+
 function ManagerDashboard({
   isDark,
   insets,
@@ -1447,58 +1456,75 @@ function ManagerDashboard({
 
   const teamName = authTeamMembership?.team ?? managedAthletes[0]?.team ?? "Your Team";
 
-  return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
-      <ScrollView
-        bounces
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: trackingScrollBottomPad(insets) }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={p.accent}
-            colors={[p.accent]}
-          />
-        }
-      >
-        <View style={{ paddingHorizontal: spacing.xl }}>
-          <TrackingHeaderTabs
-            active="running"
-            colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
-            isDark={isDark}
-            topInset={insets.top}
-            paddingHorizontal={0}
-            showTeamTab={showTeamTab}
-          />
+  const managerListData = useMemo<ManagerListItem[]>(() => {
+    const items: ManagerListItem[] = [
+      { type: "overview" },
+      { type: "quick-actions" },
+    ];
 
-          {/* Team name */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <ShieldCheck size={18} color={p.accent} />
-            <Text
-              style={{
-                fontFamily: "Outfit-Regular",
-                fontSize: 13,
-                color: p.textSecondary,
-              }}
-            >
-              {teamName} · Manager View
-            </Text>
-          </View>
-        </View>
+    if (liveLocations.length > 0) {
+      items.push({ type: "live-header" });
+      liveLocations.forEach((location, index) => {
+        items.push({ type: "live-location", location, index, total: liveLocations.length });
+      });
+    }
 
-        {loading ? (
-          <SkeletonTrackingSocialScreen />
-        ) : fetchError ? (
-          <View style={{ paddingVertical: 60, alignItems: "center", gap: 12, paddingHorizontal: spacing.xl }}>
-            <CloudOff size={36} color={p.textMuted} />
-            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, textAlign: "center" }}>
-              Couldn't load team data. Pull down to retry.
-            </Text>
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 12 }}>
-            {/* ── Overview cards ── */}
+    items.push({ type: "filters" }, { type: "athlete-header" });
+
+    if (filtered.length === 0) {
+      items.push({ type: "athlete-empty" });
+    } else {
+      filtered.forEach((athlete, index) => {
+        items.push({
+          type: "athlete",
+          athlete,
+          rank: index + 1,
+          isFirst: index === 0,
+          isLast: index === filtered.length - 1,
+        });
+      });
+    }
+
+    const recentRunPreview = recentRuns.slice(0, 8);
+    if (recentRunPreview.length > 0) {
+      items.push({ type: "recent-header" });
+      recentRunPreview.forEach((run, index) => {
+        items.push({ type: "recent-run", run, index, total: recentRunPreview.length });
+      });
+    }
+
+    items.push({ type: "manage-header" }, { type: "manage-links" }, { type: "spacer" });
+    return items;
+  }, [filtered, liveLocations, recentRuns]);
+
+  const managerKeyExtractor = useCallback((item: ManagerListItem) => {
+    switch (item.type) {
+      case "live-location":
+        return `live-${item.location.userId}`;
+      case "athlete":
+        return `athlete-${item.athlete.id ?? item.athlete.userId ?? item.rank}`;
+      case "recent-run":
+        return `recent-${item.run.runLogId}`;
+      default:
+        return item.type;
+    }
+  }, []);
+
+  const openSocial = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/(tabs)/tracking/social" as any);
+  }, [router]);
+
+  const openRecentRun = useCallback((runLogId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(runLogId)}` as any);
+  }, [router]);
+
+  const renderManagerItem = useCallback(({ item }: { item: ManagerListItem }) => {
+    switch (item.type) {
+      case "overview":
+        return (
+          <View style={{ gap: 8 }}>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <ManagerStatCard
                 label="Team KM"
@@ -1538,21 +1564,12 @@ function ManagerDashboard({
                 p={p}
               />
             </View>
-
-            {/* ── Quick Actions ── */}
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 11,
-                letterSpacing: 1.2,
-                color: p.textMuted,
-                textTransform: "uppercase",
-                paddingLeft: 4,
-                marginTop: 4,
-              }}
-            >
-              Quick Actions
-            </Text>
+          </View>
+        );
+      case "quick-actions":
+        return (
+          <View style={{ gap: 8 }}>
+            <SectionLabel p={p} label="Quick Actions" />
             <View style={{ flexDirection: "row", gap: 8 }}>
               <ManagerQuickAction
                 icon="calendar"
@@ -1595,335 +1612,219 @@ function ManagerDashboard({
                 }}
               />
             </View>
-
-            {/* ── Live athletes sharing location ── */}
-            {liveLocations.length > 0 && (
-              <>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                    color: p.textMuted,
-                    textTransform: "uppercase",
-                    paddingLeft: 4,
-                    marginTop: 4,
-                  }}
-                >
-                  Live Now · {liveLocations.length} {liveLocations.length === 1 ? "athlete" : "athletes"}
-                </Text>
-                <View
-                  style={{
-                    backgroundColor: p.cardWhite,
-                    borderRadius: 22,
-                    overflow: "hidden",
-                  }}
-                >
-                  {liveLocations.map((loc, idx) => {
-                    const minutesAgo = Math.floor(
-                      (Date.now() - new Date(loc.recordedAt).getTime()) / 60000,
-                    );
-                    const isRecent = minutesAgo < 10;
-                    return (
-                      <View
-                        key={loc.userId}
-                        style={{
-                          paddingHorizontal: 16,
-                          paddingVertical: 12,
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 12,
-                          borderBottomWidth: idx < liveLocations.length - 1 ? 1 : 0,
-                          borderBottomColor: p.divider,
-                        }}
-                      >
-                        <View>
-                          <ManagerAvatar
-                            uri={null}
-                            name={loc.name}
-                            size={36}
-                            accent={p.accent}
-                            accentSoft={p.accentSoft}
-                          />
-                          <View
-                            style={{
-                              position: "absolute",
-                              bottom: -1,
-                              right: -1,
-                              width: 12,
-                              height: 12,
-                              borderRadius: 6,
-                              backgroundColor: isRecent ? p.success : p.warning,
-                              borderWidth: 2,
-                              borderColor: p.cardWhite,
-                            }}
-                          />
-                        </View>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <Text
-                            numberOfLines={1}
-                            style={{
-                              fontFamily: "Outfit-Bold",
-                              fontSize: 14,
-                              color: p.textPrimary,
-                            }}
-                          >
-                            {loc.name}
-                          </Text>
-                          <Text
-                            style={{
-                              fontFamily: "Outfit-Regular",
-                              fontSize: 12,
-                              color: isRecent ? p.success : p.textSecondary,
-                            }}
-                          >
-                            {isRecent ? "Sharing now" : `${minutesAgo}m ago`}
-                          </Text>
-                        </View>
-                        <MapPin
-                          size={16}
-                          color={isRecent ? p.success : p.textMuted}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-              </>
-            )}
-
-            {/* ── Filter chips ── */}
-            <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-              {(["all", "active", "inactive"] as ManagerFilter[]).map((f) => {
-                const selected = filter === f;
-                return (
-                  <Pressable
-                    key={f}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setFilter(f);
-                    }}
-                    style={{
-                      paddingHorizontal: 14,
-                      paddingVertical: 7,
-                      borderRadius: 100,
-                      backgroundColor: selected ? p.accent : p.inputBg,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontFamily: "Outfit-Bold",
-                        fontSize: 12,
-                        color: selected ? p.buttonPrimaryText : p.textSecondary,
-                        textTransform: "capitalize",
-                      }}
-                    >
-                      {f === "all" ? `All (${athletes.length})` : f === "active" ? `Active (${activeCount})` : `Inactive (${inactiveCount})`}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* ── Section label ── */}
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 11,
-                letterSpacing: 1.2,
-                color: p.textMuted,
-                textTransform: "uppercase",
-                paddingLeft: 4,
-                marginTop: 4,
-              }}
-            >
-              Athletes · This Week
-            </Text>
-
-            {/* ── Athlete list ── */}
-            {filtered.length === 0 ? (
-              <View style={{ paddingVertical: 40, alignItems: "center", gap: 8 }}>
-                {filter === "inactive" ? <Moon size={32} color={p.textMuted} /> : <Zap size={32} color={p.textMuted} />}
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
-                  {filter === "inactive" ? "All athletes are active this week" : "No athletes match this filter"}
-                </Text>
-              </View>
-            ) : (
-              <View
-                style={{
-                  backgroundColor: p.cardWhite,
-                  borderRadius: 22,
-                  overflow: "hidden",
-                }}
-              >
-                {filtered.map((athlete, idx) => (
-                  <AthleteRow
-                    key={athlete.id ?? athlete.userId ?? idx}
-                    athlete={athlete}
-                    rank={idx + 1}
-                    p={p}
-                    isLast={idx === filtered.length - 1}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.push("/(tabs)/tracking/social" as any);
-                    }}
-                  />
-                ))}
-              </View>
-            )}
-
-            {/* ── Recent activity feed ── */}
-            {recentRuns.length > 0 && (
-              <>
-                <Text
-                  style={{
-                    fontFamily: "Outfit-Bold",
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                    color: p.textMuted,
-                    textTransform: "uppercase",
-                    paddingLeft: 4,
-                    marginTop: 8,
-                  }}
-                >
-                  Recent Activity
-                </Text>
-                <View
-                  style={{
-                    backgroundColor: p.cardWhite,
-                    borderRadius: 22,
-                    overflow: "hidden",
-                  }}
-                >
-                  {recentRuns.slice(0, 8).map((run) => (
-                    <Pressable
-                      key={run.runLogId}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push(`/(tabs)/tracking/run-path/${encodeURIComponent(run.runLogId)}` as any);
-                      }}
-                      style={({ pressed }) => ({
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 12,
-                        backgroundColor: pressed ? p.accentSoft : "transparent",
-                      })}
-                    >
-                      <ManagerAvatar
-                        uri={run.avatarUrl}
-                        name={run.name}
-                        size={36}
-                        accent={p.accent}
-                        accentSoft={p.accentSoft}
-                      />
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                          <Text
-                            numberOfLines={1}
-                            style={{
-                              fontFamily: "Outfit-Bold",
-                              fontSize: 14,
-                              color: p.textPrimary,
-                              flex: 1,
-                            }}
-                          >
-                            {run.name}
-                          </Text>
-                          <Text
-                            style={{
-                              fontFamily: "Outfit-Regular",
-                              fontSize: 11,
-                              color: p.textMuted,
-                            }}
-                          >
-                            {relativeTime(run.date)}
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.accent }}>
-                            {(run.distanceMeters / 1000).toFixed(1)} km
-                          </Text>
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
-                            {formatDurationClock(run.durationSeconds)}
-                          </Text>
-                        </View>
-                      </View>
-                      <ChevronRight size={16} color={p.textMuted} />
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* ── Management links ── */}
-            <Text
-              style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 11,
-                letterSpacing: 1.2,
-                color: p.textMuted,
-                textTransform: "uppercase",
-                paddingLeft: 4,
-                marginTop: 8,
-              }}
-            >
-              Manage
-            </Text>
-            <View
-              style={{
-                backgroundColor: p.cardWhite,
-                borderRadius: 22,
-                overflow: "hidden",
-              }}
-            >
-              <ManagerLinkRow
-                icon="trophy"
-                label="Team Feed & Leaderboard"
-                subtitle="Posts, challenges, and squad activity"
-                accent={p.accent}
-                p={p}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/(tabs)/tracking/social" as any);
-                }}
-              />
-              <ManagerLinkRow
-                icon="settings"
-                label="Team Tracking Settings"
-                subtitle="Privacy, sharing, and visibility"
-                accent={p.textSecondary}
-                p={p}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push("/(tabs)/tracking/team-settings" as any);
-                }}
-              />
-              {capabilities?.schedule && (
-                <ManagerLinkRow
-                  icon="calendar"
-                  label="Team Schedule"
-                  subtitle="Training sessions and events"
-                  accent={p.info}
-                  p={p}
-                  isLast
+          </View>
+        );
+      case "live-header":
+        return <SectionLabel p={p} label={`Live Now · ${liveLocations.length} ${liveLocations.length === 1 ? "athlete" : "athletes"}`} />;
+      case "live-location":
+        return <LiveLocationRow location={item.location} index={item.index} total={item.total} p={p} />;
+      case "filters":
+        return (
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+            {(["all", "active", "inactive"] as ManagerFilter[]).map((f) => {
+              const selected = filter === f;
+              return (
+                <Pressable
+                  key={f}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push("/(tabs)/schedule" as any);
+                    setFilter(f);
                   }}
-                />
-              )}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                    borderRadius: 100,
+                    backgroundColor: selected ? p.accent : p.inputBg,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: "Outfit-Bold",
+                      fontSize: 12,
+                      color: selected ? p.buttonPrimaryText : p.textSecondary,
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {f === "all" ? `All (${athletes.length})` : f === "active" ? `Active (${activeCount})` : `Inactive (${inactiveCount})`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      case "athlete-header":
+        return <SectionLabel p={p} label="Athletes · This Week" />;
+      case "athlete-empty":
+        return (
+          <View style={{ paddingVertical: 40, alignItems: "center", gap: 8 }}>
+            {filter === "inactive" ? <Moon size={32} color={p.textMuted} /> : <Zap size={32} color={p.textMuted} />}
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted }}>
+              {filter === "inactive" ? "All athletes are active this week" : "No athletes match this filter"}
+            </Text>
+          </View>
+        );
+      case "athlete":
+        return (
+          <AthleteRow
+            athlete={item.athlete}
+            rank={item.rank}
+            p={p}
+            isFirst={item.isFirst}
+            isLast={item.isLast}
+            onPress={openSocial}
+          />
+        );
+      case "recent-header":
+        return <SectionLabel p={p} label="Recent Activity" />;
+      case "recent-run":
+        return <RecentRunRow run={item.run} index={item.index} total={item.total} p={p} onPress={openRecentRun} />;
+      case "manage-header":
+        return <SectionLabel p={p} label="Manage" />;
+      case "manage-links":
+        return (
+          <View
+            style={{
+              backgroundColor: p.cardWhite,
+              borderRadius: 22,
+              overflow: "hidden",
+            }}
+          >
+            <ManagerLinkRow
+              icon="trophy"
+              label="Team Feed & Leaderboard"
+              subtitle="Posts, challenges, and squad activity"
+              accent={p.accent}
+              p={p}
+              onPress={openSocial}
+            />
+            <ManagerLinkRow
+              icon="settings"
+              label="Team Tracking Settings"
+              subtitle="Privacy, sharing, and visibility"
+              accent={p.textSecondary}
+              p={p}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/(tabs)/tracking/team-settings" as any);
+              }}
+            />
+            {capabilities?.schedule && (
+              <ManagerLinkRow
+                icon="calendar"
+                label="Team Schedule"
+                subtitle="Training sessions and events"
+                accent={p.info}
+                p={p}
+                isLast
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push("/(tabs)/schedule" as any);
+                }}
+              />
+            )}
+          </View>
+        );
+      case "spacer":
+        return <View style={{ height: 100 }} />;
+    }
+  }, [
+    activeCount,
+    athletes.length,
+    capabilities?.schedule,
+    filter,
+    inactiveCount,
+    liveLocations.length,
+    managedAthletes.length,
+    openRecentRun,
+    openSocial,
+    p,
+    router,
+    teamTotalKm,
+    teamTotalMin,
+  ]);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <FlashList
+        data={loading || fetchError ? [] : managerListData}
+        renderItem={renderManagerItem}
+        keyExtractor={managerKeyExtractor}
+        showsVerticalScrollIndicator={false}
+        estimatedItemSize={120}
+        contentContainerStyle={{
+          paddingHorizontal: spacing.xl,
+          paddingTop: spacing.md,
+          paddingBottom: trackingScrollBottomPad(insets),
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={p.accent}
+            colors={[p.accent]}
+          />
+        }
+        ListHeaderComponent={
+          <View style={{ marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl }}>
+            <TrackingHeaderTabs
+              active="running"
+              colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
+              isDark={isDark}
+              topInset={insets.top}
+              paddingHorizontal={0}
+              showTeamTab={showTeamTab}
+            />
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: loading || fetchError ? 0 : spacing.md }}>
+              <ShieldCheck size={18} color={p.accent} />
+              <Text
+                style={{
+                  fontFamily: "Outfit-Regular",
+                  fontSize: 13,
+                  color: p.textSecondary,
+                }}
+              >
+                {teamName} · Manager View
+              </Text>
             </View>
           </View>
-        )}
-
-        <View style={{ height: 100 }} />
-      </ScrollView>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <SkeletonTrackingSocialScreen />
+          ) : fetchError ? (
+            <View style={{ paddingVertical: 60, alignItems: "center", gap: 12 }}>
+              <CloudOff size={36} color={p.textMuted} />
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textMuted, textAlign: "center" }}>
+                Couldn't load team data. Pull down to retry.
+              </Text>
+            </View>
+          ) : null
+        }
+      />
     </View>
   );
 }
 
 // ── ManagerStatCard ────────────────────────────────────────────────────────
+
+function SectionLabel({ label, p }: { label: string; p: ReturnType<typeof useAdminPastel> }) {
+  return (
+    <Text
+      style={{
+        fontFamily: "Outfit-Bold",
+        fontSize: 11,
+        letterSpacing: 1.2,
+        color: p.textMuted,
+        textTransform: "uppercase",
+        paddingLeft: 4,
+        marginTop: 4,
+      }}
+    >
+      {label}
+    </Text>
+  );
+}
 
 const STAT_ICONS = {
   gauge: Gauge,
@@ -1994,18 +1895,110 @@ function ManagerStatCard({
   );
 }
 
+const LiveLocationRow = React.memo(function LiveLocationRow({
+  location,
+  index,
+  total,
+  p,
+}: {
+  location: UserLocation;
+  index: number;
+  total: number;
+  p: ReturnType<typeof useAdminPastel>;
+}) {
+  const minutesAgo = Math.floor(
+    (Date.now() - new Date(location.recordedAt).getTime()) / 60000,
+  );
+  const isRecent = minutesAgo < 10;
+
+  return (
+    <View
+      style={{
+        backgroundColor: p.cardWhite,
+        borderTopLeftRadius: index === 0 ? 22 : 0,
+        borderTopRightRadius: index === 0 ? 22 : 0,
+        borderBottomLeftRadius: index === total - 1 ? 22 : 0,
+        borderBottomRightRadius: index === total - 1 ? 22 : 0,
+        overflow: "hidden",
+      }}
+    >
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          borderBottomWidth: index < total - 1 ? 1 : 0,
+          borderBottomColor: p.divider,
+        }}
+      >
+        <View>
+          <ManagerAvatar
+            uri={null}
+            name={location.name}
+            size={36}
+            accent={p.accent}
+            accentSoft={p.accentSoft}
+          />
+          <View
+            style={{
+              position: "absolute",
+              bottom: -1,
+              right: -1,
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: isRecent ? p.success : p.warning,
+              borderWidth: 2,
+              borderColor: p.cardWhite,
+            }}
+          />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 14,
+              color: p.textPrimary,
+            }}
+          >
+            {location.name}
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 12,
+              color: isRecent ? p.success : p.textSecondary,
+            }}
+          >
+            {isRecent ? "Sharing now" : `${minutesAgo}m ago`}
+          </Text>
+        </View>
+        <MapPin
+          size={16}
+          color={isRecent ? p.success : p.textMuted}
+        />
+      </View>
+    </View>
+  );
+});
+
 // ── AthleteRow ─────────────────────────────────────────────────────────────
 
-function AthleteRow({
+const AthleteRow = React.memo(function AthleteRow({
   athlete,
   rank,
   p,
+  isFirst,
   isLast,
   onPress,
 }: {
   athlete: AthleteWithStats;
   rank: number;
   p: ReturnType<typeof useAdminPastel>;
+  isFirst: boolean;
   isLast: boolean;
   onPress: () => void;
 }) {
@@ -2022,9 +2015,14 @@ function AthleteRow({
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
-        backgroundColor: pressed ? p.accentSoft : "transparent",
+        backgroundColor: pressed ? p.accentSoft : p.cardWhite,
+        borderTopLeftRadius: isFirst ? 22 : 0,
+        borderTopRightRadius: isFirst ? 22 : 0,
+        borderBottomLeftRadius: isLast ? 22 : 0,
+        borderBottomRightRadius: isLast ? 22 : 0,
         borderBottomWidth: isLast ? 0 : 1,
         borderBottomColor: p.divider,
+        overflow: "hidden",
       })}
     >
       {/* Rank */}
@@ -2129,7 +2127,83 @@ function AthleteRow({
       <ChevronRight size={16} color={p.textMuted} />
     </Pressable>
   );
-}
+});
+
+const RecentRunRow = React.memo(function RecentRunRow({
+  run,
+  index,
+  total,
+  p,
+  onPress,
+}: {
+  run: SocialRunFeedItem;
+  index: number;
+  total: number;
+  p: ReturnType<typeof useAdminPastel>;
+  onPress: (runLogId: string) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onPress(String(run.runLogId))}
+      style={({ pressed }) => ({
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: pressed ? p.accentSoft : p.cardWhite,
+        borderTopLeftRadius: index === 0 ? 22 : 0,
+        borderTopRightRadius: index === 0 ? 22 : 0,
+        borderBottomLeftRadius: index === total - 1 ? 22 : 0,
+        borderBottomRightRadius: index === total - 1 ? 22 : 0,
+        borderBottomWidth: index < total - 1 ? 1 : 0,
+        borderBottomColor: p.divider,
+        overflow: "hidden",
+      })}
+    >
+      <ManagerAvatar
+        uri={run.avatarUrl}
+        name={run.name}
+        size={36}
+        accent={p.accent}
+        accentSoft={p.accentSoft}
+      />
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: "Outfit-Bold",
+              fontSize: 14,
+              color: p.textPrimary,
+              flex: 1,
+            }}
+          >
+            {run.name}
+          </Text>
+          <Text
+            style={{
+              fontFamily: "Outfit-Regular",
+              fontSize: 11,
+              color: p.textMuted,
+            }}
+          >
+            {relativeTime(run.date)}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.accent }}>
+            {(run.distanceMeters / 1000).toFixed(1)} km
+          </Text>
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+            {formatDurationClock(run.durationSeconds)}
+          </Text>
+        </View>
+      </View>
+      <ChevronRight size={16} color={p.textMuted} />
+    </Pressable>
+  );
+});
 
 // ── ManagerAvatar ──────────────────────────────────────────────────────────
 
@@ -2152,6 +2226,7 @@ function ManagerAvatar({
         source={{ uri }}
         style={{ width: size, height: size, borderRadius: size / 2 }}
         contentFit="cover"
+        cachePolicy="disk"
       />
     );
   }

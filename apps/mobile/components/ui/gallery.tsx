@@ -597,6 +597,29 @@ export function Gallery({
     ]
   );
 
+  // Render function for each thumbnail in the fullscreen bottom bar
+  const renderThumbnailItem = useCallback(
+    ({ item, index }: { item: GalleryItem; index: number }) => (
+      <Pressable
+        style={[
+          styles.thumbnailItem,
+          selectedIndex === index && {
+            borderColor: secondary,
+            borderWidth: 2,
+          },
+        ]}
+        onPress={() => handleThumbnailPress(index)}
+      >
+        <Image
+          source={{ uri: item.thumbnail || item.uri }}
+          style={styles.thumbnailImage}
+          contentFit='cover'
+        />
+      </Pressable>
+    ),
+    [selectedIndex, secondary, handleThumbnailPress],
+  );
+
   // Render function for each item in the fullscreen FlatList
   const renderFullscreenItem = useCallback(
     ({ item, index }: { item: GalleryItem; index: number }) => (
@@ -681,24 +704,7 @@ export function Gallery({
           <FlatList
             ref={thumbnailFlatListRef}
             data={items}
-            renderItem={({ item, index }) => (
-              <Pressable
-                style={[
-                  styles.thumbnailItem,
-                  selectedIndex === index && {
-                    borderColor: secondary, // Highlight selected thumbnail
-                    borderWidth: 2,
-                  },
-                ]}
-                onPress={() => handleThumbnailPress(index)}
-              >
-                <Image
-                  source={{ uri: item.thumbnail || item.uri }}
-                  style={styles.thumbnailImage}
-                  contentFit='cover'
-                />
-              </Pressable>
-            )}
+            renderItem={renderThumbnailItem}
             keyExtractor={(item) => item.id}
             horizontal
             showsHorizontalScrollIndicator={false}

@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 
 export type PreseasonDaySession = {
   id: number;
@@ -42,7 +43,13 @@ export type PreseasonExercise = {
   };
 };
 
-type RawPreseasonExercise = Omit<PreseasonExercise, "exercise"> & {
+export type SessionCompleteResult = {
+  completedAt: string;
+  weekComplete: boolean;
+  nextWeekId: number | null;
+};
+
+type RawExercise = Omit<PreseasonExercise, "exercise"> & {
   exercise?: PreseasonExercise["exercise"];
   exerciseId?: number;
   exerciseName?: string;
@@ -62,23 +69,12 @@ type RawPreseasonExercise = Omit<PreseasonExercise, "exercise"> & {
   exerciseHeight?: number | null;
 };
 
-type PreseasonSessionDetailResponse =
-  | {
-      daySession: PreseasonDaySession;
-      exercises: RawPreseasonExercise[];
-    }
-  | (PreseasonDaySession & {
-      exercises?: RawPreseasonExercise[];
-    });
+type RawResponse =
+  | { daySession: PreseasonDaySession; exercises: RawExercise[] }
+  | (PreseasonDaySession & { exercises?: RawExercise[] });
 
-function normalizeExercise(ex: RawPreseasonExercise): PreseasonExercise {
-  if (ex.exercise) {
-    return {
-      ...ex,
-      exercise: ex.exercise,
-    };
-  }
-
+function normalizeExercise(ex: RawExercise): PreseasonExercise {
+  if (ex.exercise) return { ...ex, exercise: ex.exercise };
   return {
     ...ex,
     exercise: {
@@ -102,60 +98,65 @@ function normalizeExercise(ex: RawPreseasonExercise): PreseasonExercise {
   };
 }
 
+function parseResponse(res: RawResponse): { daySession: PreseasonDaySession; exercises: PreseasonExercise[] } {
+  const daySession = "daySession" in res ? res.daySession : res;
+  const exercises = (res.exercises ?? [])
+    .map(normalizeExercise)
+    .sort((a, b) => a.order - b.order);
+  return { daySession, exercises };
+}
+
 export function usePreseasonSessionDetail(token: string | null, daySessionId: number | null) {
-  const [daySession, setDaySession] = useState<PreseasonDaySession | null>(null);
-  const [exercises, setExercises] = useState<PreseasonExercise[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [completing, setCompleting] = useState(false);
-  const hasFetched = useRef(false);
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(
-    async (force = false) => {
-      if (!token || !daySessionId) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<PreseasonSessionDetailResponse>(
-          `/preseason-programme/mobile/day-sessions/${daySessionId}`,
-          { token, forceRefresh: force },
-        );
-        const daySession = "daySession" in res ? res.daySession : res;
-        setDaySession(daySession ?? null);
-        const sorted = (res.exercises ?? []).map(normalizeExercise).slice().sort((a, b) => a.order - b.order);
-        setExercises(sorted);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load session.");
-      } finally {
-        setLoading(false);
-      }
+  const { data, isLoading, error } = useQuery({
+    queryKey: queryKeys.preseason.session(daySessionId!),
+    queryFn: async () => {
+      const res = await apiRequest<RawResponse>(
+        `/preseason-programme/mobile/day-sessions/${daySessionId}`,
+        { token: token! },
+      );
+      return parseResponse(res);
     },
-    [token, daySessionId],
-  );
+    enabled: Boolean(token) && Boolean(daySessionId),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (token && daySessionId && !hasFetched.current) {
-      hasFetched.current = true;
-      refresh();
-    }
-  }, [token, daySessionId, refresh]);
-
-  const completeSession = useCallback(async () => {
-    if (!token || !daySessionId) return null;
-    setCompleting(true);
-    try {
-      const res = await apiRequest<{ completedAt: string; weekComplete: boolean; nextWeekId: number | null }>(
+  const completeMutation = useMutation({
+    mutationFn: () =>
+      apiRequest<SessionCompleteResult>(
         `/preseason-programme/mobile/day-sessions/${daySessionId}/complete`,
         { method: "POST", token },
+      ),
+    onSuccess: (result) => {
+      // Mark session completed in cache immediately
+      queryClient.setQueryData(
+        queryKeys.preseason.session(daySessionId!),
+        (old: { daySession: PreseasonDaySession; exercises: PreseasonExercise[] } | undefined) =>
+          old ? { ...old, daySession: { ...old.daySession, completed: true } } : old,
       );
-      setDaySession((prev) => (prev ? { ...prev, completed: true } : prev));
-      return res;
-    } catch {
-      return null;
-    } finally {
-      setCompleting(false);
-    }
-  }, [token, daySessionId]);
+      // Refresh programme so week status updates (active → completed, next week unlocks)
+      queryClient.invalidateQueries({ queryKey: queryKeys.preseason.programme() });
+      if (result.weekComplete) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.preseason.all() });
+      }
+    },
+    meta: {
+      retryQueue: {
+        path: `/preseason-programme/mobile/day-sessions/${daySessionId}/complete`,
+        method: "POST",
+      },
+    },
+  });
 
-  return { daySession, exercises, loading, error, refresh, completeSession, completing };
+  return {
+    daySession: data?.daySession ?? null,
+    exercises: data?.exercises ?? [],
+    loading: isLoading,
+    error: error instanceof Error ? error.message : null,
+    completeSession: completeMutation.mutateAsync,
+    completing: completeMutation.isPending,
+    completeError: completeMutation.error instanceof Error ? completeMutation.error.message : null,
+    completeResult: completeMutation.data ?? null,
+  };
 }

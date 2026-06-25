@@ -68,24 +68,21 @@ export type AthleteDetailResponse = {
   growthNotes?: string | null;
 };
 
-export async function fetchRoster(token: string, forceRefresh = false): Promise<RosterResponse> {
+export async function fetchRoster(token: string): Promise<RosterResponse> {
   return apiRequest<RosterResponse>("/team/roster", {
     token,
     suppressStatusCodes: [403],
-    skipCache: forceRefresh,
-    forceRefresh,
+    forceRefresh: true,
   });
 }
 
 export async function fetchAthleteDetail(
   token: string,
   athleteId: number,
-  forceRefresh = false,
 ): Promise<AthleteDetailResponse> {
   return apiRequest<AthleteDetailResponse>(`/team/roster/athletes/${athleteId}`, {
     token,
-    skipCache: forceRefresh,
-    forceRefresh,
+    forceRefresh: true,
   });
 }
 

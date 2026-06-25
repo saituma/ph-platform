@@ -10,7 +10,7 @@ import {
   View,
   Image,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";

@@ -1,13 +1,15 @@
 import { Skeleton } from "@/components/Skeleton";
 import { useRefreshContext } from "@/context/RefreshContext";
-import React from "react";
+import { apiRequest } from "@/lib/api";
+import { useAppSelector } from "@/store/hooks";
+import { useQuery } from "@tanstack/react-query";
+import React, { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { Feather } from "@expo/vector-icons";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { Shadows, radius, spacing } from "@/constants/theme";
 import { useRouter } from "expo-router";
-import { useAppSelector } from "@/store/hooks";
 
 const StatItem = ({ label, value, icon, color, isDark, colors }: any) => (
   <View
@@ -40,10 +42,41 @@ const StatItem = ({ label, value, icon, color, isDark, colors }: any) => (
 );
 
 export function GuardianDashboard() {
-  const { isLoading } = useRefreshContext();
+  const { isLoading: contextLoading } = useRefreshContext();
+  const { token, programTier } = useAppSelector((state) => state.user);
   const { colors, isDark } = useAppTheme();
   const router = useRouter();
-  const { programTier } = useAppSelector((state) => state.user);
+
+  const { data, isLoading: queryLoading } = useQuery({
+    queryKey: ["guardian", "athletes"],
+    queryFn: async () => {
+      const res = await apiRequest<{ guardian: any | null; athletes: any[] }>(
+        "/onboarding/athletes",
+        { token: token!, suppressStatusCodes: [401] },
+      );
+      return res;
+    },
+    enabled: !!token,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoading = contextLoading || queryLoading;
+  const athlete = data?.athletes?.[0] ?? null;
+
+  const injuriesCount = useMemo(() => {
+    if (!athlete?.injuries) return 0;
+    if (Array.isArray(athlete.injuries)) return athlete.injuries.length;
+    if (typeof athlete.injuries === "string") return athlete.injuries.trim() ? 1 : 0;
+    return 1;
+  }, [athlete]);
+
+  const extraResponses = athlete?.extraResponses ?? {};
+  const level =
+    typeof extraResponses === "object" && extraResponses !== null
+      ? (extraResponses.level ?? null)
+      : null;
+
+  const trainingDays = athlete?.trainingPerWeek ?? null;
 
   return (
     <View
@@ -87,28 +120,40 @@ export function GuardianDashboard() {
           <Skeleton width="31%" height={100} borderRadius={20} />
           <Skeleton width="31%" height={100} borderRadius={20} />
         </View>
+      ) : !athlete ? (
+        <View
+          style={{
+            marginTop: spacing.xl,
+            borderRadius: radius.xl,
+            padding: spacing.lg,
+            backgroundColor: colors.surfaceHigh,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: 13 }}>No athlete connected</Text>
+        </View>
       ) : (
         <>
           <View style={{ flexDirection: "row", gap: spacing.md, marginTop: spacing.xl }}>
             <StatItem
               label="Sessions"
-              value="--"
+              value={trainingDays !== null ? String(trainingDays) : "—"}
               icon="activity"
               color={colors.accent}
               isDark={isDark}
               colors={colors}
             />
             <StatItem
-              label="Streak"
-              value="--"
+              label="Level"
+              value={level ?? "—"}
               icon="zap"
               color="#F59E0B"
               isDark={isDark}
               colors={colors}
             />
             <StatItem
-              label="Focus"
-              value="--"
+              label="Injuries"
+              value={String(injuriesCount)}
               icon="target"
               color="#8B5CF6"
               isDark={isDark}

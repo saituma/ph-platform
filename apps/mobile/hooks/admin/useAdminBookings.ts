@@ -17,7 +17,7 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
   const [createBookingUsers, setCreateBookingUsers] = useState<AdminUserLite[]>([]);
 
   const loadBookings = useCallback(
-    async (query: string, limitStr: string, forceRefresh: boolean) => {
+    async (query: string, limitStr: string, _forceRefresh?: boolean) => {
       if (!enabled) return;
       setBookingsLoading(true);
       setBookingsError(null);
@@ -29,7 +29,7 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
         params.set("limit", String(limit));
         const res = await apiRequest<{ bookings?: AdminBooking[] }>(
           `/admin/bookings?${params.toString()}`,
-          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+          { token: token!, suppressStatusCodes: [403], forceRefresh: true },
         );
         setBookings(Array.isArray(res?.bookings) ? res.bookings : []);
       } catch (e) {
@@ -43,13 +43,13 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
   );
 
   const loadBookingDetail = useCallback(
-    async (bookingId: number, forceRefresh: boolean) => {
+    async (bookingId: number, _forceRefresh?: boolean) => {
       if (!enabled || !bookingId) return;
       setBookingDetailLoadingIds((prev) => ({ ...prev, [bookingId]: true }));
       try {
         const res = await apiRequest<{ booking?: AdminBookingDetail }>(
           `/admin/bookings/${bookingId}`,
-          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+          { token: token!, suppressStatusCodes: [403], forceRefresh: true },
         );
         setBookingDetails((prev) => ({ ...prev, [bookingId]: res?.booking }));
       } catch (e) {
@@ -82,7 +82,6 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
             body: { status, ...updates },
             suppressStatusCodes: [403],
             skipCache: true,
-            forceRefresh: true,
           });
           if (onComplete) await onComplete();
         } finally {
@@ -94,7 +93,7 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
   );
 
   const searchUsers = useCallback(
-    async (query: string, forceRefresh: boolean) => {
+    async (query: string, _forceRefresh?: boolean) => {
       if (!enabled) return;
       const q = query.trim();
       if (!q) {
@@ -107,7 +106,7 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
         params.set("limit", "25");
         const res = await apiRequest<{ users?: AdminUserLite[] }>(
           `/admin/users?${params.toString()}`,
-          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+          { token: token!, suppressStatusCodes: [403], forceRefresh: true },
         );
         setCreateBookingUsers(Array.isArray(res?.users) ? res.users : []);
       } catch {
@@ -134,7 +133,6 @@ export function useAdminBookings(token: string | null, canLoad: boolean) {
           body: { ...params, status: "confirmed" },
           suppressStatusCodes: [400, 403],
           skipCache: true,
-          forceRefresh: true,
         });
       },
       [enabled, token],

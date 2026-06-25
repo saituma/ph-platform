@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { Modal, TouchableOpacity, View } from "react-native";
 import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -41,11 +41,15 @@ export function PinModal({
   const insets = useAppSafeAreaInsets();
   const [pin, setPin] = useState("");
   const shakeOffset = useSharedValue(0);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (visible) {
       setPin("");
     }
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
   }, [visible]);
 
   const shake = useCallback(() => {
@@ -68,7 +72,11 @@ export function PinModal({
       const newPin = pin + number;
       setPin(newPin);
       if (newPin.length === 4) {
-        setTimeout(() => {
+        if (successTimerRef.current) clearTimeout(successTimerRef.current);
+        successTimerRef.current = setTimeout(() => {
+          if (successTimerRef.current) {
+            successTimerRef.current = null;
+          }
           onSuccess(newPin);
         }, 100);
       }
@@ -84,6 +92,12 @@ export function PinModal({
       transform: [{ translateX: shakeOffset.value }],
     };
   });
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -162,9 +176,7 @@ export function PinModal({
                 }`}
               >
                 {pin.length > index && (
-                  <Text className="text-2xl font-bold font-clash text-app">
-                    {pin[index]}
-                  </Text>
+                  <View className="w-3 h-3 rounded-full bg-accent" />
                 )}
               </View>
             ))}

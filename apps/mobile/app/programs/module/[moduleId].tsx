@@ -3,14 +3,13 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { Alert, Pressable, View, Linking } from "react-native";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, Lock, CheckCircle, ChevronRight } from "lucide-react-native";
-import { useSafeIsFocused } from "@/hooks/navigation/useSafeReactNavigation";
+import { useQuery } from "@tanstack/react-query";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
@@ -51,7 +50,6 @@ type TrainingContentV2Workspace = {
 
 export default function ProgramModuleDetailScreen() {
   const router = useRouter();
-  const isFocused = useSafeIsFocused(true);
   const { moduleId, programId } = useLocalSearchParams<{
     moduleId?: string | string[];
     programId?: ProgramId | string;
@@ -65,7 +63,7 @@ export default function ProgramModuleDetailScreen() {
       Linking.getInitialURL().then((url) => {
         if (cancelled) return;
         if (url && url.includes("/programs/module/")) return;
-        router.replace("/(tabs)");
+        router.replace("/(tabs)" as any);
       });
     }, 0);
     return () => {
@@ -103,13 +101,32 @@ export default function ProgramModuleDetailScreen() {
   }, [managedAthletes, athleteUserId]);
   const activeAthleteAge = activeAthlete?.age ?? null;
 
-  const [workspace, setWorkspace] = useState<TrainingContentV2Workspace | null>(
-    null,
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const hasLoadedOnceRef = useRef(false);
   const wasLockedRef = useRef<boolean | null>(null);
+
+  const ageQ =
+    activeAthleteAge !== null
+      ? `?age=${encodeURIComponent(String(activeAthleteAge))}`
+      : "";
+
+  const {
+    data: workspace,
+    isLoading,
+    error: queryError,
+    refetch,
+  } = useQuery({
+    queryKey: ["training-content-v2", "mobile", activeAthleteAge] as const,
+    queryFn: () =>
+      apiRequest<TrainingContentV2Workspace>(
+        `/training-content-v2/mobile${ageQ}`,
+        { token: token!, forceRefresh: true },
+      ),
+    enabled: !!token,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError
+    ? queryError instanceof Error ? queryError.message : "Failed to load module details."
+    : null;
 
   const formatUnlockTiers = (
     tiers?: Array<{ tier: string; label: string }>,
@@ -153,42 +170,6 @@ export default function ProgramModuleDetailScreen() {
     router.replace(`/programs/${safeProgramId}` as any);
   }, [router, safeProgramId]);
 
-  const loadWorkspace = useCallback(
-    async (options?: { force?: boolean }) => {
-      if (!token) {
-        setWorkspace(null);
-        return;
-      }
-      const ageQ =
-        activeAthleteAge !== null
-          ? `?age=${encodeURIComponent(String(activeAthleteAge))}`
-          : "";
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await apiRequest<TrainingContentV2Workspace>(
-          `/training-content-v2/mobile${ageQ}`,
-          { token, forceRefresh: options?.force ?? false },
-        );
-        setWorkspace(response);
-      } catch (err) {
-        setWorkspace(null);
-        setError(
-          err instanceof Error ? err.message : "Failed to load module details.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [activeAthleteAge, token],
-  );
-
-  useEffect(() => {
-    if (!isFocused) return;
-    const force = hasLoadedOnceRef.current;
-    hasLoadedOnceRef.current = true;
-    void loadWorkspace({ force });
-  }, [isFocused, loadWorkspace]);
 
   useEffect(() => {
     const notifyModuleOpened = async () => {
@@ -235,7 +216,7 @@ export default function ProgramModuleDetailScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }} edges={["top"]}>
       <SafeMaskedView style={{ flex: 1 }}>
         <ThemedScrollView
-          onRefresh={() => loadWorkspace({ force: true })}
+          onRefresh={() => { refetch(); }}
           style={{ backgroundColor: p.pageBg }}
           contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}
         >

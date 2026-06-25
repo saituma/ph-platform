@@ -15,7 +15,6 @@ function formatLastSeenStatic(isoString: string): string {
 
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread } from "@/types/messages";
-import { clearApiCache } from "@/lib/api";
 import { messagesApi } from "@/lib/apiClient/messages";
 import {
   emitMessagingUnreadChanged,
@@ -518,7 +517,7 @@ export function useChatActions({
               : msg,
           ),
         );
-        clearApiCache();
+
         emitMessagingUnreadChanged({
           threadId: id,
           unreadCleared: getThreadUnread?.(id) ?? 1,
@@ -543,7 +542,7 @@ export function useChatActions({
         setThreads((prev) =>
           prev.map((t) => (t.id === id ? { ...t, unread: 0 } : t)),
         );
-        clearApiCache();
+
         emitMessagingUnreadChanged({
           threadId: id,
           unreadCleared: getThreadUnread?.(id) ?? 1,

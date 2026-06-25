@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Megaphone, Users2, Clock, Search, Plus, Trash2, RefreshCw, Send, Pencil } from "lucide-react-native";
 

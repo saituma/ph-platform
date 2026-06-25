@@ -37,7 +37,7 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
   const [mutatingId, setMutatingId] = useState<number | null>(null);
 
   const load = useCallback(
-    async (params: { q?: string; limit?: number } = {}, forceRefresh = false) => {
+    async (params: { q?: string; limit?: number } = {}) => {
       if (!enabled) return;
       setLoading(true);
       setError(null);
@@ -48,7 +48,7 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
         const qs = query.toString();
         const res = await apiRequest<{ items?: AdminPhysioReferralItem[] }>(
           qs ? `/admin/physio-referrals?${qs}` : "/admin/physio-referrals",
-          { token: token!, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+          { token: token!, suppressStatusCodes: [403], forceRefresh: true },
         );
         setItems(Array.isArray(res?.items) ? res.items : []);
       } catch (e) {
@@ -73,7 +73,6 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
             body,
             suppressStatusCodes: [400, 403],
             skipCache: true,
-            forceRefresh: true,
           });
         } finally {
           setMutatingId(null);
@@ -95,7 +94,6 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
             body: patch,
             suppressStatusCodes: [400, 403],
             skipCache: true,
-            forceRefresh: true,
           });
         } finally {
           setMutatingId(null);
@@ -116,7 +114,6 @@ export function useAdminPhysioReferrals(token: string | null, canLoad: boolean) 
             token: token!,
             suppressStatusCodes: [403],
             skipCache: true,
-            forceRefresh: true,
           });
         } finally {
           setMutatingId(null);

@@ -43,9 +43,10 @@ export default function SentryTestScreen() {
       note: "Real React render crash — caught by Sentry.wrap() boundary.",
       run: () => {
         append("Throwing unhandled error in 100ms ...");
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           throw new Error("sentry-test: UNHANDLED render-tick error");
         }, 100);
+        // Timer clears itself via exception
       },
     },
     {
@@ -62,7 +63,8 @@ export default function SentryTestScreen() {
       note: "Forces a native crash. App will close. Reopen to see the report.",
       run: () => {
         append("Calling Sentry.nativeCrash() — app will close ...");
-        setTimeout(() => Sentry.nativeCrash(), 200);
+        const timer = setTimeout(() => Sentry.nativeCrash(), 200);
+        // Timer terminates process before cleanup
       },
     },
     {

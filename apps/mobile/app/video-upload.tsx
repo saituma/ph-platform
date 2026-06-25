@@ -62,12 +62,12 @@ export default function VideoUploadScreen() {
             </Text>
 
             <TouchableOpacity
-              onPress={() => router.replace("/(tabs)/programs")}
+              onPress={() => router.back()}
               className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
               style={isDark ? Shadows.none : Shadows.md}
             >
               <Text className="text-white font-bold text-base text-center">
-                Go to Programs
+                Go Back
               </Text>
             </TouchableOpacity>
           </View>
@@ -99,11 +99,11 @@ export default function VideoUploadScreen() {
               Video upload for coach feedback isn’t enabled for your account.
             </Text>
             <TouchableOpacity
-              onPress={() => router.replace("/(tabs)/programs")}
+              onPress={() => router.back()}
               className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
               style={isDark ? Shadows.none : Shadows.md}
             >
-              <Text className="text-white font-bold text-base text-center">Open training</Text>
+              <Text className="text-white font-bold text-base text-center">Go Back</Text>
             </TouchableOpacity>
           </View>
         </View>

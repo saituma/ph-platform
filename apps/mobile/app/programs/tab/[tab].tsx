@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import { Pressable, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 
 import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { Text } from "@/components/ScaledText";
 import { getSessionTypesForTab } from "@/constants/program-details";
 import { apiRequest } from "@/lib/api";
 import { normalizeProgramTier } from "@/lib/planAccess";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { ArrowLeft } from "lucide-react-native";
@@ -60,20 +62,10 @@ export default function ProgramTabDetailScreen() {
     return selected?.age ?? null;
   }, [managedAthletes, athleteUserId]);
 
-  const [items, setItems] = useState<ProgramSectionContent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const currentAthlete = useMemo(() => {
     if (!managedAthletes.length) return null;
     return managedAthletes.find((athlete) => athlete.id === athleteUserId || athlete.userId === athleteUserId) ?? managedAthletes[0];
   }, [athleteUserId, managedAthletes]);
-
-  useEffect(() => {
-    if (deepLinkFallbackDoneRef.current) return;
-    if (router.canGoBack()) return;
-    deepLinkFallbackDoneRef.current = true;
-    router.replace("/(tabs)");
-  }, [router]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -83,21 +75,21 @@ export default function ProgramTabDetailScreen() {
     router.replace("/(tabs)/programs");
   }, [router]);
 
-  const loadContent = useCallback(async () => {
-    if (!token || !tabName) return;
-    const types = getSessionTypesForTab(tabName);
-    if (types.length === 0) {
-      setItems([]);
-      return;
-    }
-    const tier = normalizeProgramTier(programTier) ?? "PHP";
-    const ageQ =
+  const tier = useMemo(() => normalizeProgramTier(programTier) ?? "PHP", [programTier]);
+  const ageQ = useMemo(
+    () =>
       activeAthleteAge !== null
         ? `&age=${encodeURIComponent(String(activeAthleteAge))}`
-        : "";
-    setIsLoading(true);
-    setError(null);
-    try {
+        : "",
+    [activeAthleteAge],
+  );
+
+  const types = useMemo(() => getSessionTypesForTab(tabName), [tabName]);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: queryKeys.programs.sessionData(activeAthleteAge),
+    queryFn: async () => {
+      if (types.length === 0) return [];
       const results = await Promise.allSettled(
         types.map((type) =>
           apiRequest<{ items: ProgramSectionContent[] }>(
@@ -115,21 +107,22 @@ export default function ProgramTabDetailScreen() {
         if (orderA !== orderB) return orderA - orderB;
         return String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""));
       });
-      setItems(merged);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load content.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token, tabName, activeAthleteAge, programTier]);
+      return merged;
+    },
+    enabled: !!token && !!tabName && types.length > 0,
+    staleTime: 2 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    void loadContent();
-  }, [loadContent]);
+  const items = data ?? [];
+
+  if (deepLinkFallbackDoneRef.current === false && !router.canGoBack()) {
+    deepLinkFallbackDoneRef.current = true;
+    router.replace("/(tabs)");
+  }
 
   return (
     <ThemedScrollView
-      onRefresh={loadContent}
+      onRefresh={() => { refetch(); }}
       contentContainerStyle={{ paddingBottom: 40 }}
     >
       <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
@@ -195,7 +188,7 @@ export default function ProgramTabDetailScreen() {
           </View>
         ) : error ? (
           <View style={{ marginTop: 24, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: p.cardWhite }}>
-            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>{error}</Text>
+            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textSecondary }}>{error?.message ?? "Something went wrong"}</Text>
           </View>
         ) : items.length === 0 ? (
           <View style={{ marginTop: 24, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: p.cardWhite }}>

@@ -1,11 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { Bell, ChevronLeft, ChevronRight, Lock, Check } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -27,6 +27,77 @@ const TEXT_MUTED = "#888888";
 const TEXT_DIMMED = "#555555";
 const BORDER_MUTED = "#2A2A2A";
 
+const WeekSeparator = () => <View style={{ height: 10 }} />;
+
+const WeekCard = memo(function WeekCard({
+  week,
+  index,
+  onPress,
+}: {
+  week: PreseasonWeek;
+  index: number;
+  onPress: (week: PreseasonWeek) => void;
+}) {
+  const isActive = week.status === "active";
+  const isLocked = week.status === "locked";
+  const isCompleted = week.status === "completed";
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 40).springify().damping(18)}>
+      <Pressable
+        onPress={() => onPress(week)}
+        disabled={isLocked}
+        style={({ pressed }) => [
+          styles.weekCard,
+          isActive && styles.weekCardActive,
+          isLocked && styles.weekCardLocked,
+          pressed && !isLocked && { opacity: 0.8 },
+        ]}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isLocked }}
+      >
+        {isActive && <View style={styles.activeBar} />}
+        <View style={styles.weekCardInner}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={[
+                styles.weekLabel,
+                isLocked && styles.weekLabelLocked,
+                isActive && styles.weekLabelActive,
+              ]}
+            >
+              WEEK {week.weekNumber}
+            </Text>
+            <Text
+              style={[
+                styles.weekSub,
+                isLocked && styles.weekSubLocked,
+              ]}
+            >
+              {isCompleted
+                ? "Completed"
+                : isActive && week.selectedWeekTypeId == null
+                ? "Select your week type"
+                : isActive
+                ? "View sessions"
+                : `Complete Week ${week.weekNumber - 1} to unlock`}
+            </Text>
+          </View>
+          {isLocked ? (
+            <Lock size={18} color={TEXT_DIMMED} />
+          ) : isCompleted ? (
+            <View style={styles.checkBadge}>
+              <Check size={14} color={BG} strokeWidth={3} />
+            </View>
+          ) : (
+            <ChevronRight size={20} color={ACCENT} />
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+});
+
 export default function PreseasonProgrammeScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
@@ -37,7 +108,7 @@ export default function PreseasonProgrammeScreen() {
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh(true);
+    await refresh();
     setRefreshing(false);
   }, [refresh]);
 
@@ -45,13 +116,75 @@ export default function PreseasonProgrammeScreen() {
     (week: PreseasonWeek) => {
       if (week.status === "locked") return;
       if (week.selectedWeekTypeId != null || week.status === "completed") {
-        router.push(`/programs/preseason/${week.id}/sessions` as any);
+        router.push(`/programs/preseason/${week.id}/sessions?weekNumber=${week.weekNumber}` as any);
       } else {
-        router.push(`/programs/preseason/${week.id}` as any);
+        router.push(`/programs/preseason/${week.id}?weekNumber=${week.weekNumber}` as any);
       }
     },
     [router],
   );
+
+  const weekKeyExtractor = useCallback((week: PreseasonWeek) => String(week.id), []);
+
+  const renderWeek = useCallback(
+    ({ item, index }: { item: PreseasonWeek; index: number }) => (
+      <WeekCard week={item} index={index} onPress={handleWeekPress} />
+    ),
+    [handleWeekPress],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.titleBlock}>
+        <Text style={styles.displayTitle}>PROGRAMME</Text>
+        {programme ? (
+          <>
+            <Text style={styles.programmeName}>{programme.title}</Text>
+            <Text style={styles.weekCount}>{programme.weekCount} Weeks</Text>
+          </>
+        ) : loading ? (
+          <>
+            <SkeletonBox width={180} height={20} borderRadius={6} />
+            <SkeletonBox width={80} height={16} borderRadius={6} />
+          </>
+        ) : null}
+      </View>
+    ),
+    [loading, programme],
+  );
+
+  const listEmpty = useMemo(() => {
+    if (loading) {
+      return (
+        <View style={{ gap: 10 }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonBox key={i} width="100%" height={76} borderRadius={14} />
+          ))}
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable onPress={() => refresh()} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Retry</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (weeks.length === 0) {
+      return (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>No preseason content available</Text>
+        </View>
+      );
+    }
+
+    return null;
+  }, [error, loading, refresh, weeks.length]);
 
   if (!capabilities?.preseasonProgramme) {
     return null;
@@ -77,10 +210,17 @@ export default function PreseasonProgrammeScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <FlashList
+        data={weeks}
+        renderItem={renderWeek}
+        keyExtractor={weekKeyExtractor}
+        estimatedItemSize={120}
         style={{ flex: 1 }}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        ItemSeparatorComponent={WeekSeparator}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -88,105 +228,7 @@ export default function PreseasonProgrammeScreen() {
             tintColor={ACCENT}
           />
         }
-      >
-        {/* Title block */}
-        <View style={styles.titleBlock}>
-          <Text style={styles.displayTitle}>PROGRAMME</Text>
-          {programme ? (
-            <>
-              <Text style={styles.programmeName}>{programme.title}</Text>
-              <Text style={styles.weekCount}>{programme.weekCount} Weeks</Text>
-            </>
-          ) : loading ? (
-            <>
-              <SkeletonBox width={180} height={20} borderRadius={6} />
-              <SkeletonBox width={80} height={16} borderRadius={6} />
-            </>
-          ) : null}
-        </View>
-
-        {/* Week cards */}
-        {loading && weeks.length === 0 ? (
-          <View style={{ gap: 10 }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <SkeletonBox key={i} width="100%" height={76} borderRadius={14} />
-            ))}
-          </View>
-        ) : error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={() => refresh(true)} style={styles.retryBtn}>
-              <Text style={styles.retryText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={{ gap: 10 }}>
-            {weeks.map((week, idx) => {
-              const isActive = week.status === "active";
-              const isLocked = week.status === "locked";
-              const isCompleted = week.status === "completed";
-
-              return (
-                <Animated.View
-                  key={week.id}
-                  entering={FadeInDown.delay(idx * 40).springify().damping(18)}
-                >
-                  <Pressable
-                    onPress={() => handleWeekPress(week)}
-                    disabled={isLocked}
-                    style={({ pressed }) => [
-                      styles.weekCard,
-                      isActive && styles.weekCardActive,
-                      isLocked && styles.weekCardLocked,
-                      pressed && !isLocked && { opacity: 0.8 },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: isLocked }}
-                  >
-                    {isActive && <View style={styles.activeBar} />}
-                    <View style={styles.weekCardInner}>
-                      <View style={{ flex: 1 }}>
-                        <Text
-                          style={[
-                            styles.weekLabel,
-                            isLocked && styles.weekLabelLocked,
-                            isActive && styles.weekLabelActive,
-                          ]}
-                        >
-                          WEEK {week.weekNumber}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.weekSub,
-                            isLocked && styles.weekSubLocked,
-                          ]}
-                        >
-                          {isCompleted
-                            ? "Completed"
-                            : isActive && week.selectedWeekTypeId == null
-                            ? "Select your week type"
-                            : isActive
-                            ? "View sessions"
-                            : `Complete Week ${week.weekNumber - 1} to unlock`}
-                        </Text>
-                      </View>
-                      {isLocked ? (
-                        <Lock size={18} color={TEXT_DIMMED} />
-                      ) : isCompleted ? (
-                        <View style={styles.checkBadge}>
-                          <Check size={14} color={BG} strokeWidth={3} />
-                        </View>
-                      ) : (
-                        <ChevronRight size={20} color={ACCENT} />
-                      )}
-                    </View>
-                  </Pressable>
-                </Animated.View>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+      />
     </View>
   );
 }
@@ -350,5 +392,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Outfit-Bold",
     color: TEXT_PRIMARY,
+  },
+  emptyBox: {
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: "Outfit-Regular",
+    color: TEXT_MUTED,
+    textAlign: "center",
   },
 });

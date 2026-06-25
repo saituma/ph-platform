@@ -88,6 +88,8 @@ interface UserState {
   authTeamMembership: { team: string | null; teamId: number | null } | null;
   /** Plan-level feature keys from /auth/me ("video_upload", "physio_referrals", etc.). */
   planFeatures: string[];
+  /** Admin-configured banner shown to users whose plan has expired. */
+  expiryBanner: { message: string; buttonLabel: string; paymentUrl: string } | null;
 }
 
 const initialState: UserState = {
@@ -114,6 +116,7 @@ const initialState: UserState = {
   onboardingCompleted: null,
   authTeamMembership: null,
   planFeatures: [],
+  expiryBanner: null,
 };
 
 const userSlice = createSlice({
@@ -175,6 +178,9 @@ const userSlice = createSlice({
     setPlanFeatures: (state, action: PayloadAction<string[]>) => {
       state.planFeatures = action.payload;
     },
+    setExpiryBanner: (state, action: PayloadAction<{ message: string; buttonLabel: string; paymentUrl: string } | null>) => {
+      state.expiryBanner = action.payload;
+    },
     logout: (state) => {
       state.isAuthenticated = false;
       state.token = null;
@@ -191,6 +197,7 @@ const userSlice = createSlice({
       state.onboardingCompleted = null;
       state.authTeamMembership = null;
       state.planFeatures = [];
+      state.expiryBanner = null;
     },
   },
 });
@@ -210,6 +217,7 @@ export const {
   setOnboardingCompleted,
   setAuthTeamMembership,
   setPlanFeatures,
+  setExpiryBanner,
   logout,
 } = userSlice.actions;
 

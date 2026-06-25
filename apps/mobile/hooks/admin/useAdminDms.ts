@@ -53,7 +53,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
   }, []);
 
   const loadThreads = useCallback(
-    async (query: string, forceRefresh: boolean) => {
+    async (query: string, _forceRefresh?: boolean) => {
       if (!enabled) return;
       setThreadsLoading(true);
       setThreadsError(null);
@@ -64,7 +64,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
         searchParams.set("limit", "80");
         const res = await apiRequest<{ threads?: AdminDmThread[] }>(
           `/admin/messages/threads?${searchParams.toString()}`,
-          { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [403] },
+          { token: token!, forceRefresh: true, suppressStatusCodes: [403] },
         );
         mergeThreads(Array.isArray(res?.threads) ? res.threads : [], q.toLowerCase());
       } catch (e) {
@@ -77,7 +77,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
   );
 
   const loadMessages = useCallback(
-    async (userId: number, forceRefresh: boolean) => {
+    async (userId: number, _forceRefresh?: boolean) => {
       if (!enabled) return;
       const cached = getCachedAdminDmMessages(userId);
       if (cached) setMessages(cached);
@@ -86,7 +86,7 @@ export function useAdminDms(token: string | null, canLoad: boolean) {
       try {
         const res = await apiRequest<{ messages?: DirectMessage[] }>(
           `/admin/messages/${userId}?limit=50`,
-          { token: token!, skipCache: forceRefresh, forceRefresh, suppressStatusCodes: [403] },
+          { token: token!, forceRefresh: true, suppressStatusCodes: [403] },
         );
         const nextMessages = Array.isArray(res?.messages) ? res.messages : [];
         setCachedAdminDmMessages(userId, nextMessages);

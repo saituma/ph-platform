@@ -484,14 +484,18 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
   );
 
   const avgQuality = useMemo(() => {
-    const rated = logs.filter((l) => l.quality);
+    const now = new Date();
+    const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const rated = logs.filter((l) => l.dateKey.startsWith(curKey) && l.quality);
     if (rated.length === 0) return null;
     return Math.round(rated.reduce((sum, l) => sum + (l.quality ?? 0), 0) / rated.length);
   }, [logs]);
 
   const prevMonthAvg = useMemo(() => {
     const now = new Date();
-    const prevKey = `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+    const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const prevKey = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}`;
     const prevLogs = logs.filter((l) => l.dateKey.startsWith(prevKey) && l.quality);
     if (prevLogs.length === 0) return null;
     return Math.round(prevLogs.reduce((sum, l) => sum + (l.quality ?? 0), 0) / prevLogs.length);

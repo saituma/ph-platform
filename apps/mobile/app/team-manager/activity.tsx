@@ -17,6 +17,7 @@ import {
   Heart,
   MessageCircle,
   ChevronDown,
+  AlertCircle,
 } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Text } from "@/components/ScaledText";
@@ -77,6 +78,7 @@ export default function TeamActivityScreen() {
   const [items, setItems] = useState<SocialRunFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SocialSort>("date_desc");
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -84,6 +86,7 @@ export default function TeamActivityScreen() {
   const load = useCallback(
     async (reset = true) => {
       if (!token || !isTeamManager) return;
+      if (reset) setError(null);
       try {
         const res = await fetchRunFeed(token, {
           limit: 20,
@@ -97,8 +100,8 @@ export default function TeamActivityScreen() {
           setItems((prev) => [...prev, ...(res.items ?? [])]);
         }
         setNextCursor(res.nextCursor ?? null);
-      } catch {
-        // silent
+      } catch (e) {
+        if (reset) setError(e instanceof Error ? e.message : "Failed to load activity");
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -259,6 +262,8 @@ export default function TeamActivityScreen() {
 
         {loading && items.length === 0 ? (
           <LoadingPlaceholder />
+        ) : error && items.length === 0 ? (
+          <ErrorState message={error} onRetry={() => load(true)} />
         ) : items.length === 0 ? (
           <EmptyState />
         ) : (
@@ -482,6 +487,36 @@ function StatChip({
       >
         {value}
       </Text>
+    </View>
+  );
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const p = useAdminPastel();
+  return (
+    <View
+      style={{
+        borderRadius: 22,
+        backgroundColor: p.dangerSoft,
+        padding: 32,
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <AlertCircle size={28} color={p.danger} />
+      <Text
+        style={{
+          fontSize: 16,
+          fontFamily: "Outfit-Bold",
+          color: p.danger,
+          textAlign: "center",
+        }}
+      >
+        {message}
+      </Text>
+      <Pressable onPress={onRetry} style={{ marginTop: 4, paddingHorizontal: 16, paddingVertical: 8 }}>
+        <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>Try again</Text>
+      </Pressable>
     </View>
   );
 }

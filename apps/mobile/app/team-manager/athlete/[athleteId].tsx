@@ -1,19 +1,25 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
+  LayoutAnimation,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
+  ChevronDown,
   ChevronRight,
   Lock,
+  Pencil,
 } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -22,6 +28,7 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
 import { AthleteHealthDetail } from "@/components/teamManager/AthleteHealthDetail";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
+import { isAdminRole } from "@/lib/isAdminRole";
 import {
   fetchAthleteDetail,
   updateAthlete,
@@ -30,6 +37,10 @@ import {
   type AthleteDetail,
   type AthleteUpdateData,
 } from "@/services/teamManager/rosterService";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
@@ -134,13 +145,13 @@ export default function AthleteDetailScreen() {
   const { athleteId: athleteIdParam } = useLocalSearchParams<{ athleteId: string }>();
   const athleteId = Number(athleteIdParam);
 
-  const { token, appRole } = useAppSelector((state) => state.user);
-  const isTeamManager = appRole === "team_manager";
-
+  const { token, appRole, apiUserRole } = useAppSelector((state) => state.user);
+  const canAccess = appRole === "team_manager" || isAdminRole(apiUserRole) || appRole === "coach";
 
   const [athlete, setAthlete] = useState<AthleteDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [trainingFreq, setTrainingFreq] = useState("");
@@ -152,16 +163,18 @@ export default function AthleteDetailScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
+  const [showHealthDetail, setShowHealthDetail] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadAthlete = useCallback(
-    async (forceRefresh = false) => {
-      if (!token || !athleteId || !isTeamManager) return;
+    async (_forceRefresh?: boolean) => {
+      if (!token || !athleteId || !canAccess) return;
       setLoading(true);
       setError(null);
       try {
-        const raw = await fetchAthleteDetail(token, athleteId, forceRefresh);
+        const raw = await fetchAthleteDetail(token, athleteId);
         const detail = normalizeAthleteDetail(raw);
         setAthlete(detail);
         setDisplayName(detail.name ?? "");
@@ -175,7 +188,7 @@ export default function AthleteDetailScreen() {
         setLoading(false);
       }
     },
-    [isTeamManager, token, athleteId],
+    [canAccess, token, athleteId],
   );
 
   useEffect(() => {
@@ -188,8 +201,24 @@ export default function AthleteDetailScreen() {
     };
   }, []);
 
+  const athleteUserId = athlete?.userId;
+  useEffect(() => {
+    setShowHealthDetail(false);
+    if (!athleteId || !athleteUserId) return;
+    const task = InteractionManager.runAfterInteractions(() => {
+      setShowHealthDetail(true);
+    });
+    return () => task.cancel();
+  }, [athleteId, athleteUserId]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAthlete(true);
+    setRefreshing(false);
+  }, [loadAthlete]);
+
   const handleSave = useCallback(async () => {
-    if (!token || !athleteId || !isTeamManager) return;
+    if (!token || !athleteId || !canAccess) return;
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -208,7 +237,7 @@ export default function AthleteDetailScreen() {
     } finally {
       setSaving(false);
     }
-  }, [isTeamManager, token, athleteId, trainingFreq, performanceGoals, equipment, growthNotes]);
+  }, [canAccess, token, athleteId, trainingFreq, performanceGoals, equipment, growthNotes]);
 
   const handleResetPassword = useCallback(() => {
     const name = athlete?.name ?? "this athlete";
@@ -221,7 +250,7 @@ export default function AthleteDetailScreen() {
           text: "Reset",
           style: "destructive",
           onPress: async () => {
-            if (!token || !athleteId || !isTeamManager) return;
+            if (!token || !athleteId || !canAccess) return;
             setResettingPassword(true);
             try {
               await resetAthletePassword(token, athleteId);
@@ -238,7 +267,12 @@ export default function AthleteDetailScreen() {
         },
       ],
     );
-  }, [isTeamManager, token, athleteId, athlete?.name]);
+  }, [canAccess, token, athleteId, athlete?.name]);
+
+  const toggleProfile = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.create(180, "easeInEaseOut", "opacity"));
+    setProfileOpen((o) => !o);
+  }, []);
 
   const athleteName = athlete?.name ?? (loading ? "" : `Athlete #${athleteId}`);
   const initials = getInitials(athleteName);
@@ -249,9 +283,18 @@ export default function AthleteDetailScreen() {
         ? "Adult"
         : null;
   const ageLabel = typeof athlete?.age === "number" ? `${athlete.age}y` : null;
-  const subLabel = [typeLabel, ageLabel].filter(Boolean).join(" • ");
+  const subLabel = [typeLabel, ageLabel].filter(Boolean).join(" · ");
 
-  if (!isTeamManager) {
+  const profileSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (trainingFreq) parts.push(`Training ${trainingFreq}x/week`);
+    if (performanceGoals.trim()) parts.push("Goals set");
+    if (equipment.trim()) parts.push("Equipment noted");
+    if (growthNotes.trim()) parts.push("Growth notes");
+    return parts.length ? parts.join(" · ") : "No notes yet";
+  }, [trainingFreq, performanceGoals, equipment, growthNotes]);
+
+  if (!canAccess) {
     return <ReplaceOnce href="/(tabs)" />;
   }
 
@@ -260,7 +303,6 @@ export default function AthleteDetailScreen() {
       style={{ flex: 1, backgroundColor: p.pageBg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Back header */}
       <View
         style={{
           paddingTop: insets.top + 12,
@@ -304,15 +346,24 @@ export default function AthleteDetailScreen() {
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 40 + insets.bottom, paddingHorizontal: 24 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={p.accent}
+          />
+        }
       >
         {loading ? (
-          <View style={{ gap: 16, paddingTop: 24 }}>
-            <Skeleton width={80} height={80} borderRadius={40} />
-            <Skeleton width="60%" height={22} borderRadius={8} />
-            <Skeleton width="40%" height={16} borderRadius={8} />
-            <Skeleton width="100%" height={52} borderRadius={14} />
-            <Skeleton width="100%" height={52} borderRadius={14} />
-            <Skeleton width="100%" height={96} borderRadius={14} />
+          <View style={{ gap: 14, paddingTop: 24 }}>
+            <View style={{ alignItems: "center", gap: 10 }}>
+              <Skeleton width={80} height={80} borderRadius={24} />
+              <Skeleton width={160} height={22} borderRadius={8} />
+              <Skeleton width={80} height={16} borderRadius={8} />
+            </View>
+            <Skeleton width="100%" height={120} borderRadius={22} />
+            <Skeleton width="100%" height={80} borderRadius={22} />
+            <Skeleton width="100%" height={80} borderRadius={22} />
           </View>
         ) : error ? (
           <View style={{ paddingTop: 24 }}>
@@ -325,8 +376,8 @@ export default function AthleteDetailScreen() {
           </View>
         ) : (
           <>
-            {/* Avatar + identity */}
-            <View style={{ alignItems: "center", paddingTop: 16, paddingBottom: 28 }}>
+            {/* Hero — avatar + identity */}
+            <View style={{ alignItems: "center", paddingTop: 16, paddingBottom: 20 }}>
               <View
                 style={{
                   width: 80,
@@ -338,9 +389,7 @@ export default function AthleteDetailScreen() {
                   marginBottom: 14,
                 }}
               >
-                <Text
-                  style={{ color: p.accent, fontFamily: "Outfit-Bold", fontSize: 26 }}
-                >
+                <Text style={{ color: p.accent, fontFamily: "Outfit-Bold", fontSize: 26 }}>
                   {initials}
                 </Text>
               </View>
@@ -370,126 +419,152 @@ export default function AthleteDetailScreen() {
               ) : null}
             </View>
 
-            {/* Editable card */}
+            {/* Performance & health data — the primary content */}
+            {showHealthDetail && athleteId && athlete?.userId ? (
+              <AthleteHealthDetail athleteId={athleteId} athleteUserId={athlete.userId} />
+            ) : !showHealthDetail ? (
+              <View style={{ gap: 14, marginBottom: 14 }}>
+                <Skeleton width="100%" height={120} borderRadius={22} />
+                <Skeleton width="100%" height={80} borderRadius={22} />
+              </View>
+            ) : null}
+
+            {/* Collapsible profile & notes section */}
             <View
               style={{
                 borderRadius: 22,
-                padding: 20,
                 backgroundColor: p.cardWhite,
-                marginBottom: 16,
+                overflow: "hidden",
+                marginTop: 14,
               }}
             >
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontFamily: "Outfit-Bold",
-                  color: p.textMuted,
-                  textTransform: "uppercase",
-                  letterSpacing: 1.0,
-                  marginBottom: 16,
-                }}
-              >
-                Profile
-              </Text>
-
-              <ReadonlyField label="Display Name" value={displayName} />
-
-              <EditableField
-                label="Training Frequency (days/week)"
-                value={trainingFreq}
-                onChangeText={setTrainingFreq}
-                keyboardType="numeric"
-                placeholder="e.g. 3"
-              />
-              <EditableField
-                label="Performance Goals"
-                value={performanceGoals}
-                onChangeText={setPerformanceGoals}
-                multiline
-                placeholder="e.g. Improve 5K time, build endurance..."
-              />
-              <EditableField
-                label="Equipment Notes"
-                value={equipment}
-                onChangeText={setEquipment}
-                multiline
-                placeholder="e.g. Needs new running shoes, GPS watch..."
-              />
-              <EditableField
-                label="Growth Notes"
-                value={growthNotes}
-                onChangeText={setGrowthNotes}
-                multiline
-                placeholder="Progress observations, areas to focus on..."
-              />
-
-              {saveError ? (
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: "Outfit-Regular",
-                    color: p.danger,
-                    marginBottom: 10,
-                  }}
-                >
-                  {saveError}
-                </Text>
-              ) : null}
-              {saveSuccess ? (
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: "Outfit-Regular",
-                    color: p.success,
-                    marginBottom: 10,
-                  }}
-                >
-                  Changes saved.
-                </Text>
-              ) : null}
-
               <Pressable
                 accessibilityRole="button"
-                onPress={handleSave}
-                disabled={saving}
-                style={({ pressed }) => ({
-                  borderRadius: 100,
-                  height: 52,
+                onPress={toggleProfile}
+                style={{
+                  flexDirection: "row",
                   alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: p.accent,
-                  opacity: pressed || saving ? 0.75 : 1,
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                })}
+                  gap: 12,
+                  padding: 18,
+                }}
               >
-                {saving ? (
-                  <ActivityIndicator color={p.buttonPrimaryText} size="small" />
-                ) : (
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontFamily: "Outfit-Bold",
-                      color: p.buttonPrimaryText,
-                      letterSpacing: 0.1,
-                    }}
-                  >
-                    Save Changes
+                <Pencil size={16} color={p.textMuted} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.textPrimary }}>
+                    Profile & Notes
                   </Text>
-                )}
+                  <Text
+                    style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, marginTop: 2 }}
+                    numberOfLines={1}
+                  >
+                    {profileSummary}
+                  </Text>
+                </View>
+                <ChevronDown
+                  size={18}
+                  color={p.textMuted}
+                  style={{ transform: [{ rotate: profileOpen ? "180deg" : "0deg" }] }}
+                />
               </Pressable>
+
+              {profileOpen ? (
+                <View style={{ paddingHorizontal: 18, paddingBottom: 20 }}>
+                  <ReadonlyField label="Display Name" value={displayName} />
+
+                  <EditableField
+                    label="Training Frequency (days/week)"
+                    value={trainingFreq}
+                    onChangeText={setTrainingFreq}
+                    keyboardType="numeric"
+                    placeholder="e.g. 3"
+                  />
+                  <EditableField
+                    label="Performance Goals"
+                    value={performanceGoals}
+                    onChangeText={setPerformanceGoals}
+                    multiline
+                    placeholder="e.g. Improve 5K time, build endurance..."
+                  />
+                  <EditableField
+                    label="Equipment Notes"
+                    value={equipment}
+                    onChangeText={setEquipment}
+                    multiline
+                    placeholder="e.g. Needs new running shoes, GPS watch..."
+                  />
+                  <EditableField
+                    label="Growth Notes"
+                    value={growthNotes}
+                    onChangeText={setGrowthNotes}
+                    multiline
+                    placeholder="Progress observations, areas to focus on..."
+                  />
+
+                  {saveError ? (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Outfit-Regular",
+                        color: p.danger,
+                        marginBottom: 10,
+                      }}
+                    >
+                      {saveError}
+                    </Text>
+                  ) : null}
+                  {saveSuccess ? (
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "Outfit-Regular",
+                        color: p.success,
+                        marginBottom: 10,
+                      }}
+                    >
+                      Changes saved.
+                    </Text>
+                  ) : null}
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleSave}
+                    disabled={saving}
+                    style={({ pressed }) => ({
+                      borderRadius: 100,
+                      height: 52,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: p.accent,
+                      opacity: pressed || saving ? 0.75 : 1,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    })}
+                  >
+                    {saving ? (
+                      <ActivityIndicator color={p.buttonPrimaryText} size="small" />
+                    ) : (
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontFamily: "Outfit-Bold",
+                          color: p.buttonPrimaryText,
+                          letterSpacing: 0.1,
+                        }}
+                      >
+                        Save Changes
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
 
-            {/* Full read-only detail — training, attendance, logs & history for this athlete */}
-            {athleteId && athlete?.userId ? (
-              <AthleteHealthDetail athleteId={athleteId} athleteUserId={athlete.userId} />
-            ) : null}
-
-            {/* Danger zone card */}
+            {/* Danger zone — account actions */}
             <View
               style={{
                 borderRadius: 22,
                 padding: 20,
                 backgroundColor: p.dangerSoft,
+                marginTop: 14,
               }}
             >
               <Text

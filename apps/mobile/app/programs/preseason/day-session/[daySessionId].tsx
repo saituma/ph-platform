@@ -1,13 +1,14 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Check, ChevronRight } from "lucide-react-native";
+import { ChevronLeft, Check, ChevronRight, Trophy, ArrowRight } from "lucide-react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -16,7 +17,10 @@ import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { Text } from "@/components/ScaledText";
 import { SkeletonBox } from "@/components/ui/legacy-skeleton";
 import { VideoPlayer } from "@/components/media/VideoPlayer";
-import { usePreseasonSessionDetail, type PreseasonExercise } from "@/hooks/preseason/usePreseasonSessionDetail";
+import {
+  usePreseasonSessionDetail,
+  type PreseasonExercise,
+} from "@/hooks/preseason/usePreseasonSessionDetail";
 
 const ACCENT = "#BBFF00";
 const BG = "#0D0D0D";
@@ -44,6 +48,9 @@ const DAY_ABBR: Record<number, string> = {
   7: "SUN",
 };
 
+const ExerciseSeparator = () => <View style={{ height: 10 }} />;
+const ExerciseFooter = () => <View style={{ height: 100 }} />;
+
 function categoryColor(cat: string): string {
   return CATEGORY_COLOR[cat?.toUpperCase()] ?? "#555555";
 }
@@ -57,7 +64,6 @@ function formatMetric(ex: PreseasonExercise): string {
     if (sets && duration) return `${sets}×${duration}s`;
     if (duration) return `${duration}s`;
   }
-
   if (sets && reps) return `${sets}×${reps}`;
   if (reps) return `${reps} reps`;
   if (sets) return `${sets} sets`;
@@ -65,9 +71,23 @@ function formatMetric(ex: PreseasonExercise): string {
   return "—";
 }
 
-function ExerciseCard({ ex, index, onPress }: { ex: PreseasonExercise; index: number; onPress: () => void }) {
+const ExerciseCard = memo(function ExerciseCard({
+  ex,
+  index,
+  onPress,
+}: {
+  ex: PreseasonExercise;
+  index: number;
+  onPress: () => void;
+}) {
   const metric = formatMetric(ex);
-  const hasDetails = !!(ex.exercise.videoUrl || ex.exercise.cues || ex.exercise.howTo || ex.exercise.progression || ex.exercise.regression);
+  const hasDetails = !!(
+    ex.exercise.videoUrl ||
+    ex.exercise.cues ||
+    ex.exercise.howTo ||
+    ex.exercise.progression ||
+    ex.exercise.regression
+  );
   return (
     <Animated.View entering={FadeInDown.delay(index * 40).springify().damping(18)}>
       <Pressable
@@ -80,15 +100,13 @@ function ExerciseCard({ ex, index, onPress }: { ex: PreseasonExercise; index: nu
         <View style={{ flex: 1 }}>
           <Text style={styles.exerciseName}>{ex.exercise.name}</Text>
           <Text style={styles.exerciseMetric}>{metric}</Text>
-          {ex.notes ? (
-            <Text style={styles.exerciseNotes}>{ex.notes}</Text>
-          ) : null}
+          {ex.notes ? <Text style={styles.exerciseNotes}>{ex.notes}</Text> : null}
         </View>
         {hasDetails && <ChevronRight size={16} color={TEXT_MUTED} />}
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 function ExerciseDetailContent({ ex }: { ex: PreseasonExercise }) {
   const e = ex.exercise;
@@ -121,26 +139,96 @@ function ExerciseDetailContent({ ex }: { ex: PreseasonExercise }) {
           />
         </View>
       )}
-
-      <Text style={{ fontSize: 22, fontFamily: "Outfit-Bold", color: TEXT_PRIMARY, letterSpacing: -0.5, marginBottom: 4 }}>
+      <Text
+        style={{
+          fontSize: 22,
+          fontFamily: "Outfit-Bold",
+          color: TEXT_PRIMARY,
+          letterSpacing: -0.5,
+          marginBottom: 4,
+        }}
+      >
         {e.name}
       </Text>
       {metric !== "—" && (
-        <Text style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: ACCENT, marginBottom: 16 }}>
+        <Text
+          style={{ fontSize: 13, fontFamily: "Outfit-Bold", color: ACCENT, marginBottom: 16 }}
+        >
           {metric}
         </Text>
       )}
-
       {sections.map((section) => (
         <View key={section.label} style={{ marginBottom: 20 }}>
-          <Text style={{ fontSize: 10, fontFamily: "Outfit-Bold", color: "#555555", letterSpacing: 1.5, marginBottom: 8 }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: "Outfit-Bold",
+              color: "#555555",
+              letterSpacing: 1.5,
+              marginBottom: 8,
+            }}
+          >
             {section.label}
           </Text>
-          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: "#CCCCCC", lineHeight: 22 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              fontFamily: "Outfit-Regular",
+              color: "#CCCCCC",
+              lineHeight: 22,
+            }}
+          >
             {section.value}
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+function WeekCompleteContent({
+  weekComplete,
+  nextWeekId,
+  onClose,
+  onViewNext,
+}: {
+  weekComplete: boolean;
+  nextWeekId: number | null;
+  onClose: () => void;
+  onViewNext: () => void;
+}) {
+  return (
+    <View style={styles.completeSheetContent}>
+      <View style={styles.completeIconCircle}>
+        {weekComplete ? (
+          <Trophy size={36} color={ACCENT} />
+        ) : (
+          <Check size={36} color={ACCENT} strokeWidth={3} />
+        )}
+      </View>
+      <Text style={styles.completeSheetTitle}>
+        {weekComplete ? "Week Complete!" : "Session Done!"}
+      </Text>
+      <Text style={styles.completeSheetSub}>
+        {weekComplete
+          ? "You've finished all sessions for this week. Keep the momentum going."
+          : "Great work. Come back for your next session."}
+      </Text>
+      {weekComplete && nextWeekId ? (
+        <Pressable
+          onPress={onViewNext}
+          style={({ pressed }) => [styles.completeNextBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.completeNextBtnText}>Next Week</Text>
+          <ArrowRight size={18} color={BG} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={onClose}
+        style={({ pressed }) => [styles.completeDismissBtn, pressed && { opacity: 0.7 }]}
+      >
+        <Text style={styles.completeDismissText}>Back to Programme</Text>
+      </Pressable>
     </View>
   );
 }
@@ -151,13 +239,21 @@ export default function PreseasonSessionDetailScreen() {
   const router = useRouter();
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
-  const { daySession, exercises, loading, error, completeSession, completing } =
+  const { daySession, exercises, loading, error, completeSession, completing, completeResult } =
     usePreseasonSessionDetail(token, daySessionId);
+
   const [selectedExercise, setSelectedExercise] = useState<PreseasonExercise | null>(null);
   const exerciseSheetRef = useRef<BottomSheet>(null);
+  const completeSheetRef = useRef<BottomSheet>(null);
 
   const handleComplete = useCallback(async () => {
-    await completeSession();
+    try {
+      await completeSession();
+      completeSheetRef.current?.expand();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Couldn't save your session.";
+      Alert.alert("Session not saved", message, [{ text: "Retry", onPress: handleComplete }, { text: "OK" }]);
+    }
   }, [completeSession]);
 
   const handleExercisePress = useCallback((ex: PreseasonExercise) => {
@@ -165,127 +261,187 @@ export default function PreseasonSessionDetailScreen() {
     exerciseSheetRef.current?.expand();
   }, []);
 
+  const handleCompleteClose = useCallback(() => {
+    completeSheetRef.current?.close();
+    router.back();
+  }, [router]);
+
+  const handleViewNext = useCallback(() => {
+    completeSheetRef.current?.close();
+    if (completeResult?.nextWeekId) {
+      router.replace(`/programs/preseason/${completeResult.nextWeekId}/sessions` as any);
+    } else {
+      router.back();
+    }
+  }, [completeResult, router]);
+
   const catColor = daySession ? categoryColor(daySession.category) : ACCENT;
   const dayAbbr = daySession ? (DAY_ABBR[daySession.dayOfWeek] ?? "---") : "---";
 
-  return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Navigation header */}
-      <View style={styles.navRow}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Back">
-          <ChevronLeft size={22} color={TEXT_PRIMARY} />
-        </Pressable>
-        <Text style={styles.navTitle}>{dayAbbr}</Text>
-        <View style={{ width: 40 }} />
-      </View>
+  const exerciseKeyExtractor = useCallback((ex: PreseasonExercise) => String(ex.id), []);
 
-      {loading && !daySession ? (
-        <View style={styles.skeletonWrap}>
-          <SkeletonBox width={200} height={16} borderRadius={6} />
-          <SkeletonBox width="100%" height={40} borderRadius={8} />
-          <SkeletonBox width="100%" height={60} borderRadius={8} />
-          <SkeletonBox width="100%" height={100} borderRadius={10} />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonBox key={i} width="100%" height={80} borderRadius={12} />
+  const renderExercise = useCallback(
+    ({ item, index }: { item: PreseasonExercise; index: number }) => (
+      <ExerciseCard
+        ex={item}
+        index={index}
+        onPress={() => handleExercisePress(item)}
+      />
+    ),
+    [handleExercisePress],
+  );
+
+  const stats = useMemo(
+    () =>
+      daySession
+        ? [
+            { label: "DURATION", value: daySession.durationLabel },
+            { label: "INTENSITY", value: daySession.intensityLabel },
+            { label: "FOCUS", value: daySession.focusLabel },
+          ]
+        : [],
+    [daySession],
+  );
+
+  const listHeader = useMemo(() => {
+    if (!daySession) return null;
+
+    return (
+      <>
+        <View style={styles.breadcrumb}>
+          <Text style={styles.breadcrumbText}>{dayAbbr}</Text>
+          <Text style={styles.breadcrumbSep}> › </Text>
+          <View
+            style={[
+              styles.categoryBadge,
+              { backgroundColor: catColor + "22", borderColor: catColor + "55" },
+            ]}
+          >
+            <Text style={[styles.categoryText, { color: catColor }]}>
+              {daySession.category}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sessionTitle}>{daySession.title}</Text>
+        <Text style={styles.sessionDesc}>{daySession.description}</Text>
+
+        <View style={styles.statRow}>
+          {stats.map((stat) => (
+            <View key={stat.label} style={styles.statCard}>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              <Text style={styles.statValue}>{stat.value || "—"}</Text>
+            </View>
           ))}
         </View>
-      ) : error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : daySession ? (
-        <>
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.scroll}
-            showsVerticalScrollIndicator={false}
+
+        <Text style={styles.sectionHeader}>SESSION PLAN</Text>
+      </>
+    );
+  }, [catColor, dayAbbr, daySession, stats]);
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        <View style={styles.navRow}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backBtn}
+            accessibilityLabel="Back"
           >
-            {/* Breadcrumb */}
-            <View style={styles.breadcrumb}>
-              <Text style={styles.breadcrumbText}>{dayAbbr}</Text>
-              <Text style={styles.breadcrumbSep}> › </Text>
-              <Text style={styles.breadcrumbText}>{daySession.category}</Text>
-              <View style={[styles.categoryBadge, { backgroundColor: catColor + "22", borderColor: catColor + "55" }]}>
-                <Text style={[styles.categoryText, { color: catColor }]}>
-                  {daySession.category}
-                </Text>
-              </View>
-            </View>
+            <ChevronLeft size={22} color={TEXT_PRIMARY} />
+          </Pressable>
+          <Text style={styles.navTitle}>{dayAbbr}</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-            {/* Session title */}
-            <Text style={styles.sessionTitle}>{daySession.title}</Text>
-
-            {/* Description */}
-            <Text style={styles.sessionDesc}>{daySession.description}</Text>
-
-            {/* Stat row */}
-            <View style={styles.statRow}>
-              {[
-                { label: "DURATION", value: daySession.durationLabel },
-                { label: "INTENSITY", value: daySession.intensityLabel },
-                { label: "FOCUS", value: daySession.focusLabel },
-              ].map((stat) => (
-                <View key={stat.label} style={styles.statCard}>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                  <Text style={styles.statValue}>{stat.value || "—"}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* Session plan */}
-            <Text style={styles.sectionHeader}>SESSION PLAN</Text>
-
-            <View style={{ gap: 10 }}>
-              {exercises.map((ex, idx) => (
-                <ExerciseCard key={ex.id} ex={ex} index={idx} onPress={() => handleExercisePress(ex)} />
-              ))}
-            </View>
-
-            <View style={{ height: 100 }} />
-          </ScrollView>
-
-          {/* Complete button — fixed at bottom */}
-          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
-            <Pressable
-              onPress={handleComplete}
-              disabled={daySession.completed || completing}
-              style={({ pressed }) => [
-                styles.completeBtn,
-                daySession.completed && styles.completeBtnDone,
-                pressed && !daySession.completed && { opacity: 0.85 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={daySession.completed ? "Session completed" : "Mark complete"}
-            >
-              {completing ? (
-                <ActivityIndicator size="small" color={BG} />
-              ) : daySession.completed ? (
-                <>
-                  <Check size={18} color={BG} strokeWidth={3} />
-                  <Text style={styles.completeBtnText}>Completed</Text>
-                </>
-              ) : (
-                <Text style={styles.completeBtnText}>Mark Complete</Text>
-              )}
-            </Pressable>
+        {loading && !daySession ? (
+          <View style={styles.skeletonWrap}>
+            <SkeletonBox width={200} height={16} borderRadius={6} />
+            <SkeletonBox width="100%" height={40} borderRadius={8} />
+            <SkeletonBox width="100%" height={60} borderRadius={8} />
+            <SkeletonBox width="100%" height={100} borderRadius={10} />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBox key={i} width="100%" height={80} borderRadius={12} />
+            ))}
           </View>
-        </>
-      ) : null}
+        ) : error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : daySession ? (
+          <>
+            <FlashList
+              data={exercises}
+              renderItem={renderExercise}
+              keyExtractor={exerciseKeyExtractor}
+              estimatedItemSize={130}
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.scroll}
+              showsVerticalScrollIndicator={false}
+              ListHeaderComponent={listHeader}
+              ListFooterComponent={ExerciseFooter}
+              ItemSeparatorComponent={ExerciseSeparator}
+            />
 
-      <BottomSheet
-        ref={exerciseSheetRef}
-        index={-1}
-        snapPoints={["70%", "92%"]}
-        enablePanDownToClose
-        backgroundStyle={{ backgroundColor: "#111111" }}
-        handleIndicatorStyle={{ backgroundColor: "#444444" }}
-      >
-        <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-          {selectedExercise && <ExerciseDetailContent ex={selectedExercise} />}
-        </BottomSheetScrollView>
-      </BottomSheet>
-    </View>
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
+              <Pressable
+                onPress={handleComplete}
+                disabled={daySession.completed || completing}
+                style={({ pressed }) => [
+                  styles.completeBtn,
+                  daySession.completed && styles.completeBtnDone,
+                  pressed && !daySession.completed && { opacity: 0.85 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={daySession.completed ? "Session completed" : "Mark complete"}
+              >
+                {completing ? (
+                  <ActivityIndicator size="small" color={BG} />
+                ) : daySession.completed ? (
+                  <>
+                    <Check size={18} color={ACCENT} strokeWidth={3} />
+                    <Text style={[styles.completeBtnText, { color: ACCENT }]}>Completed</Text>
+                  </>
+                ) : (
+                  <Text style={styles.completeBtnText}>Mark Complete</Text>
+                )}
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {/* Exercise detail sheet */}
+        <BottomSheet
+          ref={exerciseSheetRef}
+          index={-1}
+          snapPoints={["70%", "92%"]}
+          enablePanDownToClose
+          backgroundStyle={{ backgroundColor: "#111111" }}
+          handleIndicatorStyle={{ backgroundColor: "#444444" }}
+        >
+          <BottomSheetScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+            {selectedExercise && <ExerciseDetailContent ex={selectedExercise} />}
+          </BottomSheetScrollView>
+        </BottomSheet>
+
+        {/* Session complete celebration sheet */}
+        <BottomSheet
+          ref={completeSheetRef}
+          index={-1}
+          snapPoints={["50%"]}
+          enablePanDownToClose={false}
+          backgroundStyle={{ backgroundColor: "#111111" }}
+          handleIndicatorStyle={{ backgroundColor: "#444444" }}
+        >
+          <WeekCompleteContent
+            weekComplete={completeResult?.weekComplete ?? false}
+            nextWeekId={completeResult?.nextWeekId ?? null}
+            onClose={handleCompleteClose}
+            onViewNext={handleViewNext}
+          />
+        </BottomSheet>
+      </View>
     </GestureHandlerRootView>
   );
 }
@@ -491,5 +647,68 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     color: TEXT_MUTED,
     textAlign: "center",
+  },
+  completeSheetContent: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 32,
+    paddingTop: 24,
+    paddingBottom: 32,
+    gap: 0,
+  },
+  completeIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: ACCENT + "1A",
+    borderWidth: 1,
+    borderColor: ACCENT + "44",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  completeSheetTitle: {
+    fontSize: 24,
+    fontFamily: "Outfit-Bold",
+    color: TEXT_PRIMARY,
+    letterSpacing: -0.5,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  completeSheetSub: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    color: TEXT_MUTED,
+    textAlign: "center",
+    lineHeight: 21,
+    marginBottom: 28,
+  },
+  completeNextBtn: {
+    backgroundColor: ACCENT,
+    borderRadius: 14,
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    width: "100%",
+    marginBottom: 12,
+  },
+  completeNextBtnText: {
+    fontSize: 15,
+    fontFamily: "Outfit-Bold",
+    color: BG,
+    letterSpacing: 0.3,
+  },
+  completeDismissBtn: {
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  completeDismissText: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    color: TEXT_MUTED,
   },
 });

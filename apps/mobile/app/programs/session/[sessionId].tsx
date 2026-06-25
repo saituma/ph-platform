@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import Animated, { FadeIn, ZoomIn } from "react-native-reanimated";
 import { CheckCircle } from "lucide-react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, X } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -127,6 +127,8 @@ export default function ProgramSessionDetailScreen() {
   } = useVideoUploadLogic(token, athleteUserId);
 
   const sessionStartTime = useRef<number>(Date.now());
+  const cameraTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [workoutSheetOpen, setWorkoutSheetOpen] = useState(false);
   const [weightsUsed, setWeightsUsed] = useState("");
@@ -468,7 +470,8 @@ export default function ProgramSessionDetailScreen() {
               setUploadStatus(null);
               setBuiltinCameraTargetSectionId(id);
               InteractionManager.runAfterInteractions(() => {
-                setTimeout(() => setBuiltinCameraVisible(true), 80);
+                if (cameraTimerRef.current) clearTimeout(cameraTimerRef.current);
+                cameraTimerRef.current = setTimeout(() => setBuiltinCameraVisible(true), 80);
               });
             },
           },
@@ -633,7 +636,8 @@ export default function ProgramSessionDetailScreen() {
         const path = nextPath;
         setWorkoutSheetOpen(false);
         setSessionFinished(true);
-        setTimeout(() => {
+        if (finishNavigateTimerRef.current) clearTimeout(finishNavigateTimerRef.current);
+        finishNavigateTimerRef.current = setTimeout(() => {
           if (path) {
             const separator = path.includes("?") ? "&" : "?";
             router.replace(`${path}${separator}backToModule=1` as any);

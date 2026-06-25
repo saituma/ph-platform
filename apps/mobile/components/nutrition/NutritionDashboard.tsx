@@ -5,7 +5,7 @@ import { Text } from "@/components/ScaledText";
 import { useNutritionTheme } from "@/components/nutrition/theme";
 import { useAppSelector } from "@/store/hooks";
 import { useActingUser } from "@/hooks/useActingUser";
-import { apiRequest, clearApiCache } from "@/lib/api";
+import { apiRequest } from "@/lib/api";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -116,7 +116,6 @@ export function NutritionDashboard() {
     if (refreshing) return;
     try {
       setRefreshing(true);
-      clearApiCache();
       await Promise.all([refetch(), refetchCoachHistory(), refetchRecentLogs()]);
     } finally {
       setRefreshing(false);
@@ -166,7 +165,6 @@ export function NutritionDashboard() {
           body,
         });
 
-        clearApiCache();
         setActiveMeal(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success(`${mealLabel} saved`, `${items.length} item${items.length === 1 ? "" : "s"} logged.`);

@@ -12,9 +12,10 @@ import {
   ScrollView,
   View,
   StyleSheet,
-  Image as RNImage,
   Dimensions,
 } from "react-native";
+import { Image } from "expo-image";
+import { FlashList } from "@shopify/flash-list";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   Clock,
@@ -899,6 +900,7 @@ export default memo(function ScheduleScreen() {
   const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState(() => todayKey());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Invalidate stale schedule queries on tab focus so useScheduleData refetches
   useFocusEffect(
@@ -917,7 +919,16 @@ export default memo(function ScheduleScreen() {
 
   // ── Data ──────────────────────────────────────────────────────
   const { events, eventsLoading, services, servicesLoading, servicesError,
-          refreshEvents, refreshServices } = useScheduleData(token, effectiveProfileId, isFocused, actingHeaders);
+          refreshEvents: refreshEventsOriginal, refreshServices } = useScheduleData(token, effectiveProfileId, isFocused, actingHeaders);
+
+  const refreshEvents = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshEventsOriginal();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshEventsOriginal]);
 
   const bookingServices = useMemo(() => {
     const base = capabilities?.semiPrivateBooking
@@ -949,10 +960,10 @@ export default memo(function ScheduleScreen() {
   );
 
   // ── Partition events ─────────────────────────────────────────
-  const nowMs = Date.now();
   const todKey = todayKey();
 
   const { upcoming, requests, past } = useMemo(() => {
+    const nowMs = Date.now();
     const upcoming: ScheduleEvent[] = [];
     const requests: ScheduleEvent[] = [];
     const past: ScheduleEvent[]    = [];
@@ -979,7 +990,8 @@ export default memo(function ScheduleScreen() {
     past.sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
 
     return { upcoming, requests, past };
-  }, [events, nowMs, todKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, todKey]);
 
   const eventDateKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -1086,221 +1098,95 @@ export default memo(function ScheduleScreen() {
 
   const fabBottom = 20 + insets.bottom + 56; // 56 = TAB_HEIGHT
   const bentoGap = 10;
-  const bentoHalf = (screenWidth - 40 - bentoGap) / 2;
 
-  return (
-    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingBottom: fabBottom + (canBook ? 72 : 24),
-        }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={false}
-            onRefresh={refreshEvents}
-            tintColor={p.accent}
-          />
-        }
-      >
-        {/* ── Hero Header ── */}
-        <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
-          <RNImage source={SCHEDULE_BG} style={{ position: "absolute", width: "100%", height: "100%", resizeMode: "cover" }} />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
-            locations={[0.25, 0.65, 1]}
-            style={{ position: "absolute", width: "100%", height: "100%" }}
-          />
+  // ── Heterogeneous list data ──────────────────────────────────
+  type ListItem =
+    | { type: "day-label" }
+    | { type: "day-empty" }
+    | { type: "day-event"; event: ScheduleEvent; index: number }
+    | { type: "team-banner" }
+    | { type: "services" }
+    | { type: "pending-label" }
+    | { type: "pending-event"; event: ScheduleEvent; index: number };
 
-          <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: 20, justifyContent: "space-between" }}>
-            {/* Top bar */}
-            <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {profilePic ? (
-                  <RNImage source={{ uri: profilePic }} style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
-                ) : (
-                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                {streak > 0 && (
-                  <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
-                    <Flame size={13} color="#FF9500" fill="#FF9500" />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#fff" }}>{streak}</Text>
-                  </Animated.View>
-                )}
-                <Pressable onPress={() => router.push("/qr-scan" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
-                  <ScanLine size={18} color="#fff" />
-                </Pressable>
-                <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
-                  <Bell size={18} color="#fff" />
-                  <View style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: p.accent }} />
-                </Pressable>
-              </View>
-            </Animated.View>
+  const listData = useMemo(() => {
+    const items: ListItem[] = [];
 
-            {/* Hero text */}
-            <View style={{ gap: 6, paddingBottom: 20 }}>
-              <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)} style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
-                Your
-              </Animated.Text>
-              <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)} style={{ fontFamily: "Outfit-Bold", fontSize: 38, color: "#fff", letterSpacing: -1.5, lineHeight: 42 }}>
-                Schedule
-              </Animated.Text>
+    items.push({ type: "day-label" });
+    if (selectedDayEvents.length === 0) {
+      items.push({ type: "day-empty" });
+    } else {
+      selectedDayEvents.forEach((evt, i) => items.push({ type: "day-event", event: evt, index: i }));
+    }
 
-              {/* Glass stat pills */}
-              <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
-                    <CalendarCheck size={14} color={p.accent} />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{upcoming.length}</Text>
-                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>upcoming</Text>
-                  </View>
-                </BlurView>
-                {requests.length > 0 && (
-                  <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
-                      <CalendarClock size={14} color="#FFAB40" />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{requests.length}</Text>
-                      <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>pending</Text>
-                    </View>
-                  </BlurView>
-                )}
-              </Animated.View>
-            </View>
-          </View>
-        </View>
+    if (!canBook) items.push({ type: "team-banner" });
 
-        {/* ── Bento Stats ── */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: bentoGap }}>
-          <View style={{ flexDirection: "row", gap: bentoGap }}>
-            <Animated.View
-              entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
-              style={{ flex: 2, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
-            >
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                <CalendarCheck size={22} color={p.accent} />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.textPrimary, letterSpacing: -0.5 }}>
-                  {upcoming.length}
-                </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
-                  Upcoming
-                </Text>
-              </View>
-            </Animated.View>
+    if (bookableServices.length > 0 || nonBookableServices.length > 0) {
+      items.push({ type: "services" });
+    }
 
-            <Animated.View
-              entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
-              style={{ flex: 1, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
-            >
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
-                {requests.length}
-              </Text>
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, opacity: 0.6 }}>
-                Pending
-              </Text>
-            </Animated.View>
-          </View>
+    if (selectedDayRequests.length > 0) {
+      items.push({ type: "pending-label" });
+      selectedDayRequests.forEach((evt, i) => items.push({ type: "pending-event", event: evt, index: i }));
+    }
 
-          {past.length > 0 && (
-            <Animated.View
-              entering={reduceMotion ? undefined : FadeInDown.delay(120).springify().damping(18)}
-              style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
-                <History size={20} color={p.accent} />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.3 }}>
-                  {past.length} Past Sessions
-                </Text>
-                <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
-                  Your training history
-                </Text>
-              </View>
-            </Animated.View>
-          )}
-        </View>
+    return items;
+  }, [selectedDayEvents, selectedDayRequests, canBook, bookableServices.length, nonBookableServices.length]);
 
-        {/* ── Week day strip + calendar icon ── */}
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View style={{ flex: 1 }}>
-            <WeekStrip
-              selectedKey={selectedDay}
-              onSelect={setSelectedDay}
-              eventDateKeys={eventDateKeys}
+  const getItemType = useCallback((item: ListItem) => item.type, []);
+
+  const renderItem = useCallback(({ item }: { item: ListItem }) => {
+    switch (item.type) {
+      case "day-label":
+        return (
+          <View style={{ paddingHorizontal: 20, paddingBottom: 4 }}>
+            <SectionLabel
+              icon={CalendarCheck}
+              label={selectedDay === todKey ? "Today" : relativeDate(selectedDay)}
+              count={selectedDayEvents.length}
+              accent={p.accent}
             />
           </View>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setCalendarOpen(true);
-            }}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 16,
-              backgroundColor: p.accentSoft,
-            }}
-          >
-            <Calendar size={18} color={p.accent} />
-          </Pressable>
-        </View>
-
-        {/* ── Selected day's sessions ── */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: 4 }}>
-          <SectionLabel
-            icon={CalendarCheck}
-            label={selectedDay === todKey ? "Today" : relativeDate(selectedDay)}
-            count={selectedDayEvents.length}
-            accent={p.accent}
-          />
-          {selectedDayEvents.length === 0 ? (
+        );
+      case "day-empty":
+        return (
+          <View style={{ paddingHorizontal: 20 }}>
             <InlineEmpty message={selectedDay === todKey ? "Nothing scheduled today." : "No sessions on this day."} />
-          ) : (
-            selectedDayEvents.map((evt, i) => {
-              const isProgram = evt.id.startsWith("program-");
-              const card = (
-                <SessionCard
-                  key={evt.id}
-                  event={evt}
-                  index={i}
-                  isToday={selectedDay === todKey}
-                  onCheckIn={selectedDay === todKey && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
-                    ? () => checkIn(evt.id)
-                    : undefined}
-                />
-              );
-              if (isProgram) {
-                const programId = evt.id.replace("program-", "");
-                return (
-                  <Pressable key={evt.id} onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
-                    {card}
-                  </Pressable>
-                );
-              }
-              return card;
-            })
-          )}
-        </View>
-
-        {/* ── Team banner ── */}
-        {!canBook && (
+          </View>
+        );
+      case "day-event": {
+        const evt = item.event;
+        const isProgram = evt.id.startsWith("program-");
+        const card = (
+          <SessionCard
+            event={evt}
+            index={item.index}
+            isToday={selectedDay === todKey}
+            onCheckIn={selectedDay === todKey && evt.tag === "Scheduled" && (!evt.attendanceStatus || evt.attendanceStatus === "unmarked")
+              ? () => checkIn(evt.id)
+              : undefined}
+          />
+        );
+        if (isProgram) {
+          const programId = evt.id.replace("program-", "");
+          return (
+            <View style={{ paddingHorizontal: 20 }}>
+              <Pressable onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
+                {card}
+              </Pressable>
+            </View>
+          );
+        }
+        return <View style={{ paddingHorizontal: 20 }}>{card}</View>;
+      }
+      case "team-banner":
+        return (
           <View style={{ paddingTop: 12 }}>
             <TeamBanner />
           </View>
-        )}
-
-        {/* ── Pinned services ── */}
-        {(bookableServices.length > 0 || nonBookableServices.length > 0) && (
+        );
+      case "services":
+        return (
           <View style={{ paddingTop: 12 }}>
             <ServicesPanel
               bookable={bookableServices}
@@ -1309,18 +1195,206 @@ export default memo(function ScheduleScreen() {
               p={p}
             />
           </View>
-        )}
-
-        {/* ── Pending requests for selected day ── */}
-        {selectedDayRequests.length > 0 && (
+        );
+      case "pending-label":
+        return (
           <View style={{ paddingHorizontal: 20, paddingTop: 4 }}>
             <SectionLabel icon={Timer} label="Pending" count={selectedDayRequests.length} accent={p.warning} />
-            {selectedDayRequests.map((evt, i) => (
-              <SessionCard key={evt.id} event={evt} index={i} onCancel={() => cancelBooking(evt.id)} />
-            ))}
           </View>
+        );
+      case "pending-event":
+        return (
+          <View style={{ paddingHorizontal: 20 }}>
+            <SessionCard event={item.event} index={item.index} onCancel={() => cancelBooking(item.event.id)} />
+          </View>
+        );
+      default:
+        return null;
+    }
+  }, [selectedDay, todKey, selectedDayEvents.length, selectedDayRequests.length, p, bookableServices, nonBookableServices, openBookingForService, cancelBooking, checkIn, router]);
+
+  const ListHeader = useCallback(() => (
+    <View>
+      {/* ── Hero Header ── */}
+      <View style={{ height: HERO_H + insets.top, overflow: "hidden" }}>
+        <Image source={SCHEDULE_BG} contentFit="cover" style={{ position: "absolute", width: "100%", height: "100%" }} />
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.45)", p.pageBg]}
+          locations={[0.25, 0.65, 1]}
+          style={{ position: "absolute", width: "100%", height: "100%" }}
+        />
+
+        <View style={{ flex: 1, paddingTop: insets.top + 12, paddingHorizontal: 20, justifyContent: "space-between" }}>
+          {/* Top bar */}
+          <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              {profilePic ? (
+                <Image source={{ uri: profilePic }} contentFit="cover" style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 2, borderColor: "rgba(255,255,255,0.2)" }} />
+              ) : (
+                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#fff" }}>{firstName[0]}</Text>
+                </View>
+              )}
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {streak > 0 && (
+                <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(400).duration(400)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                  <Flame size={13} color="#FF9500" fill="#FF9500" />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#fff" }}>{streak}</Text>
+                </Animated.View>
+              )}
+              <Pressable onPress={() => router.push("/qr-scan" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <ScanLine size={18} color="#fff" />
+              </Pressable>
+              <Pressable onPress={() => router.push("/notifications" as any)} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
+                <Bell size={18} color="#fff" />
+                <View style={{ position: "absolute", top: 8, right: 9, width: 7, height: 7, borderRadius: 4, backgroundColor: p.accent }} />
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Hero text */}
+          <View style={{ gap: 6, paddingBottom: 20 }}>
+            <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(200).duration(500)} style={{ fontFamily: "Outfit-Regular", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+              Your
+            </Animated.Text>
+            <Animated.Text entering={reduceMotion ? undefined : FadeInDown.delay(300).duration(500)} style={{ fontFamily: "Outfit-Bold", fontSize: 38, color: "#fff", letterSpacing: -1.5, lineHeight: 42 }}>
+              Schedule
+            </Animated.Text>
+
+            {/* Glass stat pills */}
+            <Animated.View entering={reduceMotion ? undefined : FadeInRight.delay(500).duration(500).springify().damping(16)} style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+              <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                  <CalendarCheck size={14} color={p.accent} />
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{upcoming.length}</Text>
+                  <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>upcoming</Text>
+                </View>
+              </BlurView>
+              {requests.length > 0 && (
+                <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <CalendarClock size={14} color="#FFAB40" />
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>{requests.length}</Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>pending</Text>
+                  </View>
+                </BlurView>
+              )}
+            </Animated.View>
+          </View>
+        </View>
+      </View>
+
+      {/* ── Bento Stats ── */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, gap: bentoGap }}>
+        <View style={{ flexDirection: "row", gap: bentoGap }}>
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(0).springify().damping(18)}
+            style={{ flex: 2, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+              <CalendarCheck size={22} color={p.accent} />
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 26, color: p.textPrimary, letterSpacing: -0.5 }}>
+                {upcoming.length}
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
+                Upcoming
+              </Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(60).springify().damping(18)}
+            style={{ flex: 1, backgroundColor: p.inputBg, borderRadius: 24, padding: 18, alignItems: "center", justifyContent: "center", gap: 4 }}
+          >
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: p.textPrimary, letterSpacing: -1 }}>
+              {requests.length}
+            </Text>
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textSecondary, opacity: 0.6 }}>
+              Pending
+            </Text>
+          </Animated.View>
+        </View>
+
+        {past.length > 0 && (
+          <Animated.View
+            entering={reduceMotion ? undefined : FadeInDown.delay(120).springify().damping(18)}
+            style={{ backgroundColor: p.inputBg, borderRadius: 24, padding: 18, flexDirection: "row", alignItems: "center", gap: 14 }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: p.accentSoft, alignItems: "center", justifyContent: "center" }}>
+              <History size={20} color={p.accent} />
+            </View>
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.textPrimary, letterSpacing: -0.3 }}>
+                {past.length} Past Sessions
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, opacity: 0.6 }}>
+                Your training history
+              </Text>
+            </View>
+          </Animated.View>
         )}
-      </ScrollView>
+      </View>
+
+      {/* ── Week day strip + calendar icon ── */}
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <WeekStrip
+            selectedKey={selectedDay}
+            onSelect={setSelectedDay}
+            eventDateKeys={eventDateKeys}
+          />
+        </View>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setCalendarOpen(true);
+          }}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: 16,
+            backgroundColor: p.accentSoft,
+          }}
+        >
+          <Calendar size={18} color={p.accent} />
+        </Pressable>
+      </View>
+    </View>
+  ), [insets.top, p, reduceMotion, profilePic, firstName, streak, router, upcoming.length, requests.length, past.length, bentoGap, selectedDay, eventDateKeys, setSelectedDay, setCalendarOpen]);
+
+  const keyExtractor = useCallback((item: ListItem, index: number) => {
+    if (item.type === "day-event") return `day-${item.event.id}`;
+    if (item.type === "pending-event") return `pend-${item.event.id}`;
+    return `${item.type}-${index}`;
+  }, []);
+
+  return (
+    <View style={{ flex: 1, backgroundColor: p.pageBg }}>
+      <FlashList
+        data={listData}
+        renderItem={renderItem}
+        getItemType={getItemType}
+        keyExtractor={keyExtractor}
+        estimatedItemSize={88}
+        ListHeaderComponent={ListHeader}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: fabBottom + (canBook ? 72 : 24),
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshEvents}
+            tintColor={p.accent}
+          />
+        }
+      />
 
       {/* ── FAB ── */}
       {canBook && (

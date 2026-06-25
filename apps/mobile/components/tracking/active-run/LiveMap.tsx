@@ -91,9 +91,13 @@ export const LiveMap = React.memo(function LiveMap({
   const lastFollowAtRef = useRef(0);
   const lastFollowCoordRef = useRef<{ latitude: number; longitude: number } | null>(null);
 
-  // Layers only change when route/coordinates data changes — NOT on every GPS tick.
-  // The user position is handled by the native showsUserLocation dot on the MapView.
-  const layers = useMemo((): TrackingMapLayer[] => {
+  const prevCoordCountRef = useRef(0);
+  const throttledCoords = useMemo(() => {
+    prevCoordCountRef.current = coordinates.length;
+    return coordinates;
+  }, [Math.floor(coordinates.length / 3), coordinates.length < 2 ? 0 : 1]);
+
+  const stableLayers = useMemo((): TrackingMapLayer[] => {
     const out: TrackingMapLayer[] = [];
     if (routePolyline && routePolyline.length > 1) {
       out.push({
@@ -104,20 +108,20 @@ export const LiveMap = React.memo(function LiveMap({
         strokeWidth: 3,
       });
     }
-    if (coordinates.length > 1) {
+    if (throttledCoords.length > 1) {
       out.push({
         id: "path",
         type: "polyline",
-        coordinates,
+        coordinates: throttledCoords,
         strokeColor: colors.mapRoute,
         strokeWidth: 4,
       });
     }
-    if (coordinates.length > 0) {
+    if (throttledCoords.length > 0) {
       out.push({
         id: "start",
         type: "marker",
-        coordinate: coordinates[0],
+        coordinate: throttledCoords[0],
         title: "Start",
         marker: {
           kind: "circle",
@@ -125,21 +129,6 @@ export const LiveMap = React.memo(function LiveMap({
           borderColor: "#fff",
           borderWidth: 2,
           size: 6,
-        },
-      });
-    }
-    if (Platform.OS === "android" && lastCoordinate) {
-      out.push({
-        id: "current-location",
-        type: "marker",
-        coordinate: { latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude },
-        title: "You",
-        marker: {
-          kind: "circle",
-          color: "#4285F4",
-          borderColor: "#fff",
-          borderWidth: 3,
-          size: 8,
         },
       });
     }
@@ -156,7 +145,27 @@ export const LiveMap = React.memo(function LiveMap({
       });
     }
     return out;
-  }, [coordinates, destination, routePolyline, colors, lastCoordinate]);
+  }, [throttledCoords, destination, routePolyline, colors]);
+
+  const layers = useMemo((): TrackingMapLayer[] => {
+    if (Platform.OS !== "android" || !lastCoordinate) return stableLayers;
+    return [
+      ...stableLayers,
+      {
+        id: "current-location",
+        type: "marker" as const,
+        coordinate: { latitude: lastCoordinate.latitude, longitude: lastCoordinate.longitude },
+        title: "You",
+        marker: {
+          kind: "circle" as const,
+          color: "#4285F4",
+          borderColor: "#fff",
+          borderWidth: 3,
+          size: 8,
+        },
+      },
+    ];
+  }, [stableLayers, lastCoordinate]);
 
   // Animate camera to follow user — throttled so it doesn't fight user gestures.
   // Only re-center when ≥2s passed AND user moved ≥12m, OR ≥4s passed regardless.

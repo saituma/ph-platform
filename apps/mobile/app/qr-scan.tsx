@@ -122,8 +122,14 @@ export default function QRScanScreen() {
     setResult(null);
     setErrorMessage("");
     setCameraKey((k) => k + 1);
-    setTimeout(() => setScannerReady(true), 800);
   }, []);
+
+  useEffect(() => {
+    if (scanState === "idle" && !scannerReady && cameraKey > 0) {
+      const timer = setTimeout(() => setScannerReady(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [scanState, scannerReady, cameraKey]);
 
   // ── Permission not yet determined ──
   if (!permission) {

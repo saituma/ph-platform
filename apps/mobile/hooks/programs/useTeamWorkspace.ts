@@ -9,12 +9,12 @@ export function useTeamWorkspace(token: string | null, age: number | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (_forceRefresh?: boolean) => {
     if (!token) return;
     setIsLoading(true);
     setError(null);
     try {
-      const response = await programsService.fetchTeamWorkspace(token, age, force);
+      const response = await programsService.fetchTeamWorkspace(token, age);
       const mapped = mapTeamWorkspace(response);
       setWorkspace(mapped);
       setActiveTab(prev => mapped.tabs.includes(prev) ? prev : mapped.tabs[0]);

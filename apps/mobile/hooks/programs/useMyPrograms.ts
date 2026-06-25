@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useSocket } from "@/context/SocketContext";
 
 export type AssignedProgram = {
@@ -82,90 +84,92 @@ export type SessionExercise = {
 };
 
 export function useMyPrograms(token: string | null, autoFetch = false) {
-  const [programs, setPrograms] = useState<AssignedProgram[]>([]);
-  const [isLoading, setIsLoading] = useState(autoFetch && !!token);
-  const [error, setError] = useState<string | null>(null);
-  const hasFetched = useRef(false);
+  const queryClient = useQueryClient();
   const { socket } = useSocket();
 
-  const loadPrograms = useCallback(
-    async (force = false) => {
-      if (!token) return;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ programs?: AssignedProgram[] }>(
-          "/programs/my-assigned",
-          { token, forceRefresh: force },
-        );
-        setPrograms(res.programs ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load programs.");
-      } finally {
-        setIsLoading(false);
-      }
+  const { data: programs = [], isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.programs.myAssigned(),
+    queryFn: async () => {
+      const res = await apiRequest<{ programs?: AssignedProgram[] }>(
+        "/programs/my-assigned",
+        { token: token! },
+      );
+      return res.programs ?? [];
     },
-    [token],
+    enabled: Boolean(token) && autoFetch,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load programs.")
+    : null;
+
+  const loadPrograms = useCallback(
+    async (_force = false) => {
+      if (!token) return;
+      await queryClient.invalidateQueries({ queryKey: queryKeys.programs.myAssigned() });
+    },
+    [token, queryClient],
   );
 
   useEffect(() => {
-    if (autoFetch && token && !hasFetched.current) {
-      hasFetched.current = true;
-      loadPrograms();
-    }
-  }, [autoFetch, token, loadPrograms]);
-
-  useEffect(() => {
     if (!socket || !token) return;
-    const refresh = () => { loadPrograms(true); };
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.programs.myAssigned() });
+    };
     socket.on("program:changed", refresh);
     socket.on("program:assigned", refresh);
     return () => {
       socket.off("program:changed", refresh);
       socket.off("program:assigned", refresh);
     };
-  }, [socket, token, loadPrograms]);
+  }, [socket, token, queryClient]);
 
   return { programs, isLoading, error, loadPrograms };
 }
 
 export function useMyProgramDetail(token: string | null) {
-  const [program, setProgram] = useState<{
-    id: number;
-    name: string;
-    description: string | null;
-    modules: ProgramModule[];
-  } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const { socket } = useSocket();
   const programIdRef = useRef<number | null>(null);
 
+  const [activeProgramId, setActiveProgramId] = useState<number | null>(null);
+
+  const { data: program = null, isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.programs.detail(activeProgramId ?? 0),
+    queryFn: async () => {
+      const pid = activeProgramId!;
+      const path = pid < 0
+        ? `/programs/my-assigned/team/${-pid}`
+        : `/programs/my-assigned/${pid}`;
+      const res = await apiRequest<{ program?: any }>(path, { token: token! });
+      return res.program ?? null;
+    },
+    enabled: Boolean(token) && activeProgramId != null,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load program.")
+    : null;
+
   const loadProgram = useCallback(
-    async (programId: number, force = false) => {
-      if (!token) return;
+    async (programId: number, _force = false) => {
       programIdRef.current = programId;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const path = programId < 0
-          ? `/programs/my-assigned/team/${-programId}`
-          : `/programs/my-assigned/${programId}`;
-        const res = await apiRequest<{ program?: any }>(path, { token, forceRefresh: force });
-        setProgram(res.program ?? null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load program.");
-      } finally {
-        setIsLoading(false);
+      setActiveProgramId(programId);
+      if (_force) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.programs.detail(programId) });
       }
     },
-    [token],
+    [queryClient],
   );
 
   useEffect(() => {
     if (!socket || !token) return;
     const refresh = () => {
-      if (programIdRef.current) loadProgram(programIdRef.current, true);
+      if (programIdRef.current != null) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.programs.detail(programIdRef.current) });
+      }
     };
     socket.on("program:changed", refresh);
     socket.on("program:assigned", refresh);
@@ -173,44 +177,52 @@ export function useMyProgramDetail(token: string | null) {
       socket.off("program:changed", refresh);
       socket.off("program:assigned", refresh);
     };
-  }, [socket, token, loadProgram]);
+  }, [socket, token, queryClient]);
 
   return { program, isLoading, error, loadProgram };
 }
 
 export function useMySessionExercises(token: string | null) {
-  const [exercises, setExercises] = useState<SessionExercise[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const { socket } = useSocket();
   const sessionIdRef = useRef<number | null>(null);
 
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+
+  const { data: exercises = [], isLoading, error: queryError } = useQuery({
+    queryKey: queryKeys.programs.sessionExercises(activeSessionId ?? 0),
+    queryFn: async () => {
+      const res = await apiRequest<{ exercises?: SessionExercise[] }>(
+        `/programs/my-sessions/${activeSessionId!}/exercises`,
+        { token: token! },
+      );
+      return (res.exercises ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    },
+    enabled: Boolean(token) && activeSessionId != null,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const error = queryError
+    ? (queryError instanceof Error ? queryError.message : "Failed to load exercises.")
+    : null;
+
   const loadExercises = useCallback(
-    async (sessionId: number, force = false) => {
-      if (!token) return;
+    async (sessionId: number, _force = false) => {
       sessionIdRef.current = sessionId;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const res = await apiRequest<{ exercises?: SessionExercise[] }>(
-          `/programs/my-sessions/${sessionId}/exercises`,
-          { token, forceRefresh: force },
-        );
-        const sorted = (res.exercises ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        setExercises(sorted);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load exercises.");
-      } finally {
-        setIsLoading(false);
+      setActiveSessionId(sessionId);
+      if (_force) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.programs.sessionExercises(sessionId) });
       }
     },
-    [token],
+    [queryClient],
   );
 
   useEffect(() => {
     if (!socket || !token) return;
     const refresh = () => {
-      if (sessionIdRef.current) loadExercises(sessionIdRef.current, true);
+      if (sessionIdRef.current != null) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.programs.sessionExercises(sessionIdRef.current) });
+      }
     };
     socket.on("program:changed", refresh);
     socket.on("program:session:coach-response", refresh);
@@ -220,7 +232,7 @@ export function useMySessionExercises(token: string | null) {
       socket.off("program:session:coach-response", refresh);
       socket.off("video:reviewed", refresh);
     };
-  }, [socket, token, loadExercises]);
+  }, [socket, token, queryClient]);
 
   return { exercises, isLoading, error, loadExercises };
 }

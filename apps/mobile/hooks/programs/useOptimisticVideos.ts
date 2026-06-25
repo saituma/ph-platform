@@ -30,7 +30,7 @@ export function useOptimisticVideos(userId: string | number | undefined, section
   }, [pendingKey]);
 
   useEffect(() => {
-    const persist = async () => {
+    const id = setTimeout(async () => {
       try {
         const toStore = optimisticUploads.filter(u => u.publicUrl).map(u => ({
           ...u,
@@ -41,8 +41,8 @@ export function useOptimisticVideos(userId: string | number | undefined, section
       } catch (err) {
         console.warn("[useOptimisticVideos] Failed to persist pending uploads", err);
       }
-    };
-    void persist();
+    }, 1000);
+    return () => clearTimeout(id);
   }, [optimisticUploads, pendingKey]);
 
   return { optimisticUploads, setOptimisticUploads };

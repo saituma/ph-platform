@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { View, Pressable, Linking } from "react-native";
-import { Image as ExpoImage } from "expo-image";
+import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/components/ScaledText";
@@ -39,12 +39,12 @@ export function MessageMediaView({ uri, contentType, width, height, onPress }: P
   if (isImage) {
     return (
       <Pressable onPress={onPress}>
-        <ExpoImage
+        <Image
           source={{ uri }}
           style={{ width, height, borderRadius: 14 }}
           contentFit="cover"
           cachePolicy="memory-disk"
-          transition={120}
+          transition={200}
         />
       </Pressable>
     );
@@ -97,18 +97,54 @@ function InlineVideoPreview({
   height: number;
   onOpenFullscreen: () => void;
 }) {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [activated, setActivated] = useState(false);
+
+  if (!activated) {
+    return (
+      <View style={{ width, height }}>
+        <Image
+          source={{ uri: uri + "?thumb=1" }}
+          style={{ width, height, position: "absolute" }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
+        <Pressable
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.2)" }}
+          onPress={() => setActivated(true)}
+        >
+          <View style={{ height: 48, width: 48, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={onOpenFullscreen}
+          className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60"
+        >
+          <Text className="text-[10px] font-bold text-white">Fullscreen</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  return <ActivatedVideoPreview uri={uri} width={width} height={height} onOpenFullscreen={onOpenFullscreen} />;
+}
+
+function ActivatedVideoPreview({
+  uri,
+  width,
+  height,
+  onOpenFullscreen,
+}: {
+  uri: string;
+  width: number;
+  height: number;
+  onOpenFullscreen: () => void;
+}) {
   const player = useVideoPlayer(uri, (instance) => {
     instance.loop = false;
     instance.muted = false;
+    instance.play();
   });
-
-  useEffect(() => {
-    const sub = player.addListener("playingChange", (payload: { isPlaying?: boolean }) => {
-      setIsPlaying(Boolean(payload?.isPlaying));
-    });
-    return () => sub.remove();
-  }, [player]);
 
   return (
     <View style={{ width, height }}>
@@ -118,16 +154,6 @@ function InlineVideoPreview({
         contentFit="cover"
         nativeControls
       />
-      {!isPlaying ? (
-        <Pressable
-          className="absolute inset-0 items-center justify-center bg-black/20"
-          onPress={() => player.play()}
-        >
-          <View className="h-12 w-12 rounded-full bg-black/40 items-center justify-center">
-            <Ionicons name="play" size={24} color="#FFFFFF" style={{ marginLeft: 4 }} />
-          </View>
-        </Pressable>
-      ) : null}
       <Pressable
         onPress={onOpenFullscreen}
         className="absolute bottom-2 right-2 px-2 py-1 rounded-lg bg-black/60"

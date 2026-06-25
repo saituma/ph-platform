@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Text } from "@/components/ScaledText";

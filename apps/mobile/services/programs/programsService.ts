@@ -1,11 +1,11 @@
 import { apiRequest } from "@/lib/api";
 import { ProgramSectionContent, TrainingContentV2Workspace } from "@/types/programs";
 
-export async function fetchTeamWorkspace(token: string, age: number | null, forceRefresh = false) {
+export async function fetchTeamWorkspace(token: string, age: number | null) {
   const ageQ = age != null ? `?age=${age}` : "";
   return apiRequest<TrainingContentV2Workspace>(
     `/training-content-v2/mobile${ageQ}`,
-    { token, forceRefresh }
+    { token, forceRefresh: true }
   );
 }
 
@@ -16,11 +16,11 @@ export async function fetchPhpPlusTabs() {
   );
 }
 
-export async function fetchSectionContent(token: string, type: string, tier: string, age: number | null, forceRefresh = false) {
+export async function fetchSectionContent(token: string, type: string, tier: string, age: number | null) {
   const ageQ = age !== null ? `&age=${age}` : "";
   return apiRequest<{ items: ProgramSectionContent[] }>(
     `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
-    { token, forceRefresh }
+    { token, forceRefresh: true }
   );
 }
 
@@ -69,12 +69,11 @@ export type TrackingWorkoutFeed = {
 export async function fetchTrackingWorkouts(
   token: string,
   age: number | null,
-  forceRefresh = false,
 ) {
   const ageQ = age != null ? `?age=${age}` : "";
   return apiRequest<TrackingWorkoutFeed>(
     `/training-content-v2/mobile/workouts${ageQ}`,
-    { token, forceRefresh },
+    { token, forceRefresh: true },
   );
 }
 

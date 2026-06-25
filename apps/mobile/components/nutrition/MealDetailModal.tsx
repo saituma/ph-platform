@@ -2,12 +2,12 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { ArrowLeft, Plus, Trash2, ChevronsRight } from "lucide-react-native";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useNutritionTheme } from "@/components/nutrition/theme";
@@ -158,6 +158,30 @@ export function MealDetailModal({
     setItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
+  const renderMealItem = useCallback(
+    ({ item }: { item: MealItem }) => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <MealFoodRow item={item} />
+        </View>
+        <Pressable
+          onPress={() => removeItem(item.id)}
+          style={({ pressed }) => ({
+            width: 32,
+            height: 32,
+            borderRadius: 100,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Trash2 size={16} color={p.textMuted} />
+        </Pressable>
+      </View>
+    ),
+    [removeItem, p.textMuted],
+  );
+
   const totals = items.reduce(
     (acc, i) => ({
       protein: acc.protein + (i.protein ?? 0),
@@ -218,26 +242,7 @@ export function MealDetailModal({
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <View style={{ flex: 1 }}>
-                  <MealFoodRow item={item} />
-                </View>
-                <Pressable
-                  onPress={() => removeItem(item.id)}
-                  style={({ pressed }) => ({
-                    width: 32,
-                    height: 32,
-                    borderRadius: 100,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: pressed ? 0.6 : 1,
-                  })}
-                >
-                  <Trash2 size={16} color={p.textMuted} />
-                </Pressable>
-              </View>
-            )}
+            renderItem={renderMealItem}
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: p.divider, marginLeft: 66 }} />
             )}

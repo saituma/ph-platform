@@ -21,7 +21,7 @@ import React, {
 } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SystemBars } from "react-native-edge-to-edge";
-import { AppState, Platform, View } from "react-native";
+import { AppState, InteractionManager, Platform, View } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -91,6 +91,7 @@ function StartupSplashController() {
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const router = useRouter();
   const did = useRef(false);
+  const splashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -109,7 +110,12 @@ function StartupSplashController() {
 
     // Small delay lets the replace() navigation settle before the splash disappears,
     // preventing a single-frame flash of the stale restored route.
-    setTimeout(() => void SplashScreen.hideAsync().catch(() => {}), 80);
+    if (splashTimerRef.current) clearTimeout(splashTimerRef.current);
+    splashTimerRef.current = setTimeout(() => void SplashScreen.hideAsync().catch(() => {}), 80);
+
+    return () => {
+      if (splashTimerRef.current) clearTimeout(splashTimerRef.current);
+    };
   }, [bootstrapReady, hydrated, isAuthenticated, router]);
 
   return null;
@@ -123,18 +129,30 @@ function SocketQueryBridge() {
 function RunSyncBridge() {
   const token = useAppSelector((state) => state.user.token);
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
+  const lastSyncAtRef = useRef(0);
 
   useEffect(() => {
     if (!token || !isAuthenticated) return;
-    void syncRuns();
+
+    const syncAfterFirstInteractions = () => {
+      const now = Date.now();
+      if (now - lastSyncAtRef.current < 5 * 60 * 1000) return;
+      lastSyncAtRef.current = now;
+      void syncRuns();
+    };
+
+    const startupTask = InteractionManager.runAfterInteractions(syncAfterFirstInteractions);
 
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        void syncRuns();
+        InteractionManager.runAfterInteractions(syncAfterFirstInteractions);
       }
     });
 
-    return () => sub.remove();
+    return () => {
+      startupTask.cancel();
+      sub.remove();
+    };
   }, [isAuthenticated, token]);
 
   return null;

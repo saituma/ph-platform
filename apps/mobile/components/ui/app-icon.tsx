@@ -18,6 +18,7 @@ import {
   MessageCircle,
   MessageCircleMore,
   Moon,
+  Newspaper,
   Play,
   RefreshCw,
   Route,
@@ -40,6 +41,7 @@ export type AppIconName =
   | "image"
   | "menu"
   | "more"
+  | "news"
   | "parents"
   | "play"
   | "programs"
@@ -81,6 +83,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   image: "photo",
   menu: "line.3.horizontal",
   more: "ellipsis",
+  news: "newspaper",
   parents: "graduationcap",
   play: "play.fill",
   programs: "figure.strengthtraining.traditional",
@@ -111,6 +114,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   image: ImageIcon,
   menu: Menu,
   more: Ellipsis,
+  news: Newspaper,
   parents: GraduationCap,
   play: Play,
   programs: BarChart3,

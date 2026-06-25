@@ -5,14 +5,12 @@ import {
   ScrollView,
   TextInput,
   Platform,
-  KeyboardAvoidingView,
   Switch,
   Alert,
   StyleSheet,
   Keyboard,
   Dimensions,
   RefreshControl,
-  useColorScheme,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
@@ -412,6 +410,7 @@ export default function ProgressScreen() {
     useProgressData(token);
 
   const [tab, setTab] = useState<Tab>("strength");
+  const [refreshing, setRefreshing] = useState(false);
 
   const [reminderOn, setReminderOn] = useState(true);
   const [reminderTime, setReminderTime] = useState(new Date());
@@ -431,8 +430,13 @@ export default function ProgressScreen() {
   const [measLabel, setMeasLabel] = useState("");
   const [notes, setNotes] = useState("");
 
-  const load = useCallback(() => {
-    void reload(true);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await reload(true);
+    } finally {
+      setRefreshing(false);
+    }
   }, [reload]);
 
   useEffect(() => {
@@ -592,7 +596,7 @@ export default function ProgressScreen() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={p.accent} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={load} tintColor={p.accent} />}
       >
         {/* ── Hero Card ── */}
         <Animated.View

@@ -1,11 +1,5 @@
-/**
- * Reusable lifecycle for admin data-fetch operations.
- *
- * Replaces the repeated useState(loading) + useState(error) + useCallback
- * pattern found across all 18 admin hooks. Each admin hook becomes 5-10 lines
- * of domain logic instead of 40-60 lines of identical lifecycle plumbing.
- */
 import { useCallback, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { parseApiError } from "@/lib/errors";
 
 export type AdminQueryState<T> = {
@@ -20,46 +14,57 @@ export type AdminQueryResult<T> = AdminQueryState<T> & {
   setData: React.Dispatch<React.SetStateAction<T>>;
 };
 
-/**
- * @param fetcher  — async function that fetches and returns data
- * @param initial  — initial value for data (e.g. [] or null)
- * @param enabled  — when false, load() is a no-op (e.g. token not ready)
- */
 export function useAdminQuery<T>(
-  fetcher: (forceRefresh: boolean) => Promise<T>,
+  queryKey: readonly unknown[],
+  fetcher: () => Promise<T>,
   initial: T,
   enabled: boolean,
 ): AdminQueryResult<T> {
-  const [data, setData] = useState<T>(initial);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey,
+    queryFn: fetcher,
+    enabled,
+    staleTime: 2 * 60 * 1000,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    placeholderData: initial as any,
+  });
 
   const load = useCallback(
     async (forceRefresh = false) => {
       if (!enabled) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const result = await fetcher(forceRefresh);
-        setData(result);
-      } catch (e) {
-        const parsed = parseApiError(e);
-        setError(parsed.message);
-      } finally {
-        setLoading(false);
+      if (forceRefresh) {
+        await queryClient.invalidateQueries({ queryKey });
       }
+      await refetch();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enabled, fetcher],
+    [enabled, queryClient, queryKey, refetch],
   );
 
-  return { data, loading, error, load, setError, setData };
+  const setData: React.Dispatch<React.SetStateAction<T>> = useCallback(
+    (action) => {
+      if (typeof action === "function") {
+        const updater = action as (prev: T) => T;
+        queryClient.setQueryData(queryKey, (prev: T | undefined) => updater(prev ?? initial));
+      } else {
+        queryClient.setQueryData(queryKey, action);
+      }
+    },
+    [queryClient, queryKey, initial],
+  );
+
+  return {
+    data: data ?? initial,
+    loading: isLoading,
+    error: overrideError ?? (error ? parseApiError(error).message : null),
+    load,
+    setError: setOverrideError,
+    setData,
+  };
 }
 
-/**
- * useAdminMutation — for write operations (create/update/delete).
- * Returns a stable `run` function that sets busy/error state.
- */
 export function useAdminMutation<TArgs, TResult = void>(
   mutator: (args: TArgs) => Promise<TResult>,
 ): {
@@ -85,7 +90,6 @@ export function useAdminMutation<TArgs, TResult = void>(
         setBusy(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mutator],
   );
 

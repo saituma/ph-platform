@@ -69,11 +69,10 @@ export function useBaseLayoutLogic(visibleTabs: TabConfig[], tabComponents: Reco
   }, [pathname, visibleTabs]);
 
   const handleIndexChange = useCallback(
-    (index: number, source: "swipe" | "press" | "sync") => {
+    (index: number, _source: "swipe" | "press" | "sync") => {
       const tab = visibleTabs[index];
       if (!tab || !router) return;
       if (!TABS_SHELL_ROUTE_KEYS.has(tab.key)) return;
-      if (source === "press") return;
 
       const current = parsePrimaryTabSegment(pathname);
       if (current === tab.key) return;

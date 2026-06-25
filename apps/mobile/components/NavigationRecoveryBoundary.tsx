@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Appearance, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   children: ReactNode;
@@ -85,10 +85,11 @@ export class NavigationRecoveryBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.error) {
+      const isDark = Appearance.getColorScheme() === "dark";
       return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Resuming…</Text>
-          <Text style={styles.body}>
+        <View style={[styles.container, isDark && styles.containerDark]}>
+          <Text style={[styles.title, isDark && styles.titleDark]}>Resuming…</Text>
+          <Text style={[styles.body, isDark && styles.bodyDark]}>
             {this.props.message ??
               "Returning from camera/upload. Please wait a moment."}
           </Text>
@@ -100,9 +101,9 @@ export class NavigationRecoveryBoundary extends Component<Props, State> {
               this.retryScheduled = false;
               this.setState({ error: null });
             }}
-            style={styles.button}
+            style={[styles.button, isDark && styles.buttonDark]}
           >
-            <Text style={styles.buttonText}>Retry</Text>
+            <Text style={[styles.buttonText, isDark && styles.buttonTextDark]}>Retry</Text>
           </Pressable>
         </View>
       );
@@ -118,14 +119,24 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "#fff",
   },
+  containerDark: {
+    backgroundColor: "#111",
+  },
   title: {
     fontSize: 18,
     fontWeight: "600",
     marginBottom: 10,
+    color: "#000",
+  },
+  titleDark: {
+    color: "#fff",
   },
   body: {
     fontSize: 14,
     color: "#555",
+  },
+  bodyDark: {
+    color: "#aaa",
   },
   button: {
     marginTop: 16,
@@ -135,8 +146,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
+  buttonDark: {
+    backgroundColor: "#fff",
+  },
   buttonText: {
     color: "#fff",
     fontWeight: "600",
+  },
+  buttonTextDark: {
+    color: "#111",
   },
 });

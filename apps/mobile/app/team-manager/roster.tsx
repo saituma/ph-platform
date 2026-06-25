@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   TextInput,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { router } from "expo-router";
 import {
   Users,
@@ -18,7 +20,6 @@ import {
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Skeleton } from "@/components/Skeleton";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import { ReplaceOnce } from "@/components/navigation/ReplaceOnce";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
@@ -118,12 +119,12 @@ export default function TeamManagerRosterScreen() {
   const [search, setSearch] = useState("");
 
   const load = useCallback(
-    async (forceRefresh: boolean) => {
+    async (_forceRefresh?: boolean) => {
       if (!token || !bootstrapReady || !isTeamManager) return;
       setLoading(true);
       setError(null);
       try {
-        const res = await fetchRoster(token, forceRefresh);
+        const res = await fetchRoster(token);
         setData(res ?? null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load roster");
@@ -154,20 +155,21 @@ export default function TeamManagerRosterScreen() {
   }, [allMembers, search]);
 
   const isInitialLoading = loading && !data;
+  const showMemberRows = canLoad && !isInitialLoading && !error && filteredMembers.length > 0;
 
-  if (!isTeamManager) {
-    return <ReplaceOnce href="/(tabs)" />;
-  }
+  const renderMember = useCallback(
+    ({ item }: { item: Member; }) => (
+      <AthletePill
+        member={item}
+        onPress={() => router.push(`/team-manager/athlete/${item.athleteId}` as any)}
+      />
+    ),
+    [],
+  );
 
-  return (
-    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
-      <ThemedScrollView
-        onRefresh={() => load(true)}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
-      >
-        {/* ── Header ── */}
+  const ListHeader = useCallback(
+    () => (
+      <View>
         <View style={{ paddingTop: 36, paddingHorizontal: 24, marginBottom: 20 }}>
           <View
             style={{
@@ -206,7 +208,6 @@ export default function TeamManagerRosterScreen() {
           </Text>
         </View>
 
-        {/* ── Search bar ── */}
         <View style={{ paddingHorizontal: 24, marginBottom: 20 }}>
           <View
             style={{
@@ -243,115 +244,150 @@ export default function TeamManagerRosterScreen() {
           </View>
         </View>
 
-        {/* ── Content ── */}
-        <View style={{ paddingHorizontal: 24, gap: 10 }}>
-          {!canLoad ? (
-            <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted }}>
-              Waiting for auth bootstrap...
-            </Text>
-          ) : isInitialLoading ? (
-            <>
-              <Skeleton width="100%" height={76} borderRadius={22} />
-              <Skeleton width="100%" height={76} borderRadius={22} />
-              <Skeleton width="100%" height={76} borderRadius={22} />
-            </>
-          ) : error ? (
-            <View
-              style={{
-                borderRadius: 22,
-                backgroundColor: p.dangerSoft,
-                padding: 32,
-                alignItems: "center",
-              }}
-            >
-              <AlertCircle size={28} color={p.danger} />
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontFamily: "Outfit-Bold",
-                  textAlign: "center",
-                  color: p.danger,
-                  marginTop: 10,
-                }}
-              >
-                {error}
-              </Text>
-              <Pressable
-                onPress={() => load(true)}
-                style={{ marginTop: 14, paddingHorizontal: 16, paddingVertical: 8 }}
-              >
-                <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>Try again</Text>
-              </Pressable>
-            </View>
-          ) : filteredMembers.length === 0 ? (
-            <View
-              style={{
-                borderRadius: 22,
-                backgroundColor: p.cardWhite,
-                padding: 32,
-                alignItems: "center",
-              }}
-            >
-              <View
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 22,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: p.accentSoft,
-                  marginBottom: 16,
-                }}
-              >
-                <Users size={32} color={p.accent} />
-              </View>
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontFamily: "Outfit-Bold",
-                  textAlign: "center",
-                  color: p.textPrimary,
-                }}
-              >
-                {search ? "No athletes match your search" : "No team members yet"}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontFamily: "Outfit-Regular",
-                  marginTop: 6,
-                  textAlign: "center",
-                  lineHeight: 20,
-                  color: p.textSecondary,
-                }}
-              >
-                {search
-                  ? "Try a different name"
-                  : "Athletes will appear here once they join your team."}
-              </Text>
-            </View>
-          ) : (
-            <>
-              {loading && (
-                <ActivityIndicator
-                  size="small"
-                  color={p.accent}
-                  style={{ marginBottom: 4 }}
-                />
-              )}
-              {filteredMembers.map((member) => (
-                <AthletePill
-                  key={member.athleteId}
-                  member={member}
-                  onPress={() =>
-                    router.push(`/team-manager/athlete/${member.athleteId}` as any)
-                  }
-                />
-              ))}
-            </>
-          )}
+        {loading && data ? (
+          <ActivityIndicator
+            size="small"
+            color={p.accent}
+            style={{ marginBottom: 12 }}
+          />
+        ) : null}
+      </View>
+    ),
+    [data, loading, memberCount, p, search, teamName],
+  );
+
+  const EmptyState = useCallback(() => {
+    if (!canLoad) {
+      return (
+        <View style={{ paddingHorizontal: 24 }}>
+          <Text style={{ fontSize: 14, fontFamily: "Outfit-Regular", color: p.textMuted }}>
+            Waiting for auth bootstrap...
+          </Text>
         </View>
-      </ThemedScrollView>
+      );
+    }
+
+    if (isInitialLoading) {
+      return (
+        <View style={{ paddingHorizontal: 24, gap: 10 }}>
+          <Skeleton width="100%" height={76} borderRadius={22} />
+          <Skeleton width="100%" height={76} borderRadius={22} />
+          <Skeleton width="100%" height={76} borderRadius={22} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={{ paddingHorizontal: 24 }}>
+          <View
+            style={{
+              borderRadius: 22,
+              backgroundColor: p.dangerSoft,
+              padding: 32,
+              alignItems: "center",
+            }}
+          >
+            <AlertCircle size={28} color={p.danger} />
+            <Text
+              style={{
+                fontSize: 16,
+                fontFamily: "Outfit-Bold",
+                textAlign: "center",
+                color: p.danger,
+                marginTop: 10,
+              }}
+            >
+              {error}
+            </Text>
+            <Pressable
+              onPress={() => load(true)}
+              style={{ marginTop: 14, paddingHorizontal: 16, paddingVertical: 8 }}
+            >
+              <Text style={{ fontSize: 14, fontFamily: "Outfit-Bold", color: p.accent }}>Try again</Text>
+            </Pressable>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={{ paddingHorizontal: 24 }}>
+        <View
+          style={{
+            borderRadius: 22,
+            backgroundColor: p.cardWhite,
+            padding: 32,
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 22,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: p.accentSoft,
+              marginBottom: 16,
+            }}
+          >
+            <Users size={32} color={p.accent} />
+          </View>
+          <Text
+            style={{
+              fontSize: 16,
+              fontFamily: "Outfit-Bold",
+              textAlign: "center",
+              color: p.textPrimary,
+            }}
+          >
+            {search ? "No athletes match your search" : "No team members yet"}
+          </Text>
+          <Text
+            style={{
+              fontSize: 13,
+              fontFamily: "Outfit-Regular",
+              marginTop: 6,
+              textAlign: "center",
+              lineHeight: 20,
+              color: p.textSecondary,
+            }}
+          >
+            {search
+              ? "Try a different name"
+              : "Athletes will appear here once they join your team."}
+          </Text>
+        </View>
+      </View>
+    );
+  }, [canLoad, data, error, isInitialLoading, load, p, search]);
+
+  if (!isTeamManager) {
+    return <ReplaceOnce href="/(tabs)" />;
+  }
+
+  return (
+    <View style={{ flex: 1, paddingTop: insets.top, backgroundColor: p.pageBg }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+      <FlashList
+        data={showMemberRows ? filteredMembers : []}
+        renderItem={renderMember}
+        keyExtractor={(item: Member) => String(item.athleteId)}
+        estimatedItemSize={72}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={EmptyState}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom, paddingHorizontal: showMemberRows ? 24 : 0 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && Boolean(data)}
+            onRefresh={() => load(true)}
+            tintColor={p.accent}
+          />
+        }
+      />
       </KeyboardAvoidingView>
     </View>
   );

@@ -49,15 +49,22 @@ export function useChatState(effectiveProfileId: number, threadId?: string) {
     draftRef.current = next?.draft ?? "";
   }, [effectiveProfileId]);
 
+  const saveToCacheTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    saveToCache(effectiveProfileId, {
-      threads,
-      messages,
-      groupMembers,
-      typingStatus: {},
-      selectedThread,
-      draft: draftRef.current,
-    });
+    if (saveToCacheTimerRef.current) clearTimeout(saveToCacheTimerRef.current);
+    saveToCacheTimerRef.current = setTimeout(() => {
+      saveToCache(effectiveProfileId, {
+        threads,
+        messages,
+        groupMembers,
+        typingStatus: {},
+        selectedThread,
+        draft: draftRef.current,
+      });
+    }, 2000);
+    return () => {
+      if (saveToCacheTimerRef.current) clearTimeout(saveToCacheTimerRef.current);
+    };
   }, [
     threads,
     messages,

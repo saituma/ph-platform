@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Image, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Animated, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import {
   Users,
@@ -50,10 +51,10 @@ export default function TeamManagerManageScreen() {
   const teamName =
     roster?.team?.name?.trim() || authTeamMembership?.team || "Your Team";
 
-  const loadRoster = useCallback(async (forceRefresh = false) => {
+  const loadRoster = useCallback(async (_forceRefresh?: boolean) => {
     if (!token) return;
     try {
-      const res = await fetchRoster(token, forceRefresh);
+      const res = await fetchRoster(token);
       setRoster(res ?? null);
       setError(false);
     } catch {

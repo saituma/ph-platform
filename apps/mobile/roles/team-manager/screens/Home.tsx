@@ -73,10 +73,10 @@ export default function TeamManagerHomeScreen() {
     [leaderboard],
   );
 
-  const fetchData = useCallback(async (forceRefresh = false) => {
+  const fetchData = useCallback(async (_forceRefresh?: boolean) => {
     if (!token) return;
     const [rosterRes, leaderboardRes] = await Promise.allSettled([
-      fetchRoster(token, forceRefresh),
+      fetchRoster(token),
       fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
     ]);
     const rosterOk = rosterRes.status === "fulfilled";

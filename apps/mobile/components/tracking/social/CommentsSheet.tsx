@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { BlurView } from "expo-blur";
 import { Feather } from "@expo/vector-icons";
 

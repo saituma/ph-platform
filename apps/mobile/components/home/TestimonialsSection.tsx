@@ -186,7 +186,7 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
     });
   }, [cardWidth]);
 
-  const renderTestimonialItem = useCallback(({ item }: { item: TestimonialItem }) => (
+  const renderTestimonialItem = useCallback(({ item, index }: { item: TestimonialItem; index: number; }) => (
     <TestimonialCard item={item} p={p} cardWidth={cardWidth} />
   ), [p, cardWidth]);
 
@@ -268,8 +268,9 @@ export const TestimonialsSection = React.memo(function TestimonialsSection({ ite
         ref={flatListRef}
         data={testimonials}
         renderItem={renderTestimonialItem}
-        keyExtractor={(item, index) => (item.id ? String(item.id) : `t-${index}`)}
+        keyExtractor={(item: TestimonialItem, index: number) => (item.id ? String(item.id) : `t-${index}`)}
         horizontal
+        estimatedItemSize={300}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: sideInset - 6 }}
         snapToInterval={cardWidth}

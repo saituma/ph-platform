@@ -31,11 +31,11 @@ export const TRACKING_TAB: TabConfig = {
   iconOutline: "walk-outline",
 };
 
-export const PARENT_PLATFORM_TAB: TabConfig = {
-  key: "parent-platform",
-  label: "Parents",
-  icon: "school",
-  iconOutline: "school-outline",
+export const NEWS_TAB: TabConfig = {
+  key: "news",
+  label: "News",
+  icon: "newspaper",
+  iconOutline: "newspaper-outline",
 };
 
 /**

@@ -59,7 +59,7 @@ export const THREADS: Thread[] = [
   {
     id: "nutrition",
     name: "Nutrition Desk",
-    role: "Parent Platform",
+    role: "News",
     preview: "New guide: Fueling for game day is live.",
     time: "1d",
     responseTime: "Replies within 1 day",

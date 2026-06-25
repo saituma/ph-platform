@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Appearance, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = { children: ReactNode };
 
@@ -45,15 +45,16 @@ export class RootErrorBoundary extends Component<Props, State> {
   render(): ReactNode {
     const { error } = this.state;
     if (error) {
+      const isDark = Appearance.getColorScheme() === "dark";
       return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.body}>{error.message}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Try Again" onPress={this.clearError} style={styles.button}>
-            <Text style={styles.buttonText}>Try Again</Text>
+        <View style={[styles.container, isDark && styles.containerDark]}>
+          <Text style={[styles.title, isDark && styles.titleDark]}>Something went wrong</Text>
+          <Text style={[styles.body, isDark && styles.bodyDark]}>{error.message}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Try Again" onPress={this.clearError} style={[styles.button, isDark && styles.buttonDark]}>
+            <Text style={[styles.buttonText, isDark && styles.buttonTextDark]}>Try Again</Text>
           </Pressable>
           {!__DEV__ && (
-            <Text style={styles.hint}>If this keeps happening, close and reopen the app.</Text>
+            <Text style={[styles.hint, isDark && styles.hintDark]}>If this keeps happening, close and reopen the app.</Text>
           )}
         </View>
       );
@@ -69,16 +70,26 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "#fff",
   },
+  containerDark: {
+    backgroundColor: "#111",
+  },
   title: {
     fontSize: 20,
     fontWeight: "600",
     marginBottom: 12,
+    color: "#000",
+  },
+  titleDark: {
+    color: "#fff",
   },
   body: {
     fontSize: 15,
     color: "#333",
     marginBottom: 20,
     ...Platform.select({ web: { fontFamily: "system-ui" } }),
+  },
+  bodyDark: {
+    color: "#ccc",
   },
   button: {
     alignSelf: "flex-start",
@@ -87,12 +98,21 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
   },
+  buttonDark: {
+    backgroundColor: "#fff",
+  },
   buttonText: {
     color: "#fff",
     fontWeight: "600",
   },
+  buttonTextDark: {
+    color: "#111",
+  },
   hint: {
     fontSize: 14,
     color: "#666",
+  },
+  hintDark: {
+    color: "#999",
   },
 });

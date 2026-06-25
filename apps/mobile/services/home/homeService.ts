@@ -25,10 +25,10 @@ export type HomeContentPayload = {
   professionalPhotos?: string[] | string | null;
 };
 
-export async function fetchHomeContent(token: string, forceRefresh = false) {
+export async function fetchHomeContent(token: string) {
   const data = await apiRequest<{ items?: any[] }>("/content/home", {
     token,
-    forceRefresh,
+    forceRefresh: true,
   });
   const items = Array.isArray(data.items) ? data.items : [];
   if (!items.length) return null;

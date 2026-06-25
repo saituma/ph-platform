@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { useAdminQuery } from "./useAdminQuery";
 
 export type AdminTeamSummary = {
@@ -13,17 +14,17 @@ export type AdminTeamSummary = {
 
 export function useAdminTeams(token: string | null, canLoad: boolean) {
   const fetcher = useCallback(
-    (forceRefresh: boolean) =>
+    () =>
       apiRequest<{ teams?: AdminTeamSummary[] }>("/admin/teams", {
         token,
         suppressStatusCodes: [403],
-        skipCache: forceRefresh,
-        forceRefresh,
+        forceRefresh: true,
       }).then((res) => (Array.isArray(res?.teams) ? res.teams : [])),
     [token],
   );
 
   const { data: teams, loading, error, load } = useAdminQuery(
+    queryKeys.admin.teams(),
     fetcher,
     [] as AdminTeamSummary[],
     Boolean(token) && canLoad,

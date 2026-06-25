@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { apiRequest } from "@/lib/api";
-import { useAdminQuery } from "./useAdminQuery";
-import { useAdminMutation } from "./useAdminQuery";
+import { queryKeys } from "@/lib/queryKeys";
+import { useAdminQuery, useAdminMutation } from "./useAdminQuery";
 
 export type AdminAnnouncementAudienceType =
   | "all"
@@ -61,11 +61,11 @@ export function useAdminAnnouncements(token: string | null, canLoad: boolean) {
   const enabled = Boolean(token && canLoad);
 
   const fetcher = useCallback(
-    async (forceRefresh: boolean) => {
+    async () => {
       if (!token) return [];
       const res = await apiRequest<{ items?: AdminAnnouncementItem[] }>(
         "/content/announcements",
-        { token, suppressStatusCodes: [403], skipCache: forceRefresh, forceRefresh },
+        { token, suppressStatusCodes: [403], forceRefresh: true },
       );
       return Array.isArray(res?.items) ? res.items : [];
     },
@@ -73,6 +73,7 @@ export function useAdminAnnouncements(token: string | null, canLoad: boolean) {
   );
 
   const { data: items, loading, error, load, setData: setItems } = useAdminQuery<AdminAnnouncementItem[]>(
+    queryKeys.admin.announcements(),
     fetcher,
     [],
     enabled,

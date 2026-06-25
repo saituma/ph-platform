@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import type { Story } from "@/hooks/useStories";
 
@@ -16,27 +16,29 @@ export function useAdminStories(token: string | null, enabled: boolean) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const loadingRef = useRef(false);
 
   const load = useCallback(
     async (force = false) => {
       if (!token || !enabled) return;
-      if (loading && !force) return;
+      if (loadingRef.current && !force) return;
+      loadingRef.current = true;
       setLoading(true);
       setError(null);
       try {
         const res = await apiRequest<{ items: Story[] }>("/content/stories", {
           token,
-          skipCache: true,
           forceRefresh: true,
         });
         setItems(res.items ?? []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load stories");
       } finally {
+        loadingRef.current = false;
         setLoading(false);
       }
     },
-    [token, enabled, loading],
+    [token, enabled],
   );
 
   const create = useCallback(

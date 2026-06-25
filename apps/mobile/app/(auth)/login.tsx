@@ -2,7 +2,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
@@ -29,6 +31,7 @@ import {
   setManagedAthletes,
   setMessagingAccessTiers,
   setOnboardingCompleted,
+  setExpiryBanner,
   setPlanFeatures,
   setProgramTier,
   type AppCapabilities,
@@ -83,8 +86,13 @@ export default function LoginScreen() {
             email: data.email.trim().toLowerCase(),
             password: data.password,
           });
-        } catch {
-          // Worker auth failed — user may only exist in the Express API (e.g. admin accounts).
+        } catch (workerErr: unknown) {
+          const isNetworkOrNotFound =
+            workerErr instanceof TypeError ||
+            (workerErr instanceof Error &&
+              (/network|timeout|fetch|ECONNREFUSED/i.test(workerErr.message) ||
+                workerErr.message.startsWith("404 ")));
+          if (!isNetworkOrNotFound) throw workerErr;
           login = await apiRequest<{
             accessToken?: string;
             idToken?: string;
@@ -169,6 +177,7 @@ export default function LoginScreen() {
       dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
       dispatch(setCapabilities(me.user.capabilities ?? null));
       dispatch(setPlanFeatures(me.user.planFeatures ?? []));
+      dispatch(setExpiryBanner((me.user as any).expiryBanner ?? null));
       if (Array.isArray(me.user.allAthletes)) {
         dispatch(setManagedAthletes(me.user.allAthletes));
       }
@@ -212,7 +221,7 @@ export default function LoginScreen() {
   return (
     <View style={{ flex: 1 }}>
       {/* Background */}
-      <Image source={LOGIN_BG} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={LOGIN_BG} style={StyleSheet.absoluteFill} contentFit="cover" />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.58)" }]} />
 
       <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
@@ -246,7 +255,7 @@ export default function LoginScreen() {
           <Animated.View entering={FadeInDown.duration(500).springify().damping(18)} style={styles.brandArea}>
             <View style={styles.logoRing}>
               <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-              <Image source={APP_ICON} style={styles.logoImage} resizeMode="contain" />
+              <Image source={APP_ICON} style={styles.logoImage} contentFit="contain" />
             </View>
             <Animated.View entering={FadeIn.delay(200).duration(400)}>
               <Text style={styles.brandName}>PH Performance</Text>

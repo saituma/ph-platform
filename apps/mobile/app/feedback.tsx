@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useAppToast } from "@/hooks/useAppToast";
@@ -236,7 +236,8 @@ export default function FeedbackScreen() {
                 });
                 toast.success("Thank you", "Your message was sent to the team.");
                 setFeedback("");
-                setTimeout(() => router.canGoBack() ? router.back() : router.replace("/(tabs)/more"), 600);
+                const timer = setTimeout(() => router.canGoBack() ? router.back() : router.replace("/(tabs)/more"), 600);
+                return () => clearTimeout(timer);
               } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : "Something went wrong. Please try again.";
                 toast.error("Could not send", msg);

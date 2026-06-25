@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -552,7 +552,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       qs.set("userId", String(athleteUserId || "me"));
       qs.set("from", fromKey);
       qs.set("to", toKey);
-      qs.set("limit", "500");
+      qs.set("limit", "30");
       const data = await apiRequest<{ logs: any[] }>(
         `/nutrition/logs?${qs.toString()}`,
         { token, suppressLog: true },
@@ -580,6 +580,13 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
     void fetchCoachLogs();
   }, [activeTab, fetchCoachLogs]);
 
+  const fetchDataRef = useRef(fetchData);
+  const fetchCoachLogsRef = useRef(fetchCoachLogs);
+  const activeTabRef = useRef(activeTab);
+  fetchDataRef.current = fetchData;
+  fetchCoachLogsRef.current = fetchCoachLogs;
+  activeTabRef.current = activeTab;
+
   useEffect(() => {
     if (!socket) return;
 
@@ -597,9 +604,9 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       ) {
         return;
       }
-      void fetchData();
-      if (activeTab === "history" || activeTab === "coach") {
-        void fetchCoachLogs();
+      void fetchDataRef.current();
+      if (activeTabRef.current === "history" || activeTabRef.current === "coach") {
+        void fetchCoachLogsRef.current();
       }
     };
 
@@ -610,7 +617,7 @@ export function NutritionPanel({ appRole }: NutritionPanelProps) {
       socket.off("nutrition:log:updated", refreshIfMine);
       socket.off("nutrition:feedback:updated", refreshIfMine);
     };
-  }, [socket, athleteUserId, fetchData, fetchCoachLogs, activeTab]);
+  }, [socket, athleteUserId]);
 
   const handleSave = async () => {
     if (!token) return;

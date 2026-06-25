@@ -54,7 +54,7 @@ export default function AssignedProgramDetailScreen() {
 
   const modules = program?.modules ?? [];
   const targetModule = initialModuleId
-    ? modules.find((m) => m.id === initialModuleId)
+    ? modules.find((m: any) => m.id === initialModuleId)
     : null;
   const showSingleModule = !!targetModule;
 

@@ -115,6 +115,13 @@ export const StoriesRow = React.memo(function StoriesRow({ stories }: Props) {
     setViewerIndex(null);
   }, []);
 
+  const renderStoryItem = useCallback(
+    ({ item, index }: { item: Story; index: number; }) => (
+      <StoryCircle story={item} onPress={() => openStory(index)} />
+    ),
+    [openStory],
+  );
+
   if (!stories.length) return null;
 
   return (
@@ -122,12 +129,11 @@ export const StoriesRow = React.memo(function StoriesRow({ stories }: Props) {
       <FlashList
         data={stories}
         horizontal
+        estimatedItemSize={56}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={({ item, index }) => (
-          <StoryCircle story={item} onPress={() => openStory(index)} />
-        )}
+        keyExtractor={(item: Story) => String(item.id)}
+        renderItem={renderStoryItem}
       />
       {viewerIndex !== null && (
         <StoryViewer

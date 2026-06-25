@@ -1,57 +1,77 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import { VideoItem, CoachResponse } from "@/types/video-upload";
 
 export function useVideoHistory(token: string | null, athleteUserId: number | string | null, sectionContentId?: number | null) {
-  const [videoItems, setVideoItems] = useState<VideoItem[]>([]);
-  const [coachResponses, setCoachResponses] = useState<CoachResponse[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
 
-  const loadVideos = useCallback(async (forceRefresh = false) => {
-    if (!token) return;
-    setIsLoading(true);
-    try {
-      const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
+  const videosQuery = useQuery({
+    queryKey: queryKeys.programs.videos(sectionContentId ?? null),
+    queryFn: async () => {
       const query = sectionContentId ? `?sectionContentId=${sectionContentId}` : "";
       const data = await apiRequest<{ items: VideoItem[] }>(`/videos${query}`, {
-        token,
+        token: token!,
         headers,
-        forceRefresh,
       });
-      setVideoItems(data.items ?? []);
-    } catch (err) {
-      console.warn("[useVideoHistory] loadVideos failed", err);
-      setVideoItems([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [token, athleteUserId, sectionContentId]);
+      return data.items ?? [];
+    },
+    enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const loadCoachResponses = useCallback(async (forceRefresh = false) => {
-    if (!token) return;
-    try {
-      const headers = athleteUserId ? { "X-Acting-User-Id": String(athleteUserId) } : undefined;
+  const responsesQuery = useQuery({
+    queryKey: queryKeys.programs.coachResponses(),
+    queryFn: async () => {
       const data = await apiRequest<{ messages: any[] }>("/messages?includeVideoResponses=1", {
-        token,
+        token: token!,
         headers,
-        skipCache: true,
-        forceRefresh,
       });
-      const items = (data.messages ?? [])
-        .filter(msg => msg.contentType === "video" && msg.mediaUrl && Number(msg.videoUploadId))
-        .map(msg => ({
+      return (data.messages ?? [])
+        .filter((msg: any) => msg.contentType === "video" && msg.mediaUrl && Number(msg.videoUploadId))
+        .map((msg: any) => ({
           id: String(msg.id),
           mediaUrl: msg.mediaUrl,
           text: msg.content,
           createdAt: msg.createdAt ?? null,
           videoUploadId: Number(msg.videoUploadId),
-        }));
-      setCoachResponses(items);
-    } catch (err) {
-      console.warn("[useVideoHistory] loadCoachResponses failed", err);
-      setCoachResponses([]);
-    }
-  }, [token, athleteUserId]);
+        })) as CoachResponse[];
+    },
+    enabled: Boolean(token),
+    staleTime: 2 * 60 * 1000,
+  });
 
-  return { videoItems, coachResponses, isLoading, loadVideos, loadCoachResponses, setVideoItems, setCoachResponses };
+  const loadVideos = useCallback(async (_forceRefresh = false) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.programs.videos(sectionContentId ?? null) });
+  }, [queryClient, sectionContentId]);
+
+  const loadCoachResponses = useCallback(async (_forceRefresh = false) => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.programs.coachResponses() });
+  }, [queryClient]);
+
+  const setVideoItems = useCallback((updater: VideoItem[] | ((prev: VideoItem[]) => VideoItem[])) => {
+    queryClient.setQueryData<VideoItem[]>(
+      queryKeys.programs.videos(sectionContentId ?? null),
+      (old) => typeof updater === "function" ? updater(old ?? []) : updater,
+    );
+  }, [queryClient, sectionContentId]);
+
+  const setCoachResponses = useCallback((updater: CoachResponse[] | ((prev: CoachResponse[]) => CoachResponse[])) => {
+    queryClient.setQueryData<CoachResponse[]>(
+      queryKeys.programs.coachResponses(),
+      (old) => typeof updater === "function" ? updater(old ?? []) : updater,
+    );
+  }, [queryClient]);
+
+  return {
+    videoItems: videosQuery.data ?? [],
+    coachResponses: responsesQuery.data ?? [],
+    isLoading: videosQuery.isLoading,
+    loadVideos,
+    loadCoachResponses,
+    setVideoItems,
+    setCoachResponses,
+  };
 }

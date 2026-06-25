@@ -251,19 +251,28 @@ export function useRunTrackingEngine(
     }
   }, [osrmRoutingEnabled]);
 
-  useEffect(() => {
-    setupLocationAndPermissions();
+  const setupRef = useRef(setupLocationAndPermissions);
+  useEffect(() => { setupRef.current = setupLocationAndPermissions; }, [setupLocationAndPermissions]);
+  const tickRef = useRef(tick);
+  useEffect(() => { tickRef.current = tick; }, [tick]);
+  const triggerGoalFeedbackRef = useRef(triggerGoalFeedback);
+  useEffect(() => { triggerGoalFeedbackRef.current = triggerGoalFeedback; }, [triggerGoalFeedback]);
+  const fetchRouteRef = useRef(fetchRoute);
+  useEffect(() => { fetchRouteRef.current = fetchRoute; }, [fetchRoute]);
 
-    const AUTO_PAUSE_SPEED_THRESHOLD = 0.3; // m/s (~1.1 km/h) — only true stillness
-    const AUTO_PAUSE_DELAY_MS = 8000;        // require 8s of continuous stillness
-    const AUTO_PAUSE_GRACE_MS = 25000;       // 25s grace after manual resume
-    const AUTO_RESUME_SPEED_THRESHOLD = 2.0; // m/s (~7.2 km/h) — clear sustained motion
+  useEffect(() => {
+    setupRef.current();
+
+    const AUTO_PAUSE_SPEED_THRESHOLD = 0.3;
+    const AUTO_PAUSE_DELAY_MS = 8000;
+    const AUTO_PAUSE_GRACE_MS = 25000;
+    const AUTO_RESUME_SPEED_THRESHOLD = 2.0;
 
     let tickCount = 0;
     const timer = setInterval(() => {
       tickCount++;
       const store = useRunStore.getState();
-      tick();
+      tickRef.current();
 
       // --- Auto-pause logic (every 3s to save CPU) ---
       if (tickCount % 3 === 0) {
@@ -287,7 +296,7 @@ export function useRunTrackingEngine(
                 store.pauseRun();
                 store.setAutoPaused(true);
                 if (audioCuesEnabledRef.current) announceAutoPause(true);
-                triggerGoalFeedback("Auto-paused", "Stopped moving — run paused");
+                triggerGoalFeedbackRef.current("Auto-paused", "Stopped moving — run paused");
               }
             } else {
               store.setAutoPauseStillSince(null);
@@ -305,7 +314,7 @@ export function useRunTrackingEngine(
             store.setAutoPaused(false);
             store.setAutoPauseStillSince(null);
             if (audioCuesEnabledRef.current) announceAutoPause(false);
-            triggerGoalFeedback("Resumed", "Movement detected — run resumed");
+            triggerGoalFeedbackRef.current("Resumed", "Movement detected — run resumed");
           }
         }
       }
@@ -328,7 +337,7 @@ export function useRunTrackingEngine(
         const destinationThresholdMeters = 40;
         if (ds.goalKm && !ds.goalReached && ds.distanceMeters >= ds.goalKm * 1000) {
           ds.markGoalReached();
-          triggerGoalFeedback("Goal reached", "Goal reached!");
+          triggerGoalFeedbackRef.current("Goal reached", "Goal reached!");
         }
         if (ds.destination && !ds.destinationReached && ds.liveCoordinate) {
           const dist = haversineDistance(
@@ -339,17 +348,28 @@ export function useRunTrackingEngine(
           );
           if (dist <= destinationThresholdMeters) {
             ds.markDestinationReached();
-            triggerGoalFeedback("Destination reached", "Destination reached!");
+            triggerGoalFeedbackRef.current("Destination reached", "Destination reached!");
           }
           if (osrmRoutingEnabledRef.current && routePolylineRef.current && routePolylineRef.current.length > 0 && !isFetchingRouteRef.current) {
             const nowReroute = Date.now();
+            const rp = routePolylineRef.current;
+            const lat = ds.liveCoordinate.latitude;
+            const lng = ds.liveCoordinate.longitude;
             let minDistance = Infinity;
-            for (const pt of routePolylineRef.current) {
-              const d = haversineDistance(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, pt.latitude, pt.longitude);
+            let bestIdx = 0;
+            const stride = Math.max(1, Math.floor(rp.length / 20));
+            for (let i = 0; i < rp.length; i += stride) {
+              const d = haversineDistance(lat, lng, rp[i].latitude, rp[i].longitude);
+              if (d < minDistance) { minDistance = d; bestIdx = i; }
+            }
+            const lo = Math.max(0, bestIdx - stride);
+            const hi = Math.min(rp.length - 1, bestIdx + stride);
+            for (let i = lo; i <= hi; i++) {
+              const d = haversineDistance(lat, lng, rp[i].latitude, rp[i].longitude);
               if (d < minDistance) minDistance = d;
             }
             if (minDistance > 200 && (nowReroute - lastRouteFetchTime.current >= 30000)) {
-              fetchRoute(ds.liveCoordinate.latitude, ds.liveCoordinate.longitude, ds.destination.latitude, ds.destination.longitude);
+              fetchRouteRef.current(lat, lng, ds.destination.latitude, ds.destination.longitude);
             }
           }
         }
@@ -373,10 +393,15 @@ export function useRunTrackingEngine(
 
     return () => {
       clearInterval(timer);
-      stopForegroundWatch();
-      Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).catch(() => {});
+      watchRef.current?.remove();
+      watchRef.current = null;
+      const runStatus = useRunStore.getState().status;
+      if (runStatus !== "running" && runStatus !== "paused") {
+        Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).catch(() => {});
+      }
     };
-  }, [setupLocationAndPermissions, stopForegroundWatch, tick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!destination) {

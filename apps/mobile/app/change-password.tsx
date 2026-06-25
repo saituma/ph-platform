@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Lock, Shield, Eye, EyeOff } from "lucide-react-native";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -19,6 +20,7 @@ export default function ChangePasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const router = useRouter();
   const p = useAdminPastel();
@@ -53,13 +55,20 @@ export default function ChangePasswordScreen() {
         skipSessionInvalidateOn401: true,
       });
       toast.success("Success", "Your password has been changed successfully.");
-      setTimeout(() => router.back(), 600);
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+      navigateTimerRef.current = setTimeout(() => router.back(), 600);
     } catch (err: any) {
       setFormError(getFriendlyAuthErrorMessage(err, "change-password"));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+    };
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: p.pageBg }}>

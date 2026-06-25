@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { View, Pressable, Image } from "react-native";
+import { View, Pressable } from "react-native";
+import { Image } from "expo-image";
 import { useAppSelector } from "@/store/hooks";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
@@ -90,6 +91,9 @@ function UserCard({
         <Image
           source={{ uri: user.profilePicture }}
           style={{ width: 48, height: 48, borderRadius: 16, flexShrink: 0 }}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
         />
       ) : (
         <View
