@@ -4,20 +4,30 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  Image as RNImage,
   KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import { ChevronLeft, ChevronRight, Heart, MessageCircle, Plus, Search, Send, Trash2, X } from "lucide-react-native";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const MIN_MEDIA_HEIGHT = 140;
+const MAX_MEDIA_HEIGHT = 520;
 
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -488,154 +498,166 @@ function NewsCard({
   );
 }
 
-function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
-  const [page, setPage] = useState(0);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const scrollRef = useRef<ScrollView>(null);
+function clampH(h: number) {
+  return Math.round(Math.max(MIN_MEDIA_HEIGHT, Math.min(MAX_MEDIA_HEIGHT, h)));
+}
 
+function heightForRatio(ratio: number, w: number) {
+  return clampH(w / ratio);
+}
+
+function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
   if (!media.length) return null;
 
-  const single = media.length === 1;
-  // Card fills the news card minus the card's 16px padding on each side
+  const [page, setPage] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // One aspect ratio (w/h) per item — default 16:9 until RNImage.getSize resolves
+  const [ratios, setRatios] = useState<number[]>(() => media.map(() => 16 / 9));
+  const scrollRef = useRef<ScrollView>(null);
+
+  // card width = screen minus list horizontal padding (20) and card padding (16 each side)
   const cardW = SCREEN_WIDTH - 40 - 32;
-  const imgH = single ? 220 : 200;
+
+  // Load real pixel dimensions for each image — videos stay 16:9
+  useEffect(() => {
+    media.forEach((item, i) => {
+      if (item.type !== "image") return;
+      RNImage.getSize(
+        item.url,
+        (w, h) => {
+          if (w > 0 && h > 0) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setRatios((prev) => {
+              const next = [...prev];
+              next[i] = w / h;
+              return next;
+            });
+          }
+        },
+        () => {}, // keep 16:9 on error
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const single = media.length === 1;
+
+  // Height of the currently-visible slide — all items share this so the container
+  // and ScrollView always have a consistent, explicit height (no flex:1 guesswork).
+  const currentH = heightForRatio(ratios[page] ?? 16 / 9, cardW);
 
   const goTo = (idx: number) => {
     const clamped = Math.max(0, Math.min(idx, media.length - 1));
     scrollRef.current?.scrollTo({ x: clamped * cardW, animated: true });
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPage(clamped);
+  };
+
+  // Only images enter the lightbox; map carousel index → image-only index
+  const imageOnlyMedia = media.filter((m) => m.type === "image");
+  const lightboxIdxFor = (carouselIdx: number) => {
+    const item = media[carouselIdx];
+    if (!item || item.type !== "image") return null;
+    return imageOnlyMedia.findIndex((m) => m.url === item.url);
   };
 
   return (
     <View style={{ marginTop: 14 }}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled={!single}
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={!single}
-        onMomentumScrollEnd={(e) => {
-          const newPage = Math.round(e.nativeEvent.contentOffset.x / cardW);
-          setPage(newPage);
-        }}
-        decelerationRate="fast"
-        snapToInterval={single ? undefined : cardW}
-        snapToAlignment="start"
-        contentContainerStyle={{ gap: single ? 0 : 10 }}
-      >
-        {media.map((item, index) => (
-          <View
-            key={`${item.url}-${index}`}
-            style={{
-              width: cardW,
-              borderRadius: 14,
-              overflow: "hidden",
-              backgroundColor: "#111",
-            }}
-          >
-            {item.type === "video" ? (
-              <LazyVideo
-                uri={item.url}
-                posterUri={item.posterUrl ?? null}
-                height={imgH}
-                thumbBorderRadius={14}
-                thumbLabel="Play video"
-                initialMuted
-                hideTopChrome
-              />
-            ) : (
-              <Pressable
-                onPress={() => {
-                  void Haptics.selectionAsync();
-                  setLightboxIndex(index);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="View image fullscreen"
-              >
-                <ExpoImage
-                  source={{ uri: item.url }}
-                  contentFit="cover"
-                  transition={200}
-                  style={{ width: cardW, height: imgH }}
+      {/* Explicit height on both the container and the ScrollView avoids the
+          Animated.View + flex:1 propagation issue that caused blank slides on
+          some devices. LayoutAnimation handles the smooth resize instead. */}
+      <View style={{ height: currentH, borderRadius: 14, overflow: "hidden" }}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled={!single}
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={!single}
+          onMomentumScrollEnd={(e) => {
+            const newPage = Math.round(e.nativeEvent.contentOffset.x / cardW);
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setPage(newPage);
+          }}
+          decelerationRate="fast"
+          snapToInterval={single ? undefined : cardW}
+          snapToAlignment="start"
+          style={{ height: currentH }}
+        >
+          {media.map((item, index) => (
+            <View
+              key={`${item.url}-${index}`}
+              style={{ width: cardW, height: currentH, backgroundColor: "#0a0a0a" }}
+            >
+              {item.type === "video" ? (
+                <LazyVideo
+                  uri={item.url}
+                  posterUri={item.posterUrl ?? null}
+                  height={currentH}
+                  thumbBorderRadius={0}
+                  thumbLabel="Play video"
+                  initialMuted
+                  hideTopChrome
                 />
-              </Pressable>
-            )}
-            {item.caption ? (
-              <Text
-                numberOfLines={2}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  color: p.textSecondary,
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 12,
-                  lineHeight: 17,
-                  backgroundColor: p.cardWhite,
-                }}
-              >
-                {item.caption}
-              </Text>
-            ) : null}
-          </View>
-        ))}
-      </ScrollView>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    const lbIdx = lightboxIdxFor(index);
+                    if (lbIdx !== null) setLightboxIndex(lbIdx);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="View full screen"
+                  style={{ width: cardW, height: currentH }}
+                >
+                  <ExpoImage
+                    source={{ uri: item.url }}
+                    contentFit={ratios[index] && ratios[index] < 0.8 ? "contain" : "cover"}
+                    transition={250}
+                    style={{ width: cardW, height: currentH }}
+                  />
+                </Pressable>
+              )}
+              {item.caption ? (
+                <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 7 }}>
+                  <Text numberOfLines={2} style={{ color: "rgba(255,255,255,0.85)", fontFamily: "Outfit-Regular", fontSize: 12, lineHeight: 17 }}>
+                    {item.caption}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
 
-      {/* Dots + arrows for multi-item */}
+      {/* Dots + arrows */}
       {!single && (
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 10, gap: 8 }}>
-          <Pressable
-            onPress={() => goTo(page - 1)}
-            disabled={page === 0}
-            hitSlop={8}
-            style={{ opacity: page === 0 ? 0.25 : 0.7 }}
-          >
+          <Pressable onPress={() => goTo(page - 1)} disabled={page === 0} hitSlop={8} style={{ opacity: page === 0 ? 0.2 : 0.65 }}>
             <ChevronLeft size={18} color={p.textSecondary} />
           </Pressable>
-
           <View style={{ flexDirection: "row", gap: 6 }}>
             {media.map((_, i) => (
               <Pressable key={i} onPress={() => goTo(i)} hitSlop={6}>
-                <View
-                  style={{
-                    width: i === page ? 16 : 6,
-                    height: 6,
-                    borderRadius: 3,
-                    backgroundColor: i === page ? p.accent : p.border,
-                  }}
-                />
+                <View style={{ width: i === page ? 18 : 6, height: 6, borderRadius: 3, backgroundColor: i === page ? p.accent : p.border }} />
               </Pressable>
             ))}
           </View>
-
-          <Pressable
-            onPress={() => goTo(page + 1)}
-            disabled={page === media.length - 1}
-            hitSlop={8}
-            style={{ opacity: page === media.length - 1 ? 0.25 : 0.7 }}
-          >
+          <Pressable onPress={() => goTo(page + 1)} disabled={page === media.length - 1} hitSlop={8} style={{ opacity: page === media.length - 1 ? 0.2 : 0.65 }}>
             <ChevronRight size={18} color={p.textSecondary} />
           </Pressable>
         </View>
       )}
 
       {/* Fullscreen image lightbox */}
-      {lightboxIndex !== null && (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setLightboxIndex(null)}
-          statusBarTranslucent
-        >
-          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" }}>
+      {lightboxIndex !== null && imageOnlyMedia.length > 0 && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setLightboxIndex(null)} statusBarTranslucent>
+          <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center" }}>
             <Pressable
               onPress={() => setLightboxIndex(null)}
-              style={{ position: "absolute", top: 52, right: 20, zIndex: 10, padding: 10, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 999 }}
+              style={{ position: "absolute", top: 52, right: 20, zIndex: 10, padding: 10, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 999 }}
             >
               <X size={22} color="#fff" />
             </Pressable>
-
-            {/* Swipeable lightbox pages */}
             <ScrollView
               horizontal
               pagingEnabled
@@ -646,26 +668,29 @@ function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
               }}
               decelerationRate="fast"
             >
-              {media.filter((m) => m.type === "image").map((item, i) => (
-                <View key={i} style={{ width: SCREEN_WIDTH, justifyContent: "center", alignItems: "center" }}>
-                  <ExpoImage
-                    source={{ uri: item.url }}
-                    contentFit="contain"
-                    style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
-                  />
-                  {item.caption ? (
-                    <Text style={{ color: "rgba(255,255,255,0.7)", fontFamily: "Outfit-Regular", fontSize: 13, marginTop: 12, paddingHorizontal: 24, textAlign: "center" }}>
-                      {item.caption}
-                    </Text>
-                  ) : null}
-                </View>
-              ))}
+              {imageOnlyMedia.map((item, i) => {
+                const imgRatio = ratios[media.indexOf(item)] ?? 16 / 9;
+                const displayH = clampH(SCREEN_WIDTH / imgRatio);
+                return (
+                  <View key={i} style={{ width: SCREEN_WIDTH, height: Dimensions.get("window").height, justifyContent: "center", alignItems: "center" }}>
+                    <ExpoImage
+                      source={{ uri: item.url }}
+                      contentFit="contain"
+                      transition={150}
+                      style={{ width: SCREEN_WIDTH, height: displayH }}
+                    />
+                    {item.caption ? (
+                      <Text style={{ color: "rgba(255,255,255,0.65)", fontFamily: "Outfit-Regular", fontSize: 13, marginTop: 14, paddingHorizontal: 28, textAlign: "center" }}>
+                        {item.caption}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
             </ScrollView>
-
-            {/* Page counter */}
-            {media.filter((m) => m.type === "image").length > 1 && (
-              <Text style={{ position: "absolute", bottom: 48, color: "rgba(255,255,255,0.5)", fontFamily: "Outfit-Regular", fontSize: 13 }}>
-                {(lightboxIndex ?? 0) + 1} / {media.filter((m) => m.type === "image").length}
+            {imageOnlyMedia.length > 1 && (
+              <Text style={{ position: "absolute", bottom: 52, alignSelf: "center", color: "rgba(255,255,255,0.45)", fontFamily: "Outfit-Regular", fontSize: 13 }}>
+                {(lightboxIndex ?? 0) + 1} / {imageOnlyMedia.length}
               </Text>
             )}
           </View>

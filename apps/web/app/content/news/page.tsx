@@ -718,7 +718,9 @@ function initials(name: string | null | undefined) {
 function PostEngagementPanel({ contentId }: { contentId: number }) {
   const [tab, setTab] = useState<"likes" | "comments">("comments");
   const [commentText, setCommentText] = useState("");
+  const [replyTo, setReplyTo] = useState<{ commentId: number; name: string } | null>(null);
   const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: likesData, isLoading: likesLoading } = useGetNewsPostLikesQuery(contentId);
   const { data: commentsData, isLoading: commentsLoading } = useGetNewsPostCommentsQuery(contentId, { pollingInterval: 10000 });
@@ -770,12 +772,27 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
       return next;
     });
 
+  const startReply = (name: string, commentId: number) => {
+    setReplyTo({ commentId, name });
+    // Expand that thread so the reply will be visible
+    setExpandedReplies((prev) => { const n = new Set(prev); n.add(commentId); return n; });
+    setCommentText("");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const cancelReply = () => {
+    setReplyTo(null);
+    setCommentText("");
+  };
+
   const submitComment = async () => {
     const text = commentText.trim();
     if (!text || posting) return;
+    const content = replyTo ? `@${replyTo.name} ${text}` : text;
     try {
-      await postComment({ contentId, content: text }).unwrap();
+      await postComment({ contentId, content }).unwrap();
       setCommentText("");
+      setReplyTo(null);
     } catch {
       // handled by RTK
     }
@@ -850,6 +867,13 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
                           ) : null}
                         </div>
                         <p className="mt-0.5 text-xs text-foreground leading-relaxed">{parent.content}</p>
+                        <button
+                          type="button"
+                          onClick={() => startReply(parent.name, parent.commentId)}
+                          className="mt-1 text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          Reply
+                        </button>
                       </div>
                     </div>
 
@@ -907,6 +931,13 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
                                   )}
                                   {body}
                                 </p>
+                                <button
+                                  type="button"
+                                  onClick={() => startReply(parent.name, parent.commentId)}
+                                  className="mt-1 text-[10px] font-semibold text-muted-foreground hover:text-primary transition-colors"
+                                >
+                                  Reply
+                                </button>
                               </div>
                             </div>
                           );
@@ -919,27 +950,48 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
             </div>
           )}
 
-          {/* Admin comment input */}
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <User className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
-              <input
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitComment(); } }}
-                placeholder="Add a comment as admin…"
-                className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                type="button"
-                disabled={!commentText.trim() || posting}
-                onClick={() => void submitComment()}
-                className="text-primary disabled:opacity-40 hover:text-primary/80 transition-colors"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </button>
+          {/* Admin comment / reply input */}
+          <div className="space-y-1.5">
+            {replyTo && (
+              <div className="flex items-center gap-1.5 rounded-md bg-primary/5 px-2.5 py-1.5">
+                <span className="text-[11px] text-muted-foreground">
+                  Replying to <span className="font-semibold text-primary">@{replyTo.name}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={cancelReply}
+                  className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
+                  title="Cancel reply"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <User className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5">
+                <input
+                  ref={inputRef}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") { cancelReply(); return; }
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitComment(); }
+                  }}
+                  placeholder={replyTo ? `Reply to @${replyTo.name}…` : "Add a comment as admin…"}
+                  className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <button
+                  type="button"
+                  disabled={!commentText.trim() || posting}
+                  onClick={() => void submitComment()}
+                  className="text-primary disabled:opacity-40 hover:text-primary/80 transition-colors"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
