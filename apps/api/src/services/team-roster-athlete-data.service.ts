@@ -421,7 +421,7 @@ export async function getManagedAthleteEngagement(
   const [attTotals] = await db
     .select({
       total: count(),
-      present: sql<number>`(count(*) filter (where ${sessionAttendanceTable.status} = 'present' or ${sessionAttendanceTable.checkInAt} is not null))::int`,
+      present: sql<number>`(count(*) filter (where ${sessionAttendanceTable.status} = 'attended' or ${sessionAttendanceTable.checkInAt} is not null))::int`,
     })
     .from(sessionAttendanceTable)
     .innerJoin(scheduledSessionTable, eq(scheduledSessionTable.id, sessionAttendanceTable.scheduledSessionId))
