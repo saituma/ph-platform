@@ -9,6 +9,7 @@ import {
   CalendarDays,
   ChevronRight,
   CirclePlus,
+  Contact,
   Ellipsis,
   Heart,
   HeartPulse,
@@ -24,7 +25,6 @@ import {
   Route,
   Send,
   Settings2,
-  User,
   UserRound,
   Users,
   type LucideIcon,
@@ -98,7 +98,7 @@ const IOS_SYMBOLS: Record<AppIconName, SymbolViewProps["name"]> = {
   tracking: "figure.run",
   roster: "person.2",
   user: "person.crop.circle",
-  profile: "person",
+  profile: "person.crop.square",
   sleep: "moon.fill",
 };
 
@@ -130,7 +130,7 @@ const ANDROID_ICONS: Record<AppIconName, LucideIcon> = {
   tracking: Route,
   roster: Users,
   user: UserRound,
-  profile: User,
+  profile: Contact,
   sleep: Moon,
 };
 
