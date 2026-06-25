@@ -21,9 +21,11 @@ import { useSharedValue } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { TabBar, TabConfig } from "./TabBar";
 
-function initialVisitedPages(_initialIndex: number, tabCount: number) {
+function initialVisitedPages(initialIndex: number, tabCount: number) {
   const pages = new Set<number>();
-  for (let i = 0; i < tabCount; i++) pages.add(i);
+  pages.add(initialIndex);
+  if (initialIndex > 0) pages.add(initialIndex - 1);
+  if (initialIndex < tabCount - 1) pages.add(initialIndex + 1);
   return pages;
 }
 
@@ -149,13 +151,11 @@ export function SwipeableTabLayout({
     (e: PagerViewOnPageScrollEvent) => {
       const nextOffset = e.nativeEvent.position + e.nativeEvent.offset;
       scrollOffset.value = nextOffset;
-
-      const nextIndex = Math.round(nextOffset);
-      if (nextIndex !== activeIndexRef.current) {
-        markVisited(nextIndex);
-      }
+      // Don't call markVisited here — mounting new screen content mid-swipe
+      // competes with PagerView's animation on the JS thread. Content mounts
+      // in handlePageSelected after the page settles.
     },
-    [markVisited, scrollOffset],
+    [scrollOffset],
   );
 
   const handleTabPress = useCallback(
@@ -168,7 +168,6 @@ export function SwipeableTabLayout({
       lastChangeSourceRef.current = "press";
       pagerRef.current?.setPage(index);
       setActiveIndex(index);
-      markVisited(index);
       scrollOffset.value = index;
       lastSelectedIndex.current = index;
 
@@ -179,6 +178,11 @@ export function SwipeableTabLayout({
         onIndexChange?.(index, "press");
       }
       lastChangeSourceRef.current = "sync";
+
+      // Defer content mounting so the press-slide animation gets a clean first
+      // frame before React starts rendering the new screen's heavy content.
+      // handlePageSelected will also call markVisited after the animation settles.
+      requestAnimationFrame(() => markVisited(index));
     },
     [markVisited, onIndexChange, scrollOffset],
   );
