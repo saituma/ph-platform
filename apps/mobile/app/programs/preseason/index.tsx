@@ -187,7 +187,17 @@ export default function PreseasonProgrammeScreen() {
   }, [error, loading, refresh, weeks.length]);
 
   if (!capabilities?.preseasonProgramme) {
-    return null;
+    return (
+      <View style={[styles.root, { paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
+        <View style={styles.capabilityFallback}>
+          <Text style={styles.fallbackTitle}>Program Not Available</Text>
+          <Text style={styles.fallbackText}>This preseason program is not available for your current plan.</Text>
+          <Pressable onPress={() => router.back()} style={styles.fallbackBtn}>
+            <Text style={styles.fallbackBtnText}>Go Back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -402,5 +412,36 @@ const styles = StyleSheet.create({
     fontFamily: "Outfit-Regular",
     color: TEXT_MUTED,
     textAlign: "center",
+  },
+  capabilityFallback: {
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  fallbackTitle: {
+    fontSize: 20,
+    fontFamily: "Outfit-Bold",
+    color: TEXT_PRIMARY,
+    textAlign: "center",
+  },
+  fallbackText: {
+    fontSize: 14,
+    fontFamily: "Outfit-Regular",
+    color: TEXT_MUTED,
+    textAlign: "center",
+  },
+  fallbackBtn: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: CARD,
+    borderWidth: 1,
+    borderColor: BORDER_MUTED,
+  },
+  fallbackBtnText: {
+    fontSize: 14,
+    fontFamily: "Outfit-Bold",
+    color: TEXT_PRIMARY,
   },
 });

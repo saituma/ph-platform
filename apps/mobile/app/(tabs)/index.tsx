@@ -36,6 +36,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { useAppSelector } from "@/store/hooks";
+import { useNotificationBadge } from "@/hooks/useNotificationBadge";
 import { Text } from "@/components/ScaledText";
 import { SkeletonHomeScreen } from "@/components/ui/legacy-skeleton";
 import { useWatchHistoryStore } from "@/lib/mmkv";
@@ -305,6 +306,7 @@ const HomeScreen = memo(function HomeScreen() {
   const bootstrapReady = useAppSelector(selectBootstrapReady);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
   const profilePic = profile?.avatar ?? null;
+  const unreadNotifications = useNotificationBadge(token);
 
   const { homeContent, isLoading: homeLoading, load: reloadHomeContent } = useHomeContent(token, bootstrapReady);
   const userId = profile?.id ?? null;
@@ -392,11 +394,6 @@ const HomeScreen = memo(function HomeScreen() {
     };
   }, [bootstrapReady, token]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void statsQuery.refetch();
-    }, [statsQuery.refetch]),
-  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -544,7 +541,9 @@ const HomeScreen = memo(function HomeScreen() {
                   backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)",
                 }]}>
                   <Bell size={18} color={isDark ? "#FFFFFF" : "#1A1A1A"} />
-                  <View style={[s.bellDot, { backgroundColor: accentLime, borderColor: isDark ? "#000000" : p.pageBg }]} />
+                  {unreadNotifications > 0 && (
+                    <View style={[s.bellDot, { backgroundColor: accentLime, borderColor: isDark ? "#000000" : p.pageBg }]} />
+                  )}
                 </Pressable>
               </View>
             </Animated.View>
