@@ -175,13 +175,14 @@ export default function LoginScreen() {
       dispatch(setOnboardingCompleted(me.user.onboardingCompleted ?? null));
       dispatch(setProgramTier(me.user.programTier ?? null));
       dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
-      dispatch(setCapabilities(me.user.capabilities ?? null));
       dispatch(setPlanFeatures(me.user.planFeatures ?? []));
       dispatch(setExpiryBanner((me.user as any).expiryBanner ?? null));
       if (Array.isArray(me.user.allAthletes)) {
         dispatch(setManagedAthletes(me.user.allAthletes));
       }
       dispatch(setAuthTeamMembership({ team: teamFields.team, teamId: teamFields.teamId }));
+      // Dispatch appRole before setCapabilities so capabilitiesLoaded=true never
+      // fires while appRole is still null.
       dispatch(
         setAppRole(
           resolveAppRole({
@@ -194,6 +195,7 @@ export default function LoginScreen() {
           }),
         ),
       );
+      dispatch(setCapabilities(me.user.capabilities ?? null));
 
       if (needsOnboarding) {
         const result = await openResumeOnboardingSession({ token });

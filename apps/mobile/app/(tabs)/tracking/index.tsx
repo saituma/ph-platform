@@ -427,11 +427,11 @@ export default function TrackingHomeScreen() {
     });
 
   useEffect(() => {
-    if (!capabilitiesLoaded || canAccessTracking) return;
+    if (!capabilitiesLoaded || appRole === null || canAccessTracking) return;
     router.replace("/(tabs)");
-  }, [capabilitiesLoaded, canAccessTracking, router]);
+  }, [capabilitiesLoaded, appRole, canAccessTracking, router]);
 
-  if (!capabilitiesLoaded || !canAccessTracking) return null;
+  if (!capabilitiesLoaded || appRole === null || !canAccessTracking) return null;
 
   if (isTeamManager) {
     return (
@@ -1695,7 +1695,7 @@ function ManagerDashboard({
       });
     }
 
-    items.push({ type: "manage-header" }, { type: "manage-links" }, { type: "spacer" });
+    items.push({ type: "spacer" });
     return items;
   }, [filtered, liveLocations, recentRuns]);
 

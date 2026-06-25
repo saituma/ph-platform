@@ -267,7 +267,6 @@ export function AuthPersist() {
         dispatch(setApiUserRole(latestUserRole));
         dispatch(setProgramTier(me.user.programTier ?? null));
         dispatch(setMessagingAccessTiers(me.user.messagingAccessTiers ?? []));
-        dispatch(setCapabilities(me.user.capabilities ?? null));
         dispatch(setPlanFeatures(me.user.planFeatures ?? []));
         if (Array.isArray(me.user.allAthletes)) {
           dispatch(setManagedAthletes(me.user.allAthletes));
@@ -289,7 +288,10 @@ export function AuthPersist() {
             me.user.debugProgramAccess,
           );
         }
+        // Resolve appRole before setCapabilities so capabilitiesLoaded=true never
+        // fires while appRole is still null — that window caused premature redirects.
         syncResolvedAppRole();
+        dispatch(setCapabilities(me.user.capabilities ?? null));
       } catch (error) {
         if (!active) return;
         dispatch(setCapabilities(null));

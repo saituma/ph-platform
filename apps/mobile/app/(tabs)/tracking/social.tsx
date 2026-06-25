@@ -527,14 +527,14 @@ export default function TrackingSocialScreen() {
 
   // ── Gate check ──
   useEffect(() => {
-    if (!capabilitiesLoaded) return;
+    if (!capabilitiesLoaded || appRole === null) return;
     if (canAccessTracking && useTeamFeed) return;
     if (!canAccessTracking) {
       router.replace("/(tabs)/tracking" as any);
     }
-  }, [capabilitiesLoaded, canAccessTracking, router, useTeamFeed]);
+  }, [capabilitiesLoaded, appRole, canAccessTracking, router, useTeamFeed]);
 
-  if (!capabilitiesLoaded || !canAccessTracking || !useTeamFeed) {
+  if (!capabilitiesLoaded || appRole === null || !canAccessTracking || !useTeamFeed) {
     return null;
   }
 
