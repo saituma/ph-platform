@@ -141,11 +141,20 @@ export function loadDeletedMessageIds(profileId: number): Set<string> {
 // Keep the old name as an alias so existing callers (useChatActions) don't break.
 export const deleteMessageSync = markMessageDeletedSync;
 
+// Serializes all async DB writes so concurrent saveCacheToDb calls never
+// nest transactions on the same handle (SQLite rejects nested BEGIN).
+let _writeQueue: Promise<void> = Promise.resolve();
+function enqueueWrite(fn: () => Promise<void>): void {
+  _writeQueue = _writeQueue.then(fn).catch(() => {});
+}
+
 /**
  * Async write — called after API sync or socket events.
  * Fire-and-forget; errors are swallowed to never block the UI.
+ * Writes are serialized through a promise queue to avoid nested transactions.
  */
-export async function saveCacheToDb(profileId: number, data: CacheData): Promise<void> {
+export function saveCacheToDb(profileId: number, data: CacheData): void {
+  enqueueWrite(async () => {
   try {
     const db = getDb();
 
@@ -188,4 +197,5 @@ export async function saveCacheToDb(profileId: number, data: CacheData): Promise
   } catch (e) {
     if (__DEV__) console.warn("[messageDb] save failed:", e);
   }
+  });
 }
