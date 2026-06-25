@@ -323,8 +323,10 @@ export default function ActiveRunScreen() {
     if (audioCuesEnabled) {
       announceRunComplete(finalDistance, finalSeconds);
     }
+    // resetRun() sets status → idle, which triggers the useFocusEffect above
+    // to navigate back. Don't also call router.replace here — two concurrent
+    // replaces cause the tab bar to flash and briefly show the home tab.
     resetRun();
-    router.replace("/(tabs)/tracking" as any);
   };
 
   const screenStyle = useAnimatedStyle(() => ({

@@ -1302,15 +1302,27 @@ function RoutePreview({
   const path = useMemo(() => {
     if (coords.length < 2) return "";
     const thin = coords.length > 80 ? coords.filter((_, index) => index % Math.ceil(coords.length / 80) === 0) : coords;
-    const lats = thin.map((coord) => coord.latitude);
-    const lngs = thin.map((coord) => coord.longitude);
+
+    // Remove GPS outliers: compute median lat/lng, discard points > 0.05° away
+    // (≈5 km), which skew the bounding box and collapse the real route to a corner.
+    const sortedLats = [...thin.map((c) => c.latitude)].sort((a, b) => a - b);
+    const sortedLngs = [...thin.map((c) => c.longitude)].sort((a, b) => a - b);
+    const medLat = sortedLats[Math.floor(sortedLats.length / 2)];
+    const medLng = sortedLngs[Math.floor(sortedLngs.length / 2)];
+    const clean = thin.filter(
+      (c) => Math.abs(c.latitude - medLat) < 0.05 && Math.abs(c.longitude - medLng) < 0.05,
+    );
+    if (clean.length < 2) return "";
+
+    const lats = clean.map((c) => c.latitude);
+    const lngs = clean.map((c) => c.longitude);
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs);
     const maxLng = Math.max(...lngs);
     const latRange = maxLat - minLat || 0.0001;
     const lngRange = maxLng - minLng || 0.0001;
-    return thin
+    return clean
       .map((coord, index) => {
         const x = 18 + ((coord.longitude - minLng) / lngRange) * 264;
         const y = 18 + ((maxLat - coord.latitude) / latRange) * 104;
@@ -1333,14 +1345,12 @@ function RoutePreview({
             <Path d={path} stroke="rgba(15,23,42,0.16)" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" fill="none" />
             <Path d={path} stroke={p.accent} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </>
-        ) : (
-          <Path d="M 34 102 C 78 42, 126 78, 164 45 S 238 68, 268 28" stroke={p.accent} strokeWidth={5} strokeLinecap="round" fill="none" opacity="0.75" />
-        )}
+        ) : null}
       </Svg>
       <View style={{ position: "absolute", left: 16, bottom: 14, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.86)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
-        <MapPin size={13} color={p.accent} />
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
-          {coords.length > 1 ? "Route captured" : "Workout route"}
+        <MapPin size={13} color={path ? p.accent : p.textMuted} />
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: path ? p.accent : p.textMuted }}>
+          {path ? "Route captured" : "No GPS data"}
         </Text>
       </View>
     </View>
