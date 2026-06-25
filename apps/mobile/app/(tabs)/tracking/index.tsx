@@ -424,6 +424,10 @@ export default function TrackingHomeScreen() {
     });
 
   useEffect(() => {
+    // team_manager (team_coach) always has tracking access — never redirect them.
+    // This guards against the race where social.tsx pops back and triggers a
+    // brief re-render here before Redux state fully settles.
+    if (appRole === "team_manager") return;
     if (!capabilitiesLoaded || appRole === null || canAccessTracking) return;
     router.replace("/(tabs)" as any);
   }, [capabilitiesLoaded, appRole, canAccessTracking, router]);

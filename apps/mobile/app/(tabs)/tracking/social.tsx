@@ -528,15 +528,21 @@ export default function TrackingSocialScreen() {
   // ── Gate check ──
   useEffect(() => {
     if (!capabilitiesLoaded || appRole === null) return;
+    // team_manager (team_coach) always has access — bail early to prevent cascade
+    if (appRole === "team_manager") return;
     if (canAccessTracking && useTeamFeed) return;
-    if (!canAccessTracking) {
+    // Use back() instead of replace() to avoid remounting tracking/index which
+    // then fires its own redirect to home.
+    if (router.canGoBack()) {
+      router.back();
+    } else {
       router.replace("/(tabs)/tracking" as any);
     }
   }, [capabilitiesLoaded, appRole, canAccessTracking, router, useTeamFeed]);
 
-  if (!capabilitiesLoaded || appRole === null || !canAccessTracking || !useTeamFeed) {
-    return null;
-  }
+  if (!capabilitiesLoaded || appRole === null) return null;
+  // team_manager always has team access — never block them
+  if (appRole !== "team_manager" && (!canAccessTracking || !useTeamFeed)) return null;
 
   if (!token) {
     return (
