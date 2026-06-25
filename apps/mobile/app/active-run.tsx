@@ -166,7 +166,7 @@ export default function ActiveRunScreen() {
               style: "destructive",
               onPress: () => {
                 discardActiveRun();
-                router.replace("/(tabs)/tracking" as any);
+                router.back();
               },
             },
           ],
@@ -178,14 +178,11 @@ export default function ActiveRunScreen() {
     return () => sub.remove();
   }, [status, discardActiveRun, router]);
 
-  // Only fires on screen (re-)focus, not on every status change.
-  // Read status from store directly so changing status doesn't recreate the
-  // callback and trigger an unwanted second replace via expo-router's useFocusEffect.
   useFocusEffect(
     useCallback(() => {
       const s = useRunStore.getState().status;
       if (hasStartedRef.current && s !== "running" && s !== "paused") {
-        router.replace("/(tabs)/tracking" as any);
+        router.back();
       }
     }, [router]),
   );
@@ -328,7 +325,7 @@ export default function ActiveRunScreen() {
       announceRunComplete(finalDistance, finalSeconds);
     }
     resetRun();
-    router.replace("/(tabs)/tracking" as any);
+    router.back();
   };
 
   const screenStyle = useAnimatedStyle(() => ({
@@ -473,7 +470,7 @@ export default function ActiveRunScreen() {
                 setLayersSheetIndex(-1);
                 return;
               }
-              router.replace("/(tabs)/tracking" as any);
+              router.back();
             }}
             style={({ pressed }) => ({
               width: 54,

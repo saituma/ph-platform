@@ -384,7 +384,7 @@ export default function TrackingHomeScreen() {
     useCallback(() => {
       const status = useRunStore.getState().status;
       if (status === "running" || status === "paused") {
-        router.replace("/active-run" as any);
+        router.push("/active-run" as any);
       }
     }, [router]),
   );
@@ -392,7 +392,7 @@ export default function TrackingHomeScreen() {
   const handleStartRun = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (runStatus === "running" || runStatus === "paused") {
-      router.replace("/active-run" as any);
+      router.push("/active-run" as any);
       return;
     }
     setSportSheetOpen(true);
