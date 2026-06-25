@@ -259,7 +259,7 @@ export default function ThreadScreen() {
           }}
         >
           <Pin size={14} color={p.accent} />
-          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => {/* TODO: scroll to pinned */}}>
+          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={() => {}}>
             <Text
               numberOfLines={1}
               style={{

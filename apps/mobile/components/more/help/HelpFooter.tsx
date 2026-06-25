@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, Linking } from "react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
 import { MessageCircle } from "lucide-react-native";
@@ -27,7 +27,7 @@ export function HelpFooter() {
       </Text>
 
       <Pressable
-        onPress={() => router.push("/feedback")}
+        onPress={() => void Linking.openURL("mailto:support@phperformance.uk")}
         style={({ pressed }) => ({
           height: 52,
           borderRadius: 100,

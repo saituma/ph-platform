@@ -58,6 +58,11 @@ type PortalConfig = {
     legalLinks: Link[];
     copyright: string;
   };
+  expiryBanner: {
+    message: string;
+    buttonLabel: string;
+    paymentUrl: string;
+  };
 };
 
 type SectionKey = keyof PortalConfig;
@@ -179,6 +184,11 @@ export function PortalConfigEditor() {
           ? raw.footer!.legalLinks.map((l) => ({ label: s(l?.label), href: s(l?.href) }))
           : [],
         copyright: s(raw.footer?.copyright),
+      },
+      expiryBanner: {
+        message: s((raw as any).expiryBanner?.message) || "Your plan has expired. Renew to restore full access.",
+        buttonLabel: s((raw as any).expiryBanner?.buttonLabel) || "Pay Now",
+        paymentUrl: s((raw as any).expiryBanner?.paymentUrl),
       },
     };
     setCfg(normalized);
@@ -1078,6 +1088,47 @@ export function PortalConfigEditor() {
               saving={savingKey === "footer"}
               status={statusByKey.footer ?? null}
               onSave={() => void saveSection("footer", cfg.footer)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <SectionHeader
+              title="Plan expiry banner"
+              description="Shown in the mobile app to athletes whose plan has expired. Set the payment link to let them renew directly."
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Message</Label>
+            <Textarea
+              value={cfg.expiryBanner.message}
+              onChange={(e) => setCfg({ ...cfg, expiryBanner: { ...cfg.expiryBanner, message: e.target.value } })}
+              rows={2}
+            />
+          </div>
+          <div>
+            <Label>Button label</Label>
+            <Input
+              value={cfg.expiryBanner.buttonLabel}
+              onChange={(e) => setCfg({ ...cfg, expiryBanner: { ...cfg.expiryBanner, buttonLabel: e.target.value } })}
+            />
+          </div>
+          <div>
+            <Label>Payment URL</Label>
+            <Input
+              placeholder="https://..."
+              value={cfg.expiryBanner.paymentUrl}
+              onChange={(e) => setCfg({ ...cfg, expiryBanner: { ...cfg.expiryBanner, paymentUrl: e.target.value } })}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <SectionSaveButton
+              saving={savingKey === "expiryBanner"}
+              status={statusByKey.expiryBanner ?? null}
+              onSave={() => void saveSection("expiryBanner", cfg.expiryBanner)}
             />
           </div>
         </CardContent>

@@ -822,28 +822,34 @@ function PlanEditorDialog({
                 onPriceChange={(v) => update({ monthlyPrice: v })}
                 placeholder="£19.99"
               />
-              <BillingRow
-                label="6 months (one-time)"
-                enabled={form.oneTimeEnabled}
-                price={form.oneTimeAuto ? deriveMultipliedPrice(form.monthlyPrice, 6) : form.oneTimePrice}
-                onToggle={(v) => update({ oneTimeEnabled: v })}
-                onPriceChange={(v) => update({ oneTimePrice: v })}
-                placeholder="£119.94"
-                autoEnabled={form.oneTimeAuto}
-                onAutoToggle={(v) => update({ oneTimeAuto: v })}
-                autoHint={`Auto: monthly × 6${form.monthlyPrice.trim() ? ` = ${deriveMultipliedPrice(form.monthlyPrice, 6)}` : ""}`}
-              />
-              <BillingRow
-                label="1 year (one-time)"
-                enabled={form.yearlyEnabled}
-                price={form.yearlyAuto ? deriveMultipliedPrice(form.monthlyPrice, 12) : form.yearlyPrice}
-                onToggle={(v) => update({ yearlyEnabled: v })}
-                onPriceChange={(v) => update({ yearlyPrice: v })}
-                placeholder="£199"
-                autoEnabled={form.yearlyAuto}
-                onAutoToggle={(v) => update({ yearlyAuto: v })}
-                autoHint={`Auto: monthly × 12${form.monthlyPrice.trim() ? ` = ${deriveMultipliedPrice(form.monthlyPrice, 12)}` : ""}`}
-              />
+              {form.tier ? (
+                <p className="text-xs text-muted-foreground">Youth plans only support monthly billing.</p>
+              ) : (
+                <>
+                  <BillingRow
+                    label="6 months (one-time)"
+                    enabled={form.oneTimeEnabled}
+                    price={form.oneTimeAuto ? deriveMultipliedPrice(form.monthlyPrice, 6) : form.oneTimePrice}
+                    onToggle={(v) => update({ oneTimeEnabled: v })}
+                    onPriceChange={(v) => update({ oneTimePrice: v })}
+                    placeholder="£119.94"
+                    autoEnabled={form.oneTimeAuto}
+                    onAutoToggle={(v) => update({ oneTimeAuto: v })}
+                    autoHint={`Auto: monthly × 6${form.monthlyPrice.trim() ? ` = ${deriveMultipliedPrice(form.monthlyPrice, 6)}` : ""}`}
+                  />
+                  <BillingRow
+                    label="1 year (one-time)"
+                    enabled={form.yearlyEnabled}
+                    price={form.yearlyAuto ? deriveMultipliedPrice(form.monthlyPrice, 12) : form.yearlyPrice}
+                    onToggle={(v) => update({ yearlyEnabled: v })}
+                    onPriceChange={(v) => update({ yearlyPrice: v })}
+                    placeholder="£199"
+                    autoEnabled={form.yearlyAuto}
+                    onAutoToggle={(v) => update({ yearlyAuto: v })}
+                    autoHint={`Auto: monthly × 12${form.monthlyPrice.trim() ? ` = ${deriveMultipliedPrice(form.monthlyPrice, 12)}` : ""}`}
+                  />
+                </>
+              )}
             </div>
 
             <DiscountsEditor

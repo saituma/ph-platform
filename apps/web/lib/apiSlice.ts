@@ -18,3 +18,5 @@ export * from "./api/admin-session-schedule";
 export * from "./api/beta-testers";
 export * from "./api/referrals";
 export * from "./api/preseason";
+export * from "./api/client-data";
+export * from "./api/onboarding";

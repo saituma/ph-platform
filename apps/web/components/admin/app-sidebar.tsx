@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   CreditCard,
+  Database,
   Dumbbell,
   Gift,
   Images,
@@ -85,12 +86,14 @@ function isGroup(entry: NavEntry): entry is NavGroup {
 
 const NAV: NavEntry[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Client Data", href: "/client-data", icon: Database },
 
   {
     label: "People",
     icon: Users,
     children: [
       { label: "Users & Tiers",  href: "/users",     icon: Users },
+      { label: "Onboarding",     href: "/onboarding", icon: ClipboardList },
       { label: "Teams",          href: "/teams",     icon: Users },
       { label: "Parents",        href: "/parents",   icon: Library },
       { label: "User Referrals", href: "/referrals", icon: Gift },

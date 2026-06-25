@@ -20,6 +20,14 @@ import {
   type AthleteBillingCycle,
 } from "./stripe.service";
 
+export function allowedBillingCyclesForPlan(
+  plan: { tier?: string | null },
+  context: "athlete" | "team" = "athlete",
+): Set<string> {
+  if (context === "team" || plan.tier) return new Set(["monthly"]);
+  return new Set(["weekly", "monthly", "six_months", "yearly"]);
+}
+
 /**
  * Next billing anchor: 5th of the next month after `from` (matching Stripe billing_cycle_anchor).
  * On or after the 5th → next month's 5th. Before the 5th → this month's 5th.
@@ -509,12 +517,13 @@ export async function listSubscriptionPlans(options?: { includeInactive?: boolea
       const base = buildPublicPlanPricing(plan);
       const stripeMonthly = await fetchStripeMonthlyUnit(plan as PlanRowForPricing);
       const pricing = stripeMonthly ? mergeStripeMonthlyPricing(plan as PlanRowForPricing, base, stripeMonthly) : base;
+      const allowed = allowedBillingCyclesForPlan(plan);
       return {
         ...plan,
         supports: {
-          monthly: Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
-          yearly: Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
-          six_months: Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
+          monthly: allowed.has("monthly") && Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
+          yearly: allowed.has("yearly") && Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
+          six_months: allowed.has("six_months") && Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
         },
         pricing,
       };
@@ -1116,9 +1125,13 @@ export async function getPlanInviteSummary(token: string) {
       oneTimePrice: plan.oneTimePrice,
       features: Array.isArray(plan.features) ? plan.features : [],
       supports: {
-        monthly: Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
-        yearly: Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
-        six_months: Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
+        monthly:
+          allowedBillingCyclesForPlan(plan).has("monthly") && Boolean(plan.stripePriceIdMonthly || plan.monthlyPrice),
+        yearly:
+          allowedBillingCyclesForPlan(plan).has("yearly") && Boolean(plan.stripePriceIdYearly || plan.yearlyPrice),
+        six_months:
+          allowedBillingCyclesForPlan(plan).has("six_months") &&
+          Boolean(plan.stripePriceIdOneTime || plan.oneTimePrice),
       },
     },
   };
@@ -1148,6 +1161,11 @@ export async function consumePlanInvite(input: {
   const plan = planRows[0];
   if (!plan || !plan.isActive) {
     throw { status: 404, message: "This invite is no longer valid." };
+  }
+
+  const allowed = allowedBillingCyclesForPlan(plan);
+  if (!allowed.has(input.billingCycle)) {
+    throw { status: 400, message: "This plan only supports monthly billing." };
   }
 
   const fullName = input.fullName.trim();

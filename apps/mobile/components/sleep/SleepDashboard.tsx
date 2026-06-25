@@ -541,7 +541,7 @@ export const SleepDashboard = React.memo(function SleepDashboard() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={false} onRefresh={refetch} tintColor={p.accent} />
+          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={p.accent} />
         }
       >
         {error && logs.length === 0 ? (

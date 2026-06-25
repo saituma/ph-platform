@@ -146,6 +146,8 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   const [recentLogsLoading, setRecentLogsLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(true);
   const initialLoadDone = useRef(false);
+  const lastFetchDataRef = useRef<number>(0);
+  const lastFetchRecentLogsRef = useRef<number>(0);
   const fetchData = useCallback(async () => {
     if (!token) {
       setLoading(false);
@@ -225,6 +227,7 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
         },
         hasMacroTargets: carbsTarget > 0 || proteinTarget > 0 || fatsTarget > 0,
       });
+      lastFetchDataRef.current = Date.now();
     } catch (e) {
       if (!initialLoadDone.current) setData(null);
       setError(e instanceof Error ? e.message : "Couldn't load your nutrition.");
@@ -369,6 +372,7 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
         }));
 
       setRecentLogs(entries);
+      lastFetchRecentLogsRef.current = Date.now();
     } catch {
       setRecentLogs([]);
     } finally {
@@ -384,10 +388,16 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   // Refetch the day whenever the screen regains focus, so a meal logged elsewhere
   // (or while the screen was backgrounded) shows up without restarting the app.
   // Tab screens stay mounted, so a mount-only effect would otherwise serve stale data.
+  // Guard against excessive refetching if rapidly toggling focus.
   useFocusEffect(
     useCallback(() => {
-      void fetchData();
-      void fetchRecentLogs();
+      const now = Date.now();
+      if (now - lastFetchDataRef.current > 30 * 1000) {
+        void fetchData();
+      }
+      if (now - lastFetchRecentLogsRef.current > 30 * 1000) {
+        void fetchRecentLogs();
+      }
     }, [fetchData, fetchRecentLogs]),
   );
 

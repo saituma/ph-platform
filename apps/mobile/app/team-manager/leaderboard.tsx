@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -43,6 +43,7 @@ export default function TeamLeaderboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [windowDays, setWindowDays] = useState(7);
+  const lastLoadRef = useRef<number>(0);
 
   const load = useCallback(
     async (force = false) => {
@@ -55,6 +56,7 @@ export default function TeamLeaderboardScreen() {
           useTeamFeed: true,
         });
         setItems(res.items ?? []);
+        lastLoadRef.current = Date.now();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load leaderboard");
       } finally {
@@ -66,8 +68,11 @@ export default function TeamLeaderboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      load();
+      const now = Date.now();
+      if (now - lastLoadRef.current > 30 * 1000) {
+        setLoading(true);
+        void load();
+      }
     }, [load]),
   );
 

@@ -56,6 +56,7 @@ import {
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
   useGetGoalProgressQuery,
+  useGetTeamRunStatsQuery,
 } from "../../lib/api/tracking";
 import {
   useGetAdultAthletesQuery,
@@ -109,7 +110,7 @@ const emptyForm = {
   dueDate: "",
 };
 
-type TabKey = "tracking" | "goals" | "assign-youth";
+type TabKey = "tracking" | "goals" | "team-stats" | "assign-youth";
 
 export default function TrackingPage() {
   const [tab, setTab] = useState<TabKey>("tracking");
@@ -239,6 +240,18 @@ export default function TrackingPage() {
         >
           <Target className="h-4 w-4" />
           Goals
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("team-stats")}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === "team-stats"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Team Stats
         </button>
         <button
           type="button"
@@ -388,6 +401,9 @@ export default function TrackingPage() {
           )}
         </div>
       )}
+
+      {/* Team Stats tab */}
+      {tab === "team-stats" && <TeamStatsTab teams={teams} />}
 
       {/* Assign Youth tab */}
       {tab === "assign-youth" && <AssignYouthTab />}
@@ -646,6 +662,168 @@ function AthleteCombobox({
         </ComboboxList>
       </ComboboxPopup>
     </Combobox>
+  );
+}
+
+function TeamStatsTab({ teams }: { teams: any[] }) {
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [expandedAthleteId, setExpandedAthleteId] = useState<number | null>(null);
+
+  const teamId = selectedTeamId ? Number(selectedTeamId) : 0;
+  const { data, isLoading, isFetching } = useGetTeamRunStatsQuery(teamId, { skip: !teamId });
+
+  const athletes = data?.athletes ?? [];
+  const totalRuns = athletes.reduce((s, a) => s + a.totalRuns, 0);
+  const totalKm = athletes.reduce((s, a) => s + a.totalMeters, 0) / 1000;
+  const hitters = athletes.filter((a) => a.totalRuns > 0).length;
+
+  const teamItems = [
+    { label: "— Select a team —", value: "" },
+    ...(teams as any[]).map((t: any) => ({ label: t.name ?? `Team ${t.id}`, value: String(t.id) })),
+  ];
+
+  return (
+    <div className="space-y-6">
+      <SectionHeader
+        title="Team Run Stats"
+        description="Per-athlete run breakdown for any team."
+      />
+
+      <div className="max-w-xs">
+        <Select items={teamItems} value={selectedTeamId} onValueChange={(v) => { setSelectedTeamId(v ?? ""); setExpandedAthleteId(null); }}>
+          <SelectTrigger><SelectValue placeholder="Select team…" /></SelectTrigger>
+          <SelectPopup>
+            {teamItems.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+          </SelectPopup>
+        </Select>
+      </div>
+
+      {!selectedTeamId && (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+          <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">Select a team to view run stats.</p>
+        </div>
+      )}
+
+      {selectedTeamId && (isLoading || isFetching) && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}
+        </div>
+      )}
+
+      {selectedTeamId && !isLoading && !isFetching && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <Activity className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-semibold tabular-nums">{totalRuns}</p>
+                  <p className="text-xs text-muted-foreground">Total runs</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <Route className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-semibold tabular-nums">{totalKm.toFixed(1)} km</p>
+                  <p className="text-xs text-muted-foreground">Total distance</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center gap-3 pt-6">
+                <UserCheck className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-2xl font-semibold tabular-nums">{hitters} / {athletes.length}</p>
+                  <p className="text-xs text-muted-foreground">Athletes with runs</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {athletes.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+              <Users className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">No athletes found for this team.</p>
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="pt-6 space-y-2">
+                {athletes.map((athlete) => {
+                  const expanded = expandedAthleteId === athlete.athleteId;
+                  return (
+                    <div key={athlete.athleteId} className="rounded-2xl border border-border/80 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedAthleteId(expanded ? null : athlete.athleteId)}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-secondary/40 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-xs font-bold text-muted-foreground">
+                            {(athlete.athleteName ?? "?")[0]?.toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{athlete.athleteName}</p>
+                            {athlete.totalRuns === 0 ? (
+                              <p className="text-xs text-muted-foreground">No runs logged</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                {athlete.totalRuns} run{athlete.totalRuns !== 1 ? "s" : ""} · {(athlete.totalMeters / 1000).toFixed(1)} km total · best {(athlete.longestMeters / 1000).toFixed(2)} km
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {athlete.lastRunDate && (
+                            <span className="text-xs text-muted-foreground hidden sm:block">
+                              Last: {new Date(athlete.lastRunDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                            </span>
+                          )}
+                          {athlete.totalRuns > 0 && (
+                            expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                      </button>
+
+                      {expanded && athlete.runs.length > 0 && (
+                        <div className="border-t border-border/60">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-secondary/50 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                              <tr>
+                                <th className="px-4 py-2 font-medium">Date</th>
+                                <th className="px-4 py-2 font-medium">Distance</th>
+                                <th className="px-4 py-2 font-medium">Duration</th>
+                                <th className="px-4 py-2 font-medium">Avg pace</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {athlete.runs.map((run) => (
+                                <tr key={run.id} className="border-t border-border/60">
+                                  <td className="px-4 py-2 text-muted-foreground">
+                                    {new Date(run.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                                  </td>
+                                  <td className="px-4 py-2 tabular-nums font-medium">{(Number(run.distanceMeters) / 1000).toFixed(2)} km</td>
+                                  <td className="px-4 py-2 tabular-nums">{formatDuration(run.durationSeconds)}</td>
+                                  <td className="px-4 py-2 tabular-nums text-muted-foreground">
+                                    {run.avgPace ? `${Number(run.avgPace).toFixed(2)} min/km` : "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

@@ -321,6 +321,9 @@ export async function createTeamCheckout(req: Request, res: Response) {
   }
 
   const billingCycle = parsed.data.billingCycle;
+  if (billingCycle !== "monthly") {
+    return res.status(400).json({ error: "Team plans only support monthly billing." });
+  }
   const paymentMode = parsed.data.paymentMode;
   const coachPaysSeats = parsed.data.coachPaysSeats;
   const intervalKey = billingCycle === "monthly" ? "monthly" : billingCycle === "six_months" ? "six_months" : "yearly";
@@ -395,10 +398,7 @@ export async function createTeamCheckout(req: Request, res: Response) {
       termsVersion: parsed.data.termsVersion,
     });
 
-    const sponsoredCount = Math.min(
-      Math.max(0, parsed.data.sponsoredPlayerCount ?? 0),
-      team.maxAthletes ?? 0,
-    );
+    const sponsoredCount = Math.min(Math.max(0, parsed.data.sponsoredPlayerCount ?? 0), team.maxAthletes ?? 0);
     const sponsoredPlanId = sponsoredCount > 0 ? (parsed.data.sponsoredPlanId ?? null) : null;
     await db
       .update(teamTable)

@@ -23,6 +23,7 @@ import { useGetAdminProfileQuery } from "@/lib/apiSlice";
 
 const SEGMENT_LABEL: Record<string, string | null> = {
   "users":                   "Users",
+  "client-data":             "Client Data",
   "teams":                   "Teams",
   "programs":                "Programs",
   "exercise-library":        "Exercise Library",
@@ -67,6 +68,7 @@ const SEGMENT_LABEL: Record<string, string | null> = {
 const DYNAMIC_AFTER: Record<string, string> = {
   "programs":       "Program",
   "users":          "Athlete",
+  "client-data":    "Athlete",
   "athletes":       "Athlete",
   "teams":          "Team",
   "modules":        "Module",

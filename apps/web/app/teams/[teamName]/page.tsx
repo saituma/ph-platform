@@ -1530,14 +1530,7 @@ export default function TeamDetailPage() {
 
               <div className="space-y-1.5">
                 <Label>Billing cycle</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["monthly", "6months", "yearly"] as const).map((cycle) => (
-                    <button key={cycle} type="button" onClick={() => setFpBillingCycle(cycle)}
-                      className={`rounded-lg border px-3 py-2 text-center text-sm transition ${fpBillingCycle === cycle ? "border-primary bg-primary/10 font-medium text-foreground" : "border-border text-muted-foreground hover:border-primary/40"}`}>
-                      {cycle === "monthly" ? "Monthly" : cycle === "6months" ? "6 Months" : "Yearly"}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm text-muted-foreground">Monthly</p>
               </div>
 
               <div className="space-y-1.5">

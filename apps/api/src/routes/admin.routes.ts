@@ -9,11 +9,13 @@ import * as AdminBookingController from "../controllers/admin/booking.controller
 import * as AdminMessageController from "../controllers/admin/message.controller";
 import * as AdminAthletePlanController from "../controllers/admin/athlete-plan.controller";
 import * as AdminProgramBuilderController from "../controllers/admin/program-builder.controller";
+import * as AdminOnboardingReviewController from "../controllers/admin/onboarding-review.controller";
 import * as AdminOnboardingConfigController from "../controllers/admin/onboarding-config.controller";
 import * as AdminPortalConfigController from "../controllers/admin/portal-config.controller";
 import * as AdminSettingsController from "../controllers/admin/settings.controller";
 import * as AdminVideoController from "../controllers/admin/video.controller";
 import * as AdminProgramSessionCompletionController from "../controllers/admin/program-session-completion.controller";
+import * as AdminClientDataController from "../controllers/admin/client-data.controller";
 import * as TrackingGoalsController from "../controllers/tracking-goals.controller";
 
 import { listFoodDiaryAdmin, reviewFoodDiaryAdmin } from "../controllers/food-diary.controller";
@@ -39,6 +41,11 @@ router.get("/admin/users/:userId/onboarding", AdminUserController.getOnboarding)
 router.post("/admin/users/program-tier", AdminUserController.updateProgramTier);
 router.patch("/admin/athletes/:athleteId", AdminUserController.updateAthleteAdmin);
 
+// Client Data
+router.get("/admin/client-data/athletes", AdminClientDataController.listAthletes);
+router.get("/admin/client-data/athletes/:athleteId", AdminClientDataController.getAthleteDetail);
+router.get("/admin/client-data/athletes/:athleteId/sections/:section", AdminClientDataController.getAthleteSection);
+
 // Teams
 router.get("/admin/teams", AdminTeamController.listTeamsAdminDetails);
 router.post("/admin/teams", AdminTeamController.createTeamAdminDetails);
@@ -62,6 +69,10 @@ router.get("/admin/profile", AdminSettingsController.getAdminProfileDetails);
 router.put("/admin/profile", AdminSettingsController.updateAdminProfileDetails);
 router.put("/admin/preferences", AdminSettingsController.updateAdminPreferencesDetails);
 router.put("/admin/messaging-access", AdminSettingsController.putMessagingAccessDetails);
+
+// Onboarding Review
+router.get("/admin/onboarding/incomplete", AdminOnboardingReviewController.listIncomplete);
+router.get("/admin/onboarding/athletes/:athleteId", AdminOnboardingReviewController.getAthleteDetail);
 
 // Onboarding Config
 router.get("/admin/onboarding-config", AdminOnboardingConfigController.getOnboardingConfigDetails);
@@ -101,6 +112,7 @@ router.post("/admin/messages/:userId/read", AdminMessageController.markThreadRea
 // Training Insights
 router.get("/admin/training-snapshot", AdminAthletePlanController.listTrainingSnapshotAdmin);
 router.get("/admin/tracking/runs", AdminAthletePlanController.listRunTrackingAdmin);
+router.get("/admin/tracking/teams/:teamId/run-stats", AdminAthletePlanController.getTeamRunStatsAdmin);
 router.get("/admin/training-questionnaires", AdminAthletePlanController.listTrainingQuestionnaireAnswersAdmin);
 router.get(
   "/admin/users/:userId/program-section-completions",

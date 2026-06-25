@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -40,12 +40,14 @@ export default function TeamSettingsScreen() {
   const [settings, setSettings] = useState<TeamSocialSettings>(DEFAULT_TEAM_SOCIAL_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const lastLoadRef = useRef<number>(0);
 
   const load = useCallback(async () => {
     if (!token || !isTeamManager) return;
     try {
       const res = await fetchTeamSocialSettings(token);
       setSettings(res.settings ?? DEFAULT_TEAM_SOCIAL_SETTINGS);
+      lastLoadRef.current = Date.now();
     } catch {
       // silent
     } finally {
@@ -55,7 +57,10 @@ export default function TeamSettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      const now = Date.now();
+      if (now - lastLoadRef.current > 30 * 1000) {
+        void load();
+      }
     }, [load]),
   );
 

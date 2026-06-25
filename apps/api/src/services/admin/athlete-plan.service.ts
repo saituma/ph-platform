@@ -24,6 +24,74 @@ function optionalDateRange(input: { from?: Date | null; to?: Date | null }, col:
   return filters;
 }
 
+export async function getTeamRunStats(teamId: number) {
+  const athletes = await db
+    .select({
+      athleteId: athleteTable.id,
+      userId: athleteTable.userId,
+      athleteName: athleteTable.name,
+    })
+    .from(athleteTable)
+    .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+    .where(and(eq(athleteTable.teamId, teamId), eq(userTable.isDeleted, false)));
+
+  if (!athletes.length) return { athletes: [] };
+
+  const userIds = athletes.map((a) => a.userId);
+
+  const runs = await db
+    .select({
+      userId: runLogTable.userId,
+      id: runLogTable.id,
+      date: runLogTable.date,
+      distanceMeters: runLogTable.distanceMeters,
+      durationSeconds: runLogTable.durationSeconds,
+      avgPace: runLogTable.avgPace,
+      sport: runLogTable.sport,
+    })
+    .from(runLogTable)
+    .where(inArray(runLogTable.userId, userIds))
+    .orderBy(desc(runLogTable.date));
+
+  const byUserId = new Map<number, typeof runs>();
+  for (const run of runs) {
+    const existing = byUserId.get(run.userId) ?? [];
+    existing.push(run);
+    byUserId.set(run.userId, existing);
+  }
+
+  return {
+    athletes: athletes.map((a) => {
+      const athleteRuns = byUserId.get(a.userId) ?? [];
+      const totalMeters = athleteRuns.reduce((s, r) => s + Number(r.distanceMeters ?? 0), 0);
+      const totalSeconds = athleteRuns.reduce((s, r) => s + Number(r.durationSeconds ?? 0), 0);
+      const maxMeters = athleteRuns.length
+        ? Math.max(...athleteRuns.map((r) => Number(r.distanceMeters ?? 0)))
+        : 0;
+      const lastRun = athleteRuns[0] ?? null;
+      const firstRun = athleteRuns.length ? athleteRuns[athleteRuns.length - 1] : null;
+      return {
+        athleteId: a.athleteId,
+        athleteName: a.athleteName,
+        totalRuns: athleteRuns.length,
+        totalMeters,
+        totalSeconds,
+        longestMeters: maxMeters,
+        firstRunDate: firstRun?.date ?? null,
+        lastRunDate: lastRun?.date ?? null,
+        runs: athleteRuns.map((r) => ({
+          id: r.id,
+          date: r.date,
+          distanceMeters: r.distanceMeters,
+          durationSeconds: r.durationSeconds,
+          avgPace: r.avgPace,
+          sport: r.sport,
+        })),
+      };
+    }),
+  };
+}
+
 export async function listRunTrackingForAdmin(input?: {
   userId?: number | null;
   teamId?: number | null;

@@ -103,6 +103,7 @@ export function VideoUploadPanel({
     title?: string;
   } | null>(null);
   const [builtinCameraVisible, setBuiltinCameraVisible] = useState(false);
+  const lastFocusInvalidateRef = useRef<number>(0);
 
   useEffect(() => {
     // Force refresh to avoid serving cached /messages when a coach has just
@@ -113,8 +114,12 @@ export function VideoUploadPanel({
 
   useFocusEffect(
     useCallback(() => {
-      loadVideos(true);
-      loadCoachResponses(true);
+      const now = Date.now();
+      if (now - lastFocusInvalidateRef.current > 30 * 1000) {
+        lastFocusInvalidateRef.current = now;
+        void loadVideos(true);
+        void loadCoachResponses(true);
+      }
     }, [loadVideos, loadCoachResponses]),
   );
 

@@ -111,8 +111,6 @@ const PAYMENT_METHOD_ITEMS = [
 
 const BILLING_CYCLE_ITEMS = [
   { label: "Monthly Recurring", value: "monthly" },
-  { label: "6 Months Upfront", value: "6months" },
-  { label: "Yearly Upfront (Best Value)", value: "yearly" },
 ];
 
 type ProgramTier = "PHP" | "PHP_Premium" | "PHP_Premium_Plus" | "PHP_Pro";

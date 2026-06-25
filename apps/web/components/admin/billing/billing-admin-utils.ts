@@ -195,6 +195,7 @@ export function planToFormState(plan: SubscriptionPlan): PlanFormState {
     durationDaysPrice: plan.durationDaysPrice ?? null,
     yearlyAuto: false,
     oneTimeAuto: false,
+    ...(plan.tier ? { yearlyEnabled: false, yearlyPrice: "", oneTimeEnabled: false, oneTimePrice: "" } : {}),
   };
 }
 
@@ -212,12 +213,13 @@ export function deriveMultipliedPrice(monthly: string, multiplier: number): stri
 }
 
 export function planFormToPayload(form: PlanFormState) {
+  const isYouth = Boolean(form.tier);
   const weeklyPrice = form.weeklyEnabled ? form.weeklyPrice.trim() : "";
   const monthlyPrice = form.monthlyEnabled ? form.monthlyPrice.trim() : "";
-  const yearlyPrice = form.yearlyEnabled
+  const yearlyPrice = isYouth ? "" : form.yearlyEnabled
     ? (form.yearlyAuto ? deriveMultipliedPrice(form.monthlyPrice, 12) : form.yearlyPrice.trim())
     : "";
-  const oneTimePrice = form.oneTimeEnabled
+  const oneTimePrice = isYouth ? "" : form.oneTimeEnabled
     ? (form.oneTimeAuto ? deriveMultipliedPrice(form.monthlyPrice, 6) : form.oneTimePrice.trim())
     : "";
 

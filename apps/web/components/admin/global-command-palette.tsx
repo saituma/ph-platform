@@ -151,6 +151,7 @@ const NAV_ITEMS: PaletteList = {
   items: [
     // ── Overview ──
     { id: "home",               children: "Dashboard",                    href: "/",                          keywords: ["overview", "home", "dashboard"] },
+    { id: "client-data",        children: "Client Data",                  href: "/client-data",               keywords: ["athletes", "clients", "history", "runs", "nutrition", "training"] },
 
     // ── People ──
     { id: "users",              children: "Users & Tiers",                href: "/users",                     keywords: ["athletes", "guardians", "clients", "members"] },

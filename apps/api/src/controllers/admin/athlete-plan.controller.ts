@@ -5,6 +5,7 @@ import {
   listTrainingSnapshotForAdmin,
   listTrainingQuestionnaireAnswersForAdmin,
   listProgramSectionCompletionsForAthlete,
+  getTeamRunStats,
 } from "../../services/admin/athlete-plan.service";
 import { getUserOnboarding } from "../../services/admin/user.service";
 
@@ -42,6 +43,12 @@ export async function listTrainingQuestionnaireAnswersAdmin(req: Request, res: R
     to: query.to ? new Date(query.to) : null,
     limit: query.limit ?? 100,
   });
+  return res.status(200).json(result);
+}
+
+export async function getTeamRunStatsAdmin(req: Request, res: Response) {
+  const teamId = z.coerce.number().int().min(1).parse(req.params.teamId);
+  const result = await getTeamRunStats(teamId);
   return res.status(200).json(result);
 }
 

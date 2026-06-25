@@ -8,6 +8,7 @@ import {
   BookOpen,
   CalendarDays,
   CreditCard,
+  Database,
   Dumbbell,
   Film,
   LayoutDashboard,
@@ -31,6 +32,7 @@ type DockItem = {
 
 const DOCK_ITEMS: DockItem[] = [
   { label: "Dashboard",        href: "/",                    icon: LayoutDashboard },
+  { label: "Client Data",      href: "/client-data",         icon: Database },
   { label: "Users",            href: "/users",               icon: Users },
   { label: "Programs",         href: "/programs",            icon: BookOpen },
   { label: "Exercise Library", href: "/programs/exercises",  icon: Dumbbell },

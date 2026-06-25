@@ -13,6 +13,8 @@ interface ScheduleHeaderProps {
   onRequestSession: () => void;
   /** When false, hide the primary “book / request session” action (e.g. team roster athletes). */
   showRequestSession?: boolean;
+  /** Subtitle label for the schedule (defaults to “Family planner”). */
+  subtitleLabel?: string;
 }
 
 export function ScheduleHeader({
@@ -21,6 +23,7 @@ export function ScheduleHeader({
   nextEventTime,
   onRequestSession,
   showRequestSession = true,
+  subtitleLabel = "Family planner",
 }: ScheduleHeaderProps) {
   const { colors, isDark } = useAppTheme();
 
@@ -55,7 +58,7 @@ export function ScheduleHeader({
                 className="text-[10px] font-outfit font-bold uppercase tracking-[1.4px]"
                 style={{ color: colors.accent }}
               >
-                {"Family planner"}
+                {subtitleLabel}
               </Text>
             </View>
             <Text className="mt-3 text-3xl font-telma-bold text-app">

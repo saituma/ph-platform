@@ -103,6 +103,29 @@ const trackingApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ["YouthTracking"],
     }),
+    getTeamRunStats: builder.query<{
+      athletes: {
+        athleteId: number;
+        athleteName: string;
+        totalRuns: number;
+        totalMeters: number;
+        totalSeconds: number;
+        longestMeters: number;
+        firstRunDate: string | null;
+        lastRunDate: string | null;
+        runs: {
+          id: number;
+          date: string;
+          distanceMeters: number;
+          durationSeconds: number;
+          avgPace: number | null;
+          sport: string | null;
+        }[];
+      }[];
+    }, number>({
+      query: (teamId) => `/admin/tracking/teams/${teamId}/run-stats`,
+      providesTags: ["Users"],
+    }),
   }),
   overrideExisting: false,
 });
@@ -118,4 +141,5 @@ export const {
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
   useGetGoalProgressQuery,
+  useGetTeamRunStatsQuery,
 } = trackingApi;

@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, View } from "react-native";
+import { Pressable, View, Linking } from "react-native";
 import { Key, Calendar, Users, Bell, Video, Search, Check, ArrowRight, MessageSquare } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -201,7 +201,7 @@ export function ArticleList({ articles, selectedCategory, onReset }: { articles:
               Try a broader term like password, schedule, or notifications. You can also message support directly.
             </Text>
             <Pressable
-              onPress={() => {}}
+              onPress={() => void Linking.openURL("mailto:support@phperformance.uk")}
               style={({ pressed }) => ({
                 height: 48,
                 borderRadius: 100,

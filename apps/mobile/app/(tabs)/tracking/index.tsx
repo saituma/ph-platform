@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
@@ -169,16 +169,25 @@ export default function TrackingHomeScreen() {
     coachName: string | null;
   };
   const [goals, setGoals] = useState<TrackingGoal[]>([]);
+  const lastGoalsFetchRef = useRef<number>(0);
 
   const { socket } = useSocket();
 
   const refreshGoals = useCallback(() => {
     apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
-      .then((r) => setGoals(r.goals))
+      .then((r) => {
+        setGoals(r.goals);
+        lastGoalsFetchRef.current = Date.now();
+      })
       .catch(() => {});
   }, []);
 
-  useFocusEffect(refreshGoals);
+  useFocusEffect(() => {
+    const now = Date.now();
+    if (now - lastGoalsFetchRef.current > 30 * 1000) {
+      void refreshGoals();
+    }
+  });
 
   useEffect(() => {
     if (!socket) return;

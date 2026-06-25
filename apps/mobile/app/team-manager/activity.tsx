@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -82,6 +82,7 @@ export default function TeamActivityScreen() {
   const [sort, setSort] = useState<SocialSort>("date_desc");
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const lastLoadRef = useRef<number>(0);
 
   const load = useCallback(
     async (reset = true) => {
@@ -96,6 +97,7 @@ export default function TeamActivityScreen() {
         });
         if (reset) {
           setItems(res.items ?? []);
+          lastLoadRef.current = Date.now();
         } else {
           setItems((prev) => [...prev, ...(res.items ?? [])]);
         }
@@ -112,9 +114,12 @@ export default function TeamActivityScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      load(true);
-    }, [token, sort]),
+      const now = Date.now();
+      if (now - lastLoadRef.current > 30 * 1000) {
+        setLoading(true);
+        void load(true);
+      }
+    }, [load]),
   );
 
   const onRefresh = useCallback(async () => {
