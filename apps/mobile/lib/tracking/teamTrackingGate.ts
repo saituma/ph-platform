@@ -64,11 +64,11 @@ export function canAccessTrackingTab(input: {
   }
 
   if (input.appRole === "team_manager") {
-    return Boolean(input.capabilities?.teamTracking || input.capabilities?.runTracking || input.capabilities?.progressTracking);
+    return true;
   }
 
   if (shouldUseTeamTrackingFeatures(input)) {
-    return Boolean(input.capabilities?.teamTracking);
+    return true;
   }
 
   if (input.capabilities?.runTracking) {
