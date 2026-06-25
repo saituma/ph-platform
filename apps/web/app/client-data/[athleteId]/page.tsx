@@ -105,22 +105,51 @@ function camelToLabel(key: string): string {
   return key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase()).trim();
 }
 
+function tryParseJson(value: string): unknown {
+  const t = value.trim();
+  if (!t.startsWith("[") && !t.startsWith("{")) return value;
+  try { return JSON.parse(t); } catch { return value; }
+}
+
 function human(value: unknown): string {
   if (value == null || value === "") return "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") {
+    const parsed = tryParseJson(value);
+    if (parsed !== value) return human(parsed);
+    return value || "-";
+  }
   if (value instanceof Date) return formatDateTime(value.toISOString());
   if (Array.isArray(value)) {
     if (value.length === 0) return "-";
     return value.map((v) => human(v)).join(", ");
   }
   if (typeof value === "object" && value !== null) {
-    const entries = Object.entries(value as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
+    const entries = Object.entries(value as Record<string, unknown>).filter(([k, v]) => k !== "id" && v != null && v !== "");
     if (entries.length === 0) return "-";
     return entries.map(([k, v]) => `${camelToLabel(k)}: ${human(v)}`).join(" · ");
   }
   return "-";
 }
+
+type FoodItem = { name: string; calories?: number; weightGrams?: number; unit?: string };
+
+function isFoodItem(v: unknown): v is FoodItem {
+  return typeof v === "object" && v !== null && typeof (v as FoodItem).name === "string";
+}
+
+function parseFoodArray(value: unknown): FoodItem[] | null {
+  const arr = Array.isArray(value) ? value : (() => {
+    if (typeof value !== "string") return null;
+    try { const p = JSON.parse(value); return Array.isArray(p) ? p : null; } catch { return null; }
+  })();
+  if (!arr) return null;
+  const foods = arr.filter(isFoodItem);
+  return foods.length > 0 ? foods : null;
+}
+
+const MEAL_KEYS = new Set(["breakfast", "lunch", "dinner", "snacks", "morningSnack", "afternoonSnack", "eveningSnack", "preWorkout", "postWorkout"]);
 
 function stringValue(record: ClientDataRecord, key: string) {
   const value = record[key];
@@ -213,6 +242,15 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
 
   const hasRoute = section === "runs" && Array.isArray(item.coordinates) && (item.coordinates as unknown[]).length >= 2;
 
+  const mealEntries = section === "nutrition"
+    ? Object.entries(item)
+        .filter(([key]) => MEAL_KEYS.has(key))
+        .map(([key, value]) => ({ key, foods: parseFoodArray(value) }))
+        .filter((e): e is { key: string; foods: FoodItem[] } => e.foods !== null)
+    : [];
+
+  const SKIP_KEYS = new Set(["id", "athleteId", "userId", "coordinates", ...mealEntries.map((e) => e.key)]);
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -227,9 +265,35 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
           <RunRouteMap coordinates={item.coordinates} />
         </div>
       )}
+      {mealEntries.length > 0 && (
+        <div className="mt-4 space-y-3">
+          {mealEntries.map(({ key, foods }) => {
+            const total = foods.reduce((s, f) => s + (f.calories ?? 0), 0);
+            return (
+              <div key={key}>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{camelToLabel(key)}</p>
+                  <p className="text-[10px] font-semibold text-muted-foreground">{total} kcal total</p>
+                </div>
+                <div className="space-y-1">
+                  {foods.map((food, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-md bg-secondary/30 px-3 py-2 text-xs">
+                      <span className="font-medium text-foreground">{food.name}</span>
+                      <span className="text-muted-foreground">
+                        {food.calories != null ? `${food.calories} kcal` : ""}
+                        {food.weightGrams != null ? ` · ${food.weightGrams}${food.unit ?? "g"}` : ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
         {Object.entries(item)
-          .filter(([key, value]) => !["id", "athleteId", "userId", "coordinates"].includes(key) && value != null && value !== "")
+          .filter(([key, value]) => !SKIP_KEYS.has(key) && value != null && value !== "")
           .slice(0, 12)
           .map(([key, value]) => (
             <div key={key} className="min-w-0 rounded-md bg-secondary/30 px-2 py-1.5">
