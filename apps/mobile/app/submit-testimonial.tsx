@@ -152,7 +152,12 @@ export default function SubmitTestimonialScreen() {
               <Text style={{ fontSize: 15, fontFamily: "Outfit-Regular", color: p.textSecondary, lineHeight: 22, marginBottom: 32, textAlign: "center" }}>
                 Your testimonial has been submitted and is pending review.
               </Text>
-              <Pressable onPress={() => router.back()} style={{ marginTop: 8, width: "100%" }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                onPress={() => router.back()}
+                style={{ marginTop: 8, width: "100%" }}
+              >
                 <View
                   style={{
                     height: 56,

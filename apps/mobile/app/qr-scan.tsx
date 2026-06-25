@@ -144,7 +144,12 @@ export default function QRScanScreen() {
   if (!permission.granted) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: p.pageBg }]}>
-        <Pressable style={styles.closeButton} onPress={() => router.back()}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={styles.closeButton}
+          onPress={() => router.back()}
+        >
           <X size={24} color={p.textPrimary} />
         </Pressable>
         <View style={styles.permissionContainer}>
@@ -218,6 +223,8 @@ export default function QRScanScreen() {
       {/* Top bar */}
       <SafeAreaView style={styles.topBar} edges={["top"]}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
           style={styles.closeButtonCamera}
           onPress={() => router.back()}
           hitSlop={12}
@@ -381,6 +388,8 @@ export default function QRScanScreen() {
             </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close"
             style={styles.dismissButton}
             onPress={() => router.back()}
           >

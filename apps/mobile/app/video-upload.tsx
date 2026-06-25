@@ -62,6 +62,8 @@ export default function VideoUploadScreen() {
             </Text>
 
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               onPress={() => router.back()}
               className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
               style={isDark ? Shadows.none : Shadows.md}
@@ -99,6 +101,8 @@ export default function VideoUploadScreen() {
               Video upload for coach feedback isn’t enabled for your account.
             </Text>
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
               onPress={() => router.back()}
               className="w-full bg-accent py-4 rounded-2xl active:opacity-90"
               style={isDark ? Shadows.none : Shadows.md}

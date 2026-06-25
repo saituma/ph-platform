@@ -44,6 +44,8 @@ export function VideoControls({
       {!hideCenterControls && (
         <Pressable
           onPress={togglePlay}
+          accessibilityRole="button"
+          accessibilityLabel={isPlaying ? "Pause" : "Play"}
           style={[
             absoluteFillObject,
             { justifyContent: "center", alignItems: "center", zIndex: 10 },
@@ -116,7 +118,11 @@ export function VideoControls({
             }}
           >
             {!hideMuteButton && (
-              <Pressable onPress={toggleMute}>
+              <Pressable
+                onPress={toggleMute}
+                accessibilityRole="button"
+                accessibilityLabel={isMuted ? "Unmute" : "Mute"}
+              >
                 <Feather
                   name={isMuted ? "volume-x" : "volume-2"}
                   size={24}
@@ -124,14 +130,22 @@ export function VideoControls({
                 />
               </Pressable>
             )}
-            <Pressable onPress={togglePlay}>
+            <Pressable
+              onPress={togglePlay}
+              accessibilityRole="button"
+              accessibilityLabel={isPlaying ? "Pause" : "Play"}
+            >
               <Feather
                 name={isPlaying ? "pause" : "play"}
                 size={28}
                 color="white"
               />
             </Pressable>
-            <Pressable onPress={openFullscreen}>
+            <Pressable
+              onPress={openFullscreen}
+              accessibilityRole="button"
+              accessibilityLabel="Fullscreen"
+            >
               <Feather name="maximize" size={24} color="white" />
             </Pressable>
           </View>

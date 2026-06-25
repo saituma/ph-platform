@@ -215,6 +215,8 @@ const TabItem = React.memo(function TabItem({
     <Pressable
       onPress={() => onTabPress(index)}
       accessibilityRole="tab"
+      accessibilityLabel={tab.label || tab.key}
+      accessibilityState={{ selected: scrollOffset.value === index }}
       style={styles.tabItemContainer}
     >
       <View style={styles.iconStack}>

@@ -397,6 +397,8 @@ function VideoPlayerYoutubeMode({
           </Pressable>
           {!forceMuted && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={youtubeMuted ? "Unmute" : "Mute"}
               onPress={() => setYoutubeMuted((prev) => !prev)}
               style={{
                 position: "absolute",
@@ -599,6 +601,8 @@ function VideoPlayerLoomMode({
             <View />
           )}
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open video in browser"
             onPress={() => Linking.openURL(pageLinkUri)}
             style={{
               backgroundColor: "rgba(0,0,0,0.6)",
@@ -859,6 +863,8 @@ function VideoPlayerExpoNativeMode({
   if (error) {
     return (
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Open video in browser"
         onPress={() => Linking.openURL(finalUri)}
         style={{
           flex: 1,
@@ -1019,6 +1025,8 @@ function VideoPlayerExpoNativeMode({
           </Pressable>
           {!forceMuted && (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isMuted ? "Unmute" : "Mute"}
               onPress={toggleMute}
               style={{
                 position: "absolute",

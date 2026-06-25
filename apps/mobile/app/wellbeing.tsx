@@ -478,12 +478,18 @@ export default function WellbeingScreen() {
   if (capabilities?.wellbeing === false) {
     return (
       <View style={{ flex: 1, backgroundColor: p.pageBg, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <ArrowLeft
-          size={20}
-          color={p.textMuted}
-          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
           onPress={() => router.back()}
-        />
+          hitSlop={12}
+          style={{ position: "absolute", top: insets.top + 16, left: 20 }}
+        >
+          <ArrowLeft
+            size={20}
+            color={p.textMuted}
+          />
+        </Pressable>
         <AlertTriangle size={32} color={p.textMuted} />
         <Text style={{ fontFamily: "Outfit-SemiBold", fontSize: 16, color: p.textMuted }}>
           Not available on your plan
@@ -505,6 +511,8 @@ export default function WellbeingScreen() {
         }}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
           onPress={() => router.back()}
           hitSlop={12}
           style={{
