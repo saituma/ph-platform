@@ -360,7 +360,6 @@ export const ThreadChatBody = React.memo(function ThreadChatBody({
 		? thread.id
 		: `user:${thread.id}`;
 	const typing = typingStatus[typingKey];
-	const composerDockGap = Platform.OS === "ios" ? 8 : 10;
 	const listBottomPadding =
 		isKeyboardVisible ? 12 : Math.max(8, insets.bottom);
 
