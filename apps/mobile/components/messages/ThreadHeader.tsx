@@ -14,11 +14,13 @@ type ThreadHeaderProps = {
 	onBack: () => void;
 	onSearch?: () => void;
 	onMore?: () => void;
+	onOptionsPress?: () => void;
 	onHeaderPress?: () => void;
 	sharedBoundTag?: string;
 	sharedAvatarTag?: string;
 	isMuted?: boolean;
 	onToggleMute?: () => void;
+	memberCount?: number;
 };
 
 function getInitials(name: string) {
@@ -35,11 +37,13 @@ export function ThreadHeader({
 	onBack,
 	onSearch,
 	onMore,
+	onOptionsPress,
 	onHeaderPress,
 	sharedBoundTag,
 	sharedAvatarTag,
 	isMuted,
 	onToggleMute,
+	memberCount,
 }: ThreadHeaderProps) {
 	const p = useAdminPastel();
 	const { isDark } = useAppTheme();
@@ -47,7 +51,7 @@ export function ThreadHeader({
 	const isOnline = thread.lastSeen === "Online";
 	const isGroup = thread.id.startsWith("group:");
 	const statusLine = isGroup
-		? (thread.responseTime ?? "Group chat")
+		? (memberCount != null ? `${memberCount} members` : (thread.responseTime ?? "Group chat"))
 		: isOnline
 			? "Online"
 			: (thread.lastSeen ?? thread.responseTime ?? "Coaching chat");
@@ -215,11 +219,11 @@ export function ThreadHeader({
 							)}
 						</Pressable>
 					)}
-					{onMore && (
+					{(onOptionsPress ?? onMore) && (
 						<Pressable
 							onPress={() => {
 								Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-								onMore();
+								(onOptionsPress ?? onMore)?.();
 							}}
 							hitSlop={12}
 							style={({ pressed }) => [
