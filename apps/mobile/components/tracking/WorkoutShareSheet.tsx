@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import MapView, { Polyline } from "react-native-maps";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -20,7 +22,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Share2, X } from "lucide-react-native";
+import { ImagePlus, Pencil, Share2, X } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { formatDurationClock } from "@/lib/tracking/runUtils";
 
@@ -30,12 +32,13 @@ const CARD_W = SW - 56;
 const CARD_H = Math.min(Math.round(CARD_W * 1.45), Math.round(SH * 0.54));
 const GREEN = "#2F9F3D";
 
-type CardStyle = "power" | "minimal" | "map";
-const CARD_STYLES: CardStyle[] = ["power", "minimal", "map"];
+type CardStyle = "power" | "minimal" | "map" | "photo";
+const CARD_STYLES: CardStyle[] = ["power", "minimal", "map", "photo"];
 const STYLE_LABELS: Record<CardStyle, string> = {
   power: "Power",
   minimal: "Minimal",
   map: "Map",
+  photo: "Photo",
 };
 
 // ── Route helpers ──────────────────────────────────────────────────────────
@@ -556,6 +559,231 @@ function MapCard({
   );
 }
 
+// ── PhotoCard ─────────────────────────────────────────────────────────────
+
+function PhotoCard({
+  cardRef,
+  distKm,
+  paceStr,
+  timeStr,
+  sport,
+  photoUri,
+  onPickPhoto,
+}: {
+  cardRef: React.RefObject<View | null>;
+  distKm: string;
+  paceStr: string;
+  timeStr: string;
+  sport: string;
+  photoUri: string | null;
+  onPickPhoto: () => void;
+}) {
+  if (!photoUri) {
+    return (
+      <Pressable
+        onPress={onPickPhoto}
+        style={{
+          width: CARD_W,
+          height: CARD_H,
+          borderRadius: 24,
+          borderWidth: 1.5,
+          borderColor: "rgba(255,255,255,0.14)",
+          borderStyle: "dashed",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 14,
+        }}
+      >
+        <View
+          style={{
+            width: 64,
+            height: 64,
+            borderRadius: 20,
+            backgroundColor: "rgba(255,255,255,0.08)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ImagePlus size={28} color="rgba(255,255,255,0.45)" strokeWidth={1.5} />
+        </View>
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 15,
+            color: "rgba(255,255,255,0.55)",
+          }}
+        >
+          Choose a photo
+        </Text>
+        <Text
+          style={{
+            fontFamily: "Outfit-Regular",
+            fontSize: 12,
+            color: "rgba(255,255,255,0.28)",
+          }}
+        >
+          Stats will be overlaid on top
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      ref={cardRef}
+      collapsable={false}
+      style={{
+        width: CARD_W,
+        height: CARD_H,
+        backgroundColor: "#000",
+        borderRadius: 24,
+        overflow: "hidden",
+      }}
+    >
+      {/* Photo bg */}
+      <Image
+        source={{ uri: photoUri }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        contentFit="cover"
+      />
+
+      {/* Bottom gradient — keeps stats readable */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: CARD_H * 0.58,
+          backgroundColor: "rgba(0,0,0,0.72)",
+        }}
+      />
+      {/* Subtle top vignette */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: CARD_H * 0.22,
+          backgroundColor: "rgba(0,0,0,0.28)",
+        }}
+      />
+
+      {/* Content */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: 26,
+          justifyContent: "space-between",
+        }}
+      >
+        {/* Brand top */}
+        <Text
+          style={{
+            fontFamily: "Outfit-Bold",
+            fontSize: 9,
+            letterSpacing: 2.8,
+            color: "rgba(255,255,255,0.55)",
+            textTransform: "uppercase",
+          }}
+        >
+          PH PERFORMANCE
+        </Text>
+
+        {/* Distance + stats bottom */}
+        <View style={{ gap: 18 }}>
+          <View>
+            <Text
+              style={{
+                fontFamily: "Outfit-Black",
+                fontSize: 80,
+                lineHeight: 84,
+                color: "#fff",
+                letterSpacing: -3.5,
+                textShadowColor: "rgba(0,0,0,0.6)",
+                textShadowOffset: { width: 0, height: 2 },
+                textShadowRadius: 10,
+              }}
+            >
+              {distKm}
+            </Text>
+            <Text
+              style={{
+                fontFamily: "Outfit-Bold",
+                fontSize: 18,
+                color: "rgba(255,255,255,0.5)",
+                marginTop: -4,
+              }}
+            >
+              km · {sport.toLowerCase()}
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 24 }}>
+            <View style={{ gap: 3 }}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 9,
+                  letterSpacing: 1.5,
+                  color: "rgba(255,255,255,0.38)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Pace
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: "#fff" }}>
+                {paceStr}/km
+              </Text>
+            </View>
+            <View style={{ gap: 3 }}>
+              <Text
+                style={{
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 9,
+                  letterSpacing: 1.5,
+                  color: "rgba(255,255,255,0.38)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Time
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 17, color: "#fff" }}>
+                {timeStr}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Change photo button — top right, outside captured content isn't an option
+          since it IS part of the capturable view; so keep it subtle */}
+      <Pressable
+        onPress={onPickPhoto}
+        hitSlop={8}
+        style={{
+          position: "absolute",
+          top: 20,
+          right: 20,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: "rgba(0,0,0,0.45)",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Pencil size={15} color="#fff" strokeWidth={2} />
+      </Pressable>
+    </View>
+  );
+}
+
 // ── WorkoutShareSheet ──────────────────────────────────────────────────────
 
 export interface WorkoutShareSheetProps {
@@ -580,10 +808,12 @@ export function WorkoutShareSheet({
   const [sharing, setSharing] = useState(false);
   const [mapSnapshotUri, setMapSnapshotUri] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const powerRef = useRef<View>(null);
   const minimalRef = useRef<View>(null);
   const mapCardRef = useRef<View>(null);
+  const photoCardRef = useRef<View>(null);
   const hiddenMapRef = useRef<MapView>(null);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -597,9 +827,27 @@ export function WorkoutShareSheet({
     if (!visible) {
       setActiveStyle("power");
       setSharing(false);
+      setPhotoUri(null);
       scrollRef.current?.scrollTo({ x: 0, animated: false });
     }
   }, [visible]);
+
+  const pickPhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Photos needed", "Allow photo library access in Settings to use a custom background.");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.92,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  }, []);
 
   const distKm = useMemo(() => (distanceMeters / 1000).toFixed(2), [distanceMeters]);
   const paceStr = useMemo(
@@ -650,11 +898,17 @@ export function WorkoutShareSheet({
   const activeRef = useMemo(() => {
     if (activeStyle === "minimal") return minimalRef;
     if (activeStyle === "map") return mapCardRef;
+    if (activeStyle === "photo") return photoCardRef;
     return powerRef;
   }, [activeStyle]);
 
   const handleShare = useCallback(async () => {
     if (sharing) return;
+    // Photo card with no photo yet — open picker instead of sharing
+    if (activeStyle === "photo" && !photoUri) {
+      pickPhoto();
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSharing(true);
     try {
@@ -823,6 +1077,18 @@ export function WorkoutShareSheet({
               mapLoading={mapLoading}
             />
           </View>
+
+          <View style={{ width: SW, height: CARD_H, alignItems: "center", justifyContent: "center" }}>
+            <PhotoCard
+              cardRef={photoCardRef}
+              distKm={distKm}
+              paceStr={paceStr}
+              timeStr={timeStr}
+              sport={sportLabel}
+              photoUri={photoUri}
+              onPickPhoto={pickPhoto}
+            />
+          </View>
         </ScrollView>
 
         {/* Spacer */}
@@ -892,9 +1158,13 @@ export function WorkoutShareSheet({
               },
             ]}
           >
-            <Share2 size={18} color="#000" strokeWidth={2.5} />
+            {activeStyle === "photo" && !photoUri ? (
+              <ImagePlus size={18} color="#000" strokeWidth={2.5} />
+            ) : (
+              <Share2 size={18} color="#000" strokeWidth={2.5} />
+            )}
             <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: "#000" }}>
-              {sharing ? "Sharing…" : "Share Image"}
+              {sharing ? "Sharing…" : activeStyle === "photo" && !photoUri ? "Choose Photo" : "Share Image"}
             </Text>
           </Animated.View>
         </Pressable>
