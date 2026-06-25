@@ -1,16 +1,19 @@
 import { formatDurationClock } from "./runUtils";
 
 let Speech: typeof import("expo-speech") | null = null;
+let _speechPromise: Promise<unknown> | null = null;
 
 async function getSpeech() {
   if (Speech) return Speech;
-  try {
-    Speech = await import("expo-speech");
-    return Speech;
-  } catch {
-    return null;
+  if (!_speechPromise) {
+    _speechPromise = import("expo-speech").then((m) => { Speech = m; }).catch(() => {});
   }
+  await _speechPromise;
+  return Speech;
 }
+
+// Pre-warm so the first announce call doesn't block on a dynamic import.
+_speechPromise = import("expo-speech").then((m) => { Speech = m; }).catch(() => {});
 
 export function announceKilometerSplit(opts: {
   km: number;

@@ -56,10 +56,8 @@ export function ActiveRunActionDock({
 
       {isRunning ? (
         <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onPrimaryPress();
-          }}
+          onPressIn={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          onPress={onPrimaryPress}
           style={styles.pauseBtn}
         >
           <Ionicons name="pause" size={26} color={WHITE_TEXT} />
