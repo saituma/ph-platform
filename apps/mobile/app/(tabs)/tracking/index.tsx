@@ -28,6 +28,7 @@ import { Text } from "@/components/ScaledText";
 import { spacing } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
+import TrackingSocialScreen from "./social";
 import {
   getRecentRuns,
   getWeeklySummaries,
@@ -225,6 +226,7 @@ export default function TrackingHomeScreen() {
   };
   const [goals, setGoals] = useState<TrackingGoal[]>([]);
   const lastGoalsFetchRef = useRef<number>(0);
+  const [innerTab, setInnerTab] = useState<"running" | "team">("running");
 
   const { socket } = useSocket();
 
@@ -461,6 +463,10 @@ export default function TrackingHomeScreen() {
   const PASTEL_ROSE_TEXT = p.textPrimary;
   const BENTO_BORDER = { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" } as const;
 
+  if (innerTab === "team" && showTeamTab) {
+    return <TrackingSocialScreen onGoBack={() => setInnerTab("running")} />;
+  }
+
   return (
     <>
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
@@ -556,12 +562,13 @@ export default function TrackingHomeScreen() {
         {/* Tab switcher */}
         <View style={{ paddingHorizontal: spacing.xl, paddingTop: 16 }}>
           <TrackingHeaderTabs
-            active="running"
+            active={innerTab}
             colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
             isDark={isDark}
             topInset={0}
             paddingHorizontal={0}
             showTeamTab={showTeamTab}
+            onTabChange={(t) => setInnerTab(t)}
           />
           <ActiveRunBanner />
         </View>
@@ -1698,6 +1705,7 @@ function ManagerDashboard({
 }) {
   const p = useAdminPastel();
   const capabilities = useAppSelector((s) => s.user.capabilities);
+  const [innerTab, setInnerTab] = useState<"running" | "team">("running");
   const [filter, setFilter] = useState<ManagerFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1812,8 +1820,8 @@ function ManagerDashboard({
 
   const openSocial = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/(tabs)/tracking/social" as any);
-  }, [router]);
+    setInnerTab("team");
+  }, []);
 
   const renderManagerItem = useCallback(({ item }: { item: ManagerListItem }) => {
     switch (item.type) {
@@ -2033,6 +2041,10 @@ function ManagerDashboard({
     teamTotalMin,
   ]);
 
+  if (innerTab === "team") {
+    return <TrackingSocialScreen onGoBack={() => setInnerTab("running")} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
       <FlashList
@@ -2057,12 +2069,13 @@ function ManagerDashboard({
         ListHeaderComponent={
           <View style={{ marginHorizontal: -spacing.xl, paddingHorizontal: spacing.xl }}>
             <TrackingHeaderTabs
-              active="running"
+              active={innerTab}
               colors={{ accent: p.accent, background: p.pageBg, card: p.cardWhite, textSecondary: p.textSecondary } as any}
               isDark={isDark}
               topInset={insets.top}
               paddingHorizontal={0}
               showTeamTab={showTeamTab}
+              onTabChange={(t) => setInnerTab(t)}
             />
 
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4, marginBottom: loading || fetchError ? 0 : spacing.md }}>

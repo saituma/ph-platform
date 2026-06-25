@@ -13,6 +13,7 @@ type TrackingHeaderTabsProps = {
     topInset?: number;
     paddingHorizontal?: number;
     showTeamTab?: boolean;
+    onTabChange?: (tab: "running" | "team") => void;
 };
 
 type TabItem = {
@@ -33,6 +34,7 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
     topInset = 0,
     paddingHorizontal = 16,
     showTeamTab = true,
+    onTabChange,
 }: TrackingHeaderTabsProps) {
     const router = useRouter();
 
@@ -55,11 +57,14 @@ export const TrackingHeaderTabs = memo(function TrackingHeaderTabs({
     const handleTabPress = useCallback(
         (tab: TabItem) => {
             if (tab.key === active) return;
-            // Use push for reliable segment navigation inside nested tab+stack groups.
-            // @ts-ignore - Expo router types can be strict depending on config
-            router.push(tab.route);
+            if (onTabChange) {
+                onTabChange(tab.key as "running" | "team");
+            } else {
+                // @ts-ignore - Expo router types can be strict depending on config
+                router.push(tab.route);
+            }
         },
-        [active, router],
+        [active, onTabChange, router],
     );
 
     // Single tab → render a plain title, not a lonely segmented control

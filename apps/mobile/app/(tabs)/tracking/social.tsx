@@ -106,7 +106,7 @@ type FeedItem =
 
 // ─── Main screen ────────────────────────────────────────────────────────────
 
-export default function TrackingSocialScreen() {
+export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => void } = {}) {
   const router = useRouter();
   const { colors, isDark } = useAppTheme();
   const p = useAdminPastel();
@@ -525,24 +525,23 @@ export default function TrackingSocialScreen() {
 
   const isFeedLoading = loading || (feedLoading && feed.length === 0 && postFeed.length === 0);
 
-  // ── Gate check ──
+  // ── Gate check (standalone route only — embedded mode skips entirely) ──
   useEffect(() => {
+    if (onGoBack) return;
     if (!capabilitiesLoaded || appRole === null) return;
-    // team_manager (team_coach) always has access — bail early to prevent cascade
     if (appRole === "team_manager") return;
     if (canAccessTracking && useTeamFeed) return;
-    // Use back() instead of replace() to avoid remounting tracking/index which
-    // then fires its own redirect to home.
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace("/(tabs)/tracking" as any);
     }
-  }, [capabilitiesLoaded, appRole, canAccessTracking, router, useTeamFeed]);
+  }, [onGoBack, capabilitiesLoaded, appRole, canAccessTracking, router, useTeamFeed]);
 
-  if (!capabilitiesLoaded || appRole === null) return null;
-  // team_manager always has team access — never block them
-  if (appRole !== "team_manager" && (!canAccessTracking || !useTeamFeed)) return null;
+  if (!onGoBack) {
+    if (!capabilitiesLoaded || appRole === null) return null;
+    if (appRole !== "team_manager" && (!canAccessTracking || !useTeamFeed)) return null;
+  }
 
   if (!token) {
     return (
@@ -566,7 +565,7 @@ export default function TrackingSocialScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: p.pageBg }}>
-      <Stack.Screen options={{ headerShown: false }} />
+      {!onGoBack && <Stack.Screen options={{ headerShown: false }} />}
 
       {/* Fixed header - not in scroll */}
       <View
@@ -584,6 +583,7 @@ export default function TrackingSocialScreen() {
           topInset={0}
           paddingHorizontal={0}
           showTeamTab
+          onTabChange={onGoBack ? (t) => { if (t === "running") onGoBack(); } : undefined}
         />
 
         {/* Team header row */}
