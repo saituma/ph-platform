@@ -70,6 +70,7 @@ export interface VideoPlayerProps {
 export interface VideoPlayerRef {
   enterFullscreen?: () => void;
   exitFullscreen?: () => void;
+  pause?: () => void;
 }
 
 // ── Skeleton Shimmer ────────────────────────────────────────────────
@@ -119,7 +120,11 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
     },
     exitFullscreen: () => {
       innerPlayerRef.current?.exitFullscreen?.();
-    }
+    },
+    pause: () => {
+      innerPlayerRef.current?.pause?.();
+      setIsPlaying(false);
+    },
   }));
 
   const maxContainerHeight = width * 1.5;
@@ -176,7 +181,13 @@ const VideoPlayer = memo(forwardRef<VideoPlayerRef, VideoPlayerProps>(function V
 
   // ── Tab blur pause ────────────────────────────────────────────────
   useEffect(() => {
-    if (!isFocused && isPlaying) setIsPlaying(false);
+    if (!isFocused && isPlaying) {
+      // Call pause on the inner player directly before updating state so the
+      // native player stops immediately — state update alone can be too late
+      // if LocalPlayer unmounts before its isPlaying effect fires.
+      innerPlayerRef.current?.pause?.();
+      setIsPlaying(false);
+    }
   }, [isFocused, isPlaying]);
 
   // ── Android Fullscreen Back Handler ───────────────────────────────
@@ -392,7 +403,10 @@ const LocalPlayer = memo(forwardRef<VideoPlayerRef, {
     },
     exitFullscreen: () => {
       videoViewRef.current?.exitFullscreen();
-    }
+    },
+    pause: () => {
+      try { player.pause(); } catch (_) {}
+    },
   }));
 
   useEffect(() => {
@@ -402,6 +416,15 @@ const LocalPlayer = memo(forwardRef<VideoPlayerRef, {
       player.pause();
     }
   }, [isPlaying, player]);
+
+  // Pause the native player on unmount — when showPoster flips true the
+  // component tree removes LocalPlayer before the isPlaying effect above
+  // can call player.pause(), so audio would continue across tab switches.
+  useEffect(() => {
+    return () => {
+      try { player.pause(); } catch (_) {}
+    };
+  }, [player]);
 
   useEffect(() => {
     const sub = player.addListener("playingChange", (payload: any) => {
@@ -465,8 +488,18 @@ const YouTubePlayer = memo(function YouTubePlayer({
   onError: () => void;
   height: number;
 }) {
+  const ytRef = useRef<any>(null);
+
+  // Stop audio when this player unmounts (tab navigation, showPoster flip, etc.)
+  useEffect(() => {
+    return () => {
+      try { ytRef.current?.pauseVideo?.(); } catch (_) {}
+    };
+  }, []);
+
   return (
     <YoutubeIframe
+      ref={ytRef}
       videoId={videoId}
       height={height}
       play={isPlaying}
@@ -489,8 +522,22 @@ const LoomPlayer = memo(function LoomPlayer({
   onReady: () => void;
   onError: () => void;
 }) {
+  const webViewRef = useRef<any>(null);
+
+  // Pause Loom embed via postMessage when unmounting
+  useEffect(() => {
+    return () => {
+      try {
+        webViewRef.current?.injectJavaScript?.(
+          'document.querySelectorAll("video").forEach(v => v.pause()); true;'
+        );
+      } catch (_) {}
+    };
+  }, []);
+
   return (
     <WebView
+      ref={webViewRef}
       source={{ uri: url }}
       style={[styles.webView, { height }]}
       onLoad={onReady}
