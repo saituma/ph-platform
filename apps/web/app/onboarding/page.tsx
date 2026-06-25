@@ -585,7 +585,7 @@ function DetailPanel({
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b">
+      <CardHeader className="sticky top-0 z-10 shrink-0 border-b bg-card">
         <CardTitle className="min-w-0 truncate">
           {detail.athlete.name}
         </CardTitle>
@@ -843,15 +843,15 @@ export default function OnboardingPage() {
           />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)] lg:items-start">
+          <Card className="flex flex-col overflow-hidden lg:max-h-[calc(100vh-12rem)]">
+            <CardHeader className="shrink-0 border-b">
               <CardTitle>Pending Athletes</CardTitle>
               <CardDescription>
                 Athletes where onboarding is still marked incomplete.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex-1 space-y-4 overflow-y-auto">
               <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
                 <div className="relative min-w-0 flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -921,12 +921,14 @@ export default function OnboardingPage() {
             </CardContent>
           </Card>
 
-          <DetailPanel
-            detail={detailQuery.data}
-            isLoading={detailQuery.isFetching}
-            hasSelection={Boolean(activeAthleteId)}
-            isError={detailQuery.isError}
-          />
+          <div className="lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto lg:rounded-xl">
+            <DetailPanel
+              detail={detailQuery.data}
+              isLoading={detailQuery.isFetching}
+              hasSelection={Boolean(activeAthleteId)}
+              isError={detailQuery.isError}
+            />
+          </div>
         </div>
       </div>
     </AdminShell>
