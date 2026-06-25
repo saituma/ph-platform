@@ -20,6 +20,7 @@ import {
   emitMessagingUnreadChanged,
   isMessagingThreadLocallyRead,
 } from "@/lib/messages/unreadEvents";
+import { deleteMessageSync } from "@/lib/db/messageDb";
 import { hasPaidProgramTier } from "@/lib/planAccess";
 import * as chatService from "@/services/messages/chatService";
 import {
@@ -571,6 +572,9 @@ export function useChatActions({
         if (removedIndex < 0) return prev;
         return prev.filter((item) => item.id !== message.id);
       });
+      // Remove from SQLite immediately so navigating away before the debounce
+      // fires doesn't resurrect the deleted message on next thread open.
+      deleteMessageSync(effectiveProfileId, message.id);
       try {
         if (message.threadId.startsWith("group:")) {
           const groupId = Number(message.threadId.replace("group:", ""));

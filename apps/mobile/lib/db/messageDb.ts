@@ -88,6 +88,23 @@ export function loadCacheSync(profileId: number): CacheData | null {
 }
 
 /**
+ * Synchronous delete — called immediately when a message is removed so the
+ * SQLite cache doesn't resurrect it if the user navigates away before the
+ * async saveToCache debounce fires.
+ */
+export function deleteMessageSync(profileId: number, messageId: string): void {
+  try {
+    const db = getDb();
+    db.runSync(
+      "DELETE FROM chat_messages WHERE profile_id = ? AND id = ?",
+      [profileId, messageId],
+    );
+  } catch (e) {
+    if (__DEV__) console.warn("[messageDb] deleteMessageSync failed:", e);
+  }
+}
+
+/**
  * Async write — called after API sync or socket events.
  * Fire-and-forget; errors are swallowed to never block the UI.
  */
