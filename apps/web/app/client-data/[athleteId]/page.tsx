@@ -1,7 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
+const RunRouteMap = dynamic(
+  () => import("../../../components/admin/RunRouteMap").then((m) => m.RunRouteMap),
+  { ssr: false },
+);
 import { useParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -205,6 +211,8 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
     stringValue(item, "loggedAt");
   const status = stringValue(item, "status");
 
+  const hasRoute = section === "runs" && Array.isArray(item.coordinates) && (item.coordinates as unknown[]).length >= 2;
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -214,9 +222,14 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
         </div>
         {status ? <Badge variant="outline" className="w-fit rounded-md capitalize">{status}</Badge> : null}
       </div>
+      {hasRoute && (
+        <div className="mt-3">
+          <RunRouteMap coordinates={item.coordinates} />
+        </div>
+      )}
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
         {Object.entries(item)
-          .filter(([key, value]) => !["id", "athleteId", "userId"].includes(key) && value != null && value !== "")
+          .filter(([key, value]) => !["id", "athleteId", "userId", "coordinates"].includes(key) && value != null && value !== "")
           .slice(0, 12)
           .map(([key, value]) => (
             <div key={key} className="min-w-0 rounded-md bg-secondary/30 px-2 py-1.5">
