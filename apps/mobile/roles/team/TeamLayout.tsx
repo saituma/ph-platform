@@ -1,5 +1,4 @@
 import React, { useMemo } from "react";
-import { ActivityIndicator, View } from "react-native";
 import { useAppSelector } from "@/store/hooks";
 import { SwipeableTabLayout } from "@/components/navigation";
 import { useUnreadMessaging } from "@/hooks/navigation/useUnreadMessaging";
@@ -22,7 +21,6 @@ export function TeamLayout() {
     authTeamMembership,
     managedAthletes,
     capabilities,
-    capabilitiesLoaded,
   } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers, planFeatures);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
@@ -57,14 +55,6 @@ export function TeamLayout() {
     visibleTabs,
     tabComponents,
   );
-
-  if (!capabilitiesLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
 
   return (
     <SwipeableTabLayout
