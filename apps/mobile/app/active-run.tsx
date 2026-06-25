@@ -178,12 +178,16 @@ export default function ActiveRunScreen() {
     return () => sub.remove();
   }, [status, discardActiveRun, router]);
 
+  // Only fires on screen (re-)focus, not on every status change.
+  // Read status from store directly so changing status doesn't recreate the
+  // callback and trigger an unwanted second replace via expo-router's useFocusEffect.
   useFocusEffect(
     useCallback(() => {
-      if (hasStartedRef.current && status !== "running" && status !== "paused") {
+      const s = useRunStore.getState().status;
+      if (hasStartedRef.current && s !== "running" && s !== "paused") {
         router.replace("/(tabs)/tracking" as any);
       }
-    }, [status, router]),
+    }, [router]),
   );
 
   useEffect(() => {
@@ -323,10 +327,8 @@ export default function ActiveRunScreen() {
     if (audioCuesEnabled) {
       announceRunComplete(finalDistance, finalSeconds);
     }
-    // resetRun() sets status → idle, which triggers the useFocusEffect above
-    // to navigate back. Don't also call router.replace here — two concurrent
-    // replaces cause the tab bar to flash and briefly show the home tab.
     resetRun();
+    router.replace("/(tabs)/tracking" as any);
   };
 
   const screenStyle = useAnimatedStyle(() => ({
