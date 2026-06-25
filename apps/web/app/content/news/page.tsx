@@ -718,6 +718,7 @@ function initials(name: string | null | undefined) {
 function PostEngagementPanel({ contentId }: { contentId: number }) {
   const [tab, setTab] = useState<"likes" | "comments">("comments");
   const [commentText, setCommentText] = useState("");
+  const [expandedReplies, setExpandedReplies] = useState<Set<number>>(new Set());
 
   const { data: likesData, isLoading: likesLoading } = useGetNewsPostLikesQuery(contentId);
   const { data: commentsData, isLoading: commentsLoading } = useGetNewsPostCommentsQuery(contentId, { pollingInterval: 10000 });
@@ -726,6 +727,48 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
 
   const likes = (likesData?.items ?? []) as LikeItem[];
   const comments = (commentsData?.items ?? []) as CommentItem[];
+
+  // Group replies under their parent using @name prefix matching.
+  const threads = useMemo(() => {
+    const nameToIdx = new Map<string, number>();
+    const result: Array<{ comment: CommentItem; replies: CommentItem[] }> = [];
+    for (const comment of comments) {
+      let attached = false;
+      if (comment.content.startsWith("@")) {
+        // Find the longest-matching commenter name after @
+        let bestIdx = -1;
+        let bestLen = 0;
+        for (const [name, idx] of nameToIdx) {
+          const prefix = `@${name}`;
+          if (
+            comment.content.startsWith(prefix) &&
+            (comment.content.length === prefix.length || /[\s,]/.test(comment.content[prefix.length])) &&
+            prefix.length > bestLen
+          ) {
+            bestLen = prefix.length;
+            bestIdx = idx;
+          }
+        }
+        if (bestIdx !== -1) {
+          result[bestIdx].replies.push(comment);
+          attached = true;
+        }
+      }
+      if (!attached) {
+        const idx = result.length;
+        result.push({ comment, replies: [] });
+        nameToIdx.set(comment.name, idx);
+      }
+    }
+    return result;
+  }, [comments]);
+
+  const toggleReplies = (commentId: number) =>
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      next.has(commentId) ? next.delete(commentId) : next.add(commentId);
+      return next;
+    });
 
   const submitComment = async () => {
     const text = commentText.trim();
@@ -772,55 +815,104 @@ function PostEngagementPanel({ contentId }: { contentId: number }) {
         <div className="p-4">
           {commentsLoading ? (
             <p className="text-xs text-muted-foreground">Loading comments…</p>
-          ) : comments.length === 0 ? (
+          ) : threads.length === 0 ? (
             <p className="py-2 text-xs text-muted-foreground">No comments yet. Be the first.</p>
           ) : (
-            <div className="mb-4 space-y-2">
-              {comments.map((comment) => {
-                const isReply = comment.content.startsWith("@");
-                const replyMatch = isReply ? comment.content.match(/^(@\S+)\s*(.*)$/s) : null;
-                const mentionPart = replyMatch?.[1] ?? "";
-                const bodyPart = replyMatch?.[2] ?? comment.content;
+            <div className="mb-4 space-y-4">
+              {threads.map(({ comment: parent, replies }) => {
+                const repliesExpanded = expandedReplies.has(parent.commentId);
                 return (
-                  <div key={comment.commentId} className={isReply ? "ml-9 border-l-2 border-border pl-3" : ""}>
+                  <div key={parent.commentId}>
+                    {/* Parent comment */}
                     <div className="flex items-start gap-2.5">
-                      {comment.avatarUrl ? (
+                      {parent.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={comment.avatarUrl}
-                          alt={comment.name}
-                          className="h-7 w-7 shrink-0 rounded-full object-cover"
-                        />
+                        <img src={parent.avatarUrl} alt={parent.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                          {initials(comment.name)}
+                          {initials(parent.name)}
                         </div>
                       )}
-                      <div className="min-w-0 flex-1 rounded-lg bg-background px-3 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-semibold text-foreground">{comment.name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground">{relativeTime(comment.createdAt)}</span>
-                            {comment.canDelete ? (
-                              <button
-                                type="button"
-                                disabled={deletingComment}
-                                onClick={() => void deleteComment({ commentId: comment.commentId, contentId })}
-                                className="text-muted-foreground hover:text-destructive transition-colors"
-                                title="Delete comment"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            ) : null}
-                          </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-foreground">{parent.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{relativeTime(parent.createdAt)}</span>
+                          {parent.canDelete ? (
+                            <button
+                              type="button"
+                              disabled={deletingComment}
+                              onClick={() => void deleteComment({ commentId: parent.commentId, contentId })}
+                              className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          ) : null}
                         </div>
-                        <p className="mt-0.5 text-xs text-foreground">
-                          {isReply && mentionPart ? (
-                            <><span className="font-semibold text-primary">{mentionPart}</span>{" "}{bodyPart}</>
-                          ) : comment.content}
-                        </p>
+                        <p className="mt-0.5 text-xs text-foreground leading-relaxed">{parent.content}</p>
                       </div>
                     </div>
+
+                    {/* Replies toggle — Instagram style */}
+                    {replies.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleReplies(parent.commentId)}
+                        className="mt-2 ml-9 flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <span className="h-px w-5 bg-border inline-block" />
+                        {repliesExpanded
+                          ? "Hide replies"
+                          : `View ${replies.length} ${replies.length === 1 ? "reply" : "replies"}`}
+                        <ChevronDown className={`h-3 w-3 transition-transform ${repliesExpanded ? "rotate-180" : ""}`} />
+                      </button>
+                    )}
+
+                    {/* Expanded replies */}
+                    {repliesExpanded && (
+                      <div className="mt-2 ml-9 space-y-3 border-l-2 border-border/50 pl-3">
+                        {replies.map((reply) => {
+                          const mention = `@${parent.name}`;
+                          const hasMention = reply.content.startsWith(mention) && (reply.content.length === mention.length || /[\s,]/.test(reply.content[mention.length]));
+                          const body = hasMention ? reply.content.slice(mention.length).trimStart() : reply.content;
+                          return (
+                            <div key={reply.commentId} className="flex items-start gap-2">
+                              {reply.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={reply.avatarUrl} alt={reply.name} className="h-6 w-6 shrink-0 rounded-full object-cover" />
+                              ) : (
+                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-500/10 text-[9px] font-bold text-sky-600">
+                                  {initials(reply.name)}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1 rounded-xl bg-sky-500/5 px-3 py-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] font-semibold text-foreground">{reply.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">{relativeTime(reply.createdAt)}</span>
+                                  {reply.canDelete ? (
+                                    <button
+                                      type="button"
+                                      disabled={deletingComment}
+                                      onClick={() => void deleteComment({ commentId: reply.commentId, contentId })}
+                                      className="ml-auto text-muted-foreground hover:text-destructive transition-colors"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <p className="mt-0.5 text-[11px] text-foreground leading-relaxed">
+                                  {hasMention && (
+                                    <span className="font-semibold text-sky-500">{mention}{" "}</span>
+                                  )}
+                                  {body}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
