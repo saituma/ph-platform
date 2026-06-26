@@ -14,11 +14,15 @@ build/
 
 # Environment variables
 .env
+.env.*
 .env.local
 .env.*.local
 .env.production
+.env.heroku
 **/.env
+**/.env.*
 **/.env.production
+**/.env.heroku
 
 # Logs
 logs
