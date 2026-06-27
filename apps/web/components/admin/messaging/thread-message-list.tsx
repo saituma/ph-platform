@@ -495,7 +495,7 @@ function ThreadMessageListInner({
                         </MessageFooter>
 
                         {reactions.length ? (
-                          <div className="-mt-2 flex flex-wrap gap-1.5 px-1">
+                          <div className={`-mt-2 flex flex-wrap gap-1.5 px-1 ${mine ? "self-end" : ""}`}>
                             {reactions.map((reaction) => {
                               const isWhoOpen =
                                 whoReactedKey?.messageId === Number(message.id) &&
