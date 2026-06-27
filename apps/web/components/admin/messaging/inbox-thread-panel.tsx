@@ -29,14 +29,14 @@ type InboxThreadPanelProps = {
   formatTime: (value?: string | null) => string;
 };
 
-function initials(name: string) {
+export function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "U";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function cleanPreview(raw: string) {
+export function cleanPreview(raw: string) {
   const input = String(raw ?? "");
   const replyMatch = input.match(/^\[reply:(\d+):([^\]]*)\]\s*/i);
   const stripped = replyMatch ? input.slice(replyMatch[0].length) : input.replace(/^\[reply:\d+:[^\]]*\]\s*/i, "");

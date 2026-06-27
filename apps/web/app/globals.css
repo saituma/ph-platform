@@ -307,8 +307,12 @@ html.dark {
 
   /* Bubble variants — colors applied to the child bubble-content */
   .cn-bubble-variant-default > [data-slot=bubble-content] {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background-color: oklch(32% 0.1 160);
+    color: oklch(96% 0.02 160);
+  }
+  html.dark .cn-bubble-variant-default > [data-slot=bubble-content] {
+    background-color: oklch(28% 0.09 160);
+    color: oklch(96% 0.02 160);
   }
   .cn-bubble-variant-secondary > [data-slot=bubble-content] {
     background-color: hsl(var(--secondary));

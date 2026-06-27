@@ -23,22 +23,17 @@ import {
 import { getOrCreateAdminSocket } from "@/lib/admin-socket";
 import { toast } from "../../../lib/toast";
 import { ChatComposer } from "./chat-composer";
-import { InboxThreadPanel } from "./inbox-thread-panel";
 import { TenorPickerDialog } from "./tenor-picker-dialog";
 import { ThreadMessageList } from "./thread-message-list";
 import type { ChatGroupItem, ChatMessage, ChatReaction, MessagingUser } from "./types";
 import type { GifResult, LiveHandlers, ThreadListItem } from "./messaging-utils";
 import {
-  categoryLabel,
-  formatUnreadCount,
   getGroupActivityTimestamp,
   formatGroupLastMessagePreview,
-  getGroupLastSender,
   resolveGroupCategory,
 } from "./messaging-utils";
-import { Badge } from "../../ui/badge";
+import { ChevronLeft, Edit2, MessageCircle, Search, UsersRound } from "lucide-react";
 import { Button } from "../../ui/button";
-import { Card, CardContent, CardHeader } from "../../ui/card";
 import {
   Dialog,
   DialogContent,
@@ -55,7 +50,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "../../ui/select";
-import { SectionHeader } from "../section-header";
+import { cleanPreview, initials } from "./inbox-thread-panel";
 
 type GifApiResponse = {
   error?: string;
@@ -145,7 +140,9 @@ export function InboxTab({
   const [manageSelectedMemberIds, setManageSelectedMemberIds] = useState<
     number[]
   >([]);
+  const [listQuery, setListQuery] = useState("");
 
+  const threadRowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const groupRowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
   const activeThreadUserIdRef = useRef<number | null>(null);
@@ -298,6 +295,28 @@ export function InboxTab({
     }),
     [groups],
   );
+
+  const allGroups = useMemo(
+    () => [...groupedInboxSections.coachGroups, ...groupedInboxSections.teamInbox],
+    [groupedInboxSections],
+  );
+
+  const filteredThreads = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    if (!q) return threads;
+    return threads.filter((t) => {
+      return (
+        t.name.toLowerCase().includes(q) ||
+        cleanPreview(t.preview).toLowerCase().includes(q)
+      );
+    });
+  }, [threads, listQuery]);
+
+  const filteredGroupList = useMemo(() => {
+    const q = listQuery.trim().toLowerCase();
+    if (!q) return allGroups;
+    return allGroups.filter((g) => String(g.name ?? "").toLowerCase().includes(q));
+  }, [allGroups, listQuery]);
 
   const filteredGroupMembers = useMemo(() => {
     const query = groupMemberQuery.trim().toLowerCase();
@@ -898,234 +917,308 @@ export function InboxTab({
     }
   };
 
+  const activeGroupName = groups.find((g) => g.id === groupId)?.name ?? "Group chat";
+
   return (
-    <div className="space-y-4">
-      <InboxThreadPanel
-        threads={threads}
-        highlightedUserId={highlightedInboxThreadUserId}
-        onOpenThread={(userId) => {
-          setHighlightedInboxGroupId(null);
-          void openDirectThread(userId);
-        }}
-        onCreateGroup={() => setGroupModalOpen(true)}
-        onNewMessage={() => {
-          setNewMsgQuery("");
-          setNewMsgOpen(true);
-        }}
-        formatTime={formatTime}
-      />
+    <>
+      {/* Split-pane messaging layout */}
+      <div className="flex h-[calc(100svh-10rem)] overflow-hidden rounded-xl border border-border bg-background">
 
-      <Card>
-        <CardHeader>
-          <SectionHeader
-            title="Group Chats"
-            description="Organized as coach groups and team inbox."
-          />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              {
-                key: "coach-groups",
-                title: "Coach groups",
-                items: groupedInboxSections.coachGroups,
-                tone: "bg-secondary text-muted-foreground border-border",
-              },
-              {
-                key: "team-inbox",
-                title: "Team inbox",
-                items: groupedInboxSections.teamInbox,
-                tone: "bg-primary/10 text-primary border-primary/20",
-              },
-            ].map((section) => (
-              <div key={section.key} className="space-y-2">
-                <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg bg-background/95 py-1 backdrop-blur">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {section.title}
-                  </p>
-                  <Badge variant="outline">{section.items.length}</Badge>
-                </div>
-                {section.items.map((group) => {
-                  const lastSender = getGroupLastSender(group);
-                  return (
-                    <button
-                      key={group.id}
-                      ref={(node) => {
-                        groupRowRefs.current[group.id] = node;
-                      }}
-                      type="button"
-                      onClick={() => {
-                        setHighlightedInboxGroupId(group.id);
-                        setGroupId(group.id);
-                      }}
-                      className={`group flex w-full items-center justify-between gap-3 rounded-xl border bg-background p-3 text-left transition hover:border-primary/40 hover:bg-primary/5 ${
-                        highlightedInboxGroupId === group.id
-                          ? "border-primary/50 bg-primary/5"
-                          : "border-border"
-                      }`}
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground">
-                        {String(group.name ?? "G").slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {group.name}
-                          </p>
-                          <span
-                            className={`rounded-full border px-2 py-0.5 text-[10px] ${section.tone}`}
-                          >
-                            {categoryLabel(resolveGroupCategory(group))}
-                          </span>
-                        </div>
-                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {formatGroupLastMessagePreview(group)}
-                        </p>
-                        {lastSender ? (
-                          <p className="mt-1 truncate text-[11px] text-muted-foreground/80">
-                            {lastSender}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className="shrink-0 flex flex-col items-end gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {formatTime(getGroupActivityTimestamp(group))}
+        {/* LEFT: Conversation list */}
+        <div className={`flex flex-col border-r border-border bg-background ${
+          threadUserId != null || groupId != null
+            ? "hidden lg:flex lg:w-[340px] xl:w-[380px]"
+            : "flex w-full lg:w-[340px] xl:w-[380px]"
+        }`}>
+          {/* List header */}
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold tracking-tight">Messages</h2>
+            <div className="flex items-center gap-0.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => { setNewMsgQuery(""); setNewMsgOpen(true); }}
+                title="New message"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => setGroupModalOpen(true)}
+                title="Create group"
+              >
+                <UsersRound className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="border-b border-border px-3 py-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={listQuery}
+                onChange={(e) => setListQuery(e.target.value)}
+                placeholder="Search conversations..."
+                className="h-8 bg-muted/50 pl-8 text-sm border-transparent focus-visible:border-border focus-visible:bg-background focus-visible:ring-0"
+              />
+            </div>
+          </div>
+
+          {/* Unified conversation list */}
+          <ScrollArea className="flex-1">
+            <div className="py-1">
+              {filteredThreads.map((thread) => (
+                <button
+                  key={`dm-${thread.userId}`}
+                  ref={(node) => { threadRowRefs.current[thread.userId] = node; }}
+                  type="button"
+                  onClick={() => {
+                    setGroupId(null);
+                    setHighlightedInboxGroupId(null);
+                    void openDirectThread(thread.userId);
+                  }}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 ${
+                    (threadUserId === thread.userId || highlightedInboxThreadUserId === thread.userId) && groupId == null
+                      ? "bg-primary/10 hover:bg-primary/10"
+                      : ""
+                  }`}
+                >
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                    thread.unread > 0
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {initials(thread.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <p className={`truncate text-sm ${thread.unread > 0 ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
+                        {thread.name}
+                      </p>
+                      <p className={`shrink-0 text-[11px] ${thread.unread > 0 ? "font-semibold text-primary" : "text-muted-foreground"}`}>
+                        {formatTime(thread.updatedAt)}
+                      </p>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-1">
+                      <p className={`truncate text-xs ${thread.unread > 0 ? "text-foreground/80" : "text-muted-foreground"}`}>
+                        {cleanPreview(thread.preview)}
+                      </p>
+                      {thread.unread > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {thread.unread > 99 ? "99+" : thread.unread}
                         </span>
-                        {Number(group.unreadCount ?? 0) > 0 ? (
-                          <Badge className="h-5 rounded-full px-2 text-[10px]">
-                            {formatUnreadCount(Number(group.unreadCount)) ?? ""}
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </button>
-                  );
-                })}
-                {!section.items.length ? (
-                  <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                    No {section.title.toLowerCase()}.
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+              ))}
+
+              {filteredGroupList.length > 0 && filteredThreads.length > 0 && (
+                <div className="mx-3 my-1 border-t border-border/40" />
+              )}
+
+              {filteredGroupList.map((group) => (
+                <button
+                  key={`group-${group.id}`}
+                  ref={(node) => { groupRowRefs.current[group.id] = node; }}
+                  type="button"
+                  onClick={() => {
+                    setThreadUserId(null);
+                    setHighlightedInboxGroupId(group.id);
+                    setGroupId(group.id);
+                  }}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 ${
+                    groupId === group.id && threadUserId == null
+                      ? "bg-primary/10 hover:bg-primary/10"
+                      : ""
+                  }`}
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                    {String(group.name ?? "G").slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <p className={`truncate text-sm ${Number(group.unreadCount) > 0 ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
+                        {group.name}
+                      </p>
+                      <p className="shrink-0 text-[11px] text-muted-foreground">
+                        {formatTime(getGroupActivityTimestamp(group))}
+                      </p>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-1">
+                      <p className="truncate text-xs text-muted-foreground">
+                        {formatGroupLastMessagePreview(group)}
+                      </p>
+                      {Number(group.unreadCount ?? 0) > 0 ? (
+                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                          {Number(group.unreadCount) > 99 ? "99+" : group.unreadCount}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </button>
+              ))}
+
+              {!filteredThreads.length && !filteredGroupList.length ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {listQuery ? "No conversations match your search." : "No conversations yet."}
                   </p>
-                ) : null}
+                </div>
+              ) : null}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* RIGHT: Thread view or empty state */}
+        <div className={`flex flex-1 flex-col overflow-hidden ${
+          threadUserId == null && groupId == null ? "hidden lg:flex" : "flex"
+        }`}>
+          {threadUserId != null ? (
+            <>
+              {/* Direct thread header */}
+              <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+                <button
+                  type="button"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-muted lg:hidden"
+                  onClick={() => setThreadUserId(null)}
+                  aria-label="Back"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+                  {initials(directThreadName || "U")}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{directThreadName || "Conversation"}</p>
+                  <p className="text-xs text-muted-foreground">Direct message</p>
+                </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Direct thread dialog */}
-      <Dialog
-        open={threadUserId != null}
-        onOpenChange={(open) => (open ? null : setThreadUserId(null))}
-      >
-        <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{directThreadName || "Conversation"}</DialogTitle>
-            <DialogDescription>Direct message thread</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <ThreadMessageList
-              key={`direct-thread-${threadUserId ?? "none"}`}
-              openScrollKey={`direct-open-${threadUserId ?? "none"}`}
-              messages={directMessages}
-              onReact={handleDirectReaction}
-              onReply={(payload) => setDirectReplyTo(payload)}
-              onDelete={(messageId) =>
-                void deleteMessage({ messageId, userId: threadUserId ?? 0 }).catch(() => {})
-              }
-              onEdit={(messageId, content) =>
-                void editMessage({ messageId, content, userId: threadUserId ?? 0 }).catch(() => {})
-              }
-              formatTime={formatTime}
-              currentUserId={currentUserId}
-              resolveUserName={resolveUserName}
-              mode="direct"
-              directPeerUserId={threadUserId}
-              directPeerName={directThreadName}
-              emptyLabel="No messages yet."
-            />
-            <ChatComposer
-              value={directMessage}
-              onChange={setDirectMessage}
-              placeholder="Type a message..."
-              onSend={() => void handleSendDirect()}
-              canSend={Boolean(threadUserId && directMessage.trim())}
-              isSending={isSendingDirect}
-              isUploading={isUploadingMedia}
-              replyingTo={directReplyTo ? { preview: directReplyTo.preview } : null}
-              onCancelReply={() => setDirectReplyTo(null)}
-              onPickPhoto={() => openFilePicker("direct", "image/*")}
-              onPickVideo={() => openFilePicker("direct", "video/*")}
-              onPickGif={() => openGifPicker("direct")}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Group chat dialog */}
-      <Dialog
-        open={groupId != null}
-        onOpenChange={(open) => (open ? null : setGroupId(null))}
-      >
-        <DialogContent className="max-h-[92vh] w-[96vw] sm:max-w-4xl">
-          <DialogHeader>
-            <div className="flex items-center justify-between gap-3">
-              <DialogTitle>
-                {groups.find((group) => group.id === groupId)?.name ?? "Group chat"}
-              </DialogTitle>
-              {groupId ? (
+              {/* Messages */}
+              <div className="min-h-0 flex-1">
+                <ThreadMessageList
+                  key={`direct-thread-${threadUserId}`}
+                  openScrollKey={`direct-open-${threadUserId}`}
+                  messages={directMessages}
+                  onReact={handleDirectReaction}
+                  onReply={(payload) => setDirectReplyTo(payload)}
+                  onDelete={(messageId) =>
+                    void deleteMessage({ messageId, userId: threadUserId }).catch(() => {})
+                  }
+                  onEdit={(messageId, content) =>
+                    void editMessage({ messageId, content, userId: threadUserId }).catch(() => {})
+                  }
+                  formatTime={formatTime}
+                  currentUserId={currentUserId}
+                  resolveUserName={resolveUserName}
+                  mode="direct"
+                  directPeerUserId={threadUserId}
+                  directPeerName={directThreadName}
+                  emptyLabel="No messages yet."
+                />
+              </div>
+              {/* Composer */}
+              <ChatComposer
+                value={directMessage}
+                onChange={setDirectMessage}
+                placeholder="Message"
+                onSend={() => void handleSendDirect()}
+                canSend={Boolean(threadUserId && directMessage.trim())}
+                isSending={isSendingDirect}
+                isUploading={isUploadingMedia}
+                replyingTo={directReplyTo ? { preview: directReplyTo.preview } : null}
+                onCancelReply={() => setDirectReplyTo(null)}
+                onPickPhoto={() => openFilePicker("direct", "image/*")}
+                onPickVideo={() => openFilePicker("direct", "video/*")}
+                onPickGif={() => openGifPicker("direct")}
+              />
+            </>
+          ) : groupId != null ? (
+            <>
+              {/* Group thread header */}
+              <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+                <button
+                  type="button"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-muted lg:hidden"
+                  onClick={() => setGroupId(null)}
+                  aria-label="Back"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                  {String(activeGroupName).slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{activeGroupName}</p>
+                  <p className="text-xs text-muted-foreground">Group thread</p>
+                </div>
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="ghost"
+                  className="shrink-0 text-xs"
                   onClick={() => openManageGroupMembers(groupId)}
                 >
                   Add member
                 </Button>
-              ) : null}
+              </div>
+              {/* Messages */}
+              <div className="min-h-0 flex-1">
+                <ThreadMessageList
+                  key={`group-thread-${groupId}`}
+                  openScrollKey={`group-open-${groupId}`}
+                  messages={groupMessages}
+                  onReact={handleGroupReaction}
+                  onReply={(payload) => setGroupReplyTo(payload)}
+                  onDelete={(messageId) =>
+                    void deleteGroupMessage({ groupId, messageId }).catch(() => {})
+                  }
+                  onEdit={(messageId, content) =>
+                    void editGroupMessage({ groupId, messageId, content }).catch(() => {})
+                  }
+                  formatTime={formatTime}
+                  currentUserId={currentUserId}
+                  resolveUserName={resolveUserName}
+                  mode="group"
+                  showSenderName
+                  emptyLabel="No group messages yet."
+                />
+              </div>
+              {/* Composer */}
+              <ChatComposer
+                value={groupMessage}
+                onChange={setGroupMessage}
+                placeholder="Message"
+                onSend={() => void handleSendGroup()}
+                canSend={Boolean(groupId && groupMessage.trim())}
+                isSending={isSendingGroup}
+                isUploading={isUploadingMedia}
+                replyingTo={groupReplyTo ? { preview: groupReplyTo.preview } : null}
+                onCancelReply={() => setGroupReplyTo(null)}
+                onPickPhoto={() => openFilePicker("group", "image/*")}
+                onPickVideo={() => openFilePicker("group", "video/*")}
+                onPickGif={() => openGifPicker("group")}
+              />
+            </>
+          ) : (
+            /* Empty state — no thread selected */
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <MessageCircle className="h-8 w-8 text-muted-foreground/40" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Your messages</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Select a conversation to start chatting
+                </p>
+              </div>
             </div>
-            <DialogDescription>Group thread</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <ThreadMessageList
-              key={`group-thread-${groupId ?? "none"}`}
-              openScrollKey={`group-open-${groupId ?? "none"}`}
-              messages={groupMessages}
-              onReact={handleGroupReaction}
-              onReply={(payload) => setGroupReplyTo(payload)}
-              onDelete={(messageId) =>
-                groupId != null
-                  ? void deleteGroupMessage({ groupId, messageId }).catch(() => {})
-                  : undefined
-              }
-              onEdit={(messageId, content) =>
-                groupId != null
-                  ? void editGroupMessage({ groupId, messageId, content }).catch(
-                      () => {},
-                    )
-                  : undefined
-              }
-              formatTime={formatTime}
-              currentUserId={currentUserId}
-              resolveUserName={resolveUserName}
-              mode="group"
-              showSenderName
-              emptyLabel="No group messages yet."
-            />
-            <ChatComposer
-              value={groupMessage}
-              onChange={setGroupMessage}
-              placeholder="Type a team message..."
-              onSend={() => void handleSendGroup()}
-              canSend={Boolean(groupId && groupMessage.trim())}
-              isSending={isSendingGroup}
-              isUploading={isUploadingMedia}
-              replyingTo={groupReplyTo ? { preview: groupReplyTo.preview } : null}
-              onCancelReply={() => setGroupReplyTo(null)}
-              onPickPhoto={() => openFilePicker("group", "image/*")}
-              onPickVideo={() => openFilePicker("group", "video/*")}
-              onPickGif={() => openGifPicker("group")}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+        </div>
+      </div>
 
       {/* New message dialog */}
       <Dialog open={newMsgOpen} onOpenChange={setNewMsgOpen}>
@@ -1372,6 +1465,6 @@ export function InboxTab({
           void uploadAndSendMedia(file, activeUploadTarget);
         }}
       />
-    </div>
+    </>
   );
 }
