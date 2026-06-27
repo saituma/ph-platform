@@ -31,6 +31,7 @@ import {
   useMessageScroller,
 } from "../../ui/message-scroller";
 import { Bubble, BubbleContent } from "../../ui/bubble";
+import { Marker, MarkerContent } from "../../ui/marker";
 import type { ChatMessage, ChatReaction } from "./types";
 import { OpenGraphPreview } from "./open-graph-preview";
 
@@ -259,11 +260,9 @@ function ThreadMessageListInner({
               if (item.type === "separator") {
                 return (
                   <MessageScrollerItem key={`sep-${item.label}-${idx}`}>
-                    <div className="flex items-center gap-3 py-2">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-[11px] text-muted-foreground">{item.label}</span>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
+                    <Marker variant="separator" className="py-3">
+                      <MarkerContent>{item.label}</MarkerContent>
+                    </Marker>
                   </MessageScrollerItem>
                 );
               }

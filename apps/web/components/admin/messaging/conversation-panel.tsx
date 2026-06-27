@@ -11,6 +11,7 @@ import {
   AlertDialogClose,
 } from "../../ui/alert-dialog";
 import { Textarea } from "../../ui/textarea";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea } from "../../ui/input-group";
 import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
 import { Check, CheckCheck, Image as ImageIcon, Paperclip, Pencil, Play, Send, Smile, Trash2, Video } from "lucide-react";
@@ -550,7 +551,7 @@ export function ConversationPanel({
       ) : null}
 
       {/* Composer */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 space-y-3 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-sm backdrop-blur lg:static lg:rounded-2xl lg:border lg:border-border lg:bg-background lg:shadow-none">
+      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:static lg:rounded-2xl lg:border lg:border-border lg:bg-background">
         <input
           ref={fileInputRef}
           type="file"
@@ -574,64 +575,48 @@ export function ConversationPanel({
             event.target.value = "";
           }}
         />
-        <Textarea
-          placeholder="Write a response..."
-          className="min-h-[56px] rounded-2xl bg-background px-4 py-3"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return;
-            if ((event as unknown as { isComposing?: boolean }).isComposing) return;
-            event.preventDefault();
-            submitDraft();
-          }}
-        />
         {attachment ? (
-          <div className="flex items-center justify-between rounded-xl bg-secondary/20 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between rounded-xl bg-secondary/20 px-3 py-2">
             <p className="text-xs text-muted-foreground">Attachment ready</p>
             <Button size="sm" variant="ghost" onClick={() => setAttachment(null)}>
               Remove
             </Button>
           </div>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach file"
-            >
+        <InputGroup>
+          <InputGroupAddon align="inline-start">
+            <InputGroupButton size="icon-sm" onClick={() => fileInputRef.current?.click()} title="Attach file">
               <Paperclip className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => imageInputRef.current?.click()}
-              title="Attach image"
-            >
+            </InputGroupButton>
+            <InputGroupButton size="icon-sm" onClick={() => imageInputRef.current?.click()} title="Attach image">
               <ImageIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => openRecorder("video")}
-              title="Record video"
-            >
+            </InputGroupButton>
+            <InputGroupButton size="icon-sm" onClick={() => openRecorder("video")} title="Record video">
               <Video className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="ghost">
+            </InputGroupButton>
+            <InputGroupButton size="icon-sm" title="Emoji">
               <Smile className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button className="gap-2" onClick={submitDraft}>
-              Send
+            </InputGroupButton>
+          </InputGroupAddon>
+          <InputGroupTextarea
+            placeholder="Message"
+            rows={1}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              if (event.shiftKey || event.altKey || event.metaKey || event.ctrlKey) return;
+              if ((event as unknown as { isComposing?: boolean }).isComposing) return;
+              event.preventDefault();
+              submitDraft();
+            }}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton size="icon-sm" variant="default" onClick={submitDraft} title="Send">
               <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
       </div>
 
       {/* Media lightbox */}

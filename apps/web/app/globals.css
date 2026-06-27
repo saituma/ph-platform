@@ -375,4 +375,210 @@ html.dark {
     min-width: 0;
     flex-shrink: 0;
   }
+
+  /* ── Marker ──────────────────────────────────────────────────── */
+  .cn-marker {
+    @apply gap-2 text-sm text-muted-foreground min-h-4 text-left;
+  }
+  .cn-marker-variant-separator {
+    @apply before:h-px before:min-w-0 before:flex-1 before:bg-border after:h-px after:min-w-0 after:flex-1 after:bg-border before:mr-1 after:ml-1;
+  }
+  .cn-marker-variant-border {
+    @apply border-b border-border pb-2;
+  }
+  .cn-marker-icon {
+    @apply size-4;
+  }
+  .cn-marker-content {
+    @apply group-data-[variant=separator]/marker:flex-none group-data-[variant=separator]/marker:text-center;
+  }
+
+  /* ── Item ───────────────────────────────────────────────────── */
+  .cn-item {
+    @apply rounded-lg border text-sm;
+  }
+  .cn-item-variant-default {
+    @apply border-transparent hover:bg-muted/50 cursor-pointer;
+  }
+  .cn-item-variant-outline {
+    @apply border-border;
+  }
+  .cn-item-variant-muted {
+    @apply bg-muted/50 border-transparent;
+  }
+  .cn-item-size-default {
+    @apply gap-2.5 px-3 py-2.5;
+  }
+  .cn-item-size-sm {
+    @apply gap-2.5 px-3 py-2.5;
+  }
+  .cn-item-size-xs {
+    @apply gap-2 px-2.5 py-2;
+  }
+  .cn-item-media {
+    @apply gap-2 group-has-data-[slot=item-description]/item:self-start;
+  }
+  .cn-item-media-variant-default {
+    @apply bg-transparent;
+  }
+  .cn-item-media-variant-icon {
+    @apply [&_svg]:size-4;
+  }
+  .cn-item-media-variant-image {
+    @apply size-10 overflow-hidden rounded-sm group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_img]:size-full [&_img]:object-cover;
+  }
+  .cn-item-content {
+    @apply gap-1 group-data-[size=xs]/item:gap-0;
+  }
+  .cn-item-title {
+    @apply gap-2 text-sm leading-snug font-medium;
+  }
+  .cn-item-description {
+    @apply text-muted-foreground text-left text-sm leading-normal group-data-[size=xs]/item:text-xs;
+  }
+  .cn-item-actions {
+    @apply gap-2;
+  }
+  .cn-item-header {
+    @apply gap-2;
+  }
+  .cn-item-footer {
+    @apply gap-2;
+  }
+  .cn-item-group {
+    @apply gap-0;
+  }
+  .cn-item-separator {
+    @apply my-0;
+  }
+
+  /* ── Empty ──────────────────────────────────────────────────── */
+  .cn-empty {
+    @apply gap-4 p-6;
+  }
+  .cn-empty-header {
+    @apply gap-2;
+  }
+  .cn-empty-media {
+    @apply mb-2;
+  }
+  .cn-empty-media-default {
+    @apply bg-transparent;
+  }
+  .cn-empty-media-icon {
+    @apply bg-muted text-foreground flex size-10 shrink-0 items-center justify-center rounded-xl [&_svg]:size-5;
+  }
+  .cn-empty-title {
+    @apply text-sm font-medium tracking-tight;
+  }
+  .cn-empty-description {
+    @apply text-sm leading-relaxed text-muted-foreground;
+  }
+  .cn-empty-content {
+    @apply gap-2.5 text-sm;
+  }
+
+  /* ── InputGroup ─────────────────────────────────────────────── */
+  .cn-input-group {
+    @apply border-input dark:bg-input/30 has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 h-8 rounded-lg border transition-colors has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[[data-slot=input-group-control]:focus-visible]:ring-3;
+  }
+  .cn-input-group-addon {
+    @apply text-muted-foreground h-auto gap-2 py-1.5 text-sm font-medium [&>svg]:size-4;
+  }
+  .cn-input-group-addon-align-inline-start {
+    @apply pl-2 has-[>button]:ml-[-0.3rem];
+  }
+  .cn-input-group-addon-align-inline-end {
+    @apply pr-2 has-[>button]:mr-[-0.3rem];
+  }
+  .cn-input-group-addon-align-block-start {
+    @apply px-2.5 pt-2;
+  }
+  .cn-input-group-addon-align-block-end {
+    @apply px-2.5 pb-2;
+  }
+  .cn-input-group-button {
+    @apply gap-2 text-sm shadow-none;
+  }
+  .cn-input-group-button-size-xs {
+    @apply h-6 gap-1 rounded-[calc(var(--radius)-3px)] px-1.5 [&>svg]:size-3.5;
+  }
+  .cn-input-group-button-size-icon-xs {
+    @apply size-6 rounded-[calc(var(--radius)-3px)] p-0;
+  }
+  .cn-input-group-button-size-icon-sm {
+    @apply size-8 p-0;
+  }
+  .cn-input-group-text {
+    @apply text-muted-foreground gap-2 text-sm [&_svg]:size-4;
+  }
+  .cn-input-group-input {
+    @apply rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent;
+  }
+  .cn-input-group-textarea {
+    @apply rounded-none border-0 bg-transparent py-2 shadow-none ring-0 focus-visible:ring-0 dark:bg-transparent;
+  }
+
+  /* ── Attachment ─────────────────────────────────────────────── */
+  .cn-attachment {
+    @apply rounded-xl w-fit;
+  }
+  .cn-attachment-orientation-horizontal {
+    @apply min-w-40;
+  }
+  .cn-attachment-orientation-vertical {
+    @apply w-24;
+  }
+  .cn-attachment-size-default {
+    @apply gap-2 has-data-[slot=attachment-content]:px-2.5 has-data-[slot=attachment-content]:py-2 has-data-[slot=attachment-media]:p-2 text-sm;
+  }
+  .cn-attachment-size-sm {
+    @apply gap-2.5 has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5 has-data-[slot=attachment-media]:p-1.5 text-xs;
+  }
+  .cn-attachment-size-xs {
+    @apply gap-1.5 has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1 has-data-[slot=attachment-media]:p-1 text-xs rounded-lg;
+  }
+  .cn-attachment-media {
+    @apply bg-muted text-foreground w-10 rounded-lg [&_svg]:size-4;
+  }
+  .cn-attachment-media-variant-image {
+    @apply opacity-60 group-data-[state=idle]/attachment:opacity-100 group-data-[state=done]/attachment:opacity-100;
+  }
+  .cn-attachment-content {
+    @apply leading-tight;
+  }
+  .cn-attachment-title {
+    @apply font-medium;
+  }
+  .cn-attachment-description {
+    @apply mt-0.5 text-xs text-muted-foreground;
+  }
+  .cn-attachment-actions {
+    @apply relative z-20;
+  }
+  .cn-attachment-group {
+    @apply gap-3 py-1 overflow-x-auto;
+  }
+  .cn-attachment-trigger {
+    @apply absolute inset-0 z-10 outline-none;
+  }
+
+  /* ── Shimmer utility (for typing indicators) ─────────────────── */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted-foreground) / 0.4) 25%,
+      hsl(var(--muted-foreground) / 0.8) 50%,
+      hsl(var(--muted-foreground) / 0.4) 75%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 }
