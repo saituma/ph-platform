@@ -2,11 +2,15 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { Film, Image as ImageIcon, Paperclip, Send, Smile, Video, X } from "lucide-react";
+import { Film, Image as ImageIcon, Paperclip, ArrowUp, Smile, Video, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button } from "../../ui/button";
-import { InputGroup, InputGroupAddon, InputGroupTextarea } from "../../ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+} from "../../ui/input-group";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "../../ui/menu";
 
 type EmojiPick = {
@@ -43,6 +47,7 @@ export function ChatComposer({
   onPickGif,
 }: ChatComposerProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
   const emojiContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,94 +72,50 @@ export function ChatComposer({
     };
   }, []);
 
-  const handleEmojiSelect = useCallback((emoji: EmojiPick) => {
-    const emojiStr = emoji?.native ?? "";
-    if (!emojiStr) return;
-    const el = textareaRef.current;
-    if (el) {
-      const start = el.selectionStart ?? value.length;
-      const end = el.selectionEnd ?? value.length;
-      const newValue = value.slice(0, start) + emojiStr + value.slice(end);
-      onChange(newValue);
-      requestAnimationFrame(() => {
-        el.selectionStart = start + emojiStr.length;
-        el.selectionEnd = start + emojiStr.length;
-        el.focus();
-      });
-    } else {
-      onChange(`${value}${emojiStr}`);
-    }
-    setShowEmojiPicker(false);
-  }, [value, onChange]);
+  const handleEmojiSelect = useCallback(
+    (emoji: EmojiPick) => {
+      const emojiStr = emoji?.native ?? "";
+      if (!emojiStr) return;
+      const el = textareaRef.current;
+      if (el) {
+        const start = el.selectionStart ?? value.length;
+        const end = el.selectionEnd ?? value.length;
+        const newValue = value.slice(0, start) + emojiStr + value.slice(end);
+        onChange(newValue);
+        requestAnimationFrame(() => {
+          el.selectionStart = start + emojiStr.length;
+          el.selectionEnd = start + emojiStr.length;
+          el.focus();
+        });
+      } else {
+        onChange(`${value}${emojiStr}`);
+      }
+      setShowEmojiPicker(false);
+    },
+    [value, onChange],
+  );
 
   return (
-    <div className="rounded-2xl border border-border p-3">
+    <div className="w-full min-w-0">
       {replyingTo ? (
-        <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+        <div className="mb-1 flex items-start justify-between gap-2 rounded-t-lg border border-b-0 border-border bg-secondary/30 px-3 py-2">
           <div className="border-l-2 border-primary/50 pl-2 min-w-0">
             <p className="text-xs font-medium text-muted-foreground">Replying to</p>
             <p className="truncate text-xs text-foreground">{replyingTo.preview}</p>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onCancelReply} aria-label="Cancel reply">
-            <X className="h-4 w-4" />
-          </Button>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            aria-label="Cancel reply"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-muted"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
-        {/* Emoji picker */}
-        <div ref={emojiContainerRef} className="relative">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowEmojiPicker((current) => !current)}
-            aria-label="Open emoji picker"
-            className="opacity-80 hover:opacity-100"
-          >
-            <Smile className="h-4 w-4" />
-          </Button>
-          {showEmojiPicker ? (
-            <div className="absolute bottom-11 left-0 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
-              <Picker
-                data={emojiData}
-                onEmojiSelect={handleEmojiSelect}
-                previewPosition="none"
-                skinTonePosition="none"
-                maxFrequentRows={1}
-              />
-            </div>
-          ) : null}
-        </div>
 
-        {/* Attachment menu */}
-        <Menu>
-          <MenuTrigger
-            render={
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={isUploading}
-                aria-label="Add attachment"
-                className="opacity-80 hover:opacity-100"
-              />
-            }
-          >
-            <Paperclip className="h-4 w-4" />
-          </MenuTrigger>
-          <MenuPopup align="start" side="top">
-            <MenuItem onClick={() => onPickPhoto()}>
-              <ImageIcon className="h-4 w-4" /> Photo
-            </MenuItem>
-            <MenuItem onClick={() => onPickVideo()}>
-              <Video className="h-4 w-4" /> Video
-            </MenuItem>
-            <MenuItem onClick={() => onPickGif()}>
-              <Film className="h-4 w-4" /> GIF
-            </MenuItem>
-          </MenuPopup>
-        </Menu>
-
-        {/* Message input with send button */}
-        <InputGroup className="flex-1">
+      <div className="relative">
+        <InputGroup className={replyingTo ? "rounded-t-none" : undefined}>
           <InputGroupTextarea
             ref={textareaRef}
             value={value}
@@ -162,35 +123,83 @@ export function ChatComposer({
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               if (event.shiftKey) return;
-              if ((event.nativeEvent as any)?.isComposing) return;
+              if ((event.nativeEvent as KeyboardEvent & { isComposing?: boolean })?.isComposing) return;
               event.preventDefault();
               if (!canSend || isSending || isUploading) return;
               setShowEmojiPicker(false);
               onSend();
             }}
             placeholder={placeholder}
-            className="min-h-[3rem]"
+            className="min-h-[2.5rem]"
           />
-          <InputGroupAddon align="inline-end">
-            <Button
+          <InputGroupAddon align="block-end" className="gap-1">
+            {/* Emoji */}
+            <div ref={emojiContainerRef} className="relative">
+              <InputGroupButton
+                ref={emojiButtonRef}
+                size="icon-sm"
+                aria-label="Open emoji picker"
+                onClick={() => setShowEmojiPicker((current) => !current)}
+              >
+                <Smile className="h-4 w-4" />
+              </InputGroupButton>
+              {showEmojiPicker ? (
+                <div className="absolute bottom-10 left-0 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg">
+                  <Picker
+                    data={emojiData}
+                    onEmojiSelect={handleEmojiSelect}
+                    previewPosition="none"
+                    skinTonePosition="none"
+                    maxFrequentRows={1}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            {/* Attachments */}
+            <Menu>
+              <MenuTrigger
+                render={
+                  <InputGroupButton
+                    size="icon-sm"
+                    disabled={isUploading}
+                    aria-label="Add attachment"
+                  />
+                }
+              >
+                <Paperclip className="h-4 w-4" />
+              </MenuTrigger>
+              <MenuPopup align="start" side="top">
+                <MenuItem onClick={() => onPickPhoto()}>
+                  <ImageIcon className="h-4 w-4" /> Photo
+                </MenuItem>
+                <MenuItem onClick={() => onPickVideo()}>
+                  <Video className="h-4 w-4" /> Video
+                </MenuItem>
+                <MenuItem onClick={() => onPickGif()}>
+                  <Film className="h-4 w-4" /> GIF
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+
+            {/* Send */}
+            <InputGroupButton
+              size="icon-sm"
+              variant="default"
+              className="ml-auto"
               onClick={onSend}
-              size="icon"
               disabled={!canSend || isSending}
               aria-label="Send message"
             >
-              <Send className="h-4 w-4" />
-            </Button>
+              <ArrowUp className="h-4 w-4" />
+            </InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
       </div>
-      <p className="text-right text-[10px] text-muted-foreground/60 pr-1">
-        Enter to send · Shift+Enter for new line
-      </p>
+
       {isUploading ? (
-        <div className="mt-2 space-y-1">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Uploading attachment...</p>
-          </div>
+        <div className="mt-2 space-y-1 px-1">
+          <p className="text-xs text-muted-foreground">Uploading attachment…</p>
           <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
             <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
           </div>

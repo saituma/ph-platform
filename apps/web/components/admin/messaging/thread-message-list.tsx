@@ -325,9 +325,9 @@ function ThreadMessageListInner({
                 >
                   <div
                     data-message-id={Number(message.id)}
-                    className="group flex w-full"
+                    className="group flex w-full min-w-0"
                   >
-                    <Message align={mine ? "end" : "start"} className="max-w-[88%] flex-none" style={mine ? { marginLeft: "auto" } : {}}>
+                    <Message align={mine ? "end" : "start"} className="max-w-[88%] min-w-0" style={mine ? { marginLeft: "auto" } : {}}>
                       <MessageAvatar>
                         <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
                           {avatarUrl ? (
