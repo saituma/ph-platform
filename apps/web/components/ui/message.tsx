@@ -1,99 +1,92 @@
-"use client"
-
 import * as React from "react"
+
 import { cn } from "@/lib/utils"
 
-const MessageAlignCtx = React.createContext<"start" | "end">("start")
-
-interface MessageProps extends React.HTMLAttributes<HTMLDivElement> {
-  align?: "start" | "end"
-}
-
-const Message = React.forwardRef<HTMLDivElement, MessageProps>(
-  ({ className, align = "start", children, ...props }, ref) => (
-    <MessageAlignCtx.Provider value={align}>
-      <div
-        ref={ref}
-        className={cn(
-          "flex w-full gap-2",
-          align === "end" && "flex-row-reverse",
-          className,
-        )}
-        {...props}
-      >
-        {children}
-      </div>
-    </MessageAlignCtx.Provider>
-  ),
-)
-Message.displayName = "Message"
-
-const MessageGroup = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex flex-col gap-0.5", className)} {...props} />
-  ),
-)
-MessageGroup.displayName = "MessageGroup"
-
-const MessageAvatar = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("flex shrink-0 self-end", className)} {...props} />
-  ),
-)
-MessageAvatar.displayName = "MessageAvatar"
-
-const MessageContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => {
-    const align = React.useContext(MessageAlignCtx)
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          "flex min-w-0 flex-1 flex-col gap-1",
-          align === "end" && "items-end",
-          className,
-        )}
-        {...props}
-      />
-    )
-  },
-)
-MessageContent.displayName = "MessageContent"
-
-const MessageHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {
+  return (
     <div
-      ref={ref}
-      className={cn("flex items-center gap-2 px-1 text-xs text-muted-foreground", className)}
+      data-slot="message-group"
+      className={cn("cn-message-group flex min-w-0 flex-col", className)}
       {...props}
     />
-  ),
-)
-MessageHeader.displayName = "MessageHeader"
+  )
+}
 
-const MessageFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => {
-    const align = React.useContext(MessageAlignCtx)
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          "flex items-center gap-1 px-1 text-[10px] text-muted-foreground",
-          align === "end" && "flex-row-reverse",
-          className,
-        )}
-        {...props}
-      />
-    )
-  },
-)
-MessageFooter.displayName = "MessageFooter"
+function Message({
+  className,
+  align = "start",
+  ...props
+}: React.ComponentProps<"div"> & { align?: "start" | "end" }) {
+  return (
+    <div
+      data-slot="message"
+      data-align={align}
+      className={cn(
+        "cn-message group/message relative flex w-full min-w-0 data-[align=end]:flex-row-reverse",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function MessageAvatar({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-avatar"
+      className={cn(
+        "cn-message-avatar flex w-fit shrink-0 items-center justify-center self-end overflow-hidden rounded-full bg-muted",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function MessageContent({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-content"
+      className={cn(
+        "cn-message-content flex w-full min-w-0 flex-col wrap-break-word",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function MessageHeader({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-header"
+      className={cn(
+        "cn-message-header flex max-w-full min-w-0 items-center",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="message-footer"
+      className={cn(
+        "cn-message-footer flex max-w-full min-w-0 items-center group-data-[align=end]/message:justify-end",
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
 export {
-  Message,
   MessageGroup,
+  Message,
   MessageAvatar,
   MessageContent,
-  MessageHeader,
   MessageFooter,
+  MessageHeader,
 }

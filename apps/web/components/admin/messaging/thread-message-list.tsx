@@ -3,7 +3,7 @@
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
 import { CornerUpLeft, Pencil, Trash2, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   AlertDialog,
@@ -125,12 +125,8 @@ function ThreadMessageListInner({
   showSenderName = false,
   emptyLabel,
   openScrollKey = null,
-  newIncomingCount,
-  isNearBottom,
   onScrollChange,
 }: ThreadMessageListProps & {
-  newIncomingCount: number;
-  isNearBottom: boolean;
   onScrollChange: (atBottom: boolean) => void;
 }) {
   const { scrollToEnd } = useMessageScroller();
@@ -164,10 +160,10 @@ function ThreadMessageListInner({
   // Scroll to end when openScrollKey changes
   useEffect(() => {
     if (!openScrollKey) return;
-    scrollToEnd("auto");
+    scrollToEnd({ behavior: "auto" });
     // Retry for images/async content
-    const t1 = window.setTimeout(() => scrollToEnd("auto"), 150);
-    const t2 = window.setTimeout(() => scrollToEnd("auto"), 350);
+    const t1 = window.setTimeout(() => scrollToEnd({ behavior: "auto" }), 150);
+    const t2 = window.setTimeout(() => scrollToEnd({ behavior: "auto" }), 350);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -622,7 +618,7 @@ function ThreadMessageListInner({
           </MessageScrollerContent>
         </MessageScrollerViewport>
 
-        <MessageScrollerButton newCount={newIncomingCount} />
+        <MessageScrollerButton />
       </MessageScroller>
 
       <AlertDialog
@@ -684,70 +680,15 @@ function ThreadMessageListInner({
 }
 
 export function ThreadMessageList(props: ThreadMessageListProps) {
-  const { messages, currentUserId, openScrollKey } = props;
+  void props;
 
-  const [isNearBottom, setIsNearBottom] = useState(true);
-  const isNearBottomRef = useRef(true);
-  const lastSeenMessageIdRef = useRef<string | null>(null);
-  const lastMessageIdRef = useRef<string | null>(null);
-
-  // Track last seen for incoming count
-  useEffect(() => {
-    if (!messages.length) {
-      lastMessageIdRef.current = null;
-      lastSeenMessageIdRef.current = null;
-      return;
-    }
-    const latest = messages[messages.length - 1];
-    const latestId = String(latest.id ?? "");
-    if (!latestId) return;
-    if (!lastMessageIdRef.current) {
-      lastMessageIdRef.current = latestId;
-      lastSeenMessageIdRef.current = latestId;
-      return;
-    }
-    if (lastMessageIdRef.current === latestId) return;
-    lastMessageIdRef.current = latestId;
-    if (isNearBottomRef.current) {
-      lastSeenMessageIdRef.current = latestId;
-    }
-  }, [messages]);
-
-  const handleScrollChange = useCallback((atBottom: boolean) => {
-    isNearBottomRef.current = atBottom;
-    setIsNearBottom(atBottom);
-    if (atBottom) {
-      lastSeenMessageIdRef.current = lastMessageIdRef.current;
-    }
-  }, []);
-
-  const newIncomingCount = useMemo(() => {
-    if (isNearBottom) return 0;
-    if (!messages.length) return 0;
-    const lastSeenId = lastSeenMessageIdRef.current;
-    if (!lastSeenId) return 0;
-    const lastSeenIdx = messages.findIndex((m) => String(m.id ?? "") === lastSeenId);
-    const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
-    const unseen = messages.slice(startIdx);
-    let count = 0;
-    for (const msg of unseen) {
-      const senderId = Number(msg?.senderId ?? NaN);
-      const mine =
-        currentUserId != null && Number.isFinite(senderId) ? senderId === currentUserId : false;
-      if (!mine) count += 1;
-    }
-    return Math.min(count, 99);
-    // openScrollKey not needed here but kept to avoid stale lastSeen on thread switch
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNearBottom, messages, currentUserId, openScrollKey]);
+  const handleScrollChange = useCallback((_atBottom: boolean) => {}, []);
 
   return (
     <div className="relative">
       <MessageScrollerProvider autoScroll defaultScrollPosition="end">
         <ThreadMessageListInner
           {...props}
-          newIncomingCount={newIncomingCount}
-          isNearBottom={isNearBottom}
           onScrollChange={handleScrollChange}
         />
       </MessageScrollerProvider>

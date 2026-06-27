@@ -23,8 +23,8 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "../../ui/message-scroller";
-import { Message, MessageContent } from "../../ui/message";
-import { Bubble } from "../../ui/bubble";
+import { Message, MessageContent, MessageFooter } from "../../ui/message";
+import { Bubble, BubbleContent, BubbleReactions } from "../../ui/bubble";
 
 type ConversationMessage = {
   id: string;
@@ -310,22 +310,12 @@ export function ConversationPanel({
 
                 return (
                   <MessageScrollerItem key={message.id} messageId={message.id}>
-                    <Message align={isCoach ? "end" : "start"}>
+                    <Message align={isCoach ? "end" : "start"} className="px-3 py-0.5">
                       <MessageContent>
-                        <Bubble
-                          className={`relative group shadow-sm ${
-                            isEditing
-                              ? "w-full max-w-[86%] border border-primary/30 bg-background"
-                              : `max-w-[75%] ${
-                                  isCoach
-                                    ? "bg-primary/10 text-foreground dark:bg-primary/20"
-                                    : "bg-white text-foreground dark:bg-slate-900"
-                                }`
-                          }`}
-                        >
+                        <div className="relative group">
                           {(onDeleteMessage || onEditMessage) && !isEditing ? (
                             <div
-                              className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${isCoach ? "right-0" : "left-0"}`}
+                              className={`absolute -top-7 z-10 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${isCoach ? "right-0" : "left-0"}`}
                             >
                               {onEditMessage && !message.mediaUrl ? (
                                 <button
@@ -356,158 +346,137 @@ export function ConversationPanel({
                             </div>
                           ) : null}
 
-                          <p className="text-xs text-muted-foreground">
-                            {isCoach ? message.author : `${message.author} • ${message.time}`}
-                          </p>
-
-                          {message.mediaUrl && message.contentType === "image" ? (
-                            <button
-                              type="button"
-                              className="mt-2 block w-full"
-                              onClick={() =>
-                                setActiveMedia({ url: message.mediaUrl ?? "", type: "image" })
-                              }
-                            >
-                              <img
-                                src={message.mediaUrl}
-                                alt={message.text || "Image attachment"}
-                                className="max-h-72 w-full rounded-xl object-cover"
-                              />
-                            </button>
-                          ) : null}
-
-                          {message.mediaUrl && message.contentType === "video" ? (
-                            <button
-                              type="button"
-                              className="mt-2 block w-full"
-                              onClick={() =>
-                                setActiveMedia({ url: message.mediaUrl ?? "", type: "video" })
-                              }
-                            >
-                              <div className="relative">
-                                <video
-                                  src={message.mediaUrl}
-                                  className="max-h-72 w-full rounded-xl object-cover"
-                                  muted
-                                  playsInline
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-                                    <Play className="h-5 w-5 text-white" />
-                                  </span>
-                                </div>
-                              </div>
-                            </button>
-                          ) : null}
-
-                          {message.mediaUrl &&
-                          message.contentType !== "image" &&
-                          message.contentType !== "video" &&
-                          !isAudioAttachment(message) ? (
-                            <a
-                              href={message.mediaUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex rounded-xl bg-background px-3 py-2 text-xs text-primary underline"
-                            >
-                              Open attachment
-                            </a>
-                          ) : null}
-
-                          {isAudioAttachment(message) ? (
-                            <p className="mt-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                              Voice messages are disabled.
-                            </p>
-                          ) : null}
-
                           {isEditing ? (
-                            <div className="space-y-2">
-                              <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">
-                                Editing message
-                              </p>
-                              <Textarea
-                                className="min-h-[60px] w-full resize-none rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-0"
-                                value={editDraft}
-                                onChange={(e) => setEditDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Escape") {
-                                    setEditingMessageId(null);
-                                    setEditDraft("");
-                                  }
-                                  if (
-                                    e.key === "Enter" &&
-                                    !e.shiftKey &&
-                                    !e.altKey &&
-                                    !e.metaKey &&
-                                    !e.ctrlKey
-                                  ) {
-                                    e.preventDefault();
-                                    const trimmed = editDraft.trim();
-                                    if (trimmed) onEditMessage?.(message.id, trimmed);
-                                    setEditingMessageId(null);
-                                    setEditDraft("");
-                                  }
-                                }}
-                                autoFocus
-                              />
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => {
-                                    setEditingMessageId(null);
-                                    setEditDraft("");
+                            <Bubble variant="outline" className="w-full max-w-[86%]">
+                              <BubbleContent className="w-full space-y-2">
+                                <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">
+                                  Editing message
+                                </p>
+                                <Textarea
+                                  className="min-h-[60px] w-full resize-none"
+                                  value={editDraft}
+                                  onChange={(e) => setEditDraft(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Escape") {
+                                      setEditingMessageId(null);
+                                      setEditDraft("");
+                                    }
+                                    if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
+                                      e.preventDefault();
+                                      const trimmed = editDraft.trim();
+                                      if (trimmed) onEditMessage?.(message.id, trimmed);
+                                      setEditingMessageId(null);
+                                      setEditDraft("");
+                                    }
                                   }}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                                  onClick={() => {
-                                    const trimmed = editDraft.trim();
-                                    if (trimmed) onEditMessage?.(message.id, trimmed);
-                                    setEditingMessageId(null);
-                                    setEditDraft("");
-                                  }}
-                                >
-                                  Save
-                                </button>
-                              </div>
-                              <p className="text-right text-[10px] text-muted-foreground/60">
-                                Enter to save · Esc to cancel
-                              </p>
-                            </div>
-                          ) : shouldHideText ? null : (
-                            <p className="mt-2 text-foreground">{message.text}</p>
+                                  autoFocus
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => { setEditingMessageId(null); setEditDraft(""); }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                                    onClick={() => {
+                                      const trimmed = editDraft.trim();
+                                      if (trimmed) onEditMessage?.(message.id, trimmed);
+                                      setEditingMessageId(null);
+                                      setEditDraft("");
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                                <p className="text-right text-[10px] text-muted-foreground/60">Enter to save · Esc to cancel</p>
+                              </BubbleContent>
+                            </Bubble>
+                          ) : (
+                            <Bubble variant={isCoach ? "default" : "muted"}>
+                              <BubbleContent>
+                                {!isCoach ? (
+                                  <p className="mb-1 text-[11px] font-medium text-muted-foreground">{message.author}</p>
+                                ) : null}
+
+                                {message.mediaUrl && message.contentType === "image" ? (
+                                  <button
+                                    type="button"
+                                    className="block w-full"
+                                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "image" })}
+                                  >
+                                    <img
+                                      src={message.mediaUrl}
+                                      alt={message.text || "Image attachment"}
+                                      className="max-h-72 w-full rounded-lg object-cover"
+                                    />
+                                  </button>
+                                ) : null}
+
+                                {message.mediaUrl && message.contentType === "video" ? (
+                                  <button
+                                    type="button"
+                                    className="block w-full"
+                                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "video" })}
+                                  >
+                                    <div className="relative">
+                                      <video
+                                        src={message.mediaUrl}
+                                        className="max-h-72 w-full rounded-lg object-cover"
+                                        muted
+                                        playsInline
+                                      />
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                                          <Play className="h-5 w-5 text-white" />
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </button>
+                                ) : null}
+
+                                {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioAttachment(message) ? (
+                                  <a href={message.mediaUrl} target="_blank" rel="noreferrer" className="text-xs underline opacity-80">
+                                    Open attachment
+                                  </a>
+                                ) : null}
+
+                                {isAudioAttachment(message) ? (
+                                  <p className="text-xs opacity-70">Voice messages are disabled.</p>
+                                ) : null}
+
+                                {!shouldHideText && message.text ? (
+                                  <p>{message.text}</p>
+                                ) : null}
+                              </BubbleContent>
+
+                              {message.reactions?.length ? (
+                                <BubbleReactions side="bottom" align={isCoach ? "end" : "start"}>
+                                  {message.reactions.map((reaction) => (
+                                    <button
+                                      type="button"
+                                      key={reaction.emoji}
+                                      className={`rounded-full px-1.5 py-0.5 text-xs ${reaction.reactedByMe ? "text-primary font-semibold" : ""}`}
+                                      onClick={() => onReact?.(message.id, reaction.emoji)}
+                                    >
+                                      {reaction.emoji} {reaction.count}
+                                    </button>
+                                  ))}
+                                </BubbleReactions>
+                              ) : null}
+                            </Bubble>
                           )}
 
-                          {message.reactions?.length ? (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {message.reactions.map((reaction) => (
-                                <button
-                                  type="button"
-                                  key={reaction.emoji}
-                                  className={`rounded-full border px-2 py-1 text-xs ${
-                                    reaction.reactedByMe
-                                      ? "border-primary bg-primary/10 text-primary"
-                                      : "border-border bg-background"
-                                  }`}
-                                  onClick={() => onReact?.(message.id, reaction.emoji)}
-                                >
-                                  {reaction.emoji} {reaction.count}
-                                </button>
-                              ))}
-                            </div>
-                          ) : null}
-
                           {!isEditing ? (
-                            <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
+                            <div className={`mt-1 flex flex-wrap gap-1 opacity-0 transition group-hover:opacity-100 ${isCoach ? "justify-end" : "justify-start"}`}>
                               {COMMON_REACTION_EMOJIS.map((emoji) => (
                                 <button
                                   key={emoji}
                                   type="button"
-                                  className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+                                  className="rounded-full border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary/60"
                                   onClick={() => onReact?.(message.id, emoji)}
                                 >
                                   {emoji}
@@ -515,20 +484,24 @@ export function ConversationPanel({
                               ))}
                             </div>
                           ) : null}
+                        </div>
 
-                          {isCoach ? (
-                            <div className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
-                              {message.status === "read" ? (
-                                <CheckCheck className="h-3.5 w-3.5 text-sky-500" />
-                              ) : message.status === "delivered" ? (
-                                <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                              ) : (
-                                <Check className="h-3.5 w-3.5 text-muted-foreground" />
-                              )}
-                              <span className="text-[11px]">{message.time}</span>
-                            </div>
-                          ) : null}
-                        </Bubble>
+                        {isCoach ? (
+                          <MessageFooter>
+                            {message.status === "read" ? (
+                              <CheckCheck className="h-3 w-3 text-sky-500" />
+                            ) : message.status === "delivered" ? (
+                              <CheckCheck className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <Check className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span>{message.time}</span>
+                          </MessageFooter>
+                        ) : (
+                          <MessageFooter>
+                            <span>{message.time}</span>
+                          </MessageFooter>
+                        )}
                       </MessageContent>
                     </Message>
                   </MessageScrollerItem>
