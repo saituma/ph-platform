@@ -10,6 +10,7 @@ import {
   InputGroupTextarea,
 } from "../../ui/input-group";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   AlertDialog,
@@ -138,7 +139,12 @@ function ThreadMessageListInner({
 }) {
   const { scrollToEnd } = useMessageScroller();
 
-  const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
+  const [pickerAnchor, setPickerAnchor] = useState<{
+    messageId: string;
+    rect: DOMRect;
+    mine: boolean;
+    message: ChatMessage;
+  } | null>(null);
   const [whoReactedKey, setWhoReactedKey] = useState<{ messageId: number; emoji: string } | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -147,25 +153,33 @@ function ThreadMessageListInner({
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
 
-  // Dismiss emoji picker on outside click
+  // Dismiss emoji picker + who-reacted on outside click
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       const path =
         typeof event.composedPath === "function" ? event.composedPath() : [];
-      const clickedInsideReactionPicker = path.some((node) => {
+      const clickedInside = path.some((node) => {
         if (!(node instanceof HTMLElement)) return false;
         if (node.closest('[data-reaction-picker-root="true"]')) return true;
         if (node.closest('[data-who-reacted-root="true"]')) return true;
         const tag = node.tagName?.toLowerCase?.() ?? "";
         return tag.startsWith("em-");
       });
-      if (clickedInsideReactionPicker) return;
-      setPickerMessageId(null);
+      if (clickedInside) return;
+      setPickerAnchor(null);
       setWhoReactedKey(null);
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
+
+  // Close picker on scroll (so it doesn't float detached)
+  useEffect(() => {
+    if (!pickerAnchor) return;
+    const close = () => setPickerAnchor(null);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [pickerAnchor]);
 
   // Scroll to end when openScrollKey changes
   useEffect(() => {
@@ -251,7 +265,7 @@ function ThreadMessageListInner({
   const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
     if (!emoji.native) return;
     await Promise.resolve(onReact(Number(message.id), emoji.native));
-    setPickerMessageId(null);
+    setPickerAnchor(null);
   };
 
   return (
@@ -570,7 +584,7 @@ function ThreadMessageListInner({
                           onClick={() => {
                             setEditingId(Number(message.id));
                             setEditDraft(String(parsed.text ?? ""));
-                            setPickerMessageId(null);
+                            setPickerAnchor(null);
                           }}
                           aria-label="Edit message"
                         >
@@ -610,36 +624,22 @@ function ThreadMessageListInner({
                         </button>
                       ) : null}
 
-                      <div className="relative">
-                        <button
-                          type="button"
-                          className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs shadow-sm hover:bg-secondary"
-                          onClick={() => {
-                            setPickerMessageId((current) =>
-                              current === String(message.id) ? null : String(message.id),
-                            );
-                          }}
-                          aria-label="Add reaction"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-
-                        {pickerMessageId === String(message.id) ? (
-                          <div
-                            className={`absolute bottom-full mb-2 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
-                          >
-                            <Picker
-                              data={emojiData}
-                              onEmojiSelect={(emoji: EmojiPick) =>
-                                void handlePickReaction(message, emoji)
-                              }
-                              previewPosition="none"
-                              skinTonePosition="none"
-                              maxFrequentRows={1}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
+                      <button
+                        data-reaction-picker-root="true"
+                        type="button"
+                        className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs shadow-sm hover:bg-secondary"
+                        onClick={(e) => {
+                          const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                          setPickerAnchor((current) =>
+                            current?.messageId === String(message.id)
+                              ? null
+                              : { messageId: String(message.id), rect, mine, message },
+                          );
+                        }}
+                        aria-label="Add reaction"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </MessageScrollerItem>
@@ -712,6 +712,35 @@ function ThreadMessageListInner({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Emoji picker rendered in a portal so it escapes overflow:hidden containers */}
+      {pickerAnchor
+        ? createPortal(
+            <div
+              data-reaction-picker-root="true"
+              style={{
+                position: "fixed",
+                bottom: window.innerHeight - pickerAnchor.rect.top + 8,
+                ...(pickerAnchor.mine
+                  ? { right: window.innerWidth - pickerAnchor.rect.right }
+                  : { left: pickerAnchor.rect.left }),
+                zIndex: 9999,
+              }}
+              className="overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+            >
+              <Picker
+                data={emojiData}
+                onEmojiSelect={(emoji: EmojiPick) =>
+                  void handlePickReaction(pickerAnchor.message, emoji)
+                }
+                previewPosition="none"
+                skinTonePosition="none"
+                maxFrequentRows={1}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
