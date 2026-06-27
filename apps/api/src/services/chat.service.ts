@@ -24,8 +24,22 @@ import { createLogger } from "../lib/logger";
 import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
 import { runBestEffortBackgroundTask } from "../lib/background-task";
 import { filterBlockedRecipientsForSender, hasUserBlockBetween } from "./user-block.service";
+import { getAdminCoachIds } from "./message.service";
+import { sendAdminNewMessageEmail } from "../lib/mailer/messaging.mailer";
+import { env } from "../config/env";
 
 const log = createLogger({ component: "chat-service" });
+
+// In-memory rate limit: one admin-notification email per (receiverId, groupId) pair per 10 minutes.
+const _groupEmailLastSent = new Map<string, number>();
+function isGroupEmailRateLimited(receiverId: number, groupId: number): boolean {
+  const key = `${receiverId}:${groupId}`;
+  const last = _groupEmailLastSent.get(key) ?? 0;
+  return Date.now() - last < 10 * 60 * 1000;
+}
+function recordGroupEmailSent(receiverId: number, groupId: number): void {
+  _groupEmailLastSent.set(`${receiverId}:${groupId}`, Date.now());
+}
 
 let cachedSupportsGroupLastReadAt: boolean | null = null;
 
@@ -936,6 +950,65 @@ export async function createGroupMessage(input: {
       },
     );
   }
+  if (insertedNewMessage) {
+    runBestEffortBackgroundTask(
+      "group-message-admin-email",
+      { messageId: message.id, groupId: input.groupId, senderId: input.senderId },
+      async () => {
+        const adminIds = await getAdminCoachIds();
+        // Don't notify when the sender is training staff
+        if (adminIds.includes(input.senderId)) return;
+
+        // Find admin members of this group
+        const groupMembers = await listGroupMembers(input.groupId);
+        const adminMembers = groupMembers.filter((m) => adminIds.includes(m.userId));
+        if (!adminMembers.length) return;
+
+        // Build message preview (strip reply prefix)
+        const rawContent = String(input.content ?? "")
+          .replace(/^\[reply:\d+:[^\]]*\]\s*/i, "")
+          .trim();
+        const preview =
+          rawContent.slice(0, 200) ||
+          (input.contentType && input.contentType !== "text"
+            ? `Sent a ${input.contentType}`
+            : "");
+
+        // Get sender info
+        const [senderRow] = await db
+          .select({ email: userTable.email, name: userTable.name })
+          .from(userTable)
+          .where(eq(userTable.id, input.senderId))
+          .limit(1);
+
+        const resolvedGroupName = groupName ?? "Group";
+        const sentAt =
+          message.createdAt instanceof Date
+            ? message.createdAt.toISOString()
+            : String(message.createdAt);
+
+        for (const member of adminMembers) {
+          if (isGroupEmailRateLimited(member.userId, input.groupId)) continue;
+          if (!member.email) continue;
+
+          recordGroupEmailSent(member.userId, input.groupId);
+          await sendAdminNewMessageEmail({
+            to: member.email,
+            adminName: member.name ?? null,
+            senderName: senderRow?.name ?? senderName ?? null,
+            senderEmail: senderRow?.email ?? null,
+            messagePreview: preview,
+            contentType: input.contentType ?? "text",
+            sentAt,
+            threadUrl: `${env.adminWebUrl}/messaging?tab=inbox&groupId=${input.groupId}`,
+            isGroup: true,
+            groupName: resolvedGroupName,
+          });
+        }
+      },
+    );
+  }
+
   return {
     ...message,
     contentType: resolveMessageMediaType({

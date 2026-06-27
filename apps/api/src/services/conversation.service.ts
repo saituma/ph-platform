@@ -22,8 +22,21 @@ import { isSharedInboxViewer } from "../lib/messaging-access";
 import { getAdminCoachIds, getTeamManagersForUser } from "./message.service";
 import { publicDisplayName } from "../lib/display-name";
 import { getManagedTeamIds } from "./team-membership";
+import { sendAdminNewMessageEmail } from "../lib/mailer/messaging.mailer";
+import { env } from "../config/env";
 
 const log = createLogger({ component: "conversation-service" });
+
+// In-memory rate limit: one admin-notification email per (receiverId, senderId) pair per 10 minutes.
+const _dmEmailLastSent = new Map<string, number>();
+function isDmEmailRateLimited(receiverId: number, senderId: number): boolean {
+  const key = `${receiverId}:${senderId}`;
+  const last = _dmEmailLastSent.get(key) ?? 0;
+  return Date.now() - last < 10 * 60 * 1000;
+}
+function recordDmEmailSent(receiverId: number, senderId: number): void {
+  _dmEmailLastSent.set(`${receiverId}:${senderId}`, Date.now());
+}
 
 /**
  * Direct messages as participant-based conversations. A direct conversation has exactly two
@@ -483,6 +496,53 @@ export async function sendDirectMessage(input: {
           senderAvatar: senderMeta?.profilePicture ?? null,
         },
       );
+    },
+  );
+
+  runBestEffortBackgroundTask(
+    "direct-message-admin-email",
+    { messageId: message.id, receiverId: input.receiverId, senderId: input.senderId },
+    async () => {
+      const adminIds = await getAdminCoachIds();
+      if (!adminIds.includes(input.receiverId)) return;
+      if (isDmEmailRateLimited(input.receiverId, input.senderId)) return;
+
+      const [adminRow] = await db
+        .select({ email: userTable.email, name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, input.receiverId))
+        .limit(1);
+      if (!adminRow?.email) return;
+
+      const [senderRow] = await db
+        .select({ email: userTable.email, name: userTable.name })
+        .from(userTable)
+        .where(eq(userTable.id, input.senderId))
+        .limit(1);
+
+      recordDmEmailSent(input.receiverId, input.senderId);
+
+      const rawContent = String(input.content ?? "")
+        .replace(/^\[reply:\d+:[^\]]*\]\s*/i, "")
+        .trim();
+      const preview =
+        rawContent.slice(0, 200) ||
+        (input.contentType !== "text" ? `Sent a ${input.contentType}` : "");
+
+      await sendAdminNewMessageEmail({
+        to: adminRow.email,
+        adminName: adminRow.name ?? null,
+        senderName: senderRow?.name ?? senderMeta?.name ?? null,
+        senderEmail: senderRow?.email ?? null,
+        messagePreview: preview,
+        contentType: input.contentType,
+        sentAt:
+          message.createdAt instanceof Date
+            ? message.createdAt.toISOString()
+            : String(message.createdAt),
+        threadUrl: `${env.adminWebUrl}/messaging?tab=inbox&userId=${input.senderId}`,
+        isGroup: false,
+      });
     },
   );
 
