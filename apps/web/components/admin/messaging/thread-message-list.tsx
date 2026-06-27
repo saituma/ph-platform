@@ -2,7 +2,7 @@
 
 import Picker from "@emoji-mart/react";
 import emojiData from "@emoji-mart/data";
-import { ArrowDown, CornerUpLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { CornerUpLeft, Pencil, Trash2, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -15,7 +15,22 @@ import {
   AlertDialogTitle,
 } from "../../ui/alert-dialog";
 import { Dialog, DialogContent } from "../../ui/dialog";
-import { ScrollArea } from "../../ui/scroll-area";
+import {
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+} from "../../ui/message";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+  useMessageScroller,
+} from "../../ui/message-scroller";
+import { Bubble, BubbleContent } from "../../ui/bubble";
 import type { ChatMessage, ChatReaction } from "./types";
 import { OpenGraphPreview } from "./open-graph-preview";
 
@@ -77,39 +92,26 @@ function isMessageFromCurrentUser(params: {
   if (currentUserId != null && Number.isFinite(senderId)) {
     return senderId === currentUserId;
   }
-  if (
-    currentUserId != null &&
-    Number.isFinite(receiverId) &&
-    mode === "direct"
-  ) {
+  if (currentUserId != null && Number.isFinite(receiverId) && mode === "direct") {
     return receiverId !== currentUserId;
   }
-  if (
-    mode === "direct" &&
-    directPeerUserId != null &&
-    Number.isFinite(senderId)
-  ) {
+  if (mode === "direct" && directPeerUserId != null && Number.isFinite(senderId)) {
     return senderId !== directPeerUserId;
   }
-  if (
-    mode === "direct" &&
-    directPeerUserId != null &&
-    Number.isFinite(receiverId)
-  ) {
+  if (mode === "direct" && directPeerUserId != null && Number.isFinite(receiverId)) {
     return receiverId === directPeerUserId;
   }
   if (
     currentUserId == null &&
-    (normalizedRole === "admin" ||
-      normalizedRole === "coach" ||
-      normalizedRole === "superadmin")
+    (normalizedRole === "admin" || normalizedRole === "coach" || normalizedRole === "superadmin")
   ) {
     return true;
   }
   return false;
 }
 
-export function ThreadMessageList({
+// Inner component that has access to MessageScroller context
+function ThreadMessageListInner({
   messages,
   onReact,
   onReply,
@@ -123,199 +125,63 @@ export function ThreadMessageList({
   showSenderName = false,
   emptyLabel,
   openScrollKey = null,
-}: ThreadMessageListProps) {
+  newIncomingCount,
+  isNearBottom,
+  onScrollChange,
+}: ThreadMessageListProps & {
+  newIncomingCount: number;
+  isNearBottom: boolean;
+  onScrollChange: (atBottom: boolean) => void;
+}) {
+  const { scrollToEnd } = useMessageScroller();
+
   const [pickerMessageId, setPickerMessageId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deletingPreview, setDeletingPreview] = useState<string>("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<
-    number | null
-  >(null);
-  const [isNearBottom, setIsNearBottom] = useState(true);
-  const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(
-    null,
-  );
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const isNearBottomRef = useRef(true);
-  const lastMessageIdRef = useRef<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<number | null>(null);
 
+  // Dismiss emoji picker on outside click
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (!target) return;
       const path =
-        typeof event.composedPath === "function"
-          ? event.composedPath()
-          : [];
+        typeof event.composedPath === "function" ? event.composedPath() : [];
       const clickedInsideReactionPicker = path.some((node) => {
         if (!(node instanceof HTMLElement)) return false;
         if (node.closest('[data-reaction-picker-root="true"]')) return true;
-        // Emoji Mart renders nested custom elements; keep picker open for those.
         const tag = node.tagName?.toLowerCase?.() ?? "";
         return tag.startsWith("em-");
       });
       if (clickedInsideReactionPicker) return;
       setPickerMessageId(null);
     };
-
     document.addEventListener("mousedown", onPointerDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-    };
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
-  const getViewport = useCallback(() => {
-    const root = scrollContainerRef.current;
-    if (!root) return null;
-    return (
-      (root.querySelector(
-        '[data-slot="scroll-area-viewport"]',
-      ) as HTMLDivElement | null) ??
-      (root.querySelector(
-        "[data-radix-scroll-area-viewport]",
-      ) as HTMLDivElement | null)
-    );
-  }, []);
-
-  const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      const viewport = getViewport();
-      if (!viewport) return;
-      viewport.scrollTo({ top: viewport.scrollHeight, behavior });
-    },
-    [getViewport],
-  );
-
-  const scrollToBottomWithRetry = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      const run = (delay: number, nextBehavior: ScrollBehavior) => {
-        window.setTimeout(() => {
-          scrollToBottom(nextBehavior);
-        }, delay);
-      };
-      run(0, behavior);
-      run(80, "auto");
-      run(220, "auto");
-    },
-    [scrollToBottom],
-  );
-
+  // Scroll to end when openScrollKey changes
   useEffect(() => {
     if (!openScrollKey) return;
-    let attempts = 0;
-    const timer = window.setInterval(() => {
-      attempts += 1;
-      scrollToBottom("auto");
-      if (attempts >= 15) {
-        window.clearInterval(timer);
-      }
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [openScrollKey, scrollToBottom]);
-
-  useEffect(() => {
-    const viewport = getViewport();
-    if (!viewport) return;
-    const onScroll = () => {
-      const threshold = 90;
-      const distanceToBottom =
-        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      const nextIsNearBottom = distanceToBottom < threshold;
-      isNearBottomRef.current = nextIsNearBottom;
-      setIsNearBottom(nextIsNearBottom);
-      if (nextIsNearBottom) {
-        // When the user is at (or near) the bottom, consider the latest message "seen".
-        setLastSeenMessageId(lastMessageIdRef.current);
-      }
+    scrollToEnd("auto");
+    // Retry for images/async content
+    const t1 = window.setTimeout(() => scrollToEnd("auto"), 150);
+    const t2 = window.setTimeout(() => scrollToEnd("auto"), 350);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
-    viewport.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => viewport.removeEventListener("scroll", onScroll);
-  }, [getViewport]);
-
-  useEffect(() => {
-    if (!messages.length) {
-      lastMessageIdRef.current = null;
-      queueMicrotask(() => setLastSeenMessageId(null));
-      return;
-    }
-    const latest = messages[messages.length - 1];
-    const latestId = String(latest.id ?? "");
-    if (!latestId) return;
-    const prevId = lastMessageIdRef.current;
-    if (!prevId) {
-      lastMessageIdRef.current = latestId;
-      // initial mount should pin to bottom
-      requestAnimationFrame(() => {
-        scrollToBottomWithRetry("auto");
-        setLastSeenMessageId(latestId);
-      });
-      return;
-    }
-    if (prevId === latestId) return;
-    lastMessageIdRef.current = latestId;
-
-    const senderId = Number(latest?.senderId ?? NaN);
-    const mine =
-      currentUserId != null && Number.isFinite(senderId)
-        ? senderId === currentUserId
-        : false;
-    void mine;
-    requestAnimationFrame(() => {
-      if (isNearBottomRef.current) {
-        scrollToBottomWithRetry("smooth");
-        setLastSeenMessageId(latestId);
-      }
-      // if scrolled up, leave lastSeenMessageId alone so FAB count increments
-    });
-  }, [currentUserId, messages, scrollToBottomWithRetry]);
-
-  const newIncomingCount = useMemo(() => {
-    if (!messages.length) return 0;
-    if (isNearBottom) return 0;
-
-    if (!lastSeenMessageId) return 0;
-
-    const lastSeenIdx = messages.findIndex(
-      (m) => String(m.id ?? "") === lastSeenMessageId,
-    );
-    const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
-    const unseen = messages.slice(startIdx);
-
-    let count = 0;
-    for (const msg of unseen) {
-      const senderId = Number(msg?.senderId ?? NaN);
-      const mine =
-        currentUserId != null && Number.isFinite(senderId)
-          ? senderId === currentUserId
-          : false;
-      if (!mine) count += 1;
-    }
-
-    return Math.min(count, 99);
-  }, [currentUserId, isNearBottom, lastSeenMessageId, messages]);
-
-  const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
-    if (!emoji.native) return;
-    const messageId = Number(message.id);
-    await Promise.resolve(onReact(messageId, emoji.native));
-    setPickerMessageId(null);
-  };
+  }, [openScrollKey, scrollToEnd]);
 
   const jumpToMessage = (messageId: number | null) => {
     if (!messageId || !Number.isFinite(messageId)) return;
-    const target = document.querySelector<HTMLElement>(
-      `[data-message-id="${messageId}"]`,
-    );
+    const target = document.querySelector<HTMLElement>(`[data-message-id="${messageId}"]`);
     if (!target) return;
     target.scrollIntoView({ behavior: "smooth", block: "center" });
     setHighlightedMessageId(messageId);
     window.setTimeout(() => {
-      setHighlightedMessageId((current) =>
-        current === messageId ? null : current,
-      );
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
     }, 1400);
   };
 
@@ -323,11 +189,7 @@ export function ThreadMessageList({
     const input = String(raw ?? "");
     const replyMatch = input.match(/^\s*\[reply:(\d+):([^\]]*)\]\s*/i);
     if (!replyMatch) {
-      return {
-        replyToId: null as number | null,
-        replyPreview: "",
-        text: input,
-      };
+      return { replyToId: null as number | null, replyPreview: "", text: input };
     }
     const replyToId = Number(replyMatch[1]);
     const encodedPreview = replyMatch[2] ?? "";
@@ -337,21 +199,21 @@ export function ThreadMessageList({
     } catch {
       replyPreview = encodedPreview;
     }
-    const text = input.slice(replyMatch[0].length);
     return {
       replyToId: Number.isFinite(replyToId) ? replyToId : null,
       replyPreview,
-      text,
+      text: input.slice(replyMatch[0].length),
     };
   };
 
   const extractFirstUrl = (value: string) => {
     const input = String(value ?? "");
     const matches = input.match(/https?:\/\/[^\s]+/gi) ?? [];
-    const cleaned = matches
-      .map((url) => url.replace(/[)\].,!?;:]+$/g, ""))
-      .filter((url) => /^https?:\/\//i.test(url));
-    return cleaned[0] ?? null;
+    return (
+      matches
+        .map((url) => url.replace(/[)\].,!?;:]+$/g, ""))
+        .filter((url) => /^https?:\/\//i.test(url))[0] ?? null
+    );
   };
 
   const messageById = useMemo(() => {
@@ -362,11 +224,6 @@ export function ThreadMessageList({
     });
     return map;
   }, [messages]);
-
-  const downArrowLabel = useMemo(() => {
-    if (newIncomingCount <= 0) return "";
-    return newIncomingCount > 99 ? "99+" : String(newIncomingCount);
-  }, [newIncomingCount]);
 
   const messagesWithSeparators = useMemo(() => {
     const result: Array<
@@ -385,400 +242,410 @@ export function ThreadMessageList({
     return result;
   }, [messages]);
 
-  return (
-    <div ref={scrollContainerRef} className="relative">
-      <ScrollArea className="h-105 rounded-xl border border-border p-3">
-        <div className="space-y-3">
-          {messagesWithSeparators.map((item) => {
-            if (item.type === "separator") {
-              return (
-                <div key={`sep-${item.label}`} className="flex items-center gap-3 py-2">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] text-muted-foreground">{item.label}</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-              );
-            }
-            const message = item.message;
-            const senderId = Number(message?.senderId ?? NaN);
-            const mine = isMessageFromCurrentUser({
-              message,
-              currentUserId,
-              mode,
-              directPeerUserId,
-            });
-            const reactions: ChatReaction[] = Array.isArray(message?.reactions)
-              ? message.reactions
-              : [];
-            const hasImage = Boolean(
-              message.mediaUrl && message.contentType === "image",
-            );
-            const hasVideo = Boolean(
-              message.mediaUrl && message.contentType === "video",
-            );
-            const hasMedia = hasImage || hasVideo;
-            const parsed = parseMessage(String(message.content ?? ""));
-            const normalizedText = String(parsed.text ?? "")
-              .trim()
-              .toLowerCase();
-            const hidePlaceholderText =
-              normalizedText === "attachment" ||
-              normalizedText.startsWith("file attached:");
-            const showText = Boolean(parsed.text && !hidePlaceholderText);
-            const firstUrl = showText
-              ? extractFirstUrl(String(parsed.text ?? ""))
-              : null;
-            const mediaOnly = hasMedia && !showText;
-            const senderLabel =
-              message.senderName?.trim() ||
-              (Number.isFinite(senderId) && resolveUserName
-                ? resolveUserName(senderId)
-                : "") ||
-              "Unknown user";
-            const avatarUrl = String(message.senderProfilePicture ?? "").trim();
-            const avatarFallback = getInitials(senderLabel);
-            const repliedMessage = parsed.replyToId
-              ? messageById.get(parsed.replyToId)
-              : undefined;
-            const repliedParsed = repliedMessage
-              ? parseMessage(String(repliedMessage.content ?? ""))
-              : null;
-            const repliedSenderLabel = repliedMessage
-              ? String(
-                  repliedMessage.senderName?.trim() ||
-                    (Number.isFinite(Number(repliedMessage.senderId)) &&
-                    resolveUserName
-                      ? resolveUserName(Number(repliedMessage.senderId))
-                      : "") ||
-                    "",
-                ).trim()
-              : "";
-            const replySnippet =
-              parsed.replyPreview ||
-              repliedParsed?.text?.trim() ||
-              (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
-            const canJumpToReply =
-              parsed.replyToId != null && Number.isFinite(parsed.replyToId);
-            return (
-              <div
-                key={message.id}
-                data-message-id={Number(message.id)}
-                className={`group flex w-full ${mine ? "justify-end" : "justify-start"} ${
-                  highlightedMessageId === Number(message.id)
-                    ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background"
-                    : ""
-                }`}
-              >
-                <div
-                  className={`flex max-w-[88%] items-end gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
-                    {avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={avatarUrl}
-                        alt={senderLabel}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="select-none">{avatarFallback}</span>
-                    )}
-                  </div>
+  const handlePickReaction = async (message: ChatMessage, emoji: EmojiPick) => {
+    if (!emoji.native) return;
+    await Promise.resolve(onReact(Number(message.id), emoji.native));
+    setPickerMessageId(null);
+  };
 
+  return (
+    <>
+      <MessageScroller className="h-105 rounded-xl border border-border">
+        <MessageScrollerViewport
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+            onScrollChange(dist < 90);
+          }}
+        >
+          <MessageScrollerContent>
+            {messagesWithSeparators.map((item, idx) => {
+              if (item.type === "separator") {
+                return (
+                  <MessageScrollerItem key={`sep-${item.label}-${idx}`}>
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-[11px] text-muted-foreground">{item.label}</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  </MessageScrollerItem>
+                );
+              }
+
+              const message = item.message;
+              const senderId = Number(message?.senderId ?? NaN);
+              const mine = isMessageFromCurrentUser({ message, currentUserId, mode, directPeerUserId });
+              const reactions: ChatReaction[] = Array.isArray(message?.reactions)
+                ? message.reactions
+                : [];
+              const hasImage = Boolean(message.mediaUrl && message.contentType === "image");
+              const hasVideo = Boolean(message.mediaUrl && message.contentType === "video");
+              const hasMedia = hasImage || hasVideo;
+              const parsed = parseMessage(String(message.content ?? ""));
+              const normalizedText = String(parsed.text ?? "").trim().toLowerCase();
+              const hidePlaceholderText =
+                normalizedText === "attachment" || normalizedText.startsWith("file attached:");
+              const showText = Boolean(parsed.text && !hidePlaceholderText);
+              const firstUrl = showText ? extractFirstUrl(String(parsed.text ?? "")) : null;
+              const mediaOnly = hasMedia && !showText;
+              const senderLabel =
+                message.senderName?.trim() ||
+                (Number.isFinite(senderId) && resolveUserName
+                  ? resolveUserName(senderId)
+                  : "") ||
+                "Unknown user";
+              const avatarUrl = String(message.senderProfilePicture ?? "").trim();
+              const avatarFallback = getInitials(senderLabel);
+              const repliedMessage = parsed.replyToId
+                ? messageById.get(parsed.replyToId)
+                : undefined;
+              const repliedParsed = repliedMessage
+                ? parseMessage(String(repliedMessage.content ?? ""))
+                : null;
+              const repliedSenderLabel = repliedMessage
+                ? String(
+                    repliedMessage.senderName?.trim() ||
+                      (Number.isFinite(Number(repliedMessage.senderId)) && resolveUserName
+                        ? resolveUserName(Number(repliedMessage.senderId))
+                        : "") ||
+                      "",
+                  ).trim()
+                : "";
+              const replySnippet =
+                parsed.replyPreview ||
+                repliedParsed?.text?.trim() ||
+                (parsed.replyToId ? `Message #${parsed.replyToId}` : "");
+              const canJumpToReply =
+                parsed.replyToId != null && Number.isFinite(parsed.replyToId);
+
+              return (
+                <MessageScrollerItem
+                  key={message.id}
+                  messageId={String(message.id)}
+                  className={
+                    highlightedMessageId === Number(message.id)
+                      ? "rounded-xl ring-2 ring-primary/60 ring-offset-2 ring-offset-background"
+                      : ""
+                  }
+                >
                   <div
-                    className={`space-y-2 rounded-xl px-3 py-2 ${
-                      mediaOnly
-                        ? "bg-transparent px-0 py-0 shadow-none"
-                        : mine
-                          ? "bg-primary/10 text-primary"
-                          : hasMedia
-                            ? "bg-secondary text-foreground"
-                            : "border border-border bg-secondary text-foreground"
-                    }`}
+                    data-message-id={Number(message.id)}
+                    className="group flex w-full"
                   >
-                    {showSenderName ? (
-                      <p className="text-xs opacity-80">{senderLabel}</p>
-                    ) : null}
-                    {replySnippet ? (
-                      canJumpToReply ? (
+                    <Message align={mine ? "end" : "start"} className="max-w-[88%] flex-none" style={mine ? { marginLeft: "auto" } : {}}>
+                      <MessageAvatar>
+                        <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
+                          {avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={avatarUrl}
+                              alt={senderLabel}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="select-none">{avatarFallback}</span>
+                          )}
+                        </div>
+                      </MessageAvatar>
+
+                      <MessageContent>
+                        {showSenderName ? (
+                          <div className="px-1 text-xs text-muted-foreground/80">{senderLabel}</div>
+                        ) : null}
+
+                        <Bubble
+                          className={
+                            mediaOnly
+                              ? "bg-transparent px-0 py-0 shadow-none"
+                              : mine
+                                ? "bg-primary/10 text-primary"
+                                : hasMedia
+                                  ? "bg-secondary text-foreground"
+                                  : "border border-border bg-secondary text-foreground"
+                          }
+                        >
+                          {replySnippet ? (
+                            canJumpToReply ? (
+                              <button
+                                type="button"
+                                onClick={() => jumpToMessage(parsed.replyToId)}
+                                className="mb-2 w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground"
+                                aria-label="Jump to replied message"
+                              >
+                                {repliedSenderLabel ? (
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {repliedSenderLabel}
+                                  </p>
+                                ) : null}
+                                <p>{replySnippet}</p>
+                              </button>
+                            ) : (
+                              <div className="mb-2 w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground">
+                                {repliedSenderLabel ? (
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {repliedSenderLabel}
+                                  </p>
+                                ) : null}
+                                <p>{replySnippet}</p>
+                              </div>
+                            )
+                          ) : null}
+
+                          {hasImage ? (
+                            <button
+                              type="button"
+                              className="mt-1 block w-full cursor-zoom-in"
+                              onClick={() => setLightboxUrl(message.mediaUrl ?? "")}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={message.mediaUrl ?? ""}
+                                alt={message.content ?? "Image"}
+                                className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
+                              />
+                            </button>
+                          ) : null}
+
+                          {hasVideo ? (
+                            <video
+                              src={message.mediaUrl ?? ""}
+                              controls
+                              className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full" : "max-h-64 w-full"}`}
+                            />
+                          ) : null}
+
+                          {editingId === Number(message.id) ? (
+                            <div className="space-y-2">
+                              <textarea
+                                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                                rows={3}
+                                value={editDraft}
+                                onChange={(e) => setEditDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setEditingId(null);
+                                    setEditDraft("");
+                                  }
+                                  if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
+                                    e.preventDefault();
+                                    const t = editDraft.trim();
+                                    if (t) onEdit?.(Number(message.id), t);
+                                    setEditingId(null);
+                                    setEditDraft("");
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                                  onClick={() => {
+                                    const t = editDraft.trim();
+                                    if (t) onEdit?.(Number(message.id), t);
+                                    setEditingId(null);
+                                    setEditDraft("");
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-secondary"
+                                  onClick={() => {
+                                    setEditingId(null);
+                                    setEditDraft("");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : showText ? (
+                            <BubbleContent>{parsed.text}</BubbleContent>
+                          ) : null}
+
+                          {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
+                        </Bubble>
+
+                        <MessageFooter>
+                          <span>{formatTime(message.createdAt)}</span>
+                          {message.localStatus === "sending" ? (
+                            <span className="animate-pulse">Sending...</span>
+                          ) : null}
+                        </MessageFooter>
+
+                        {reactions.length ? (
+                          <div className="flex flex-wrap gap-1.5 px-1">
+                            {reactions.map((reaction) => (
+                              <button
+                                key={`r-${message.id}-${reaction.emoji}`}
+                                type="button"
+                                className="flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:bg-secondary"
+                                onClick={() => onReact(Number(message.id), reaction.emoji)}
+                              >
+                                <span>{reaction.emoji}</span>
+                                <span>{reaction.count}</span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </MessageContent>
+                    </Message>
+
+                    {/* Action buttons (show on hover) */}
+                    <div
+                      data-reaction-picker-root="true"
+                      className={`relative flex flex-shrink-0 items-end gap-1 self-end pb-5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${mine ? "order-first mr-2" : "ml-2"}`}
+                    >
+                      {onEdit && !hasMedia && editingId !== Number(message.id) ? (
                         <button
                           type="button"
-                          onClick={() => jumpToMessage(parsed.replyToId)}
-                          className="w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground"
-                          aria-label="Jump to replied message"
-                          title="Jump to replied message"
-                        >
-                          {repliedSenderLabel ? (
-                            <p
-                              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                            >
-                              {repliedSenderLabel}
-                            </p>
-                          ) : null}
-                          <p>{replySnippet}</p>
-                        </button>
-                      ) : (
-                        <div
-                          className="w-full border-l-2 border-primary/40 pl-2 text-left text-xs text-muted-foreground"
-                        >
-                          {repliedSenderLabel ? (
-                            <p
-                              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                            >
-                              {repliedSenderLabel}
-                            </p>
-                          ) : null}
-                          <p>{replySnippet}</p>
-                        </div>
-                      )
-                    ) : null}
-                    {hasImage ? (
-                      <button
-                        type="button"
-                        className="mt-2 block w-full cursor-zoom-in"
-                        onClick={() => setLightboxUrl(message.mediaUrl ?? "")}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={message.mediaUrl ?? ""}
-                          alt={message.content ?? "Image"}
-                          className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full object-contain" : "max-h-64 w-full object-cover"}`}
-                        />
-                      </button>
-                    ) : null}
-                    {hasVideo ? (
-                      <video
-                        src={message.mediaUrl ?? ""}
-                        controls
-                        className={`rounded-lg ${mediaOnly ? "max-h-105 w-auto max-w-full" : "max-h-64 w-full"}`}
-                      />
-                    ) : null}
-                    {editingId === Number(message.id) ? (
-                      <div className="space-y-2">
-                        <textarea
-                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                          rows={3}
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") { setEditingId(null); setEditDraft(""); }
-                            if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
-                              e.preventDefault();
-                              const t = editDraft.trim();
-                              if (t) onEdit?.(Number(message.id), t);
-                              setEditingId(null); setEditDraft("");
-                            }
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
+                          onClick={() => {
+                            setEditingId(Number(message.id));
+                            setEditDraft(String(parsed.text ?? ""));
+                            setPickerMessageId(null);
                           }}
-                          autoFocus
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                            onClick={() => { const t = editDraft.trim(); if (t) onEdit?.(Number(message.id), t); setEditingId(null); setEditDraft(""); }}
-                          >Save</button>
-                          <button
-                            type="button"
-                            className="rounded-lg border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-secondary"
-                            onClick={() => { setEditingId(null); setEditDraft(""); }}
-                          >Cancel</button>
-                        </div>
-                      </div>
-                    ) : showText ? (
-                      <p className="whitespace-pre-wrap text-sm">
-                        {parsed.text}
-                      </p>
-                    ) : null}
-                    {firstUrl ? <OpenGraphPreview url={firstUrl} /> : null}
-                    <div
-                      className={`mt-1 flex items-center gap-2 text-[10px] ${mine && !mediaOnly ? "text-primary/70" : "text-muted-foreground"}`}
-                    >
-                      <span>{formatTime(message.createdAt)}</span>
-                      {message.localStatus === "sending" ? (
-                        <span className="animate-pulse">Sending...</span>
+                          aria-label="Edit message"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       ) : null}
+
+                      {onDelete ? (
+                        <button
+                          type="button"
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+                          onClick={() => {
+                            setDeletingId(Number(message.id));
+                            setDeletingPreview((message.content ?? "").slice(0, 80));
+                          }}
+                          aria-label="Delete message"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+
+                      {onReply ? (
+                        <button
+                          type="button"
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
+                          onClick={() => {
+                            const defaultPreview =
+                              parsed.text?.trim() || (hasMedia ? "Media message" : "Message");
+                            onReply({
+                              messageId: Number(message.id),
+                              preview: defaultPreview.slice(0, 160),
+                            });
+                          }}
+                          aria-label="Reply to message"
+                        >
+                          <CornerUpLeft className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs shadow-sm hover:bg-secondary"
+                          onClick={() => {
+                            setPickerMessageId((current) =>
+                              current === String(message.id) ? null : String(message.id),
+                            );
+                          }}
+                          aria-label="Add reaction"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+
+                        {pickerMessageId === String(message.id) ? (
+                          <div
+                            className={`absolute bottom-full mb-2 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
+                          >
+                            {reactions.length ? (
+                              <div className="max-w-72 border-b border-border px-3 py-2 text-xs">
+                                <p className="mb-1 font-semibold text-foreground">Reactions</p>
+                                <div className="space-y-1.5">
+                                  {reactions.map((reaction) => {
+                                    const reactionUsers =
+                                      Array.isArray(reaction.userIds) && reaction.userIds.length
+                                        ? reaction.userIds.map((uid) =>
+                                            resolveUserName ? resolveUserName(uid) : `User ${uid}`,
+                                          )
+                                        : [];
+                                    return (
+                                      <div
+                                        key={`detail-${message.id}-${reaction.emoji}`}
+                                        className="rounded-md bg-secondary/50 px-2 py-1"
+                                      >
+                                        <p className="font-medium">
+                                          {reaction.emoji} {reaction.count}
+                                        </p>
+                                        {reactionUsers.length ? (
+                                          <p className="truncate text-muted-foreground">
+                                            {reactionUsers.join(", ")}
+                                          </p>
+                                        ) : (
+                                          <p className="text-muted-foreground">No user details</p>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+                            <Picker
+                              data={emojiData}
+                              onEmojiSelect={(emoji: EmojiPick) =>
+                                void handlePickReaction(message, emoji)
+                              }
+                              previewPosition="none"
+                              skinTonePosition="none"
+                              maxFrequentRows={1}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div
-                  data-reaction-picker-root="true"
-                  className={`relative flex items-end gap-1 ${mine ? "mr-0 ml-2" : "ml-0 mr-2"} self-end opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100`}
-                >
-                  {onEdit && !hasMedia && editingId !== Number(message.id) ? (
-                    <button
-                      type="button"
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
-                      onClick={() => { setEditingId(Number(message.id)); setEditDraft(String(parsed.text ?? "")); setPickerMessageId(null); }}
-                      aria-label="Edit message"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                  {onDelete ? (
-                    <button
-                      type="button"
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
-                      onClick={() => {
-                        setDeletingId(Number(message.id));
-                        setDeletingPreview((message.content ?? "").slice(0, 80));
-                      }}
-                      aria-label="Delete message"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                  {onReply ? (
-                    <button
-                      type="button"
-                      className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-secondary"
-                      onClick={() => {
-                        const defaultPreview =
-                          parsed.text?.trim() ||
-                          (hasMedia ? "Media message" : "Message");
-                        onReply({
-                          messageId: Number(message.id),
-                          preview: defaultPreview.slice(0, 160),
-                        });
-                      }}
-                      aria-label="Reply to message"
-                    >
-                      <CornerUpLeft className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="flex h-7 min-w-7 items-center justify-center rounded-full border border-border bg-background px-1.5 text-xs shadow-sm hover:bg-secondary"
-                    onClick={() => {
-                      setPickerMessageId((current) =>
-                        current === String(message.id)
-                          ? null
-                          : String(message.id),
-                      );
-                    }}
-                    aria-label="Add custom reaction"
-                  >
-                    {reactions.length ? (
-                      <span className="flex items-center gap-1">
-                        <span>{reactions[0].emoji}</span>
-                        <span>
-                          {reactions.reduce(
-                            (sum, reaction) =>
-                              sum + Number(reaction.count ?? 0),
-                            0,
-                          )}
-                        </span>
-                      </span>
-                    ) : (
-                      <Plus className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  {pickerMessageId === String(message.id) ? (
-                    <div
-                      className={`absolute bottom-full mb-2 z-[1300] overflow-hidden rounded-xl border border-border bg-card shadow-lg ${mine ? "right-0" : "left-0"}`}
-                    >
-                      {reactions.length ? (
-                        <div className="max-w-72 border-b border-border px-3 py-2 text-xs">
-                          <p className="mb-1 font-semibold text-foreground">
-                            Reactions
-                          </p>
-                          <div className="space-y-1.5">
-                            {reactions.map((reaction) => {
-                              const users =
-                                Array.isArray(reaction.userIds) &&
-                                reaction.userIds.length
-                                  ? reaction.userIds.map((userId) =>
-                                      resolveUserName
-                                        ? resolveUserName(userId)
-                                        : `User ${userId}`,
-                                    )
-                                  : [];
-                              return (
-                                <div
-                                  key={`detail-${message.id}-${reaction.emoji}`}
-                                  className="rounded-md bg-secondary/50 px-2 py-1"
-                                >
-                                  <p className="font-medium">
-                                    {reaction.emoji} {reaction.count}
-                                  </p>
-                                  {users.length ? (
-                                    <p className="truncate text-muted-foreground">
-                                      {users.join(", ")}
-                                    </p>
-                                  ) : (
-                                    <p className="text-muted-foreground">
-                                      No user details
-                                    </p>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
-                      <Picker
-                        data={emojiData}
-                        onEmojiSelect={(emoji: EmojiPick) =>
-                          void handlePickReaction(message, emoji)
-                        }
-                        previewPosition="none"
-                        skinTonePosition="none"
-                        maxFrequentRows={1}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-          {!messages.length ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <p className="text-sm font-medium">{emptyLabel}</p>
-              <p className="text-xs text-muted-foreground">Be the first to send a message.</p>
-            </div>
-          ) : null}
-        </div>
-      </ScrollArea>
+                </MessageScrollerItem>
+              );
+            })}
 
-      {(!isNearBottom || newIncomingCount > 0) ? (
-        <button
-          type="button"
-          onClick={() => {
-            scrollToBottomWithRetry("smooth");
-            isNearBottomRef.current = true;
-            setIsNearBottom(true);
-            setLastSeenMessageId(lastMessageIdRef.current);
-          }}
-          className="absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-md hover:bg-primary/90"
-          aria-label="Scroll to newest message"
-        >
-          <ArrowDown className="h-4 w-4" />
-          {newIncomingCount > 0 ? (
-            <>
-              <span>New</span>
-              <span className="rounded-full bg-black/20 px-2 py-0.5">
-                {downArrowLabel}
-              </span>
-            </>
-          ) : null}
-        </button>
-      ) : null}
-      <AlertDialog open={deletingId !== null} onOpenChange={(open) => { if (!open) setDeletingId(null); }}>
+            {!messages.length ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm font-medium">{emptyLabel}</p>
+                <p className="text-xs text-muted-foreground">Be the first to send a message.</p>
+              </div>
+            ) : null}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+
+        <MessageScrollerButton newCount={newIncomingCount} />
+      </MessageScroller>
+
+      <AlertDialog
+        open={deletingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingId(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete message?</AlertDialogTitle>
             <AlertDialogDescription>
               {deletingPreview ? (
-                <span className="block rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground italic mb-2">
-                  &ldquo;{deletingPreview}{deletingPreview.length >= 80 ? "…" : ""}&rdquo;
+                <span className="mb-2 block rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground italic">
+                  &ldquo;{deletingPreview}
+                  {deletingPreview.length >= 80 ? "…" : ""}&rdquo;
                 </span>
               ) : null}
               This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose
-              className="rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-secondary"
-            >
+            <AlertDialogClose className="rounded-lg border border-border bg-background px-4 py-2 text-sm hover:bg-secondary">
               Cancel
             </AlertDialogClose>
             <button
@@ -795,7 +662,12 @@ export function ThreadMessageList({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={lightboxUrl !== null} onOpenChange={(open) => { if (!open) setLightboxUrl(null); }}>
+      <Dialog
+        open={lightboxUrl !== null}
+        onOpenChange={(open) => {
+          if (!open) setLightboxUrl(null);
+        }}
+      >
         <DialogContent className="max-w-3xl border-none bg-black/90 p-2">
           {lightboxUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -807,6 +679,78 @@ export function ThreadMessageList({
           ) : null}
         </DialogContent>
       </Dialog>
+    </>
+  );
+}
+
+export function ThreadMessageList(props: ThreadMessageListProps) {
+  const { messages, currentUserId, openScrollKey } = props;
+
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const isNearBottomRef = useRef(true);
+  const lastSeenMessageIdRef = useRef<string | null>(null);
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  // Track last seen for incoming count
+  useEffect(() => {
+    if (!messages.length) {
+      lastMessageIdRef.current = null;
+      lastSeenMessageIdRef.current = null;
+      return;
+    }
+    const latest = messages[messages.length - 1];
+    const latestId = String(latest.id ?? "");
+    if (!latestId) return;
+    if (!lastMessageIdRef.current) {
+      lastMessageIdRef.current = latestId;
+      lastSeenMessageIdRef.current = latestId;
+      return;
+    }
+    if (lastMessageIdRef.current === latestId) return;
+    lastMessageIdRef.current = latestId;
+    if (isNearBottomRef.current) {
+      lastSeenMessageIdRef.current = latestId;
+    }
+  }, [messages]);
+
+  const handleScrollChange = useCallback((atBottom: boolean) => {
+    isNearBottomRef.current = atBottom;
+    setIsNearBottom(atBottom);
+    if (atBottom) {
+      lastSeenMessageIdRef.current = lastMessageIdRef.current;
+    }
+  }, []);
+
+  const newIncomingCount = useMemo(() => {
+    if (isNearBottom) return 0;
+    if (!messages.length) return 0;
+    const lastSeenId = lastSeenMessageIdRef.current;
+    if (!lastSeenId) return 0;
+    const lastSeenIdx = messages.findIndex((m) => String(m.id ?? "") === lastSeenId);
+    const startIdx = lastSeenIdx >= 0 ? lastSeenIdx + 1 : 0;
+    const unseen = messages.slice(startIdx);
+    let count = 0;
+    for (const msg of unseen) {
+      const senderId = Number(msg?.senderId ?? NaN);
+      const mine =
+        currentUserId != null && Number.isFinite(senderId) ? senderId === currentUserId : false;
+      if (!mine) count += 1;
+    }
+    return Math.min(count, 99);
+    // openScrollKey not needed here but kept to avoid stale lastSeen on thread switch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNearBottom, messages, currentUserId, openScrollKey]);
+
+  return (
+    <div className="relative">
+      <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+        <ThreadMessageListInner
+          {...props}
+          newIncomingCount={newIncomingCount}
+          isNearBottom={isNearBottom}
+          onScrollChange={handleScrollChange}
+        />
+      </MessageScrollerProvider>
     </div>
   );
 }

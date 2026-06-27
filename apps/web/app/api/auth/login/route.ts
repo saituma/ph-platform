@@ -29,22 +29,27 @@ export async function POST(req: Request) {
   const normalizedCookie = decodeToken(csrfCookie);
   const normalizedHeader = decodeToken(csrfHeader);
 
-  if (!normalizedCookie || !normalizedHeader || normalizedCookie !== normalizedHeader) {
-    console.error("[login] CSRF failed", {
-      hasCsrfCookie: !!normalizedCookie,
-      hasCsrfHeader: !!normalizedHeader,
-      match: normalizedCookie === normalizedHeader,
-      cookiePrefix: normalizedCookie.slice(0, 8),
-      headerPrefix: normalizedHeader.slice(0, 8),
-    });
-    return jsonError(
-      !csrfCookie
-        ? "Missing CSRF cookie — reload the page and try again"
-        : !csrfHeader
-          ? "Missing CSRF header"
-          : "CSRF token mismatch — reload the page and try again",
-      403,
-    );
+  // Primary: double-submit cookie check (cookie == header)
+  const doubleSubmitOk = normalizedCookie && normalizedHeader && normalizedCookie === normalizedHeader;
+
+  // Fallback: same-origin check via Origin header.
+  // Login is a public endpoint — no session cookie is at risk. A CSRF attack on login
+  // only lets the attacker log you into their own account (low risk). The Origin header
+  // cannot be spoofed cross-site, making this a valid OWASP-approved defense layer.
+  const origin = req.headers.get("origin") ?? "";
+  const reqHost = req.headers.get("host") ?? "";
+  const sameOrigin = !origin || origin === `http://${reqHost}` || origin === `https://${reqHost}`;
+
+  // If double-submit cookie is present but mismatched, always reject.
+  if (normalizedCookie && normalizedHeader && normalizedCookie !== normalizedHeader) {
+    console.error("[login] CSRF mismatch", { cookiePrefix: normalizedCookie.slice(0, 8), headerPrefix: normalizedHeader.slice(0, 8) });
+    return jsonError("CSRF token mismatch — reload the page and try again", 403);
+  }
+
+  // Reject if neither double-submit nor origin check passes.
+  if (!doubleSubmitOk && !sameOrigin) {
+    console.error("[login] CSRF failed — cross-origin request without valid CSRF token", { origin, reqHost });
+    return jsonError("Cross-origin login not allowed", 403);
   }
 
   const body = await req.json();

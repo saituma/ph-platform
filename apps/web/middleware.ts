@@ -52,6 +52,7 @@ const applyCsrfCookie = (req: NextRequest, response: NextResponse) => {
     secure,
     sameSite: "lax",
     path: "/",
+    maxAge: 60 * 60 * 24, // 24 h — session cookies vanish on browser close and break login
   });
   return response;
 };

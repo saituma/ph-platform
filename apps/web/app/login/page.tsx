@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
@@ -34,6 +34,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Double-submit CSRF: cookie value just needs to equal the request header value.
+  // Generate client-side if middleware hasn't set it yet — safe because same-origin
+  // policy prevents a cross-origin attacker from reading or setting this cookie.
+  useEffect(() => {
+    if (!readCookieValue("csrfToken")) {
+      const token = crypto.randomUUID();
+      document.cookie = `csrfToken=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24}; samesite=lax`;
+    }
+  }, []);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();

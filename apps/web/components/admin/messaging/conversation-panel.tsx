@@ -15,8 +15,18 @@ import { EmptyState } from "../empty-state";
 import { Badge } from "../../ui/badge";
 import { Check, CheckCheck, Image as ImageIcon, Paperclip, Pencil, Play, Send, Smile, Trash2, Video } from "lucide-react";
 import { COMMON_REACTION_EMOJIS } from "./reaction-options";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "../../ui/message-scroller";
+import { Message, MessageContent } from "../../ui/message";
+import { Bubble } from "../../ui/bubble";
 
-type Message = {
+type ConversationMessage = {
   id: string;
   author: string;
   time: string;
@@ -34,7 +44,7 @@ export type ComposerAttachment = {
 
 type ConversationPanelProps = {
   name?: string | null;
-  messages: Message[];
+  messages: ConversationMessage[];
   profile?: {
     tier: string;
     status: string;
@@ -78,7 +88,6 @@ export function ConversationPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -168,7 +177,10 @@ export function ConversationPanel({
       }
       const mimeType = pickMimeType();
       const bitrateConfig = { videoBitsPerSecond: 3_500_000, audioBitsPerSecond: 256_000 };
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType, ...bitrateConfig } : bitrateConfig);
+      const recorder = new MediaRecorder(
+        stream,
+        mimeType ? { mimeType, ...bitrateConfig } : bitrateConfig,
+      );
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) mediaChunksRef.current.push(event.data);
@@ -210,14 +222,13 @@ export function ConversationPanel({
   const sendRecording = () => {
     if (!recordedBlob || !recordMode) return;
     const mimeType = recordedBlob.type || "video/webm";
-    const extension = mimeType.includes("mp4")
-      ? "mp4"
-      : "webm";
+    const extension = mimeType.includes("mp4") ? "mp4" : "webm";
     const fileName = `recording-${Date.now()}.${extension}`;
     const file = new File([recordedBlob], fileName, { type: mimeType });
     setAttachment({ file, kind: recordMode });
     closeRecorder();
   };
+
   useEffect(() => {
     if (!onTypingChange) return;
     if (draft.trim().length > 0) {
@@ -238,15 +249,6 @@ export function ConversationPanel({
     }
   }, [draft, onTypingChange]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !messages.length) return;
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (dist < 120) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [messages.length]);
-
   const submitDraft = () => {
     const text = draft.trim();
     if (!text && !attachment) return;
@@ -255,11 +257,13 @@ export function ConversationPanel({
     setAttachment(null);
   };
 
-  const isAudioAttachment = (message: Message) => {
+  const isAudioAttachment = (message: ConversationMessage) => {
     if (message.contentType === "audio") return true;
     if (!message.mediaUrl) return false;
     const lower = message.mediaUrl.toLowerCase();
-    return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) => lower.includes(ext));
+    return [".m4a", ".aac", ".mp3", ".wav", ".ogg", ".webm", ".caf"].some((ext) =>
+      lower.includes(ext),
+    );
   };
 
   if (!name) {
@@ -273,6 +277,7 @@ export function ConversationPanel({
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-4 lg:h-[calc(100vh-16rem)] lg:min-h-[34rem]">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-secondary/50 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-foreground">{name}</p>
@@ -289,233 +294,275 @@ export function ConversationPanel({
           ))}
         </div>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto rounded-2xl border border-border bg-background/80 p-3 pr-2 dark:bg-black/60">
-        <div className="space-y-3 pb-[calc(11rem+env(safe-area-inset-bottom))] lg:pb-0">
-        {messages.map((message) => {
-          const isCoach = message.author === "Coach";
-          const normalizedText = String(message.text ?? "").trim().toLowerCase();
-          const shouldHideText =
-            normalizedText === "attachment" ||
-            normalizedText.startsWith("file attached:");
-          const isEditing = editingMessageId === message.id;
-          return (
-            <div
-              key={message.id}
-              className={`relative overflow-visible flex ${isCoach ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`group relative rounded-2xl p-3 text-sm ${
-                  isEditing
-                    ? "w-full max-w-[86%] border border-primary/30 bg-background shadow-sm"
-                    : `max-w-[75%] shadow-sm ${
-                        isCoach
-                          ? "bg-primary/10 text-foreground dark:bg-primary/20"
-                          : "bg-white text-foreground dark:bg-slate-900"
-                      }`
-                }`}
-              >
-                {(onDeleteMessage || onEditMessage) && !isEditing ? (
-                  <div className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${isCoach ? "right-0" : "left-0"}`}>
-                    {onEditMessage && !message.mediaUrl ? (
-                      <button
-                        type="button"
-                        title="Edit message"
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-foreground"
-                        onClick={() => {
-                          setEditingMessageId(message.id);
-                          setEditDraft(message.text ?? "");
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                    ) : null}
-                    {onDeleteMessage ? (
-                      <button
-                        type="button"
-                        title="Delete message"
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-red-600"
-                        onClick={() => {
-                          setDeletingMessageId(message.id);
-                          setDeletingMessagePreview((message.text ?? "").slice(0, 80));
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-                <p className="text-xs text-muted-foreground">
-                  {isCoach ? message.author : `${message.author} • ${message.time}`}
-                </p>
-                {message.mediaUrl && message.contentType === "image" ? (
-                  <button
-                    type="button"
-                    className="mt-2 block w-full"
-                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "image" })}
-                  >
-                    <img
-                      src={message.mediaUrl}
-                      alt={message.text || "Image attachment"}
-                      className="max-h-72 w-full rounded-xl object-cover"
-                    />
-                  </button>
-                ) : null}
-                {message.mediaUrl && message.contentType === "video" ? (
-                  <button
-                    type="button"
-                    className="mt-2 block w-full"
-                    onClick={() => setActiveMedia({ url: message.mediaUrl ?? "", type: "video" })}
-                  >
-                    <div className="relative">
-                      <video
-                        src={message.mediaUrl}
-                        className="max-h-72 w-full rounded-xl object-cover"
-                        muted
-                        playsInline
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-                          <Play className="h-5 w-5 text-white" />
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                ) : null}
-                {message.mediaUrl && message.contentType !== "image" && message.contentType !== "video" && !isAudioAttachment(message) ? (
-                  <a
-                    href={message.mediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex rounded-xl bg-background px-3 py-2 text-xs text-primary underline"
-                  >
-                    Open attachment
-                  </a>
-                ) : null}
-                {isAudioAttachment(message) ? (
-                  <p className="mt-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                    Voice messages are disabled.
+
+      {/* Message list */}
+      <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+        <MessageScroller className="flex-1 rounded-2xl border border-border bg-background/80 dark:bg-black/60">
+          <MessageScrollerViewport>
+            <MessageScrollerContent className="pb-[calc(11rem+env(safe-area-inset-bottom))] lg:pb-3">
+              {messages.map((message) => {
+                const isCoach = message.author === "Coach";
+                const normalizedText = String(message.text ?? "").trim().toLowerCase();
+                const shouldHideText =
+                  normalizedText === "attachment" ||
+                  normalizedText.startsWith("file attached:");
+                const isEditing = editingMessageId === message.id;
+
+                return (
+                  <MessageScrollerItem key={message.id} messageId={message.id}>
+                    <Message align={isCoach ? "end" : "start"}>
+                      <MessageContent>
+                        <Bubble
+                          className={`relative group shadow-sm ${
+                            isEditing
+                              ? "w-full max-w-[86%] border border-primary/30 bg-background"
+                              : `max-w-[75%] ${
+                                  isCoach
+                                    ? "bg-primary/10 text-foreground dark:bg-primary/20"
+                                    : "bg-white text-foreground dark:bg-slate-900"
+                                }`
+                          }`}
+                        >
+                          {(onDeleteMessage || onEditMessage) && !isEditing ? (
+                            <div
+                              className={`absolute -top-7 flex items-center gap-1 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${isCoach ? "right-0" : "left-0"}`}
+                            >
+                              {onEditMessage && !message.mediaUrl ? (
+                                <button
+                                  type="button"
+                                  title="Edit message"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-foreground"
+                                  onClick={() => {
+                                    setEditingMessageId(message.id);
+                                    setEditDraft(message.text ?? "");
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              ) : null}
+                              {onDeleteMessage ? (
+                                <button
+                                  type="button"
+                                  title="Delete message"
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-background border border-border text-muted-foreground shadow hover:text-red-600"
+                                  onClick={() => {
+                                    setDeletingMessageId(message.id);
+                                    setDeletingMessagePreview((message.text ?? "").slice(0, 80));
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
+
+                          <p className="text-xs text-muted-foreground">
+                            {isCoach ? message.author : `${message.author} • ${message.time}`}
+                          </p>
+
+                          {message.mediaUrl && message.contentType === "image" ? (
+                            <button
+                              type="button"
+                              className="mt-2 block w-full"
+                              onClick={() =>
+                                setActiveMedia({ url: message.mediaUrl ?? "", type: "image" })
+                              }
+                            >
+                              <img
+                                src={message.mediaUrl}
+                                alt={message.text || "Image attachment"}
+                                className="max-h-72 w-full rounded-xl object-cover"
+                              />
+                            </button>
+                          ) : null}
+
+                          {message.mediaUrl && message.contentType === "video" ? (
+                            <button
+                              type="button"
+                              className="mt-2 block w-full"
+                              onClick={() =>
+                                setActiveMedia({ url: message.mediaUrl ?? "", type: "video" })
+                              }
+                            >
+                              <div className="relative">
+                                <video
+                                  src={message.mediaUrl}
+                                  className="max-h-72 w-full rounded-xl object-cover"
+                                  muted
+                                  playsInline
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                                    <Play className="h-5 w-5 text-white" />
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          ) : null}
+
+                          {message.mediaUrl &&
+                          message.contentType !== "image" &&
+                          message.contentType !== "video" &&
+                          !isAudioAttachment(message) ? (
+                            <a
+                              href={message.mediaUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex rounded-xl bg-background px-3 py-2 text-xs text-primary underline"
+                            >
+                              Open attachment
+                            </a>
+                          ) : null}
+
+                          {isAudioAttachment(message) ? (
+                            <p className="mt-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                              Voice messages are disabled.
+                            </p>
+                          ) : null}
+
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">
+                                Editing message
+                              </p>
+                              <Textarea
+                                className="min-h-[60px] w-full resize-none rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-0"
+                                value={editDraft}
+                                onChange={(e) => setEditDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Escape") {
+                                    setEditingMessageId(null);
+                                    setEditDraft("");
+                                  }
+                                  if (
+                                    e.key === "Enter" &&
+                                    !e.shiftKey &&
+                                    !e.altKey &&
+                                    !e.metaKey &&
+                                    !e.ctrlKey
+                                  ) {
+                                    e.preventDefault();
+                                    const trimmed = editDraft.trim();
+                                    if (trimmed) onEditMessage?.(message.id, trimmed);
+                                    setEditingMessageId(null);
+                                    setEditDraft("");
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setEditingMessageId(null);
+                                    setEditDraft("");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                                  onClick={() => {
+                                    const trimmed = editDraft.trim();
+                                    if (trimmed) onEditMessage?.(message.id, trimmed);
+                                    setEditingMessageId(null);
+                                    setEditDraft("");
+                                  }}
+                                >
+                                  Save
+                                </button>
+                              </div>
+                              <p className="text-right text-[10px] text-muted-foreground/60">
+                                Enter to save · Esc to cancel
+                              </p>
+                            </div>
+                          ) : shouldHideText ? null : (
+                            <p className="mt-2 text-foreground">{message.text}</p>
+                          )}
+
+                          {message.reactions?.length ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {message.reactions.map((reaction) => (
+                                <button
+                                  type="button"
+                                  key={reaction.emoji}
+                                  className={`rounded-full border px-2 py-1 text-xs ${
+                                    reaction.reactedByMe
+                                      ? "border-primary bg-primary/10 text-primary"
+                                      : "border-border bg-background"
+                                  }`}
+                                  onClick={() => onReact?.(message.id, reaction.emoji)}
+                                >
+                                  {reaction.emoji} {reaction.count}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {!isEditing ? (
+                            <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
+                              {COMMON_REACTION_EMOJIS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
+                                  onClick={() => onReact?.(message.id, emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {isCoach ? (
+                            <div className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
+                              {message.status === "read" ? (
+                                <CheckCheck className="h-3.5 w-3.5 text-sky-500" />
+                              ) : message.status === "delivered" ? (
+                                <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5 text-muted-foreground" />
+                              )}
+                              <span className="text-[11px]">{message.time}</span>
+                            </div>
+                          ) : null}
+                        </Bubble>
+                      </MessageContent>
+                    </Message>
+                  </MessageScrollerItem>
+                );
+              })}
+
+              {messages.length === 0 ? (
+                <div className="flex h-48 flex-col items-center justify-center gap-2">
+                  <p className="text-sm font-medium text-foreground">No messages yet</p>
+                  <p className="text-xs text-muted-foreground">
+                    This is the start of your conversation with {name}.
                   </p>
-                ) : null}
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-medium uppercase tracking-wider text-primary/70">
-                      Editing message
-                    </p>
-                    <Textarea
-                      className="min-h-[60px] w-full resize-none rounded-xl border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground focus:border-primary/50 focus:bg-background focus:outline-none focus:ring-0"
-                      value={editDraft}
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          setEditingMessageId(null);
-                          setEditDraft("");
-                        }
-                        if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey) {
-                          e.preventDefault();
-                          const trimmed = editDraft.trim();
-                          if (trimmed) onEditMessage?.(message.id, trimmed);
-                          setEditingMessageId(null);
-                          setEditDraft("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        className="rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setEditingMessageId(null);
-                          setEditDraft("");
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
-                        onClick={() => {
-                          const trimmed = editDraft.trim();
-                          if (trimmed) onEditMessage?.(message.id, trimmed);
-                          setEditingMessageId(null);
-                          setEditDraft("");
-                        }}
-                      >
-                        Save
-                      </button>
-                    </div>
-                    <p className="text-right text-[10px] text-muted-foreground/60">Enter to save · Esc to cancel</p>
-                  </div>
-                ) : shouldHideText ? null : <p className="mt-2 text-foreground">{message.text}</p>}
-                {message.reactions?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {message.reactions.map((reaction) => (
-                      <button
-                        type="button"
-                        key={reaction.emoji}
-                        className={`rounded-full border px-2 py-1 text-xs ${
-                          reaction.reactedByMe
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border bg-background"
-                        }`}
-                        onClick={() => onReact?.(message.id, reaction.emoji)}
-                      >
-                        {reaction.emoji} {reaction.count}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {!isEditing ? (
-                  <div className="mt-3 flex flex-wrap gap-2 opacity-0 transition group-hover:opacity-100">
-                    {COMMON_REACTION_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/60"
-                        onClick={() => onReact?.(message.id, emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-                {isCoach ? (
-                  <div className="mt-2 flex items-center justify-end gap-1 text-[11px] text-muted-foreground">
-                    {message.status === "read" ? (
-                      <CheckCheck className="h-3.5 w-3.5 text-sky-500" />
-                    ) : message.status === "delivered" ? (
-                      <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : (
-                      <Check className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                    <span className="text-[11px]">{message.time}</span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-        {messages.length === 0 ? (
-          <div className="flex h-48 flex-col items-center justify-center gap-2">
-            <p className="text-sm font-medium text-foreground">No messages yet</p>
-            <p className="text-xs text-muted-foreground">
-              This is the start of your conversation with {name}.
-            </p>
-          </div>
-        ) : null}
-        </div>
-      </div>
+                </div>
+              ) : null}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
+
       {typingLabel ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-2 w-2 rounded-full bg-primary/60" />
           {typingLabel}
         </div>
       ) : null}
+
       {uploadState ? (
         <div className="rounded-2xl border border-border bg-secondary/30 p-3 text-xs">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate font-semibold text-foreground">Uploading {uploadState.name}</p>
+              <p className="truncate font-semibold text-foreground">
+                Uploading {uploadState.name}
+              </p>
               <p className="text-[11px] text-muted-foreground">{uploadState.sizeLabel}</p>
             </div>
             <p className="text-[11px] text-muted-foreground">{uploadState.progress}%</p>
@@ -528,6 +575,8 @@ export function ConversationPanel({
           </div>
         </div>
       ) : null}
+
+      {/* Composer */}
       <div className="fixed bottom-0 left-0 right-0 z-20 space-y-3 border-t border-border bg-background/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-sm backdrop-blur lg:static lg:rounded-2xl lg:border lg:border-border lg:bg-background lg:shadow-none">
         <input
           ref={fileInputRef}
@@ -591,7 +640,12 @@ export function ConversationPanel({
             >
               <ImageIcon className="h-4 w-4" />
             </Button>
-            <Button size="icon" variant="ghost" onClick={() => openRecorder("video")} title="Record video">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => openRecorder("video")}
+              title="Record video"
+            >
               <Video className="h-4 w-4" />
             </Button>
             <Button size="icon" variant="ghost">
@@ -606,7 +660,12 @@ export function ConversationPanel({
           </div>
         </div>
       </div>
-      <Dialog open={Boolean(activeMedia)} onOpenChange={(open) => (open ? null : setActiveMedia(null))}>
+
+      {/* Media lightbox */}
+      <Dialog
+        open={Boolean(activeMedia)}
+        onOpenChange={(open) => (open ? null : setActiveMedia(null))}
+      >
         <DialogContent className="max-w-5xl p-4">
           <DialogTitle className="sr-only">Media preview</DialogTitle>
           {activeMedia?.type === "image" ? (
@@ -627,16 +686,17 @@ export function ConversationPanel({
         </DialogContent>
       </Dialog>
 
+      {/* Video recorder */}
       <Dialog open={recorderOpen} onOpenChange={(open) => (open ? null : closeRecorder())}>
         <DialogContent className="max-w-3xl p-4">
-          <DialogTitle className="sr-only">
-            Record video
-          </DialogTitle>
+          <DialogTitle className="sr-only">Record video</DialogTitle>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-foreground">Record video</p>
-                <p className="text-xs text-muted-foreground">Use your webcam and mic. Review before sending.</p>
+                <p className="text-xs text-muted-foreground">
+                  Use your webcam and mic. Review before sending.
+                </p>
               </div>
               <Button variant="ghost" onClick={closeRecorder}>
                 Close
@@ -657,9 +717,7 @@ export function ConversationPanel({
                 src={recordedUrl ?? undefined}
               />
               {!recordedUrl && !recording ? (
-                <p className="mt-3 text-xs text-white/70">
-                  Press record to start.
-                </p>
+                <p className="mt-3 text-xs text-white/70">Press record to start.</p>
               ) : null}
             </div>
 
@@ -675,28 +733,32 @@ export function ConversationPanel({
                   </Button>
                 )}
                 {recordedUrl ? (
-                  <Button variant="ghost" onClick={() => {
-                    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
-                    setRecordedUrl(null);
-                    setRecordedBlob(null);
-                  }}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+                      setRecordedUrl(null);
+                      setRecordedBlob(null);
+                    }}
+                  >
                     Discard
                   </Button>
                 ) : null}
               </div>
-              <Button
-                onClick={sendRecording}
-                disabled={!recordedBlob}
-              >
+              <Button onClick={sendRecording} disabled={!recordedBlob}>
                 Use recording
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
       <AlertDialog
         open={deletingMessageId !== null}
-        onOpenChange={(open: boolean) => { if (!open) setDeletingMessageId(null); }}
+        onOpenChange={(open: boolean) => {
+          if (!open) setDeletingMessageId(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -704,7 +766,8 @@ export function ConversationPanel({
             <AlertDialogDescription>
               {deletingMessagePreview ? (
                 <span className="block rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm text-foreground italic">
-                  &ldquo;{deletingMessagePreview}{deletingMessagePreview.length >= 80 ? "…" : ""}&rdquo;
+                  &ldquo;{deletingMessagePreview}
+                  {deletingMessagePreview.length >= 80 ? "…" : ""}&rdquo;
                 </span>
               ) : null}
               <span className="mt-2 block">This cannot be undone.</span>
