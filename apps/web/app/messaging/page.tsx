@@ -12,16 +12,14 @@ import { StatsTab } from "../../components/admin/messaging/stats-tab";
 import { TeamsTab } from "../../components/admin/messaging/teams-tab";
 import type {
   AdminTeamItem,
-  LiveHandlers,
+  DirectLiveHandlers,
+  GroupLiveHandlers,
   ThreadListItem,
 } from "../../components/admin/messaging/messaging-utils";
 import {
-  canonicalTeamMatchKey,
   formatTime,
   getTierFromUser,
   isPremiumTier,
-  normalizeTeamKey,
-  resolveGroupCategory,
 } from "../../components/admin/messaging/messaging-utils";
 import type {
   AnnouncementItem,
@@ -33,7 +31,6 @@ import type {
 import { AdminShell } from "../../components/admin/shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
-  useCreateChatGroupMutation,
   useGetAdminProfileQuery,
   useGetAdminTeamsQuery,
   useGetAnnouncementsQuery,
@@ -41,7 +38,6 @@ import {
   useGetUsersQuery,
 } from "@/lib/apiSlice";
 import { getOrCreateAdminSocket } from "@/lib/admin-socket";
-import { toast } from "../../lib/toast";
 
 export default function MessagingPage() {
   return (
@@ -73,7 +69,8 @@ function MessagingPageInner() {
     kind: "direct" | "group";
     id: string;
   } | null>(null);
-  const liveHandlersRef = useRef<LiveHandlers | null>(null);
+  const directHandlersRef = useRef<DirectLiveHandlers | null>(null);
+  const groupHandlersRef = useRef<GroupLiveHandlers | null>(null);
 
   const { data: adminProfileData } = useGetAdminProfileQuery();
   const { data: inboxData, refetch: refetchInbox } = useGetMessagingInboxQuery({
@@ -83,8 +80,6 @@ function MessagingPageInner() {
   const { data: usersData } = useGetUsersQuery();
   const { data: adminTeamsData } = useGetAdminTeamsQuery();
   const { data: announcementsData } = useGetAnnouncementsQuery();
-
-  const [createGroup] = useCreateChatGroupMutation();
 
   const currentUserId = useMemo<number | null>(() => {
     const profilePayload = adminProfileData as
@@ -262,102 +257,6 @@ function MessagingPageInner() {
     [refetchInbox],
   );
 
-  const teamInboxGroups = useMemo(
-    () => groups.filter((group) => resolveGroupCategory(group) === "team"),
-    [groups],
-  );
-
-  const teamInboxByKey = useMemo(() => {
-    const map = new Map<string, ChatGroupItem>();
-    teamInboxGroups.forEach((group) => {
-      [normalizeTeamKey(group.name), canonicalTeamMatchKey(group.name)]
-        .filter(Boolean)
-        .forEach((key) => {
-          if (!map.has(key)) map.set(key, group);
-        });
-    });
-    return map;
-  }, [teamInboxGroups]);
-
-  const teamMemberIdsByKey = useMemo(() => {
-    const map = new Map<string, number[]>();
-    chatEligibleUsers.forEach((user) => {
-      const teamName = normalizeTeamKey(
-        (
-          user as MessagingUser & {
-            athleteTeam?: string | null;
-            team?: string | null;
-          }
-        ).athleteTeam ??
-          (
-            user as MessagingUser & {
-              athleteTeam?: string | null;
-              team?: string | null;
-            }
-          ).team,
-      );
-      if (!teamName) return;
-      const list = map.get(teamName) ?? [];
-      if (!list.includes(user.id)) list.push(user.id);
-      map.set(teamName, list);
-    });
-    return map;
-  }, [chatEligibleUsers]);
-
-  const resolveTeamInboxGroup = (teamName: string) => {
-    const teamKey = normalizeTeamKey(teamName);
-    const teamCanonicalKey = canonicalTeamMatchKey(teamName);
-    return (
-      teamInboxByKey.get(teamKey) ??
-      teamInboxByKey.get(teamCanonicalKey) ??
-      teamInboxGroups.find((candidate) => {
-        const candidateKey = canonicalTeamMatchKey(candidate.name);
-        return (
-          candidateKey.includes(teamCanonicalKey) ||
-          teamCanonicalKey.includes(candidateKey)
-        );
-      }) ??
-      null
-    );
-  };
-
-  const openTeamInbox = async (team: AdminTeamItem) => {
-    const teamKey = normalizeTeamKey(team.team);
-    setHighlightedTeamName(teamKey);
-    const existingGroup = resolveTeamInboxGroup(team.team);
-    if (existingGroup?.id) {
-      setHighlightedInboxGroupId(existingGroup.id);
-      setRequestedGroupId(existingGroup.id);
-      setTab("inbox");
-      return;
-    }
-    const memberIds = teamMemberIdsByKey.get(teamKey) ?? [];
-    if (!memberIds.length) {
-      toast.error(
-        "No team inbox yet",
-        "This team has no chat-eligible members to start an inbox.",
-      );
-      return;
-    }
-    try {
-      const response = await createGroup({
-        name: team.team.trim(),
-        category: "team",
-        memberIds,
-      }).unwrap();
-      await refetchInbox();
-      const createdGroupId = Number(response?.group?.id ?? NaN);
-      if (Number.isFinite(createdGroupId) && createdGroupId > 0) {
-        setHighlightedInboxGroupId(createdGroupId);
-        setRequestedGroupId(createdGroupId);
-      }
-      setTab("inbox");
-      toast.success("Team inbox ready", `Opened ${team.team} inbox.`);
-    } catch {
-      toast.error("Failed", "Could not open or create this team inbox.");
-    }
-  };
-
   useEffect(() => {
     const onFocus = () => {
       isWindowFocusedRef.current = true;
@@ -473,7 +372,7 @@ function MessagingPageInner() {
           : null;
       if (!threadUserId) return;
       const activeThreadUserId =
-        liveHandlersRef.current?.getActiveThreadUserId() ?? null;
+        directHandlersRef.current?.getActiveThreadUserId() ?? null;
       if (threadUserId !== activeThreadUserId) scheduleInboxRefetch(500);
       if (
         activeThreadUserId &&
@@ -500,9 +399,9 @@ function MessagingPageInner() {
             ? payload.reactions
             : [],
         };
-        liveHandlersRef.current?.onDirectMessage(liveMessage);
+        directHandlersRef.current?.onDirectMessage(liveMessage);
       } else {
-        liveHandlersRef.current?.scheduleDirectRefetch(150);
+        directHandlersRef.current?.scheduleDirectRefetch(150);
       }
       const title = payload?.senderName
         ? `New message from ${String(payload.senderName)}`
@@ -536,10 +435,10 @@ function MessagingPageInner() {
               : null,
         });
       }
-      liveHandlersRef.current?.scheduleGroupRefetch(120);
+      groupHandlersRef.current?.scheduleGroupRefetch(120);
       const incomingGroupId = Number(payload?.groupId ?? NaN);
       const activeGroupId =
-        liveHandlersRef.current?.getActiveGroupId() ?? null;
+        groupHandlersRef.current?.getActiveGroupId() ?? null;
       if (incomingGroupId !== activeGroupId) scheduleInboxRefetch(500);
       if (!Number.isFinite(incomingGroupId) || incomingGroupId <= 0) return;
       if (Number.isFinite(Number(payload?.id))) {
@@ -562,7 +461,7 @@ function MessagingPageInner() {
             ? payload.reactions
             : [],
         };
-        liveHandlersRef.current?.onGroupMessage(liveMessage, incomingGroupId);
+        groupHandlersRef.current?.onGroupMessage(liveMessage, incomingGroupId);
       }
       const senderId = Number(payload?.senderId ?? NaN);
       const me = currentUserIdRef.current;
@@ -593,7 +492,7 @@ function MessagingPageInner() {
     on("message:read", (payload: any) => {
       scheduleInboxRefetch(120);
       const activeThreadUserId =
-        liveHandlersRef.current?.getActiveThreadUserId() ?? null;
+        directHandlersRef.current?.getActiveThreadUserId() ?? null;
       const curUserId = currentUserIdRef.current;
       if (!activeThreadUserId || curUserId == null) return;
       const readerUserId = Number(payload?.readerUserId ?? NaN);
@@ -608,21 +507,21 @@ function MessagingPageInner() {
       const involvesCurrentUser =
         curUserId === readerUserId || peerUserIds.includes(curUserId);
       if (involvesActiveThread && involvesCurrentUser) {
-        liveHandlersRef.current?.scheduleDirectRefetch(120);
+        directHandlersRef.current?.scheduleDirectRefetch(120);
       }
     });
 
     on("group:read", (payload: any) => {
       scheduleInboxRefetch(120);
       const activeGroupId =
-        liveHandlersRef.current?.getActiveGroupId() ?? null;
+        groupHandlersRef.current?.getActiveGroupId() ?? null;
       const payloadGroupId = Number(payload?.groupId ?? NaN);
       if (
         activeGroupId &&
         Number.isFinite(payloadGroupId) &&
         payloadGroupId === activeGroupId
       ) {
-        liveHandlersRef.current?.scheduleGroupRefetch(120);
+        groupHandlersRef.current?.scheduleGroupRefetch(120);
       }
     });
 
@@ -630,12 +529,12 @@ function MessagingPageInner() {
       const messageId = Number(payload?.messageId ?? NaN);
       if (!Number.isFinite(messageId)) return;
       if (Array.isArray(payload?.reactions)) {
-        liveHandlersRef.current?.onDirectReaction(
+        directHandlersRef.current?.onDirectReaction(
           messageId,
           payload.reactions as ChatReaction[],
         );
       }
-      liveHandlersRef.current?.scheduleDirectRefetch(120);
+      directHandlersRef.current?.scheduleDirectRefetch(120);
     });
 
     on("group:reaction", (payload: any) => {
@@ -644,16 +543,16 @@ function MessagingPageInner() {
       if (!Number.isFinite(payloadGroupId) || !Number.isFinite(messageId))
         return;
       if (Array.isArray(payload?.reactions)) {
-        liveHandlersRef.current?.onGroupReaction(
+        groupHandlersRef.current?.onGroupReaction(
           payloadGroupId,
           messageId,
           payload.reactions as ChatReaction[],
         );
       }
       const activeGroupId =
-        liveHandlersRef.current?.getActiveGroupId() ?? null;
+        groupHandlersRef.current?.getActiveGroupId() ?? null;
       if (activeGroupId && payloadGroupId === activeGroupId) {
-        liveHandlersRef.current?.scheduleGroupRefetch(120);
+        groupHandlersRef.current?.scheduleGroupRefetch(120);
       }
       scheduleInboxRefetch(120);
     });
@@ -702,7 +601,8 @@ function MessagingPageInner() {
     } else {
       setHighlightedTeamName(null);
     }
-  }, [searchParams, groups, threads]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return (
     <AdminShell
@@ -757,8 +657,11 @@ function MessagingPageInner() {
             setHighlightedInboxGroupId={setHighlightedInboxGroupId}
             requestedGroupId={requestedGroupId}
             onRequestedGroupHandled={() => setRequestedGroupId(null)}
-            registerLiveHandlers={(handlers) => {
-              liveHandlersRef.current = handlers;
+            registerDirectLiveHandlers={(handlers) => {
+              directHandlersRef.current = handlers;
+            }}
+            registerGroupLiveHandlers={(handlers) => {
+              groupHandlersRef.current = handlers;
             }}
           />
         </TabsContent>
@@ -781,9 +684,15 @@ function MessagingPageInner() {
             teams={teams}
             groups={groups}
             users={users}
+            currentUserId={currentUserId}
+            resolveUserName={resolveUserName}
             formatTime={formatTime}
+            scheduleInboxRefetch={scheduleInboxRefetch}
+            refetchInbox={refetchInbox}
             highlightedTeamName={highlightedTeamName}
-            onOpenTeamInbox={(team) => void openTeamInbox(team)}
+            registerGroupLiveHandlers={(handlers) => {
+              groupHandlersRef.current = handlers;
+            }}
           />
         </TabsContent>
 

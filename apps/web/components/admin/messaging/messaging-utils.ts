@@ -23,16 +23,22 @@ export type AdminTeamItem = {
 
 export type GifResult = { id: string; url: string; previewUrl: string };
 
-export type LiveHandlers = {
+export type DirectLiveHandlers = {
   onDirectMessage: (message: ChatMessage) => void;
-  onGroupMessage: (message: ChatMessage, incomingGroupId: number) => void;
   onDirectReaction: (messageId: number, reactions: ChatReaction[]) => void;
-  onGroupReaction: (incomingGroupId: number, messageId: number, reactions: ChatReaction[]) => void;
   getActiveThreadUserId: () => number | null;
-  getActiveGroupId: () => number | null;
   scheduleDirectRefetch: (delayMs?: number) => void;
+};
+
+export type GroupLiveHandlers = {
+  onGroupMessage: (message: ChatMessage, incomingGroupId: number) => void;
+  onGroupReaction: (incomingGroupId: number, messageId: number, reactions: ChatReaction[]) => void;
+  getActiveGroupId: () => number | null;
   scheduleGroupRefetch: (delayMs?: number) => void;
 };
+
+/** @deprecated Use DirectLiveHandlers + GroupLiveHandlers separately */
+export type LiveHandlers = DirectLiveHandlers & GroupLiveHandlers;
 
 export function formatTime(value?: string | null): string {
   if (!value) return "";
