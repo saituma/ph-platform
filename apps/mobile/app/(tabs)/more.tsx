@@ -10,6 +10,7 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
 import { Pressable, View, Dimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import Svg, { Circle as SvgCircle } from "react-native-svg";
 import {
@@ -54,7 +55,10 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
+  withSpring,
+  runOnJS,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useStreakStore } from "@/lib/streakStore";
 
@@ -192,8 +196,31 @@ export default function MoreScreen() {
 
   const streak = useStreakStore((ss) => ss.currentStreak);
 
-  /* Build menu items with index for alternating colors */
-  let menuIndex = 0;
+  const logoutScale = useSharedValue(1);
+  const logoutAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: logoutScale.value }] }));
+  const handleLogout = useCallback(() => {
+    if (token) {
+      import("@/lib/pushRegistration").then(({ clearDevicePushToken }) => {
+        void clearDevicePushToken(token);
+      });
+    }
+    dispatch(logout());
+    router.replace("/(auth)/login");
+  }, [token, dispatch, router]);
+  const logoutTap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      logoutScale.value = withSpring(0.97, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.notificationAsync)(Haptics.NotificationFeedbackType.Warning);
+    })
+    .onFinalize(() => {
+      "worklet";
+      logoutScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(handleLogout)();
+    }), [handleLogout]);
 
   const ringRadius = (AVATAR_RING_SIZE - 4) / 2;
   const ringCircumference = 2 * Math.PI * ringRadius;
@@ -397,7 +424,6 @@ export default function MoreScreen() {
                 subtitle="Name, email, avatar"
                 onPress={() => router.navigate("/profile-settings")}
                 p={p}
-                index={menuIndex++}
               />
               {canAccessFoodDiary ? (
                 <MenuItem
@@ -406,7 +432,6 @@ export default function MoreScreen() {
                   subtitle="Food diary & meals"
                   onPress={() => router.push("/nutrition")}
                   p={p}
-                  index={menuIndex++}
                 />
               ) : null}
               {showPhysioReferrals ? (
@@ -416,7 +441,6 @@ export default function MoreScreen() {
                   subtitle="Physio referrals"
                   onPress={() => router.push("/physio-referral")}
                   p={p}
-                  index={menuIndex++}
                 />
               ) : null}
               <MenuItem
@@ -425,7 +449,6 @@ export default function MoreScreen() {
                 subtitle="Alerts & reminders"
                 onPress={() => router.navigate("/notifications")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={Lock}
@@ -433,7 +456,6 @@ export default function MoreScreen() {
                 subtitle="Password & app lock"
                 onPress={() => router.navigate("/privacy-security")}
                 p={p}
-                index={menuIndex++}
               />
 
               <SectionLabel text="Support & About" p={p} />
@@ -444,7 +466,6 @@ export default function MoreScreen() {
                 subtitle="Share your experience"
                 onPress={() => router.navigate("/submit-testimonial")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={Megaphone}
@@ -452,7 +473,6 @@ export default function MoreScreen() {
                 subtitle="Latest updates"
                 onPress={() => router.push("/announcements" as any)}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={HelpCircle}
@@ -460,7 +480,6 @@ export default function MoreScreen() {
                 subtitle="FAQ & guides"
                 onPress={() => router.push("/help-center")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={MessageCircle}
@@ -468,7 +487,6 @@ export default function MoreScreen() {
                 subtitle="Report issues or ideas"
                 onPress={() => router.push("/feedback")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={Info}
@@ -476,7 +494,6 @@ export default function MoreScreen() {
                 subtitle="Version & credits"
                 onPress={() => router.push("/about")}
                 p={p}
-                index={menuIndex++}
               />
 
               <SectionLabel text="Legal" p={p} />
@@ -486,66 +503,52 @@ export default function MoreScreen() {
                 label="Terms of Service"
                 onPress={() => router.navigate("/terms")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={Shield}
                 label="Privacy Policy"
                 onPress={() => router.navigate("/privacy-policy")}
                 p={p}
-                index={menuIndex++}
               />
               <MenuItem
                 Icon={BookOpen}
                 label="Community Guidelines"
                 onPress={() => router.navigate("/community-guidelines" as any)}
                 p={p}
-                index={menuIndex++}
               />
 
               {/* Logout */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Logout"
-                onPress={() => {
-                  if (token) {
-                    import("@/lib/pushRegistration").then(({ clearDevicePushToken }) => {
-                      void clearDevicePushToken(token);
-                    });
-                  }
-                  dispatch(logout());
-                  router.replace("/(auth)/login");
-                }}
-                style={({ pressed }) => ({
-                  marginTop: 32,
-                  opacity: pressed ? 0.85 : 1,
-                  transform: [{ scale: pressed ? 0.97 : 1 }],
-                })}
-              >
-                <View
-                  style={{
-                    height: 56,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 100,
-                    borderCurve: "continuous",
-                    gap: 10,
-                    backgroundColor: p.danger,
-                  }}
+              <GestureDetector gesture={logoutTap}>
+                <Animated.View
+                  style={[{ marginTop: 32 }, logoutAnimStyle]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Logout"
                 >
-                  <LogOut size={20} color="#FFFFFF" />
-                  <Text
+                  <View
                     style={{
-                      fontFamily: "Outfit-Bold",
-                      color: "#FFFFFF",
-                      fontSize: 16,
+                      height: 56,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: 100,
+                      borderCurve: "continuous",
+                      gap: 10,
+                      backgroundColor: p.danger,
                     }}
                   >
-                    Logout
-                  </Text>
-                </View>
-              </Pressable>
+                    <LogOut size={20} color="#FFFFFF" />
+                    <Text
+                      style={{
+                        fontFamily: "Outfit-Bold",
+                        color: "#FFFFFF",
+                        fontSize: 16,
+                      }}
+                    >
+                      Logout
+                    </Text>
+                  </View>
+                </Animated.View>
+              </GestureDetector>
 
               <Text
                 style={{
@@ -592,75 +595,91 @@ function MenuItem({
   subtitle,
   onPress,
   p,
-  index,
 }: {
   Icon: LucideIcon;
   label: string;
   subtitle?: string;
   onPress?: () => void;
   p: AdminPastelColors;
-  index: number;
 }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      if (onPress) runOnJS(onPress)();
+    }), [onPress]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint={subtitle || undefined}
-      style={{ marginBottom: 16 }}
-    >
-      <View
-        style={{
-          paddingHorizontal: 18,
-          paddingVertical: 18,
-          borderRadius: 20,
-          borderCurve: "continuous",
-          backgroundColor: p.cardWhite,
-        }}
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[{ marginBottom: 16 }, animStyle]}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={subtitle || undefined}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <View
-            style={{
-              width: 48,
-              height: 48,
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: 16,
-              borderCurve: "continuous",
-              marginRight: 16,
-              backgroundColor: p.accentSoft,
-            }}
-          >
-            <Icon size={22} color={p.accent} />
-          </View>
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <Text
-              numberOfLines={1}
+        <View
+          style={{
+            paddingHorizontal: 18,
+            paddingVertical: 18,
+            borderRadius: 20,
+            borderCurve: "continuous",
+            backgroundColor: p.cardWhite,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View
               style={{
-                fontFamily: "Outfit-Bold",
-                fontSize: 16,
-                color: p.textPrimary,
+                width: 48,
+                height: 48,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 16,
+                borderCurve: "continuous",
+                marginRight: 16,
+                backgroundColor: p.accentSoft,
               }}
             >
-              {label}
-            </Text>
-            {subtitle ? (
+              <Icon size={22} color={p.accent} />
+            </View>
+            <View style={{ flex: 1, marginRight: 12 }}>
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 13,
-                  color: p.textSecondary,
-                  marginTop: 2,
+                  fontFamily: "Outfit-Bold",
+                  fontSize: 16,
+                  color: p.textPrimary,
                 }}
               >
-                {subtitle}
+                {label}
               </Text>
-            ) : null}
+              {subtitle ? (
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: "Outfit-Regular",
+                    fontSize: 13,
+                    color: p.textSecondary,
+                    marginTop: 2,
+                  }}
+                >
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+            <ChevronRight size={18} color={p.textMuted} />
           </View>
-          <ChevronRight size={18} color={p.textMuted} />
         </View>
-      </View>
-    </Pressable>
+      </Animated.View>
+    </GestureDetector>
   );
 }

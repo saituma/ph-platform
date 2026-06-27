@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { AdminUser } from "@/types/admin";
 import { useAdminMutation } from "./useAdminQuery";
@@ -6,30 +7,31 @@ import { parseApiError } from "@/lib/errors";
 
 export function useAdminUsers(token: string | null, canLoad: boolean) {
   const enabled = Boolean(token && canLoad);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = ["admin-users", token] as const;
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey,
+    queryFn: async () => {
+      const res = await apiRequest<{ users?: AdminUser[] }>("/admin/users?limit=200", {
+        token: token!,
+        suppressStatusCodes: [403],
+      });
+      return Array.isArray(res?.users) ? res.users : [];
+    },
+    staleTime: 3 * 60 * 1000,
+    enabled,
+  });
+
+  const users = data ?? [];
+  const loading = isLoading;
+  const errorMsg = error instanceof Error ? parseApiError(error).message : null;
 
   const load = useCallback(
-    async (q?: string, _forceRefresh?: boolean) => {
-      if (!enabled) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const query = q ? `&q=${encodeURIComponent(q)}` : "";
-        const res = await apiRequest<{ users?: AdminUser[] }>(`/admin/users?limit=50${query}`, {
-          token: token!,
-          forceRefresh: true,
-          suppressStatusCodes: [403],
-        });
-        setUsers(Array.isArray(res?.users) ? res.users : []);
-      } catch (e) {
-        setError(parseApiError(e).message);
-      } finally {
-        setLoading(false);
-      }
+    (_q?: string, _forceRefresh?: boolean) => {
+      void refetch();
     },
-    [enabled, token],
+    [refetch],
   );
 
   const blockMutation = useAdminMutation<{ userId: number; blocked: boolean }, boolean | undefined>(
@@ -41,10 +43,12 @@ export function useAdminUsers(token: string | null, canLoad: boolean) {
           { method: "POST", token, body: { blocked }, skipCache: true },
         );
         const nextBlocked = Boolean(res?.user?.isBlocked);
-        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isBlocked: nextBlocked } : u)));
+        queryClient.setQueryData(["admin-users", token], (prev: AdminUser[] | undefined) =>
+          prev?.map((u) => (u.id === userId ? { ...u, isBlocked: nextBlocked } : u)),
+        );
         return nextBlocked;
       },
-      [token],
+      [token, queryClient],
     ),
   );
 
@@ -53,9 +57,11 @@ export function useAdminUsers(token: string | null, canLoad: boolean) {
       async (userId: number) => {
         if (!token) return;
         await apiRequest(`/admin/users/${userId}`, { method: "DELETE", token, skipCache: true });
-        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        queryClient.setQueryData(["admin-users", token], (prev: AdminUser[] | undefined) =>
+          prev?.filter((u) => u.id !== userId),
+        );
       },
-      [token],
+      [token, queryClient],
     ),
   );
 
@@ -68,9 +74,11 @@ export function useAdminUsers(token: string | null, canLoad: boolean) {
           { method: "POST", token, body: { athleteId, programTier }, skipCache: true },
         );
         const nextTier = res?.athlete?.currentProgramTier ?? programTier;
-        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, programTier: nextTier } : u)));
+        queryClient.setQueryData(["admin-users", token], (prev: AdminUser[] | undefined) =>
+          prev?.map((u) => (u.id === userId ? { ...u, programTier: nextTier } : u)),
+        );
       },
-      [token],
+      [token, queryClient],
     ),
   );
 
@@ -79,7 +87,7 @@ export function useAdminUsers(token: string | null, canLoad: boolean) {
   return {
     users,
     loading,
-    error,
+    error: errorMsg,
     isBusy,
     load,
     updateBlockedStatus: (userId: number, blocked: boolean) => blockMutation.run({ userId, blocked }),

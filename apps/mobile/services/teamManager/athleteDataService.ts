@@ -136,62 +136,55 @@ function base(athleteId: number, suffix: string, range?: HistoryRange) {
 }
 
 export function fetchAthleteRuns(token: string, athleteId: number, range: HistoryRange) {
-  return apiRequest<{ runs: ManagerRun[] }>(base(athleteId, "runs", range), { token, forceRefresh: true });
+  return apiRequest<{ runs: ManagerRun[] }>(base(athleteId, "runs", range), { token });
 }
 
 export function fetchAthleteProgress(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<{ entries: ManagerProgressEntry[] }>(base(athleteId, "progress", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteAttendance(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<{ attendance: ManagerAttendance[] }>(base(athleteId, "attendance", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteTraining(token: string, athleteId: number, range: HistoryRange) {
-  return apiRequest<ManagerTraining>(base(athleteId, "training", range), { token, forceRefresh: true });
+  return apiRequest<ManagerTraining>(base(athleteId, "training", range), { token });
 }
 
 export function fetchAthleteAchievements(token: string, athleteId: number) {
-  return apiRequest<ManagerAchievements>(base(athleteId, "achievements"), { token, forceRefresh: true });
+  return apiRequest<ManagerAchievements>(base(athleteId, "achievements"), { token });
 }
 
 export function fetchAthleteInjuries(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<{ injuries: ManagerInjury[] }>(base(athleteId, "injuries", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteWellbeing(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<{ logs: ManagerWellbeing[] }>(base(athleteId, "wellbeing", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteBookings(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<{ bookings: ManagerBooking[] }>(base(athleteId, "bookings", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteNutritionCompliance(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<ManagerNutritionCompliance>(base(athleteId, "nutrition", range), {
     token,
-    forceRefresh: true,
   });
 }
 
 export function fetchAthleteEngagement(token: string, athleteId: number, range: HistoryRange) {
   return apiRequest<ManagerEngagement>(base(athleteId, "engagement", range), {
     token,
-    forceRefresh: true,
   });
 }

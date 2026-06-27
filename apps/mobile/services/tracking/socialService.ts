@@ -143,7 +143,7 @@ export async function fetchLeaderboard(
     `${base}/leaderboard?windowDays=${encodeURIComponent(
       String(windowDays),
     )}&limit=${encodeURIComponent(String(limit))}&sort=${encodeURIComponent(sort)}`,
-    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+    { token, suppressLog: true },
   );
 }
 
@@ -162,8 +162,6 @@ export async function fetchAdultDirectory(
   }>(`${directoryPath(Boolean(opts?.useTeamFeed))}?${q}`, {
     token,
     suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
   });
 }
 
@@ -187,7 +185,7 @@ export async function fetchRunFeed(
   }&windowDays=${encodeURIComponent(String(windowDays))}&sort=${encodeURIComponent(sort)}`;
   return apiRequest<{ items: SocialRunFeedItem[]; nextCursor: number | null }>(
     `${base}/runs?${q}`,
-    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+    { token, suppressLog: true },
   );
 }
 
@@ -203,7 +201,7 @@ export async function fetchPostFeed(
   }`;
   return apiRequest<{ items: SocialPostItem[]; nextCursor: number | null }>(
     `${base}/posts?${q}`,
-    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+    { token, suppressLog: true },
   );
 }
 
@@ -264,8 +262,6 @@ export async function fetchRunDetail(token: string, runLogId: number, opts?: { u
   }>(`${base}/runs/${encodeURIComponent(String(runLogId))}`, {
     token,
     suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
   });
 }
 
@@ -381,7 +377,7 @@ export async function listCommentReactions(token: string, commentId: number, opt
   const base = socialFeedBase(Boolean(opts?.useTeamFeed));
   return apiRequest<{ items: SocialCommentReactionUser[] }>(
     `${base}/comments/${encodeURIComponent(String(commentId))}/reactions`,
-    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+    { token, suppressLog: true },
   );
 }
 
@@ -412,8 +408,6 @@ export async function fetchPrivacySettings(token: string) {
     return await apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
       token,
       suppressLog: true,
-      skipCache: true,
-      forceRefresh: true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -461,8 +455,6 @@ export async function fetchRunLikes(token: string, runLogId: number, opts?: { us
   }>(`${base}/runs/${encodeURIComponent(String(runLogId))}/likes`, {
     token,
     suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
   });
 }
 
@@ -482,7 +474,5 @@ export async function fetchMySocialRuns(
   }>(`/social/my-runs?${q}`, {
     token,
     suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
   });
 }

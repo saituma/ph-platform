@@ -991,6 +991,7 @@ export default function ProgressScreen() {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator
           nestedScrollEnabled
+          automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           contentContainerStyle={{ paddingBottom: 28 }}
         >
           <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: p.divider, alignSelf: "center", marginBottom: 16 }} />

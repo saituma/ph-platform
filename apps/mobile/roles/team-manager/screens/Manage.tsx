@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import {
@@ -29,11 +30,14 @@ export default function TeamManagerManageScreen() {
   const insets = useAppSafeAreaInsets();
   const { authTeamMembership, appRole, token, capabilities } = useAppSelector((s) => s.user);
 
-  const [roster, setRoster] = useState<RosterResponse | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(false);
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const { data: roster, isError: error, refetch } = useQuery({
+    queryKey: ["team-manager-roster", token],
+    queryFn: () => fetchRoster(token!),
+    staleTime: 3 * 60 * 1000,
+    enabled: Boolean(token),
+  });
 
   const members = useMemo(
     () => (Array.isArray(roster?.members) ? roster!.members! : []),
@@ -51,21 +55,6 @@ export default function TeamManagerManageScreen() {
   const teamName =
     roster?.team?.name?.trim() || authTeamMembership?.team || "Your Team";
 
-  const loadRoster = useCallback(async (_forceRefresh?: boolean) => {
-    if (!token) return;
-    try {
-      const res = await fetchRoster(token);
-      setRoster(res ?? null);
-      setError(false);
-    } catch {
-      setError(true);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    void loadRoster();
-  }, [loadRoster]);
-
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -74,11 +63,12 @@ export default function TeamManagerManageScreen() {
     }).start();
   }, [fadeAnim]);
 
-  const onRefresh = useCallback(async () => {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await loadRoster(true);
+    await refetch();
     setRefreshing(false);
-  }, [loadRoster]);
+  }, [refetch]);
 
   if (appRole !== "team_manager") return null;
 
@@ -278,7 +268,7 @@ export default function TeamManagerManageScreen() {
               <View style={{ marginBottom: 28 }}>
                 <ErrorRetry
                   title="Couldn't load your roster"
-                  onRetry={() => loadRoster(true)}
+                  onRetry={() => void refetch()}
                 />
               </View>
             ) : (

@@ -28,7 +28,6 @@ export type HomeContentPayload = {
 export async function fetchHomeContent(token: string) {
   const data = await apiRequest<{ items?: any[] }>("/content/home", {
     token,
-    forceRefresh: true,
   });
   const items = Array.isArray(data.items) ? data.items : [];
   if (!items.length) return null;

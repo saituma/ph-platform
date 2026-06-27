@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useMemo } from "react";
-import { View, Pressable } from "react-native";
+import React, { useState, useMemo, useCallback } from "react";
+import { View, Pressable, RefreshControl } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { useAppSelector } from "@/store/hooks";
 import { Text } from "@/components/ScaledText";
 import { Skeleton } from "@/components/Skeleton";
-import { ThemedScrollView } from "@/components/ThemedScrollView";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Search, Users as UsersIcon, AlertCircle } from "lucide-react-native";
 
@@ -50,7 +50,7 @@ function formatJoinDate(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 
-function UserCard({
+const UserCard = React.memo(function UserCard({
   user,
   onPress,
   index,
@@ -178,7 +178,7 @@ function UserCard({
       </View>
     </Pressable>
   );
-}
+});
 
 export default function AdminUsersScreen() {
   const p = useAdminPastel();
@@ -188,10 +188,6 @@ export default function AdminUsersScreen() {
   const { users, loading, error, isBusy, load, updateBlockedStatus, deleteUser, updateProgramTier } = useAdminUsers(token, !!bootstrapReady);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const visibleUsers = useMemo(() => users.filter((u) => !isAiCoachUser(u)), [users]);
 
@@ -209,84 +205,93 @@ export default function AdminUsersScreen() {
 
   const blockedCount = useMemo(() => visibleUsers.filter(u => u.isBlocked).length, [visibleUsers]);
 
-  return (
-    <AdminScreen>
-      <ThemedScrollView
-        onRefresh={() => load(searchQuery.trim() ? searchQuery.trim() : undefined, true)}
-      >
-        <Animated.View
-          entering={FadeInDown.delay(60).duration(360)}
-          style={{ marginBottom: 18 }}
-        >
-          <AdminHeader
-            title="Users"
-            subtitle={
-              loading && users.length === 0
-                ? "Loading users"
-                : `${visibleUsers.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
+  const renderItem = useCallback(
+    ({ item, index }: { item: AdminUser; index: number }) => (
+      <UserCard
+        user={item}
+        index={index}
+        onPress={() => item.id != null && setSelectedUserId(item.id)}
+      />
+    ),
+    [],
+  );
+
+  const ListHeader = useMemo(
+    () => (
+      <Animated.View entering={FadeInDown.delay(60).duration(360)} style={{ marginBottom: 18 }}>
+        <AdminHeader
+          title="Users"
+          subtitle={
+            loading && users.length === 0
+              ? "Loading users"
+              : `${visibleUsers.length} registered · ${blockedCount > 0 ? `${blockedCount} blocked` : "none blocked"}`
+          }
+        />
+        <View style={{ paddingHorizontal: 20 }}>
+          <AdminInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search by name, email, or role"
+            leftIcon={Search}
+            onClear={() => setSearchQuery("")}
+            autoCapitalize="none"
+          />
+        </View>
+      </Animated.View>
+    ),
+    [loading, users.length, visibleUsers.length, blockedCount, searchQuery],
+  );
+
+  const ListEmpty = useMemo(
+    () =>
+      loading && users.length === 0 ? (
+        <View style={{ paddingHorizontal: 24, gap: 10 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} width="100%" height={80} borderRadius={28} />
+          ))}
+        </View>
+      ) : error ? (
+        <View style={{ margin: 24, padding: 24, borderRadius: 28, backgroundColor: `${p.danger}10`, alignItems: "center" }}>
+          <AlertCircle size={22} color={p.danger} style={{ marginBottom: 10 }} />
+          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.danger, textAlign: "center" }}>
+            {error}
+          </Text>
+        </View>
+      ) : (
+        <View style={{ paddingHorizontal: 24 }}>
+          <AdminEmptyState
+            icon={UsersIcon}
+            title={searchQuery ? "No matching users" : "No users found"}
+            description={
+              searchQuery
+                ? "Clear the search or try another name, email, or role."
+                : "Users will appear here after they register."
             }
           />
-          <View style={{ paddingHorizontal: 20 }}>
-            <AdminInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search by name, email, or role"
-              leftIcon={Search}
-              onClear={() => setSearchQuery("")}
-              autoCapitalize="none"
-            />
-          </View>
-        </Animated.View>
+        </View>
+      ),
+    [loading, users.length, error, searchQuery, p.danger],
+  );
 
-        {/* User list */}
-        <Animated.View
-          entering={FadeInDown.delay(120).duration(360)}
-          style={{ paddingHorizontal: 24, paddingBottom: 60 }}
-        >
-          {loading && users.length === 0 ? (
-            <View style={{ gap: 10 }}>
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} width="100%" height={80} borderRadius={28} />
-              ))}
-            </View>
-          ) : error ? (
-            <View
-              style={{
-                padding: 24,
-                borderRadius: 28,
-                backgroundColor: `${p.danger}10`,
-                alignItems: "center",
-              }}
-            >
-              <AlertCircle size={22} color={p.danger} style={{ marginBottom: 10 }} />
-              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.danger, textAlign: "center" }}>
-                {error}
-              </Text>
-            </View>
-          ) : filteredUsers.length === 0 ? (
-            <AdminEmptyState
-              icon={UsersIcon}
-              title={searchQuery ? "No matching users" : "No users found"}
-              description={
-                searchQuery
-                  ? "Clear the search or try another name, email, or role."
-                  : "Users will appear here after they register."
-              }
-            />
-          ) : (
-            <View style={{ gap: 10 }}>
-              {filteredUsers.map((u, index) => (
-                <UserCard
-                  key={u.id}
-                  user={u}
-                  index={index}
-                  onPress={() => u.id != null && setSelectedUserId(u.id)}
-                />
-              ))}
-            </View>
-          )}
-        </Animated.View>
-      </ThemedScrollView>
+  return (
+    <AdminScreen>
+      <FlashList<AdminUser>
+        data={filteredUsers}
+        keyExtractor={(u: AdminUser) => String(u.id)}
+        renderItem={renderItem}
+        estimatedItemSize={82}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 80 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && users.length > 0}
+            onRefresh={() => load(undefined, true)}
+          />
+        }
+        keyboardShouldPersistTaps="handled"
+      />
 
       <AdminUserDetailModal
         user={selectedUser}

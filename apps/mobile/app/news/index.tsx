@@ -6,21 +6,16 @@ import {
   FlatList,
   Image as RNImage,
   KeyboardAvoidingView,
-  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   TextInput,
-  UIManager,
   View,
 } from "react-native";
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { FlashList } from "@shopify/flash-list";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import { ChevronLeft, ChevronRight, Heart, MessageCircle, Plus, Search, Send, Trash2, X } from "lucide-react-native";
@@ -130,104 +125,90 @@ export default function NewsScreen() {
   const isAdmin = apiUserRole === "admin" || apiUserRole === "superAdmin";
   const p = useAdminPastel();
   const insets = useAppSafeAreaInsets();
-  const [items, setItems] = useState<NewsItem[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [extraItems, setExtraItems] = useState<NewsItem[]>([]);
   const cursorRef = useRef<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [commentsFor, setCommentsFor] = useState<NewsItem | null>(null);
   const [adminModal, setAdminModal] = useState<{ mode: "create" | "edit"; item?: NewsItem } | null>(null);
 
-  const loadFresh = useCallback(
-    async () => {
-      if (!token) return;
-      setLoading(true);
-      try {
-        const res = await fetchNewsFeed(token, {
-          limit: 20,
-          cursor: null,
-          query,
-          category: activeCategory,
-        });
-        setItems(res.items ?? []);
-        cursorRef.current = res.nextCursor ?? null;
-      } catch (error) {
-        Alert.alert("Couldn't load news", error instanceof Error ? error.message : "Please try again.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [activeCategory, query, token],
-  );
+  const feedKey = ["news-feed", activeCategory ?? "", query] as const;
 
-  const loadMore = useCallback(
-    async () => {
-      if (!token || cursorRef.current == null) return;
-      setLoadingMore(true);
-      try {
-        const res = await fetchNewsFeed(token, {
-          limit: 20,
-          cursor: cursorRef.current,
-          query,
-          category: activeCategory,
-        });
-        setItems((prev) => [...prev, ...(res.items ?? [])]);
-        cursorRef.current = res.nextCursor ?? null;
-      } catch (error) {
-        Alert.alert("Couldn't load news", error instanceof Error ? error.message : "Please try again.");
-      } finally {
-        setLoadingMore(false);
-      }
-    },
-    [activeCategory, query, token],
-  );
+  const { data: feedData, isLoading, isFetching, refetch } = useQuery({
+    queryKey: feedKey,
+    queryFn: () => fetchNewsFeed(token!, { limit: 20, cursor: null, query, category: activeCategory }),
+    staleTime: 3 * 60 * 1000,
+    enabled: Boolean(token),
+  });
 
+  const { data: categoriesData } = useQuery({
+    queryKey: ["news-categories"],
+    queryFn: () => fetchNewsCategories(token!),
+    staleTime: 10 * 60 * 1000,
+    enabled: Boolean(token),
+  });
+
+  const categories = categoriesData?.items ?? [];
+
+  // Reset pagination whenever the base query refreshes
   useEffect(() => {
-    if (!token) return;
-    void fetchNewsCategories(token)
-      .then((res) => setCategories(res.items ?? []))
-      .catch(() => setCategories([]));
-  }, [token]);
+    setExtraItems([]);
+    cursorRef.current = feedData?.nextCursor ?? null;
+  }, [feedData]);
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      void loadFresh();
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [activeCategory, query, loadFresh]);
+  const items: NewsItem[] = [...(feedData?.items ?? []), ...extraItems];
+
+  const loadMore = useCallback(async () => {
+    if (!token || cursorRef.current == null || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetchNewsFeed(token, {
+        limit: 20,
+        cursor: cursorRef.current,
+        query,
+        category: activeCategory,
+      });
+      setExtraItems((prev) => [...prev, ...(res.items ?? [])]);
+      cursorRef.current = res.nextCursor ?? null;
+    } catch {
+      // silently fail — user can pull to refresh
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [activeCategory, loadingMore, query, token]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    void loadFresh();
-  }, [loadFresh]);
+    setExtraItems([]);
+    void refetch();
+  }, [refetch]);
+
+  const invalidateFeed = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: feedKey });
+  }, [queryClient, feedKey]);
 
   const onToggleLike = useCallback(
     async (item: NewsItem) => {
       if (!token) return;
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setItems((prev) =>
-        prev.map((row) =>
+      const toggle = (list: NewsItem[]) =>
+        list.map((row) =>
           row.id === item.id
-            ? {
-                ...row,
-                userLiked: !row.userLiked,
-                likeCount: Math.max(0, row.likeCount + (row.userLiked ? -1 : 1)),
-              }
+            ? { ...row, userLiked: !row.userLiked, likeCount: Math.max(0, row.likeCount + (row.userLiked ? -1 : 1)) }
             : row,
-        ),
-      );
+        );
+      queryClient.setQueryData(feedKey, (old: any) => (old ? { ...old, items: toggle(old.items ?? []) } : old));
+      setExtraItems((prev) => toggle(prev));
       try {
         if (item.userLiked) await unlikeNewsItem(token, item.id);
         else await likeNewsItem(token, item.id);
       } catch {
-        void loadFresh();
+        void refetch();
       }
     },
-    [loadFresh, token],
+    [feedKey, queryClient, refetch, token],
   );
 
   const renderNewsItem = useCallback(
@@ -308,16 +289,18 @@ export default function NewsScreen() {
         ) : null}
       </View>
 
-      {loading && !items.length ? (
+      {isLoading && !items.length ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator />
         </View>
       ) : (
-        <FlatList
+        <FlashList<NewsItem>
           data={items}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 96, gap: 14 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          keyExtractor={(item: NewsItem) => String(item.id)}
+          estimatedItemSize={220}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 96 }}
+          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          refreshControl={<RefreshControl refreshing={isFetching && !isLoading} onRefresh={onRefresh} />}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.4}
           ListEmptyComponent={
@@ -366,7 +349,7 @@ export default function NewsScreen() {
           token={token}
           p={p}
           onClose={() => setCommentsFor(null)}
-          onChanged={() => void loadFresh()}
+          onChanged={invalidateFeed}
         />
       ) : null}
 
@@ -380,7 +363,7 @@ export default function NewsScreen() {
           onClose={() => setAdminModal(null)}
           onSaved={() => {
             setAdminModal(null);
-            void loadFresh();
+            invalidateFeed();
           }}
         />
       ) : null}
@@ -411,7 +394,7 @@ function CategoryChip({ label, active, onPress, p }: { label: string; active: bo
   );
 }
 
-function NewsCard({
+const NewsCard = React.memo(function NewsCard({
   item,
   p,
   onLike,
@@ -496,7 +479,7 @@ function NewsCard({
       ) : null}
     </Pressable>
   );
-}
+});
 
 function clampH(h: number) {
   return Math.round(Math.max(MIN_MEDIA_HEIGHT, Math.min(MAX_MEDIA_HEIGHT, h)));
@@ -526,7 +509,6 @@ function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
         item.url,
         (w, h) => {
           if (w > 0 && h > 0) {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
             setRatios((prev) => {
               const next = [...prev];
               next[i] = w / h;
@@ -549,7 +531,6 @@ function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
   const goTo = (idx: number) => {
     const clamped = Math.max(0, Math.min(idx, media.length - 1));
     scrollRef.current?.scrollTo({ x: clamped * cardW, animated: true });
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setPage(clamped);
   };
 
@@ -563,9 +544,6 @@ function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
 
   return (
     <View style={{ marginTop: 14 }}>
-      {/* Explicit height on both the container and the ScrollView avoids the
-          Animated.View + flex:1 propagation issue that caused blank slides on
-          some devices. LayoutAnimation handles the smooth resize instead. */}
       <View style={{ height: currentH, borderRadius: 14, overflow: "hidden" }}>
         <ScrollView
           ref={scrollRef}
@@ -574,9 +552,7 @@ function NewsMediaCarousel({ media, p }: { media: NewsMediaItem[]; p: any }) {
           showsHorizontalScrollIndicator={false}
           scrollEnabled={!single}
           onMomentumScrollEnd={(e) => {
-            const newPage = Math.round(e.nativeEvent.contentOffset.x / cardW);
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setPage(newPage);
+            setPage(Math.round(e.nativeEvent.contentOffset.x / cardW));
           }}
           decelerationRate="fast"
           snapToInterval={single ? undefined : cardW}

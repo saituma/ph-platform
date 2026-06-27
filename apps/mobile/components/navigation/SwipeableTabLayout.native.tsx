@@ -2,6 +2,7 @@ import { useAppTheme } from "@/app/theme/AppThemeProvider";
 import {
   ActiveTabProvider,
   setGlobalActiveTab,
+  setGlobalTabRoutes,
   subscribeToGlobalTabRequests,
 } from "@/context/ActiveTabContext";
 import { useTabVisibility } from "@/context/TabVisibilityContext";
@@ -54,6 +55,10 @@ export function SwipeableTabLayout({
   useEffect(() => {
     setGlobalActiveTab(activeIndex);
   }, [activeIndex]);
+
+  useEffect(() => {
+    setGlobalTabRoutes(tabs.map((t) => t.key));
+  }, [tabs]);
 
   const scrollOffset = useSharedValue(initialIndex);
 

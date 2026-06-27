@@ -628,6 +628,76 @@ function getWeekDays() {
   return days;
 }
 
+function ProgramCardTap({ programId, router, children }: { programId: string; router: ReturnType<typeof useRouter>; children: React.ReactNode }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(router.push)(`/programs/assigned/${programId}` as any);
+    }), [programId, router]);
+
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View style={animStyle} accessibilityRole="button">
+        {children}
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+const DayItem = memo(function DayItem({
+  day, isSelected, hasEvent, onSelect, p,
+}: {
+  day: { key: string; label: string; date: number };
+  isSelected: boolean;
+  hasEvent: boolean;
+  onSelect: (key: string) => void;
+  p: ReturnType<typeof useAdminPastel>;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.85, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onSelect)(day.key);
+    }), [day.key, onSelect]);
+
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[{ alignItems: "center", gap: 4 }, animStyle]} accessibilityRole="button" accessibilityLabel={`${day.label} ${day.date}`} accessibilityState={{ selected: isSelected }}>
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: isSelected ? p.accent : p.textMuted, letterSpacing: 0.3 }}>
+          {day.label}
+        </Text>
+        <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? p.accent : "transparent" }}>
+          <Text style={{ fontFamily: isSelected ? "Outfit-Bold" : "Outfit-Medium", fontSize: 16, color: isSelected ? p.buttonPrimaryText : p.textPrimary }}>
+            {day.date}
+          </Text>
+        </View>
+        <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: hasEvent && !isSelected ? p.accent : "transparent" }} />
+      </Animated.View>
+    </GestureDetector>
+  );
+});
+
 const WeekStrip = memo(function WeekStrip({
   selectedKey,
   onSelect,
@@ -646,51 +716,16 @@ const WeekStrip = memo(function WeekStrip({
       entering={reduceMotion ? undefined : FadeInDown.delay(140).duration(300)}
       style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 12 }}
     >
-      {days.map((day) => {
-        const isSelected = day.key === selectedKey;
-        const hasEvent = eventDateKeys.has(day.key);
-        return (
-          <Pressable
-            key={day.key}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onSelect(day.key);
-            }}
-            style={{ alignItems: "center", gap: 4 }}
-          >
-            <Text style={{
-              fontFamily: "Outfit-Regular",
-              fontSize: 11,
-              color: isSelected ? p.accent : p.textMuted,
-              letterSpacing: 0.3,
-            }}>
-              {day.label}
-            </Text>
-            <View style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: isSelected ? p.accent : "transparent",
-            }}>
-              <Text style={{
-                fontFamily: isSelected ? "Outfit-Bold" : "Outfit-Medium",
-                fontSize: 16,
-                color: isSelected ? p.buttonPrimaryText : p.textPrimary,
-              }}>
-                {day.date}
-              </Text>
-            </View>
-            {hasEvent && !isSelected && (
-              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: p.accent }} />
-            )}
-            {(!hasEvent || isSelected) && (
-              <View style={{ width: 5, height: 5 }} />
-            )}
-          </Pressable>
-        );
-      })}
+      {days.map((day) => (
+        <DayItem
+          key={day.key}
+          day={day}
+          isSelected={day.key === selectedKey}
+          hasEvent={eventDateKeys.has(day.key)}
+          onSelect={onSelect}
+          p={p}
+        />
+      ))}
     </Animated.View>
   );
 });
@@ -1159,9 +1194,7 @@ export default memo(function ScheduleScreen() {
           const programId = evt.id.replace("program-", "");
           return (
             <View style={{ paddingHorizontal: 20 }}>
-              <Pressable onPress={() => router.push(`/programs/assigned/${programId}` as any)}>
-                {card}
-              </Pressable>
+              <ProgramCardTap programId={programId} router={router}>{card}</ProgramCardTap>
             </View>
           );
         }

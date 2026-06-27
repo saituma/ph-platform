@@ -6,9 +6,9 @@ import {
   Dimensions,
   Platform,
   useColorScheme,
-  Image,
-  Pressable,
 } from "react-native";
+import { Image } from "expo-image";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
@@ -22,6 +22,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  cancelAnimation,
+  runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -140,20 +142,35 @@ function StatCard({
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.96, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      if (onPress) runOnJS(onPress)();
+    }), [onPress]);
+
   return (
     <Animated.View
       entering={reduceMotion ? undefined : FadeInDown.delay(cardDelay).duration(350)}
       style={[half ? s.statCardHalf : s.statCardFull]}
     >
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 350 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 200 }); }}
-      >
-        <Animated.View style={[s.statCardInner, {
-          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-        }, animStyle]}>
+      <GestureDetector gesture={tap}>
+        <Animated.View
+          style={[s.statCardInner, {
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+          }, animStyle]}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+        >
           <View style={s.statCardHeader}>
             {icon}
             <Text style={[s.statCardLabel, { color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.5)" }]}>{label}</Text>
@@ -163,7 +180,7 @@ function StatCard({
             {unit ? <Text style={[s.statCardUnit, { color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.4)" }]}>{unit}</Text> : null}
           </View>
         </Animated.View>
-      </Pressable>
+      </GestureDetector>
     </Animated.View>
   );
 }
@@ -181,6 +198,7 @@ function StreakIndicator({
 }) {
   const active = streak > 0;
   const flameScale = useSharedValue(1);
+  const pressScale = useSharedValue(1);
 
   useEffect(() => {
     if (active && !reduceMotion) {
@@ -195,35 +213,97 @@ function StreakIndicator({
     } else {
       flameScale.value = withTiming(1, { duration: 200 });
     }
+    return () => cancelAnimation(flameScale);
   }, [active, reduceMotion]);
 
   const flameStyle = useAnimatedStyle(() => ({
     transform: [{ scale: flameScale.value }],
   }));
 
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  const tap = useMemo(() => Gesture.Tap()
+    .hitSlop({ top: 10, bottom: 10, left: 10, right: 10 })
+    .onBegin(() => {
+      "worklet";
+      pressScale.value = withSpring(0.88, { damping: 15, stiffness: 400, mass: 0.3 });
+    })
+    .onFinalize(() => {
+      "worklet";
+      pressScale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onPress)();
+    }), [onPress]);
+
   const flameColor = active ? "#FF9500" : "rgba(255,255,255,0.28)";
 
   return (
-    <Pressable onPress={onPress} style={s.streakIndicator} hitSlop={10}>
-      <View>
-        <Animated.View style={flameStyle}>
-          <Flame
-            size={26}
-            color={flameColor}
-            fill={active ? "#FF9500" : "none"}
-            strokeWidth={active ? 1 : 1.8}
-          />
-        </Animated.View>
-        {freezesAvailable > 0 && (
-          <View style={s.streakFreezeDot}>
-            <Text style={s.streakFreezeDotText}>{freezesAvailable}</Text>
-          </View>
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[s.streakIndicator, containerStyle]} accessibilityRole="button" accessibilityLabel={`Streak: ${streak} days`}>
+        <View>
+          <Animated.View style={flameStyle}>
+            <Flame
+              size={26}
+              color={flameColor}
+              fill={active ? "#FF9500" : "none"}
+              strokeWidth={active ? 1 : 1.8}
+            />
+          </Animated.View>
+          {freezesAvailable > 0 && (
+            <View style={s.streakFreezeDot}>
+              <Text style={s.streakFreezeDotText}>{freezesAvailable}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[s.streakCount, { color: flameColor }]}>
+          {streak}
+        </Text>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
+function BellButton({ onPress, unread, isDark, accentColor, pageBg }: {
+  onPress: () => void;
+  unread: boolean;
+  isDark: boolean;
+  accentColor: string;
+  pageBg: string;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.88, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(onPress)();
+    }), [onPress]);
+
+  return (
+    <GestureDetector gesture={tap}>
+      <Animated.View
+        style={[s.bellBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)" }, animStyle]}
+        accessibilityRole="button"
+        accessibilityLabel="Notifications"
+      >
+        <Bell size={18} color={isDark ? "#FFFFFF" : "#1A1A1A"} />
+        {unread && (
+          <View style={[s.bellDot, { backgroundColor: accentColor, borderColor: isDark ? "#000000" : pageBg }]} />
         )}
-      </View>
-      <Text style={[s.streakCount, { color: flameColor }]}>
-        {streak}
-      </Text>
-    </Pressable>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -398,7 +478,7 @@ const HomeScreen = memo(function HomeScreen() {
       >
         {/* ── Hero with background image ── */}
         <View style={[s.hero, { height: HERO_HEIGHT + insets.top }]}>
-          <Image source={HOME_BG} style={s.heroBgImage} resizeMode="cover" />
+          <Image source={HOME_BG} style={s.heroBgImage} contentFit="cover" cachePolicy="memory" />
           <LinearGradient
             colors={["transparent", heroGradientMid, heroGradientEnd]}
             locations={[0.3, 0.7, 1]}
@@ -410,7 +490,7 @@ const HomeScreen = memo(function HomeScreen() {
             <Animated.View entering={reduceMotion ? undefined : FadeIn.delay(100).duration(400)} style={s.topBar}>
               <View style={s.topBarLeft}>
                 {profilePic ? (
-                  <Image source={{ uri: profilePic }} style={[s.avatar, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)" }]} />
+                  <Image source={{ uri: profilePic }} style={[s.avatar, { borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)" }]} contentFit="cover" cachePolicy="memory-disk" />
                 ) : (
                   <View style={[s.avatar, s.avatarPlaceholder, {
                     borderColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)",
@@ -429,14 +509,13 @@ const HomeScreen = memo(function HomeScreen() {
                     onPress={() => setStreakVisible(true)}
                   />
                 </Animated.View>
-                <Pressable onPress={navigateToNotifications} style={[s.bellBtn, {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.12)",
-                }]}>
-                  <Bell size={18} color={isDark ? "#FFFFFF" : "#1A1A1A"} />
-                  {unreadNotifications > 0 && (
-                    <View style={[s.bellDot, { backgroundColor: accentLime, borderColor: isDark ? "#000000" : p.pageBg }]} />
-                  )}
-                </Pressable>
+                <BellButton
+                  onPress={navigateToNotifications}
+                  unread={unreadNotifications > 0}
+                  isDark={isDark}
+                  accentColor={accentLime}
+                  pageBg={p.pageBg}
+                />
               </View>
             </Animated.View>
 

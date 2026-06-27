@@ -5,7 +5,8 @@ import { apiRequest } from "@/lib/api";
 import { requestGlobalTabChange } from "@/context/ActiveTabContext";
 import { useAppSelector } from "@/store/hooks";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
     Modal,
     Platform,
@@ -151,10 +152,20 @@ export default function AdminHomeScreen() {
     const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Admin";
     const canLoad = Boolean(token && bootstrapReady);
 
-    const [data, setData] = useState<AdminDashboard | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [detail, setDetail] = useState<HomeDetail | null>(null);
+    const [detail, setDetail] = React.useState<HomeDetail | null>(null);
+
+    const { data, isLoading: loading, error: queryError, refetch } = useQuery({
+        queryKey: ["admin-dashboard", token],
+        queryFn: () =>
+            apiRequest<AdminDashboard>("/admin/dashboard", {
+                token: token!,
+                suppressStatusCodes: [403],
+            }),
+        staleTime: 5 * 60 * 1000,
+        enabled: canLoad,
+    });
+
+    const error = queryError instanceof Error ? queryError.message : null;
 
     const today = useMemo(() => {
         return new Date().toLocaleDateString("en-GB", {
@@ -170,36 +181,7 @@ export default function AdminHomeScreen() {
         requestGlobalTabChange(index);
     }, []);
 
-    const loadDashboard = useCallback(
-        async (_forceRefresh?: boolean) => {
-            if (!token || !bootstrapReady) return;
-            setLoading(true);
-            setError(null);
-            try {
-                const res = await apiRequest<AdminDashboard>("/admin/dashboard", {
-                    token,
-                    suppressStatusCodes: [403],
-                    forceRefresh: true,
-                });
-                setData(res ?? null);
-            } catch (e) {
-                setError(
-                    e instanceof Error ? e.message : "Failed to load admin dashboard",
-                );
-            } finally {
-                setLoading(false);
-            }
-        },
-        [bootstrapReady, token],
-    );
-
     const teamsHook = useAdminTeams(token, canLoad);
-
-    useEffect(() => {
-        if (!canLoad) return;
-        void loadDashboard(false);
-        void teamsHook.load(false);
-    }, [canLoad, loadDashboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const kpis = useMemo(
         () => [
@@ -229,7 +211,7 @@ export default function AdminHomeScreen() {
     return (
         <AdminScreen>
             <ThemedScrollView
-                onRefresh={() => loadDashboard(true)}
+                onRefresh={() => void refetch()}
                 contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
             >
                 {/* ── Hero Header ── */}
@@ -278,7 +260,7 @@ export default function AdminHomeScreen() {
                         <Pressable
                             onPress={() => {
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                loadDashboard(true);
+                                void refetch();
                             }}
                             style={({ pressed }) => ({
                                 width: 48,

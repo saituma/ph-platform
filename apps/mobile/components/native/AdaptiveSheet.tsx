@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 
 type AdaptiveSheetVariant = "bottom" | "page" | "form" | "fullscreen";
@@ -49,14 +51,36 @@ export function AdaptiveSheet({
 }: AdaptiveSheetProps) {
   const insets = useAppSafeAreaInsets();
   const isBottom = variant === "bottom";
+
+  // For bottom sheets: listen to keyboard events and animate the card up directly.
+  // KeyboardAvoidingView is unreliable inside transparent overFullScreen modals because
+  // the KAV is at y=0 but keyboardVerticalOffset=insets.top causes it to undershoot.
+  const kbOffset = useSharedValue(0);
+  useEffect(() => {
+    if (!isBottom || !keyboardAvoiding) return;
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = Keyboard.addListener(showEvent, (e) => {
+      kbOffset.value = withTiming(e.endCoordinates.height, { duration: e.duration ?? 250 });
+    });
+    const onHide = Keyboard.addListener(hideEvent, (e) => {
+      kbOffset.value = withTiming(0, { duration: e.duration ?? 250 });
+    });
+    return () => { onShow.remove(); onHide.remove(); };
+  }, [isBottom, keyboardAvoiding, kbOffset]);
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    marginBottom: kbOffset.value,
+  }));
+
   const content = isBottom ? (
     <View style={[styles.bottomRoot, containerStyle]}>
       {dismissOnBackdropPress ? (
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       ) : null}
-      <View style={[styles.bottomCard, { paddingBottom: insets.bottom + 12 }, cardStyle]}>
+      <Animated.View style={[styles.bottomCard, { paddingBottom: insets.bottom + 12 }, cardStyle, cardAnimStyle]}>
         {children}
-      </View>
+      </Animated.View>
     </View>
   ) : (
     <View style={[styles.fullRoot, containerStyle]}>{children}</View>
@@ -71,11 +95,11 @@ export function AdaptiveSheet({
       statusBarTranslucent={isBottom}
       onRequestClose={onClose}
     >
-      {keyboardAvoiding ? (
+      {!isBottom && keyboardAvoiding ? (
         <KeyboardAvoidingView
           style={styles.keyboardRoot}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
+          keyboardVerticalOffset={0}
         >
           {content}
         </KeyboardAvoidingView>

@@ -72,7 +72,6 @@ export async function fetchRoster(token: string): Promise<RosterResponse> {
   return apiRequest<RosterResponse>("/team/roster", {
     token,
     suppressStatusCodes: [403],
-    forceRefresh: true,
   });
 }
 
@@ -82,7 +81,6 @@ export async function fetchAthleteDetail(
 ): Promise<AthleteDetailResponse> {
   return apiRequest<AthleteDetailResponse>(`/team/roster/athletes/${athleteId}`, {
     token,
-    forceRefresh: true,
   });
 }
 

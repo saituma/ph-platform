@@ -29,8 +29,12 @@ import { formatDurationClock } from "@/lib/tracking/runUtils";
 const { width: SW, height: SH } = Dimensions.get("window");
 
 const CARD_W = SW - 56;
-const CARD_H = Math.min(Math.round(CARD_W * 1.45), Math.round(SH * 0.54));
+const CARD_H = Math.min(Math.round(CARD_W * 1.52), Math.round(SH * 0.56));
 const GREEN = "#2F9F3D";
+
+// Route preview box dimensions (projected separately from full-card watermark)
+const ROUTE_BOX_W = CARD_W - 52;
+const ROUTE_BOX_H = 108;
 
 type CardStyle = "power" | "minimal" | "map" | "photo";
 const CARD_STYLES: CardStyle[] = ["power", "minimal", "map", "photo"];
@@ -123,20 +127,39 @@ function capitalizeSport(sport: string | null | undefined): string {
 
 // ── Card Components ────────────────────────────────────────────────────────
 
+function RouteBox({ pts, color }: { pts: Pt[]; color: string }) {
+  if (pts.length < 2) return null;
+  return (
+    <View
+      style={{
+        width: ROUTE_BOX_W,
+        height: ROUTE_BOX_H,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* glow pass */}
+      <RouteLines pts={pts} color={`${color}55`} sw={9} />
+      {/* solid pass */}
+      <RouteLines pts={pts} color={color} sw={3} />
+    </View>
+  );
+}
+
 function PowerCard({
   cardRef,
   distKm,
   paceStr,
   timeStr,
   sport,
-  routePts,
+  routePtsBox,
 }: {
   cardRef: React.RefObject<View | null>;
   distKm: string;
   paceStr: string;
   timeStr: string;
   sport: string;
-  routePts: Pt[];
+  routePtsBox: Pt[];
 }) {
   return (
     <View
@@ -150,23 +173,6 @@ function PowerCard({
         overflow: "hidden",
       }}
     >
-      {/* Route watermark — full card, very faint */}
-      {routePts.length > 1 && (
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: CARD_W,
-            height: CARD_H,
-            opacity: 0.13,
-          }}
-        >
-          <RouteLines pts={routePts} color={GREEN} sw={7} />
-        </View>
-      )}
-
       {/* Top accent bar */}
       <View style={{ height: 3, backgroundColor: GREEN }} />
 
@@ -196,13 +202,26 @@ function PowerCard({
           </Text>
         </View>
 
-        {/* Big distance */}
+        {/* Route */}
+        <View
+          style={{
+            backgroundColor: "rgba(255,255,255,0.04)",
+            borderRadius: 14,
+            padding: 10,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <RouteBox pts={routePtsBox} color={GREEN} />
+        </View>
+
+        {/* Distance */}
         <View>
           <Text
             style={{
               fontFamily: "Outfit-Black",
-              fontSize: 84,
-              lineHeight: 88,
+              fontSize: 76,
+              lineHeight: 80,
               color: "#fff",
               letterSpacing: -4,
             }}
@@ -212,7 +231,7 @@ function PowerCard({
           <Text
             style={{
               fontFamily: "Outfit-Bold",
-              fontSize: 20,
+              fontSize: 18,
               color: "rgba(255,255,255,0.38)",
               marginTop: -4,
             }}
@@ -226,12 +245,12 @@ function PowerCard({
           style={{
             borderTopWidth: 1,
             borderTopColor: "rgba(255,255,255,0.09)",
-            paddingTop: 16,
+            paddingTop: 14,
             flexDirection: "row",
             gap: 28,
           }}
         >
-          <View style={{ gap: 4 }}>
+          <View style={{ gap: 3 }}>
             <Text
               style={{
                 fontFamily: "Outfit-Bold",
@@ -244,21 +263,15 @@ function PowerCard({
               Pace
             </Text>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 19, color: "#fff" }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: "#fff" }}>
                 {paceStr}
               </Text>
-              <Text
-                style={{
-                  fontFamily: "Outfit-Regular",
-                  fontSize: 10,
-                  color: "rgba(255,255,255,0.32)",
-                }}
-              >
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: "rgba(255,255,255,0.32)" }}>
                 {" /km"}
               </Text>
             </View>
           </View>
-          <View style={{ gap: 4 }}>
+          <View style={{ gap: 3 }}>
             <Text
               style={{
                 fontFamily: "Outfit-Bold",
@@ -270,7 +283,7 @@ function PowerCard({
             >
               Time
             </Text>
-            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 19, color: "#fff" }}>
+            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: "#fff" }}>
               {timeStr}
             </Text>
           </View>
@@ -285,11 +298,13 @@ function MinimalCard({
   distKm,
   paceStr,
   timeStr,
+  routePtsBox,
 }: {
   cardRef: React.RefObject<View | null>;
   distKm: string;
   paceStr: string;
   timeStr: string;
+  routePtsBox: Pt[];
 }) {
   return (
     <View
@@ -302,6 +317,7 @@ function MinimalCard({
         borderRadius: 24,
         overflow: "hidden",
         padding: 28,
+        justifyContent: "space-between",
       }}
     >
       {/* Brand */}
@@ -317,13 +333,13 @@ function MinimalCard({
         PH PERFORMANCE
       </Text>
 
-      {/* Big distance — vertically centered */}
-      <View style={{ flex: 1, justifyContent: "center" }}>
+      {/* Big distance */}
+      <View>
         <Text
           style={{
             fontFamily: "Outfit-Black",
-            fontSize: 92,
-            lineHeight: 96,
+            fontSize: 84,
+            lineHeight: 88,
             color: "#fff",
             letterSpacing: -5,
           }}
@@ -333,23 +349,20 @@ function MinimalCard({
         <Text
           style={{
             fontFamily: "Outfit-Medium",
-            fontSize: 26,
+            fontSize: 22,
             color: "rgba(255,255,255,0.28)",
-            marginTop: -8,
+            marginTop: -6,
           }}
         >
           km
         </Text>
       </View>
 
+      {/* Route */}
+      <RouteBox pts={routePtsBox} color="rgba(255,255,255,0.7)" />
+
       {/* Separator */}
-      <View
-        style={{
-          height: 1,
-          backgroundColor: "rgba(255,255,255,0.14)",
-          marginBottom: 18,
-        }}
-      />
+      <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.12)" }} />
 
       {/* Stats */}
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -568,6 +581,7 @@ function PhotoCard({
   timeStr,
   sport,
   photoUri,
+  routePtsBox,
   onPickPhoto,
 }: {
   cardRef: React.RefObject<View | null>;
@@ -576,6 +590,7 @@ function PhotoCard({
   timeStr: string;
   sport: string;
   photoUri: string | null;
+  routePtsBox: Pt[];
   onPickPhoto: () => void;
 }) {
   if (!photoUri) {
@@ -724,6 +739,8 @@ function PhotoCard({
             </Text>
           </View>
 
+          <RouteBox pts={routePtsBox} color="rgba(255,255,255,0.7)" />
+
           <View style={{ flexDirection: "row", gap: 24 }}>
             <View style={{ gap: 3 }}>
               <Text
@@ -871,8 +888,8 @@ export function WorkoutShareSheet({
     };
   }, [coordinates]);
 
-  const routePts = useMemo(
-    () => projectCoords(thinCoords(coordinates), CARD_W, CARD_H),
+  const routePtsBox = useMemo(
+    () => projectCoords(thinCoords(coordinates), ROUTE_BOX_W, ROUTE_BOX_H),
     [coordinates],
   );
 
@@ -1053,7 +1070,7 @@ export function WorkoutShareSheet({
               paceStr={paceStr}
               timeStr={timeStr}
               sport={sportLabel}
-              routePts={routePts}
+              routePtsBox={routePtsBox}
             />
           </View>
 
@@ -1063,6 +1080,7 @@ export function WorkoutShareSheet({
               distKm={distKm}
               paceStr={paceStr}
               timeStr={timeStr}
+              routePtsBox={routePtsBox}
             />
           </View>
 
@@ -1086,6 +1104,7 @@ export function WorkoutShareSheet({
               timeStr={timeStr}
               sport={sportLabel}
               photoUri={photoUri}
+              routePtsBox={routePtsBox}
               onPickPhoto={pickPhoto}
             />
           </View>

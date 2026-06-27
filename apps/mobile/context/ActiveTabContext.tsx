@@ -58,6 +58,10 @@ export function subscribeToGlobalTabRequests(listener: RequestListener) {
   };
 }
 
+export function getTabIndexByKey(key: string): number {
+  return _tabRouteKeys.indexOf(key);
+}
+
 /** Returns the currently active tab index. Re-renders when it changes. */
 export function useActiveTabIndex(): number {
   const [index, setIndex] = useState(_activeIndex);

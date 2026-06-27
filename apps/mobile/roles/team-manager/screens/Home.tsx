@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
   Image,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   Users,
@@ -38,13 +39,26 @@ export default function TeamManagerHomeScreen() {
   const { authTeamMembership, token, appRole, capabilities } =
     useAppSelector((state) => state.user);
 
-  const [refreshing, setRefreshing] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
-  const [roster, setRoster] = useState<RosterResponse | null>(null);
-
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const queryClient = useQueryClient();
+
+  const { data: roster, isLoading: rosterLoading, isError: rosterError, refetch: refetchRoster } = useQuery({
+    queryKey: ["team-manager-roster", token],
+    queryFn: () => fetchRoster(token!),
+    staleTime: 3 * 60 * 1000,
+    enabled: Boolean(token),
+  });
+
+  const { data: leaderboardData, refetch: refetchLeaderboard } = useQuery({
+    queryKey: ["team-manager-leaderboard", token],
+    queryFn: () => fetchLeaderboard(token!, { windowDays: 7, limit: 100, useTeamFeed: true }),
+    staleTime: 3 * 60 * 1000,
+    enabled: Boolean(token),
+  });
+
+  const leaderboard = leaderboardData?.items ?? [];
+  const loaded = !rosterLoading;
+  const error = rosterError;
 
   const members = useMemo(
     () => (Array.isArray(roster?.members) ? roster!.members! : []),
@@ -73,26 +87,6 @@ export default function TeamManagerHomeScreen() {
     [leaderboard],
   );
 
-  const fetchData = useCallback(async (_forceRefresh?: boolean) => {
-    if (!token) return;
-    const [rosterRes, leaderboardRes] = await Promise.allSettled([
-      fetchRoster(token),
-      fetchLeaderboard(token, { windowDays: 7, limit: 100, useTeamFeed: true }),
-    ]);
-    const rosterOk = rosterRes.status === "fulfilled";
-    if (rosterOk) setRoster(rosterRes.value ?? null);
-    if (leaderboardRes.status === "fulfilled") setLeaderboard(leaderboardRes.value?.items ?? []);
-    // Roster is the core team data; if it fails we have nothing trustworthy to show.
-    setError(!rosterOk);
-    setLoaded(true);
-  }, [token]);
-
-  useEffect(() => {
-    void fetchData();
-    const fallback = setTimeout(() => setLoaded(true), 5000);
-    return () => clearTimeout(fallback);
-  }, [fetchData]);
-
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -101,11 +95,12 @@ export default function TeamManagerHomeScreen() {
     }).start();
   }, [fadeAnim]);
 
-  const onRefresh = useCallback(async () => {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await fetchData(true);
+    await Promise.all([refetchRoster(), refetchLeaderboard()]);
     setRefreshing(false);
-  }, [fetchData]);
+  }, [refetchRoster, refetchLeaderboard]);
 
   if (appRole !== "team_manager") return null;
 
@@ -330,8 +325,7 @@ export default function TeamManagerHomeScreen() {
                 <ErrorRetry
                   title="Couldn't load your team"
                   onRetry={() => {
-                    setLoaded(false);
-                    void fetchData(true);
+                    void queryClient.invalidateQueries({ queryKey: ["team-manager-roster", token] });
                   }}
                 />
               </View>

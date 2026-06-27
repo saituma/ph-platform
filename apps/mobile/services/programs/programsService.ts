@@ -5,7 +5,7 @@ export async function fetchTeamWorkspace(token: string, age: number | null) {
   const ageQ = age != null ? `?age=${age}` : "";
   return apiRequest<TrainingContentV2Workspace>(
     `/training-content-v2/mobile${ageQ}`,
-    { token, forceRefresh: true }
+    { token }
   );
 }
 
@@ -20,7 +20,7 @@ export async function fetchSectionContent(token: string, type: string, tier: str
   const ageQ = age !== null ? `&age=${age}` : "";
   return apiRequest<{ items: ProgramSectionContent[] }>(
     `/program-section-content?sectionType=${encodeURIComponent(String(type))}&programTier=${encodeURIComponent(tier)}${ageQ}`,
-    { token, forceRefresh: true }
+    { token }
   );
 }
 
@@ -73,7 +73,7 @@ export async function fetchTrackingWorkouts(
   const ageQ = age != null ? `?age=${age}` : "";
   return apiRequest<TrackingWorkoutFeed>(
     `/training-content-v2/mobile/workouts${ageQ}`,
-    { token, forceRefresh: true },
+    { token },
   );
 }
 

@@ -38,7 +38,7 @@ export async function fetchNewsFeed(
   if (opts?.category?.trim()) params.set("category", opts.category.trim());
   return apiRequest<{ items: NewsItem[]; nextCursor: number | null }>(
     `/content/news?${params.toString()}`,
-    { token, suppressLog: true, skipCache: true, forceRefresh: true },
+    { token, suppressLog: true },
   );
 }
 
@@ -46,8 +46,6 @@ export async function fetchNewsCategories(token: string) {
   return apiRequest<{ items: string[] }>("/content/news/categories", {
     token,
     suppressLog: true,
-    skipCache: true,
-    forceRefresh: true,
   });
 }
 

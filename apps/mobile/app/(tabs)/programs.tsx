@@ -6,6 +6,7 @@ import {
   View,
   Dimensions,
 } from "react-native";
+// Pressable still used for program tab pills (small press targets that don't need spring scale)
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { AlertCircle, ChevronRight, Dumbbell, Layers, Flame, Bell, BookOpen, Library } from "lucide-react-native";
@@ -19,6 +20,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   runOnJS,
+  cancelAnimation,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -131,6 +133,74 @@ const programTabContentStyle = {
   paddingBottom: 10,
 };
 
+// ── Module Card ──────────────────────────────────────────────────────
+
+const ModuleCard = React.memo(function ModuleCard({
+  mod, entering, programId, router, cardText, cardSubText, accentSoft,
+}: {
+  mod: { id: number | string; order: number; title: string; sessionCount: number };
+  entering: any;
+  programId: number;
+  router: ReturnType<typeof useRouter>;
+  cardText: string;
+  cardSubText: string;
+  accentSoft: string;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const tap = useMemo(() => Gesture.Tap()
+    .onBegin(() => {
+      "worklet";
+      scale.value = withSpring(0.97, { damping: 15, stiffness: 400, mass: 0.3 });
+      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
+    })
+    .onFinalize(() => {
+      "worklet";
+      scale.value = withSpring(1, { damping: 20, stiffness: 300, mass: 0.4 });
+    })
+    .onEnd(() => {
+      "worklet";
+      runOnJS(router.push)(`/programs/assigned/${programId}?moduleId=${mod.id}&moduleName=${encodeURIComponent(mod.title)}` as any);
+    }), [programId, mod.id, mod.title, router]);
+
+  return (
+    <Animated.View entering={entering} style={{ marginBottom: 14 }}>
+      <GestureDetector gesture={tap}>
+        <Animated.View
+          style={[{ borderRadius: 22, overflow: "hidden" }, animStyle]}
+          accessibilityRole="button"
+          accessibilityLabel={mod.title}
+        >
+          <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
+            <View style={{ marginRight: 14 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: accentSoft, alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: cardText }}>{mod.order}</Text>
+              </View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 17, fontFamily: "Outfit-Bold", color: cardText, letterSpacing: -0.2 }} numberOfLines={1}>
+                {mod.title}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                <Layers size={13} color={cardSubText} />
+                <Text style={{ fontSize: 13, fontFamily: "Outfit-Regular", color: cardSubText }}>
+                  {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
+                </Text>
+              </View>
+            </View>
+            <View style={{ marginLeft: 12 }}>
+              <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: accentSoft, alignItems: "center", justifyContent: "center" }}>
+                <ChevronRight size={16} color={cardText} />
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  );
+});
+
 // ── Program Content (flat module cards → tap to navigate) ───────────
 
 const ProgramContent = memo(function ProgramContent({
@@ -154,91 +224,19 @@ const ProgramContent = memo(function ProgramContent({
       const entering = reduceMotion
         ? undefined
         : FadeInDown.delay(Math.min(modIdx, 8) * 40).duration(250);
-      const cardBg = "transparent";
       const cardText = p.textPrimary;
       const cardSubText = p.textSecondary;
 
       return (
-        <Animated.View entering={entering}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push(`/programs/assigned/${programId}?moduleId=${mod.id}&moduleName=${encodeURIComponent(mod.title)}` as any);
-            }}
-            style={({ pressed }) => ({
-              marginBottom: 14,
-              transform: [{ scale: pressed ? 0.97 : 1 }],
-            })}
-          >
-            <View
-              style={{
-                borderRadius: 22,
-                backgroundColor: cardBg,
-                overflow: "hidden",
-              }}
-            >
-              <View style={{ padding: 18, flexDirection: "row", alignItems: "center" }}>
-                <View style={{ marginRight: 14 }}>
-                  <View
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 14,
-                      backgroundColor: p.accentSoft,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ fontSize: 18, fontFamily: "Outfit-Bold", color: cardText }}>
-                      {mod.order}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      fontSize: 17,
-                      fontFamily: "Outfit-Bold",
-                      color: cardText,
-                      letterSpacing: -0.2,
-                    }}
-                    numberOfLines={1}
-                  >
-                    {mod.title}
-                  </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <Layers size={13} color={cardSubText} />
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontFamily: "Outfit-Regular",
-                        color: cardSubText,
-                      }}
-                    >
-                      {mod.sessionCount} {mod.sessionCount === 1 ? "session" : "sessions"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={{ marginLeft: 12 }}>
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 10,
-                      backgroundColor: p.accentSoft,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <ChevronRight size={16} color={cardText} />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </Pressable>
-        </Animated.View>
+        <ModuleCard
+          mod={mod}
+          entering={entering}
+          programId={programId}
+          router={router}
+          cardText={cardText}
+          cardSubText={cardSubText}
+          accentSoft={p.accentSoft}
+        />
       );
     },
     [p.accentSoft, p.textPrimary, p.textSecondary, programId, reduceMotion, router],

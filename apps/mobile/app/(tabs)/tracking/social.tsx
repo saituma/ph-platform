@@ -2,9 +2,11 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   memo,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Alert,
@@ -145,23 +147,9 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
   // ── State ──
   const [activeTab, setActiveTab] = useState<TabKey>("feed");
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [_postLoading, setPostLoading] = useState(false);
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [postLoadingMore, setPostLoadingMore] = useState(false);
-
-  const [leaderboard, setLeaderboard] = useState<SocialLeaderboardItem[]>([]);
-  const [adults, setAdults] = useState<
-    { userId: number; name: string; avatarUrl: string | null }[]
-  >([]);
-  const [feed, setFeed] = useState<SocialRunFeedItem[]>([]);
-  const [feedCursor, setFeedCursor] = useState<number | null>(null);
-  const [postFeed, setPostFeed] = useState<SocialPostItem[]>([]);
-  const [postCursor, setPostCursor] = useState<number | null>(null);
-  const [privacySettings, setPrivacySettings] = useState<PrivacySettings | null>(null);
 
   const [rangeDays, setRangeDays] = useState<number>(7);
   const [sort, setSort] = useState<SocialSort>("date_desc");
@@ -178,209 +166,193 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
   const [lbCommentOpen, setLbCommentOpen] = useState(false);
 
   const canLoad = token != null;
+  const queryClient = useQueryClient();
 
-  // ── Load functions ──
-  const loadLeaderboard = useCallback(async () => {
-    if (!token) return;
-    setLeaderboardLoading(true);
-    try {
-      const res = await fetchLeaderboard(token, {
-        windowDays: rangeDays === 0 ? 0 : rangeDays,
-        limit: 25,
-        sort: leaderboardSort,
-        useTeamFeed,
-      });
-      setLeaderboard(res.items ?? []);
-    } finally {
-      setLeaderboardLoading(false);
-    }
-  }, [leaderboardSort, rangeDays, token, useTeamFeed]);
+  // ── Query keys ──
+  const lbKey = useMemo(
+    () => ["social-leaderboard", rangeDays, leaderboardSort, useTeamFeed] as const,
+    [leaderboardSort, rangeDays, useTeamFeed],
+  );
+  const feedKey = useMemo(
+    () => ["social-feed", rangeDays, sort, useTeamFeed] as const,
+    [rangeDays, sort, useTeamFeed],
+  );
+  const postsKey = useMemo(
+    () => ["social-posts", useTeamFeed] as const,
+    [useTeamFeed],
+  );
+  const settingsKey = useMemo(
+    () => ["social-privacy", token] as const,
+    [token],
+  );
+  const adultsKey = useMemo(
+    () => ["social-adults", useTeamFeed] as const,
+    [useTeamFeed],
+  );
 
-  const loadFeed = useCallback(async () => {
-    if (!token) return;
-    setFeedLoading(true);
-    try {
-      const res = await fetchRunFeed(token, {
-        limit: 20,
-        cursor: null,
-        windowDays: rangeDays,
-        sort,
-        useTeamFeed,
-      });
-      setFeed(res.items ?? []);
-      setFeedCursor(res.nextCursor ?? null);
-    } finally {
-      setFeedLoading(false);
-    }
-  }, [rangeDays, sort, token, useTeamFeed]);
+  // ── Queries ──
+  const { data: lbData, isLoading: leaderboardLoading } = useQuery({
+    queryKey: lbKey,
+    queryFn: () =>
+      fetchLeaderboard(token!, { windowDays: rangeDays === 0 ? 0 : rangeDays, limit: 25, sort: leaderboardSort, useTeamFeed }),
+    staleTime: 2 * 60 * 1000,
+    enabled: canLoad,
+  });
+  const leaderboard = lbData?.items ?? [];
 
+  const { data: feedData, isLoading: feedLoading } = useQuery({
+    queryKey: feedKey,
+    queryFn: () =>
+      fetchRunFeed(token!, { limit: 20, cursor: null, windowDays: rangeDays, sort, useTeamFeed }),
+    staleTime: 2 * 60 * 1000,
+    enabled: canLoad,
+  });
+  const [extraFeedItems, setExtraFeedItems] = useState<SocialRunFeedItem[]>([]);
+  const feedCursorRef = useRef<number | null>(null);
+  useEffect(() => {
+    setExtraFeedItems([]);
+    feedCursorRef.current = feedData?.nextCursor ?? null;
+  }, [feedData]);
+  const feed: SocialRunFeedItem[] = [...(feedData?.items ?? []), ...extraFeedItems];
+
+  const { data: postsData, isLoading: postsLoading } = useQuery({
+    queryKey: postsKey,
+    queryFn: () => fetchPostFeed(token!, { limit: 20, cursor: null, useTeamFeed }),
+    staleTime: 2 * 60 * 1000,
+    enabled: canLoad,
+  });
+  const [extraPostItems, setExtraPostItems] = useState<SocialPostItem[]>([]);
+  const postCursorRef = useRef<number | null>(null);
+  useEffect(() => {
+    setExtraPostItems([]);
+    postCursorRef.current = postsData?.nextCursor ?? null;
+  }, [postsData]);
+  const postFeed: SocialPostItem[] = [...(postsData?.items ?? []), ...extraPostItems];
+
+  const { data: settingsRaw } = useQuery({
+    queryKey: settingsKey,
+    queryFn: () => fetchPrivacySettings(token!),
+    staleTime: 10 * 60 * 1000,
+    enabled: canLoad,
+  });
+  const privacySettings = settingsRaw?.settings ?? null;
+
+  const { data: adultsData } = useQuery({
+    queryKey: adultsKey,
+    queryFn: () => fetchAdultDirectory(token!, { limit: 24, cursor: null, useTeamFeed }),
+    staleTime: 5 * 60 * 1000,
+    enabled: canLoad,
+  });
+  const adults = adultsData?.items ?? [];
+
+  const loading = feedLoading || leaderboardLoading || postsLoading;
+
+  // ── Pagination ──
   const loadMoreFeed = useCallback(async () => {
-    if (!token || feedCursor == null || feedLoadingMore) return;
+    if (!token || feedCursorRef.current == null || feedLoadingMore) return;
     setFeedLoadingMore(true);
     try {
       const res = await fetchRunFeed(token, {
         limit: 20,
-        cursor: feedCursor,
+        cursor: feedCursorRef.current,
         windowDays: rangeDays,
         sort,
         useTeamFeed,
       });
-      setFeed((prev) => [...prev, ...(res.items ?? [])]);
-      setFeedCursor(res.nextCursor ?? null);
+      setExtraFeedItems((prev) => [...prev, ...(res.items ?? [])]);
+      feedCursorRef.current = res.nextCursor ?? null;
     } finally {
       setFeedLoadingMore(false);
     }
-  }, [feedCursor, feedLoadingMore, rangeDays, sort, token, useTeamFeed]);
-
-  const loadPosts = useCallback(async () => {
-    if (!token) return;
-    setPostLoading(true);
-    try {
-      const res = await fetchPostFeed(token, { limit: 20, cursor: null, useTeamFeed });
-      setPostFeed(res.items ?? []);
-      setPostCursor(res.nextCursor ?? null);
-    } finally {
-      setPostLoading(false);
-    }
-  }, [token, useTeamFeed]);
+  }, [feedLoadingMore, rangeDays, sort, token, useTeamFeed]);
 
   const loadMorePosts = useCallback(async () => {
-    if (!token || postCursor == null || postLoadingMore) return;
+    if (!token || postCursorRef.current == null || postLoadingMore) return;
     setPostLoadingMore(true);
     try {
-      const res = await fetchPostFeed(token, { limit: 20, cursor: postCursor, useTeamFeed });
-      setPostFeed((prev) => [...prev, ...(res.items ?? [])]);
-      setPostCursor(res.nextCursor ?? null);
+      const res = await fetchPostFeed(token, { limit: 20, cursor: postCursorRef.current, useTeamFeed });
+      setExtraPostItems((prev) => [...prev, ...(res.items ?? [])]);
+      postCursorRef.current = res.nextCursor ?? null;
     } finally {
       setPostLoadingMore(false);
     }
-  }, [postCursor, postLoadingMore, token, useTeamFeed]);
+  }, [postLoadingMore, token, useTeamFeed]);
 
-  const loadSettings = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetchPrivacySettings(token);
-      setPrivacySettings(res.settings);
-    } catch {
-      setPrivacySettings(null);
-    }
-  }, [token]);
+  const invalidateAll = useCallback(() => {
+    setExtraFeedItems([]);
+    setExtraPostItems([]);
+    void queryClient.invalidateQueries({ queryKey: lbKey });
+    void queryClient.invalidateQueries({ queryKey: feedKey });
+    void queryClient.invalidateQueries({ queryKey: postsKey });
+    void queryClient.invalidateQueries({ queryKey: adultsKey });
+  }, [adultsKey, feedKey, lbKey, postsKey, queryClient]);
 
-  const loadCommunity = useCallback(async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      await Promise.all([
-        loadLeaderboard(),
-        loadFeed(),
-        loadPosts(),
-        fetchAdultDirectory(token, { limit: 24, cursor: null, useTeamFeed }).then(
-          (d) => setAdults(d.items ?? []),
-        ),
-        fetchTeamLocations(token).catch(() => null),
-      ]);
-    } catch (e: any) {
-      Alert.alert("Couldn't load team", String(e?.message ?? "Error"));
-    } finally {
-      setLoading(false);
-    }
-  }, [loadFeed, loadLeaderboard, loadPosts, token, useTeamFeed]);
+  const invalidatePosts = useCallback(() => {
+    setExtraPostItems([]);
+    void queryClient.invalidateQueries({ queryKey: postsKey });
+  }, [postsKey, queryClient]);
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setRefreshing(true);
-    await Promise.all([loadSettings(), loadCommunity()]);
-    setRefreshing(false);
-  }, [loadCommunity, loadSettings]);
+    invalidateAll();
+    void queryClient.invalidateQueries({ queryKey: settingsKey }).finally(() => setRefreshing(false));
+  }, [invalidateAll, queryClient, settingsKey]);
 
   // ── Like handlers ──
   const toggleLike = useCallback(
     async (r: SocialRunFeedItem) => {
       if (!token) return;
-      setFeed((prev) => {
-        const updated = prev.map((item) =>
+      const toggle = (list: SocialRunFeedItem[]) =>
+        list.map((item) =>
           item.runLogId === r.runLogId
-            ? {
-                ...item,
-                userLiked: !item.userLiked,
-                likeCount: (item.likeCount ?? 0) + (item.userLiked ? -1 : 1),
-              }
+            ? { ...item, userLiked: !item.userLiked, likeCount: (item.likeCount ?? 0) + (item.userLiked ? -1 : 1) }
             : item,
         );
-        return updated;
-      });
+      queryClient.setQueryData(feedKey, (old: any) => (old ? { ...old, items: toggle(old.items ?? []) } : old));
+      setExtraFeedItems((prev) => toggle(prev));
       try {
-        if (r.userLiked) {
-          await unlikeRun(token, r.runLogId, { useTeamFeed });
-        } else {
-          await likeRun(token, r.runLogId, { useTeamFeed });
-        }
+        if (r.userLiked) await unlikeRun(token, r.runLogId, { useTeamFeed });
+        else await likeRun(token, r.runLogId, { useTeamFeed });
       } catch (e: any) {
-        setFeed((prev) =>
-          prev.map((item) =>
-            item.runLogId === r.runLogId
-              ? {
-                  ...item,
-                  userLiked: r.userLiked,
-                  likeCount: r.likeCount ?? 0,
-                }
-              : item,
-          ),
-        );
+        const revert = (list: SocialRunFeedItem[]) =>
+          list.map((item) =>
+            item.runLogId === r.runLogId ? { ...item, userLiked: r.userLiked, likeCount: r.likeCount ?? 0 } : item,
+          );
+        queryClient.setQueryData(feedKey, (old: any) => (old ? { ...old, items: revert(old.items ?? []) } : old));
+        setExtraFeedItems((prev) => revert(prev));
         Alert.alert("Error", String(e?.message ?? "Error"));
       }
     },
-    [token, useTeamFeed],
+    [feedKey, queryClient, token, useTeamFeed],
   );
 
   const onTogglePostLike = useCallback(
     async (post: SocialPostItem) => {
       if (!token) return;
-      setPostFeed((prev) =>
-        prev.map((item) =>
+      const toggle = (list: SocialPostItem[]) =>
+        list.map((item) =>
           item.id === post.id
-            ? {
-                ...item,
-                userLiked: !item.userLiked,
-                likeCount: item.likeCount + (item.userLiked ? -1 : 1),
-              }
+            ? { ...item, userLiked: !item.userLiked, likeCount: item.likeCount + (item.userLiked ? -1 : 1) }
             : item,
-        ),
-      );
-      try {
-        if (post.userLiked) {
-          await unlikeSocialPost(token, post.id, { useTeamFeed });
-        } else {
-          await likeSocialPost(token, post.id, { useTeamFeed });
-        }
-      } catch (e: any) {
-        setPostFeed((prev) =>
-          prev.map((item) =>
-            item.id === post.id
-              ? {
-                  ...item,
-                  userLiked: post.userLiked,
-                  likeCount: post.likeCount,
-                }
-              : item,
-          ),
         );
+      queryClient.setQueryData(postsKey, (old: any) => (old ? { ...old, items: toggle(old.items ?? []) } : old));
+      setExtraPostItems((prev) => toggle(prev));
+      try {
+        if (post.userLiked) await unlikeSocialPost(token, post.id, { useTeamFeed });
+        else await likeSocialPost(token, post.id, { useTeamFeed });
+      } catch (e: any) {
+        const revert = (list: SocialPostItem[]) =>
+          list.map((item) =>
+            item.id === post.id ? { ...item, userLiked: post.userLiked, likeCount: post.likeCount } : item,
+          );
+        queryClient.setQueryData(postsKey, (old: any) => (old ? { ...old, items: revert(old.items ?? []) } : old));
+        setExtraPostItems((prev) => revert(prev));
         Alert.alert("Error", String(e?.message ?? "Error"));
       }
     },
-    [token, useTeamFeed],
+    [postsKey, queryClient, token, useTeamFeed],
   );
-
-  // ── Initial load ──
-  const load = useCallback(() => {
-    void loadSettings();
-    void loadCommunity();
-  }, [loadCommunity, loadSettings]);
-
-  useEffect(() => {
-    if (!canLoad) return;
-    load();
-  }, [canLoad, load]);
 
   // ── Sort/range pickers ──
   const pickSort = useCallback(() => {
@@ -446,7 +418,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
                     socialEnabled: true,
                     privacyVersionAccepted: "1.0",
                   });
-                  setPrivacySettings(res.settings);
+                  queryClient.setQueryData(settingsKey, res);
                 } catch (e: any) {
                   Alert.alert("Error", String(e?.message ?? "Could not update settings"));
                 } finally {
@@ -469,7 +441,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
                 setSettingsLoading(true);
                 try {
                   const res = await updatePrivacySettings(token, { socialEnabled: false });
-                  setPrivacySettings(res.settings);
+                  queryClient.setQueryData(settingsKey, res);
                 } catch (e: any) {
                   Alert.alert("Error", String(e?.message ?? "Could not update settings"));
                 } finally {
@@ -523,7 +495,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
     return all;
   }, [feed, postFeed]);
 
-  const isFeedLoading = loading || (feedLoading && feed.length === 0 && postFeed.length === 0);
+  const isFeedLoading = loading && feed.length === 0 && postFeed.length === 0;
 
   // ── Gate check (standalone route only — embedded mode skips entirely) ──
   useEffect(() => {
@@ -856,7 +828,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
           postId={activePostId}
           postOwnerName={postFeed.find((pItem) => pItem.id === activePostId)?.name ?? null}
           useTeamFeed={useTeamFeed}
-          onChanged={loadPosts}
+          onChanged={invalidatePosts}
         />
       ) : null}
 
@@ -866,7 +838,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
           onClose={() => setComposerOpen(false)}
           token={token}
           useTeamFeed={useTeamFeed}
-          onPostCreated={loadCommunity}
+          onPostCreated={invalidateAll}
         />
       ) : null}
 
@@ -878,7 +850,11 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
           token={token}
           useTeamFeed={useTeamFeed}
           postFeed={postFeed}
-          onPosted={(post) => setPostFeed((prev) => [post, ...prev])}
+          onPosted={(post) => {
+            queryClient.setQueryData(postsKey, (old: any) =>
+              old ? { ...old, items: [post, ...(old.items ?? [])] } : { items: [post], nextCursor: null }
+            );
+          }}
         />
       ) : null}
 

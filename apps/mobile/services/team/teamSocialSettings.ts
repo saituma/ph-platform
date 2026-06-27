@@ -21,8 +21,6 @@ export async function fetchTeamSocialSettings(token: string) {
     return await apiRequest<{ settings: TeamSocialSettings }>("/teams/social/settings", {
       token,
       suppressLog: true,
-      skipCache: true,
-      forceRefresh: true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

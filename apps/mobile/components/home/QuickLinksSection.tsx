@@ -9,12 +9,23 @@ import { Text } from "@/components/ScaledText";
 import { AppIcon, type AppIconName } from "@/components/ui/app-icon";
 import type { AppRole } from "@/lib/appRole";
 import type { AppCapabilities } from "@/store/slices/userSlice";
+import { requestGlobalTabChange, getTabIndexByKey } from "@/context/ActiveTabContext";
 
 type QuickLink = {
   label: string;
   icon: AppIconName;
-  route: string;
+  /** Push route for non-tab destinations (e.g. "/nutrition") */
+  route?: string;
+  /** Tab key for tab switching via requestGlobalTabChange */
+  tabKey?: string;
 };
+
+function tab(label: string, icon: AppIconName, tabKey: string): QuickLink {
+  return { label, icon, tabKey };
+}
+function push(label: string, icon: AppIconName, route: string): QuickLink {
+  return { label, icon, route };
+}
 
 function getLinksForRole(
   appRole: AppRole | null,
@@ -28,42 +39,42 @@ function getLinksForRole(
   switch (appRole) {
     case "coach":
       return [
-        { label: "Nutrition", icon: "tracking", route: "/nutrition" },
-        { label: "Schedule", icon: "calendar", route: "/(tabs)/schedule" },
-        { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
+        push("Nutrition", "tracking", "/nutrition"),
+        tab("Schedule", "calendar", "schedule"),
+        tab("Messages", "chat", "messages"),
       ];
     case "team_manager":
       return [
-        { label: "Team", icon: "user", route: "/(tabs)/team" },
-        { label: "Nutrition", icon: "tracking", route: "/nutrition" },
-        { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
-        { label: "More", icon: "more", route: "/(tabs)/more" },
+        tab("Team", "user", "manager-home"),
+        push("Nutrition", "tracking", "/nutrition"),
+        tab("Messages", "chat", "messages"),
+        tab("Schedule", "calendar", "schedule"),
       ];
     case "adult_athlete":
     case "adult_athlete_team":
     case "team": {
       const links: QuickLink[] = [];
-      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
-      if (capabilities?.progressTracking === true) links.push({ label: "Progress", icon: "stats", route: "/progress" });
-      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
-      links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push(push("Wellbeing", "wellbeing", "/wellbeing"));
+      if (capabilities?.progressTracking === true) links.push(push("Progress", "stats", "/progress"));
+      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push(push("Sleep", "sleep", "/sleep"));
+      links.push(tab("Messages", "chat", "messages"));
       return links;
     }
     case "youth_athlete":
     case "youth_athlete_guardian_only":
     case "youth_athlete_team_guardian": {
       const links: QuickLink[] = [];
-      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push({ label: "Wellbeing", icon: "wellbeing", route: "/wellbeing" });
-      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push({ label: "Sleep", icon: "sleep", route: "/sleep" });
-      links.push({ label: "Nutrition", icon: "tracking", route: "/nutrition" });
-      links.push({ label: "Messages", icon: "chat", route: "/(tabs)/messages" });
+      if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push(push("Wellbeing", "wellbeing", "/wellbeing"));
+      if (!hideWellbeingSleep && capabilities?.sleep === true) links.push(push("Sleep", "sleep", "/sleep"));
+      links.push(push("Nutrition", "tracking", "/nutrition"));
+      links.push(tab("Messages", "chat", "messages"));
       return links;
     }
     default:
       return [
-        { label: "Nutrition", icon: "tracking", route: "/nutrition" },
-        { label: "Messages", icon: "chat", route: "/(tabs)/messages" },
-        { label: "More", icon: "more", route: "/(tabs)/more" },
+        push("Nutrition", "tracking", "/nutrition"),
+        tab("Messages", "chat", "messages"),
+        tab("More", "more", "more"),
       ];
   }
 }
@@ -76,8 +87,17 @@ const QuickLinkItem = React.memo(function QuickLinkItem({ link }: { link: QuickL
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const handlePress = useCallback(() => {
-    router.push(link.route as any);
-  }, [router, link.route]);
+    if (link.tabKey) {
+      const idx = getTabIndexByKey(link.tabKey);
+      if (idx >= 0) {
+        requestGlobalTabChange(idx);
+        return;
+      }
+    }
+    if (link.route) {
+      router.push(link.route as any);
+    }
+  }, [router, link]);
 
   const tap = useMemo(() => Gesture.Tap()
     .onBegin(() => {
