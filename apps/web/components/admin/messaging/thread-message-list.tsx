@@ -348,9 +348,9 @@ function ThreadMessageListInner({
                 >
                   <div
                     data-message-id={Number(message.id)}
-                    className="group flex w-full min-w-0"
+                    className={`group flex w-full min-w-0${mine ? " justify-end" : ""}`}
                   >
-                    <Message align={mine ? "end" : "start"} className="max-w-[88%] min-w-0" style={mine ? { marginLeft: "auto" } : {}}>
+                    <Message align={mine ? "end" : "start"} className="max-w-[88%] min-w-0">
                       <MessageAvatar>
                         <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
                           {avatarUrl ? (
@@ -720,7 +720,9 @@ function ThreadMessageListInner({
               data-reaction-picker-root="true"
               style={{
                 position: "fixed",
-                bottom: window.innerHeight - pickerAnchor.rect.top + 8,
+                ...(pickerAnchor.rect.top < 466
+                  ? { top: pickerAnchor.rect.bottom + 8 }
+                  : { bottom: window.innerHeight - pickerAnchor.rect.top + 8 }),
                 ...(pickerAnchor.mine
                   ? { right: window.innerWidth - pickerAnchor.rect.right }
                   : { left: pickerAnchor.rect.left }),
