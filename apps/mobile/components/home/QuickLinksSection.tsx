@@ -57,7 +57,7 @@ function getLinksForRole(
       if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push(push("Wellbeing", "wellbeing", "/wellbeing"));
       if (capabilities?.progressTracking === true) links.push(push("Progress", "stats", "/progress"));
       if (!hideWellbeingSleep && capabilities?.sleep === true) links.push(push("Sleep", "sleep", "/sleep"));
-      links.push(tab("Messages", "chat", "messages"));
+      links.push(push("Nutrition", "tracking", "/nutrition"));
       return links;
     }
     case "youth_athlete":
