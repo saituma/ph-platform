@@ -67,7 +67,7 @@ function BubbleContent({
     <Comp
       data-slot="bubble-content"
       className={cn(
-        "cn-bubble-content w-fit max-w-full min-w-0 overflow-hidden wrap-break-word [button]:text-left [button,a]:transition-colors",
+        "cn-bubble-content w-fit max-w-full min-w-0 overflow-hidden whitespace-pre-wrap wrap-break-word [button]:text-left [button,a]:transition-colors",
         className
       )}
       {...props}

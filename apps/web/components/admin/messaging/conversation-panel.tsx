@@ -450,7 +450,7 @@ export function ConversationPanel({
                                 ) : null}
 
                                 {!shouldHideText && message.text ? (
-                                  <p>{message.text}</p>
+                                  <p className="whitespace-pre-wrap">{message.text}</p>
                                 ) : null}
                               </BubbleContent>
 
