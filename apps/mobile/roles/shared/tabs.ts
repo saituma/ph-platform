@@ -37,13 +37,3 @@ export const NEWS_TAB: TabConfig = {
   icon: "newspaper",
   iconOutline: "newspaper-outline",
 };
-
-/**
- * Home, Programs, Messages, Schedule, Tracking, More — used for team + adult athlete shells.
- * (Youth shell omits Tracking — see `roles/youth/tabs.ts`.)
- */
-export const ATHLETE_TAB_ROUTES_WITH_TRACKING: TabConfig[] = [
-  ...BASE_TEAM_TAB_ROUTES.slice(0, 4),
-  TRACKING_TAB,
-  ...BASE_TEAM_TAB_ROUTES.slice(4),
-];
