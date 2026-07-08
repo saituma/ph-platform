@@ -55,6 +55,8 @@ export const contentSurface = pgEnum("content_surface", [
   "testimonial_submissions",
   "news",
 ]);
+/** Who a "news" content item targets. "team" pairs with audienceTeam (specific team name); "all_teams" means any athlete on any team. */
+export const contentAudience = pgEnum("content_audience", ["all", "adult", "youth", "team", "all_teams"]);
 export const messageType = pgEnum("message_type", ["text", "image", "video"]);
 export const chatGroupCategory = pgEnum("chat_group_category", ["announcement", "coach_group", "team"]);
 export const subscriptionStatus = pgEnum("subscription_status", [
@@ -1421,6 +1423,8 @@ export const contentTable = pgTable(
     programTier: ProgramType(),
     surface: contentSurface().notNull(),
     category: varchar({ length: 255 }),
+    audienceType: contentAudience("audience_type"),
+    audienceTeam: varchar("audience_team", { length: 255 }),
     ageList: jsonb(),
     minAge: integer(),
     maxAge: integer(),

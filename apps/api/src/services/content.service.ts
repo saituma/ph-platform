@@ -143,8 +143,38 @@ async function resolveAnnouncementAudienceContext(userId: number) {
     .from(chatGroupMemberTable)
     .where(eq(chatGroupMemberTable.userId, userId));
   const groupIds = new Set(groupRows.map((row) => Number(row.groupId)).filter((value) => Number.isFinite(value)));
+  const hasTeam = relatedAthletes.some((athlete) => athlete.teamId != null);
 
-  return { teams, ages, groupIds, athleteTypes, tiers };
+  return { teams, ages, groupIds, athleteTypes, tiers, hasTeam };
+}
+
+type NewsAudience =
+  | { type: "all" }
+  | { type: "adult" }
+  | { type: "youth" }
+  | { type: "all_teams" }
+  | { type: "team"; team: string };
+
+function parseNewsAudience(item: typeof contentTable.$inferSelect): NewsAudience {
+  if (item.audienceType === "team") {
+    return { type: "team", team: String(item.audienceTeam ?? "").trim().toLowerCase() };
+  }
+  if (item.audienceType === "adult" || item.audienceType === "youth" || item.audienceType === "all_teams") {
+    return { type: item.audienceType };
+  }
+  return { type: "all" };
+}
+
+function userMatchesNewsAudience(
+  item: typeof contentTable.$inferSelect,
+  context: { teams: Set<string>; athleteTypes: Set<string>; hasTeam: boolean },
+) {
+  const audience = parseNewsAudience(item);
+  if (audience.type === "all") return true;
+  if (audience.type === "adult") return context.athleteTypes.has("adult");
+  if (audience.type === "youth") return context.athleteTypes.has("youth");
+  if (audience.type === "all_teams") return context.hasTeam;
+  return context.teams.has(audience.team);
 }
 
 export async function getAnnouncements(userId?: number, role?: string) {
@@ -200,6 +230,26 @@ export async function listNews(input: {
   const categoryTerm = input.category?.trim();
   const categoryFilter = categoryTerm ? eq(contentTable.category, categoryTerm) : sql`true`;
 
+  const audienceContext =
+    input.viewerUserId && !isAdminRole(input.role)
+      ? await resolveAnnouncementAudienceContext(input.viewerUserId)
+      : null;
+  const audienceFilter = !audienceContext
+    ? sql`true`
+    : or(
+        sql`${contentTable.audienceType} IS NULL`,
+        eq(contentTable.audienceType, "all"),
+        audienceContext.athleteTypes.has("adult") ? eq(contentTable.audienceType, "adult") : sql`false`,
+        audienceContext.athleteTypes.has("youth") ? eq(contentTable.audienceType, "youth") : sql`false`,
+        audienceContext.hasTeam ? eq(contentTable.audienceType, "all_teams") : sql`false`,
+        audienceContext.teams.size
+          ? and(
+              eq(contentTable.audienceType, "team"),
+              sql`lower(${contentTable.audienceTeam}) = ANY(${Array.from(audienceContext.teams)})`,
+            )
+          : sql`false`,
+      );
+
   const rows = await db
     .select({
       id: contentTable.id,
@@ -208,6 +258,8 @@ export async function listNews(input: {
       body: contentTable.body,
       type: contentTable.type,
       category: contentTable.category,
+      audienceType: contentTable.audienceType,
+      audienceTeam: contentTable.audienceTeam,
       isActive: contentTable.isActive,
       startsAt: contentTable.startsAt,
       endsAt: contentTable.endsAt,
@@ -217,7 +269,7 @@ export async function listNews(input: {
     })
     .from(contentTable)
     .innerJoin(userTable, eq(userTable.id, contentTable.createdBy))
-    .where(and(eq(contentTable.surface, "news"), activeFilter, cursorFilter, searchFilter, categoryFilter))
+    .where(and(eq(contentTable.surface, "news"), activeFilter, cursorFilter, searchFilter, categoryFilter, audienceFilter))
     .orderBy(desc(contentTable.id))
     .limit(limit + 1);
 
@@ -383,6 +435,107 @@ export async function userMatchesAnnouncementItem(
   return context.ages.some((age) => matchesAgeRange(item, age));
 }
 
+type BulkAudienceContext = {
+  teams: Set<string>;
+  groupIds: Set<number>;
+  ages: number[];
+  tiers: Set<(typeof ProgramType.enumValues)[number]>;
+  athleteTypes: Set<string>;
+  hasTeam: boolean;
+};
+
+/** Batch-resolves per-user audience context (team, group, age, tier, athlete-type membership) for a list of userIds in a fixed number of queries, avoiding N+1 per-user lookups during push fan-out. */
+async function resolveBulkAudienceContext(userIds: number[]): Promise<Map<number, BulkAudienceContext>> {
+  const [allAthleteRows, allGuardianRows, allGroupRows] = await Promise.all([
+    db.select().from(athleteTable).where(inArray(athleteTable.userId, userIds)),
+    db
+      .select({ userId: guardianTable.userId, id: guardianTable.id })
+      .from(guardianTable)
+      .where(inArray(guardianTable.userId, userIds)),
+    db
+      .select({ userId: chatGroupMemberTable.userId, groupId: chatGroupMemberTable.groupId })
+      .from(chatGroupMemberTable)
+      .where(inArray(chatGroupMemberTable.userId, userIds)),
+  ]);
+
+  // For users that are guardians (not direct athletes), resolve their athletes via guardianId
+  const guardianIdsByUserId = new Map(allGuardianRows.map((g) => [g.userId, g.id]));
+  const guardianIdsToLookup = allGuardianRows.map((g) => g.id);
+  const guardianAthleteRows =
+    guardianIdsToLookup.length > 0
+      ? await db.select().from(athleteTable).where(inArray(athleteTable.guardianId, guardianIdsToLookup))
+      : [];
+
+  const athletesByUserId = new Map<number, (typeof athleteTable.$inferSelect)[]>();
+  for (const row of allAthleteRows) {
+    if (!row.userId) continue;
+    const existing = athletesByUserId.get(row.userId) ?? [];
+    existing.push(row);
+    athletesByUserId.set(row.userId, existing);
+  }
+  for (const guardianRow of allGuardianRows) {
+    const athletes = guardianAthleteRows.filter((a) => a.guardianId === guardianIdsByUserId.get(guardianRow.userId));
+    if (athletes.length) {
+      const existing = athletesByUserId.get(guardianRow.userId) ?? [];
+      athletesByUserId.set(guardianRow.userId, [...existing, ...athletes]);
+    }
+  }
+
+  const groupIdsByUserId = new Map<number, Set<number>>();
+  for (const row of allGroupRows) {
+    const gid = Number(row.groupId);
+    if (!Number.isFinite(gid)) continue;
+    const set = groupIdsByUserId.get(row.userId) ?? new Set();
+    set.add(gid);
+    groupIdsByUserId.set(row.userId, set);
+  }
+
+  const contextByUserId = new Map<number, BulkAudienceContext>();
+  for (const userId of userIds) {
+    const relatedAthletes = athletesByUserId.get(userId) ?? [];
+    const teams = new Set(
+      relatedAthletes
+        .map((a) =>
+          String(a.team ?? "")
+            .trim()
+            .toLowerCase(),
+        )
+        .filter(Boolean),
+    );
+    const ages = relatedAthletes
+      .map((a) => resolveAgeFromAthlete(a))
+      .filter((age): age is number => Number.isFinite(age));
+    const tiers = new Set(
+      relatedAthletes
+        .map((a) => a.currentProgramTier)
+        .filter((t): t is (typeof ProgramType.enumValues)[number] => Boolean(t)),
+    );
+    const athleteTypes = new Set<string>();
+    for (const athlete of relatedAthletes) {
+      const explicit = String(athlete.athleteType ?? "")
+        .trim()
+        .toLowerCase();
+      if (explicit) {
+        athleteTypes.add(explicit);
+        continue;
+      }
+      const age = resolveAgeFromAthlete(athlete);
+      if (age == null) continue;
+      athleteTypes.add(age >= 18 ? "adult" : "youth");
+    }
+
+    contextByUserId.set(userId, {
+      teams,
+      groupIds: groupIdsByUserId.get(userId) ?? new Set<number>(),
+      ages,
+      tiers,
+      athleteTypes,
+      hasTeam: relatedAthletes.some((a) => a.teamId != null),
+    });
+  }
+  return contextByUserId;
+}
+
 async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSelect) {
   if (!isAnnouncementActive(item, new Date())) return;
   const audience = parseAnnouncementAudience(item);
@@ -411,96 +564,18 @@ async function sendAnnouncementCreatedPushes(item: typeof contentTable.$inferSel
 
   const nonAdminUsers = users.filter((u) => !isAdminRole(u.role));
   if (!nonAdminUsers.length) return;
-  const userIds = nonAdminUsers.map((u) => u.id);
+  const contextByUserId = await resolveBulkAudienceContext(nonAdminUsers.map((u) => u.id));
 
-  // Batch-load all athlete rows for all users in one query
-  const [allAthleteRows, allGuardianRows, allGroupRows] = await Promise.all([
-    db.select().from(athleteTable).where(inArray(athleteTable.userId, userIds)),
-    db
-      .select({ userId: guardianTable.userId, id: guardianTable.id })
-      .from(guardianTable)
-      .where(inArray(guardianTable.userId, userIds)),
-    db
-      .select({ userId: chatGroupMemberTable.userId, groupId: chatGroupMemberTable.groupId })
-      .from(chatGroupMemberTable)
-      .where(inArray(chatGroupMemberTable.userId, userIds)),
-  ]);
-
-  // For users that are guardians (not direct athletes), resolve their athletes via guardianId
-  const guardianIdsByUserId = new Map(allGuardianRows.map((g) => [g.userId, g.id]));
-  const guardianIdsToLookup = allGuardianRows.map((g) => g.id);
-  const guardianAthleteRows =
-    guardianIdsToLookup.length > 0
-      ? await db.select().from(athleteTable).where(inArray(athleteTable.guardianId, guardianIdsToLookup))
-      : [];
-
-  // Build per-user athlete lists
-  const athletesByUserId = new Map<number, (typeof athleteTable.$inferSelect)[]>();
-  for (const row of allAthleteRows) {
-    if (!row.userId) continue;
-    const existing = athletesByUserId.get(row.userId) ?? [];
-    existing.push(row);
-    athletesByUserId.set(row.userId, existing);
-  }
-  for (const guardianRow of allGuardianRows) {
-    const athletes = guardianAthleteRows.filter((a) => a.guardianId === guardianIdsByUserId.get(guardianRow.userId));
-    if (athletes.length) {
-      const existing = athletesByUserId.get(guardianRow.userId) ?? [];
-      athletesByUserId.set(guardianRow.userId, [...existing, ...athletes]);
-    }
-  }
-
-  // Build per-user group IDs
-  const groupIdsByUserId = new Map<number, Set<number>>();
-  for (const row of allGroupRows) {
-    const gid = Number(row.groupId);
-    if (!Number.isFinite(gid)) continue;
-    const set = groupIdsByUserId.get(row.userId) ?? new Set();
-    set.add(gid);
-    groupIdsByUserId.set(row.userId, set);
-  }
-
-  // Match each user against the announcement audience using in-memory data (no per-user DB calls)
   for (const u of nonAdminUsers) {
-    const relatedAthletes = athletesByUserId.get(u.id) ?? [];
-    const teams = new Set(
-      relatedAthletes
-        .map((a) =>
-          String(a.team ?? "")
-            .trim()
-            .toLowerCase(),
-        )
-        .filter(Boolean),
-    );
-    const groupIds = groupIdsByUserId.get(u.id) ?? new Set<number>();
-    const ages = relatedAthletes
-      .map((a) => resolveAgeFromAthlete(a))
-      .filter((age): age is number => Number.isFinite(age));
-    const tiers = new Set(
-      relatedAthletes
-        .map((a) => a.currentProgramTier)
-        .filter((t): t is (typeof ProgramType.enumValues)[number] => Boolean(t)),
-    );
-    const athleteTypes = new Set<string>();
-    for (const athlete of relatedAthletes) {
-      const explicit = String(athlete.athleteType ?? "")
-        .trim()
-        .toLowerCase();
-      if (explicit) {
-        athleteTypes.add(explicit);
-        continue;
-      }
-      const age = resolveAgeFromAthlete(athlete);
-      if (age == null) continue;
-      athleteTypes.add(age >= 18 ? "adult" : "youth");
-    }
+    const context = contextByUserId.get(u.id);
+    if (!context) continue;
 
     let matches = false;
-    if (audience.type === "team") matches = teams.has(audience.team);
-    else if (audience.type === "group") matches = groupIds.has(audience.groupId);
-    else if (audience.type === "athlete_type") matches = athleteTypes.has(audience.athleteType);
-    else if (audience.type === "tier") matches = tiers.has(audience.tier);
-    else matches = ages.some((age) => matchesAgeRange(item, age));
+    if (audience.type === "team") matches = context.teams.has(audience.team);
+    else if (audience.type === "group") matches = context.groupIds.has(audience.groupId);
+    else if (audience.type === "athlete_type") matches = context.athleteTypes.has(audience.athleteType);
+    else if (audience.type === "tier") matches = context.tiers.has(audience.tier);
+    else matches = context.ages.some((age) => matchesAgeRange(item, age));
 
     if (!matches) continue;
     await createPushIntent({
@@ -518,16 +593,35 @@ async function sendNewsCreatedPushes(item: typeof contentTable.$inferSelect) {
   if (item.startsAt && now < item.startsAt) return;
   if (item.endsAt && now > item.endsAt) return;
 
+  const audience = parseNewsAudience(item);
   const users = await db
     .select({ id: userTable.id, role: userTable.role })
     .from(userTable)
     .where(and(eq(userTable.isDeleted, false), eq(userTable.isBlocked, false), isNotNull(userTable.expoPushToken)));
+  const nonAdminUsers = users.filter((u) => !isAdminRole(u.role));
 
   const title = (item.title ?? "News").trim().slice(0, 80) || "News";
   const body = (item.content ?? "").trim().slice(0, 178) || "New PH Performance news";
 
-  for (const u of users) {
-    if (isAdminRole(u.role)) continue;
+  // For "all" audience, skip per-user DB lookups entirely
+  if (audience.type === "all") {
+    for (const u of nonAdminUsers) {
+      await createPushIntent({
+        userId: u.id,
+        title,
+        body,
+        data: { type: "news", url: "/news", contentId: String(item.id) },
+      });
+    }
+    return;
+  }
+
+  if (!nonAdminUsers.length) return;
+  const contextByUserId = await resolveBulkAudienceContext(nonAdminUsers.map((u) => u.id));
+
+  for (const u of nonAdminUsers) {
+    const context = contextByUserId.get(u.id);
+    if (!context || !userMatchesNewsAudience(item, context)) continue;
     await createPushIntent({
       userId: u.id,
       title,
@@ -710,6 +804,8 @@ export async function createContent(input: {
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   surface: "home" | "parent_platform" | "legal" | "announcements" | "testimonial_submissions" | "news";
   category?: string | null;
+  audienceType?: "all" | "adult" | "youth" | "team" | "all_teams" | null;
+  audienceTeam?: string | null;
   ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
@@ -729,6 +825,8 @@ export async function createContent(input: {
       programTier: input.programTier ?? null,
       surface: input.surface,
       category: input.category ?? null,
+      audienceType: input.audienceType ?? null,
+      audienceTeam: input.audienceType === "team" ? (input.audienceTeam?.trim() ?? null) : null,
       ageList: ageList && ageList.length ? ageList : null,
       minAge: ageList && ageList.length ? null : (input.minAge ?? null),
       maxAge: ageList && ageList.length ? null : (input.maxAge ?? null),
@@ -762,6 +860,8 @@ export async function updateContent(input: {
   body?: string | null;
   programTier?: (typeof ProgramType.enumValues)[number] | null;
   category?: string | null;
+  audienceType?: "all" | "adult" | "youth" | "team" | "all_teams" | null;
+  audienceTeam?: string | null;
   ageList?: number[] | null;
   minAge?: number | null;
   maxAge?: number | null;
@@ -782,6 +882,10 @@ export async function updateContent(input: {
     maxAge: ageList && ageList.length ? null : (input.maxAge ?? null),
     updatedAt: new Date(),
   };
+  if ("audienceType" in input) {
+    updatePayload.audienceType = input.audienceType ?? null;
+    updatePayload.audienceTeam = input.audienceType === "team" ? (input.audienceTeam?.trim() ?? null) : null;
+  }
   if ("startsAt" in input) updatePayload.startsAt = input.startsAt ?? null;
   if ("endsAt" in input) updatePayload.endsAt = input.endsAt ?? null;
   if ("isActive" in input) updatePayload.isActive = input.isActive ?? true;

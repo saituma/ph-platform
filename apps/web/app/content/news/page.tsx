@@ -36,12 +36,14 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../../../components/ui/select";
 import { Textarea } from "../../../components/ui/textarea";
 import { toast } from "../../../lib/toast";
 import {
   useCreateContentMutation,
   useDeleteContentMutation,
   useDeleteNewsCommentMutation,
+  useGetAdminTeamsQuery,
   useGetNewsPostCommentsQuery,
   useGetNewsPostLikesQuery,
   useGetNewsQuery,
@@ -49,6 +51,16 @@ import {
   usePresignMediaUploadMutation,
   useUpdateContentMutation,
 } from "../../../lib/apiSlice";
+
+type NewsAudienceType = "all" | "adult" | "youth" | "team" | "all_teams";
+
+const AUDIENCE_ITEMS: { label: string; value: NewsAudienceType }[] = [
+  { label: "Everyone", value: "all" },
+  { label: "Adult athletes", value: "adult" },
+  { label: "Youth athletes", value: "youth" },
+  { label: "All teams", value: "all_teams" },
+  { label: "Specific team", value: "team" },
+];
 
 type NewsMediaItem = {
   url: string;
@@ -63,13 +75,22 @@ type NewsItem = {
   content: string;
   body?: string | null;
   category?: string | null;
+  audienceType?: NewsAudienceType | null;
+  audienceTeam?: string | null;
   type?: string | null;
   date?: string;
   likeCount?: number;
   commentCount?: number;
 };
 
-const emptyForm = { title: "", content: "", body: "", category: "" };
+const emptyForm = {
+  title: "",
+  content: "",
+  body: "",
+  category: "",
+  audienceType: "all" as NewsAudienceType,
+  audienceTeam: "",
+};
 
 function parseNewsBody(raw?: string | null): { text: string; media: NewsMediaItem[] } {
   const fallback = { text: raw ?? "", media: [] as NewsMediaItem[] };
@@ -140,6 +161,8 @@ function applyPrefix(el: HTMLTextAreaElement, prefix: string, placeholder: strin
 
 export default function NewsContentPage() {
   const { data, isLoading, refetch } = useGetNewsQuery();
+  const { data: adminTeamsData } = useGetAdminTeamsQuery();
+  const teams = useMemo(() => adminTeamsData?.teams ?? [], [adminTeamsData]);
   const [createContent, { isLoading: isCreating }] = useCreateContentMutation();
   const [updateContent, { isLoading: isUpdating }] = useUpdateContentMutation();
   const [deleteContent, { isLoading: isDeleting }] = useDeleteContentMutation();
@@ -192,7 +215,14 @@ export default function NewsContentPage() {
   const edit = (item: NewsItem) => {
     const parsed = parseNewsBody(item.body);
     setEditing(item);
-    setForm({ title: item.title ?? "", content: item.content ?? "", body: parsed.text, category: item.category ?? "" });
+    setForm({
+      title: item.title ?? "",
+      content: item.content ?? "",
+      body: parsed.text,
+      category: item.category ?? "",
+      audienceType: item.audienceType ?? "all",
+      audienceTeam: item.audienceTeam ?? "",
+    });
     setMedia(parsed.media);
     setError(null);
   };
@@ -263,6 +293,12 @@ export default function NewsContentPage() {
       toast.error(msg);
       return;
     }
+    if (form.audienceType === "team" && !form.audienceTeam.trim()) {
+      const msg = "Choose a team for this audience.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
     const hasBody = form.body.trim() || media.length > 0;
     const payload = {
       title,
@@ -280,6 +316,8 @@ export default function NewsContentPage() {
         : undefined,
       category: form.category.trim() || undefined,
       surface: "news",
+      newsAudienceType: form.audienceType,
+      newsAudienceTeam: form.audienceType === "team" ? form.audienceTeam.trim() : undefined,
       type: media.some((m) => m.type === "video")
         ? "video"
         : media.some((m) => m.type === "image")
@@ -393,6 +431,52 @@ export default function NewsContentPage() {
                   <option key={cat} value={cat} />
                 ))}
               </datalist>
+            </div>
+
+            {/* Audience targeting */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Audience</Label>
+                <Select
+                  items={AUDIENCE_ITEMS}
+                  value={form.audienceType}
+                  onValueChange={(v) =>
+                    setForm((prev) => ({ ...prev, audienceType: (v as NewsAudienceType) ?? "all" }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {AUDIENCE_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </div>
+              {form.audienceType === "team" ? (
+                <div className="space-y-1.5">
+                  <Label>Team</Label>
+                  <Select
+                    items={teams.map((t) => ({ label: t.team, value: t.team }))}
+                    value={form.audienceTeam}
+                    onValueChange={(v) => setForm((prev) => ({ ...prev, audienceTeam: v ?? "" }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a team" />
+                    </SelectTrigger>
+                    <SelectPopup>
+                      {teams.map((t) => (
+                        <SelectItem key={t.team} value={t.team}>
+                          {t.team}
+                        </SelectItem>
+                      ))}
+                    </SelectPopup>
+                  </Select>
+                </div>
+              ) : null}
             </div>
 
             {/* Summary */}
@@ -586,6 +670,13 @@ export default function NewsContentPage() {
                             ) : null}
                             {item.category ? (
                               <Badge variant="secondary" size="sm">{item.category}</Badge>
+                            ) : null}
+                            {item.audienceType && item.audienceType !== "all" ? (
+                              <Badge variant="outline" size="sm">
+                                {item.audienceType === "team"
+                                  ? item.audienceTeam || "Team"
+                                  : AUDIENCE_ITEMS.find((a) => a.value === item.audienceType)?.label}
+                              </Badge>
                             ) : null}
                             {parsed.media.length > 0 ? (
                               <span className="text-xs text-muted-foreground">{parsed.media.length} media</span>

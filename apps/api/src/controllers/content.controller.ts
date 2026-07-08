@@ -68,8 +68,17 @@ const contentCreateSchema = z
     announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
     announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
     announcementIsActive: z.boolean().optional(),
+    newsAudienceType: z.enum(["all", "adult", "youth", "team", "all_teams"]).optional(),
+    newsAudienceTeam: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.surface === "news" && data.newsAudienceType === "team" && !data.newsAudienceTeam?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Team is required for team audience.",
+        path: ["newsAudienceTeam"],
+      });
+    }
     if (data.surface !== "announcements") {
       if (!data.title) {
         ctx.addIssue({
@@ -183,6 +192,8 @@ const contentUpdateSchema = z
     announcementStartsAt: z.union([z.coerce.date(), z.null()]).optional(),
     announcementEndsAt: z.union([z.coerce.date(), z.null()]).optional(),
     announcementIsActive: z.boolean().optional(),
+    newsAudienceType: z.enum(["all", "adult", "youth", "team", "all_teams"]).optional(),
+    newsAudienceTeam: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const start = data.announcementStartsAt ?? null;
@@ -199,6 +210,13 @@ const contentUpdateSchema = z
         code: z.ZodIssueCode.custom,
         message: "End time must be after start time.",
         path: ["announcementEndsAt"],
+      });
+    }
+    if (data.newsAudienceType === "team" && !data.newsAudienceTeam?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Team is required for team audience.",
+        path: ["newsAudienceTeam"],
       });
     }
   })
@@ -455,6 +473,7 @@ export async function createContentItem(req: Request, res: Response) {
   const announcementStartsAt = isAnnouncement ? input.announcementStartsAt : undefined;
   const announcementEndsAt = isAnnouncement ? input.announcementEndsAt : undefined;
   const announcementIsActive = isAnnouncement ? (input.announcementIsActive ?? true) : undefined;
+  const isNews = input.surface === "news";
 
   const item = await createContent({
     title,
@@ -464,6 +483,8 @@ export async function createContentItem(req: Request, res: Response) {
     programTier: announcementProgramTier,
     surface: input.surface,
     category: announcementCategory,
+    audienceType: isNews ? (input.newsAudienceType ?? "all") : null,
+    audienceTeam: isNews ? input.newsAudienceTeam : null,
     ageList: announcementAgeList,
     minAge: announcementMinAge,
     maxAge: announcementMaxAge,
@@ -498,6 +519,10 @@ export async function updateContentItem(req: Request, res: Response) {
   }
   if (input.announcementIsActive !== undefined) {
     updatePayload.isActive = input.announcementIsActive;
+  }
+  if (input.newsAudienceType !== undefined) {
+    updatePayload.audienceType = input.newsAudienceType;
+    updatePayload.audienceTeam = input.newsAudienceTeam;
   }
   const item = await updateContent(updatePayload);
   if (!item) {
