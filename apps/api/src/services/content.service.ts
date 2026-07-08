@@ -245,7 +245,7 @@ export async function listNews(input: {
         audienceContext.teams.size
           ? and(
               eq(contentTable.audienceType, "team"),
-              sql`lower(${contentTable.audienceTeam}) = ANY(${Array.from(audienceContext.teams)})`,
+              inArray(sql`lower(${contentTable.audienceTeam})`, Array.from(audienceContext.teams)),
             )
           : sql`false`,
       );
