@@ -409,11 +409,17 @@ export function initSocket(server: HttpServer) {
     //
     // Now: presence goes only to the people entitled to see it — this user's DM partners.
     markOnline(userId);
-    let dmPeerIds: number[] = [];
-    try {
-      dmPeerIds = await listDirectPeerIds(userId);
-    } catch (error) {
-      log.warn({ err: error, userId }, "Presence peer lookup failed — presence disabled for this socket");
+
+    // Both connect-time lookups run concurrently. They are independent, and reconnect storms make
+    // this the hottest path on the server — a mobile network flap replays it for every client.
+    const [peersResult, groupsResult] = await Promise.allSettled([
+      listDirectPeerIds(userId),
+      listGroupsForUser(userId),
+    ]);
+
+    const dmPeerIds = peersResult.status === "fulfilled" ? peersResult.value : [];
+    if (peersResult.status === "rejected") {
+      log.warn({ err: peersResult.reason, userId }, "Presence peer lookup failed — presence off for this socket");
     }
     socket.data.dmPeerIds = dmPeerIds;
 
@@ -422,16 +428,13 @@ export function initSocket(server: HttpServer) {
     // Tell those peers this user came online. Bounded fan-out.
     emitPresenceChanged(io, userId, dmPeerIds, true);
 
-    try {
-      const groups = await listGroupsForUser(userId);
-      groups.forEach((group) => socket.join(`group:${group.id}`));
-    } catch (error) {
-      if (isLikelyDatabaseConnectivityFailure(error)) {
-        const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
-        log.warn({ userId, retryAfterSeconds }, "Group bootstrap skipped during DB outage");
-      } else {
-        log.warn({ err: error }, "Socket group join failed");
-      }
+    if (groupsResult.status === "fulfilled") {
+      groupsResult.value.forEach((group) => socket.join(`group:${group.id}`));
+    } else if (isLikelyDatabaseConnectivityFailure(groupsResult.reason)) {
+      const retryAfterSeconds = Math.max(1, Math.ceil(getDbOutageRemainingMs() / 1000));
+      log.warn({ userId, retryAfterSeconds }, "Group bootstrap skipped during DB outage");
+    } else {
+      log.warn({ err: groupsResult.reason }, "Socket group join failed");
     }
 
     // ── Helper: safe async handler with rate limiting, validation, error ACK ──
