@@ -9,11 +9,12 @@ describe("intro video authoring rules", () => {
   it("derives the legacy fallback", () => expect(deriveIntroVideos({ introVideoUrl: " legacy " })).toEqual([{ url: "legacy", roles: ["adult", "team", "youth"] }]));
   it.each([
     "https://cdn.example.com/welcome.mp4",
-    "https://youtu.be/abc123",
-    "https://www.youtube.com/watch?v=abc123",
+    "https://youtu.be/abc123DEF_4",
+    "https://www.youtube.com/watch?v=abc123DEF_4",
+    "https://www.youtube-nocookie.com/embed/abc123DEF_4",
     "https://www.loom.com/share/abc123",
   ])("accepts supported video URL %s", (url) => expect(isSupportedIntroVideoUrl(url)).toBe(true));
-  it.each(["not a url", "https://vimeo.com/123", "https://example.com/watch", "javascript:alert(1)"])(
+  it.each(["not a url", "https://vimeo.com/123", "https://example.com/watch", "https://youtube.com/foo", "https://youtu.be/abc123", "javascript:alert(1)"])(
     "rejects unsupported video URL %s",
     (url) => expect(isSupportedIntroVideoUrl(url)).toBe(false),
   );

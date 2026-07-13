@@ -12,13 +12,27 @@ export function deriveIntroVideos(home: { introVideoUrl?: string; introVideos?: 
 }
 
 const DIRECT_VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".mkv", ".ogg", ".ogv", ".m3u8"];
+const YOUTUBE_ID = /^[a-zA-Z0-9_-]{11}$/;
+
+function hasValidYoutubeId(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.replace(/^\/+/, "").split("/");
+  const id = host === "youtu.be"
+    ? path[0]
+    : path[0] === "watch"
+      ? url.searchParams.get("v")
+      : path[0] === "embed" || path[0] === "shorts"
+        ? path[1]
+        : null;
+  return YOUTUBE_ID.test(id ?? "");
+}
 
 export function isSupportedIntroVideoUrl(value: string): boolean {
   try {
     const url = new URL(value.trim());
     if (url.protocol !== "https:" && url.protocol !== "http:") return false;
     const host = url.hostname.toLowerCase();
-    if (host === "youtu.be" || host.endsWith(".youtube.com") || host.endsWith(".youtube-nocookie.com")) return true;
+    if (host === "youtu.be" || host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com")) return hasValidYoutubeId(url);
     if (host === "loom.com" || host.endsWith(".loom.com")) return /^\/(share|embed)\/[^/]+/.test(url.pathname);
     return DIRECT_VIDEO_EXTENSIONS.some((extension) => url.pathname.toLowerCase().endsWith(extension));
   } catch {

@@ -16,6 +16,7 @@ describe("home intro video policy", () => {
     expect(getIntroStageSize(360, 800, 16 / 9)).toEqual({ width: 360, height: 203 });
     expect(getIntroStageSize(360, 800, 9 / 16)).toEqual({ width: 360, height: 496 });
     expect(classifyIntroVideoSource("https://youtube.com/watch?v=dQw4w9WgXcQ")).toBe("youtube");
+    expect(classifyIntroVideoSource("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")).toBe("youtube");
     expect(classifyIntroVideoSource("https://loom.com/share/abc")).toBe("loom");
     expect(youtubePosterUrl("https://youtube.com/watch?v=dQw4w9WgXcQ")).toBe("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg");
   });

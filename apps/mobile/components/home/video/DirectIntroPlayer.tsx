@@ -69,7 +69,7 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   useEventListener(player, "statusChange", (event) => {
     setIsLoading(event.status === "loading");
     if (event.status === "readyToPlay") {
-      retryCount.current = 0; setError(null);
+      setError(null);
       if (pendingPlay.current) {
         pendingPlay.current = false;
         const saved = readIntroProgress(url);
@@ -80,7 +80,7 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
     if (event.status !== "error") return;
     setFirstFrame(false);
     const delay = retryDelayForAttempt(retryCount.current);
-    if (delay != null) { setIsLoading(true); retryCount.current += 1; retryTimer.current = setTimeout(() => { void player.replaceAsync({ uri: url, useCaching: true }).catch(() => {}); }, delay); }
+    if (delay != null) { setIsLoading(true); retryCount.current += 1; retryTimer.current = setTimeout(() => { void player.replaceAsync({ uri: url, useCaching: true }).catch(() => { setIsLoading(false); setError("Video unavailable"); }); }, delay); }
     else { setIsLoading(false); setError("Video unavailable"); }
   });
 
@@ -103,12 +103,12 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   const isEnded = isIntroEnded(position, duration);
 
   if (error) return <View style={styles.error}><Text style={styles.errorTitle}>{error}</Text><View style={styles.errorActions}>
-    <Pressable accessibilityRole="button" accessibilityLabel="Retry video" onPress={() => { retryCount.current = 0; setError(null); setFirstFrame(false); setIsLoading(true); void player.replaceAsync({ uri: url, useCaching: true }).catch(() => {}); }} style={styles.retry}><Text style={styles.retryText}>Retry</Text></Pressable>
+    <Pressable accessibilityRole="button" accessibilityLabel="Retry video" onPress={() => { retryCount.current = 0; setError(null); setFirstFrame(false); setIsLoading(true); void player.replaceAsync({ uri: url, useCaching: true }).catch(() => { setIsLoading(false); setError("Video unavailable"); }); }} style={styles.retry}><Text style={styles.retryText}>Retry</Text></Pressable>
     <Pressable accessibilityRole="link" accessibilityLabel="Open video externally" onPress={() => void Linking.openURL(url)} style={styles.external}><Text style={styles.externalText}>Open externally</Text></Pressable>
   </View></View>;
 
   return <View style={styles.fill}>
-    <VideoView ref={videoRef} player={player} style={styles.fill} contentFit="contain" nativeControls={false} fullscreenOptions={{ enable: true, orientation: "default" }} onFirstFrameRender={() => { setFirstFrame(true); setIsLoading(false); }} />
+    <VideoView ref={videoRef} player={player} style={styles.fill} contentFit="contain" nativeControls={false} fullscreenOptions={{ enable: true, orientation: "default" }} onFirstFrameRender={() => { retryCount.current = 0; setFirstFrame(true); setIsLoading(false); }} />
     {(!hasStarted || (!firstFrame && isLoading) || isEnded) && <IntroVideoPoster posterUrl={posterUrl} loading={hasStarted && isLoading && !firstFrame} replay={isEnded} duration={duration} onPress={play} />}
     {hasStarted && firstFrame && !isEnded ? <Pressable accessibilityRole="button" accessibilityLabel="Show or hide video controls" onPress={handleStageTap} style={styles.fill} /> : null}
     {hasStarted && firstFrame && !isEnded && <IntroVideoControls visible={shouldShowIntroControls({ requestedVisible: controlsVisible, isPlaying, isLoading })} isPlaying={isPlaying} isMuted={isMuted} isEnded={isEnded} position={position} duration={duration} bufferedPosition={bufferedPosition} accentColor={accentColor} onTogglePlay={togglePlay} onToggleMute={() => { player.muted = !player.muted; }} onSeekStart={seekStart} onSeek={seek} onSeekEnd={seekEnd} onFullscreen={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void videoRef.current?.enterFullscreen(); }} />}

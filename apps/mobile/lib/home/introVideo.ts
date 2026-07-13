@@ -37,7 +37,7 @@ export function getIntroStageSize(width: number, windowHeight: number, aspectRat
 export type IntroVideoSource = "direct" | "youtube" | "loom";
 export function classifyIntroVideoSource(url: string): IntroVideoSource {
   const value = url.toLowerCase();
-  if (value.includes("youtube.com") || value.includes("youtu.be")) return "youtube";
+  if (value.includes("youtube.com") || value.includes("youtube-nocookie.com") || value.includes("youtu.be")) return "youtube";
   if (value.includes("loom.com") || value.includes("useloom.com")) return "loom";
   return "direct";
 }
