@@ -37,9 +37,21 @@ describe("billing/plan.service", () => {
       expect(computePlanPeriodEnd("one_time", from)).toBeNull();
     });
 
-    test("TC-B003: returns next month for monthly interval", () => {
+    // Monthly billing is NOT "one month from today" — it anchors to the 5th of the month
+    // (nextMonthlyAnchor). Everyone is billed on the same date regardless of when they signed up.
+    // These two tests still asserted the old +1-month behaviour from before that rule existed, so
+    // they have been failing on main ever since. The implementation is correct; the tests were stale.
+
+    test("TC-B003: monthly anchors to the 5th — the next 5th that is still in the future", () => {
+      // From 1 Jan, the 5th of THIS month has not happened yet, so that is the period end.
       const result = computePlanPeriodEnd("monthly", from);
-      expect(result?.toISOString()).toBe("2023-02-01T12:00:00.000Z");
+      expect(result?.toISOString()).toBe("2023-01-05T00:00:00.000Z");
+    });
+
+    test("TC-B003b: monthly rolls to next month when the 5th has already passed", () => {
+      const afterTheFifth = new Date("2023-01-20T12:00:00.000Z");
+      const result = computePlanPeriodEnd("monthly", afterTheFifth);
+      expect(result?.toISOString()).toBe("2023-02-05T00:00:00.000Z");
     });
 
     test("TC-B004: returns next year for yearly interval", () => {
@@ -47,11 +59,12 @@ describe("billing/plan.service", () => {
       expect(result?.toISOString()).toBe("2024-01-01T12:00:00.000Z");
     });
 
-    test("TC-B005: handles leap years correctly (Feb 29)", () => {
+    test("TC-B005: leap year — 29 Feb rolls to the 5th of March, not 29 March", () => {
       const leap = new Date("2024-02-29T12:00:00.000Z");
       const result = computePlanPeriodEnd("monthly", leap);
-      // March 29th
-      expect(result?.toISOString()).toBe("2024-03-29T12:00:00.000Z");
+      // The 5th of Feb has passed, so the anchor moves to 5 March. Anchoring is exactly what
+      // avoids the 31st-of-the-month / Feb-29 rollover class of bug.
+      expect(result?.toISOString()).toBe("2024-03-05T00:00:00.000Z");
     });
   });
 

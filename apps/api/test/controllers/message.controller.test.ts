@@ -1,28 +1,52 @@
+/**
+ * These tests mocked services/message.service (listThread, sendMessage) and
+ * services/reaction.service (toggleDirectMessageReaction). All three are DEAD — the controller
+ * moved to the conversations model and now calls conversation.service. The mocks therefore did
+ * nothing, the real service ran, and it tried to reach a database that does not exist in unit
+ * tests ("Failed query: select conversationId from conversation_participants").
+ *
+ * They now mock what the controller actually calls.
+ */
+jest.mock("../../src/services/conversation.service", () => ({
+  listConversationMessagesForUser: jest.fn(),
+  listConversationThreadsForUser: jest.fn(),
+  listConversationThreadsAdmin: jest.fn(),
+  toggleConversationReaction: jest.fn(),
+  sendDirectMessage: jest.fn(),
+  markConversationRead: jest.fn(),
+  canAccessConversationMessage: jest.fn(),
+  deleteConversationMessage: jest.fn(),
+  editConversationMessage: jest.fn(),
+  getConversationMessageForForward: jest.fn(),
+  pinConversationMessage: jest.fn(),
+  searchConversationMessages: jest.fn(),
+}));
+
 jest.mock("../../src/services/message.service", () => ({
   getCoachUser: jest.fn(),
   getLastAdminContact: jest.fn(),
-  listThread: jest.fn(),
-  markThreadRead: jest.fn(),
-  sendMessage: jest.fn(),
+  getTeamManagersForUser: jest.fn(),
   isUserPremium: jest.fn(),
 }));
 
-jest.mock("../../src/services/reaction.service", () => ({
-  toggleDirectMessageReaction: jest.fn(),
+jest.mock("../../src/services/chat.service", () => ({
+  listGroupsForUser: jest.fn(),
 }));
 
-import { listMessages, sendMessageToCoach, toggleReaction } from "../../src/controllers/message.controller";
+import { listMessages, toggleReaction } from "../../src/controllers/message.controller";
 import {
-  getCoachUser,
-  getLastAdminContact,
-  isUserPremium,
-  listThread,
-  sendMessage,
-} from "../../src/services/message.service";
-import { toggleDirectMessageReaction } from "../../src/services/reaction.service";
+  listConversationMessagesForUser,
+  toggleConversationReaction,
+} from "../../src/services/conversation.service";
+import { getCoachUser, getLastAdminContact, getTeamManagersForUser, isUserPremium } from "../../src/services/message.service";
 
-function createRes() {
-  const res: any = {};
+type Res = {
+  status: jest.Mock;
+  json: jest.Mock;
+};
+
+function createRes(): Res {
+  const res = {} as Res;
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
   return res;
@@ -32,92 +56,110 @@ describe("message controller", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (isUserPremium as jest.Mock).mockResolvedValue(false);
-  });
-
-  it("returns list of messages when resolved", async () => {
-    (listThread as jest.Mock).mockResolvedValue({
-      messages: [] as { id: number; content: string; senderId?: number; receiverId?: number }[],
-      hasMore: false,
-      nextCursor: null,
-      teamManager: null,
-    });
-    (getLastAdminContact as jest.Mock).mockResolvedValue({
-      id: 22,
-      name: "Coach",
-      email: "c@x.com",
-      role: "coach",
-    });
-
-    const req = { user: { id: 1 }, headers: {} } as any;
-    const res = createRes();
-
-    await listMessages(req, res);
-
-    expect(listThread).toHaveBeenCalledWith(1, { includeVideoResponses: false });
-    expect(isUserPremium).toHaveBeenCalledWith(1);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalled();
-    const body = (res.json as jest.Mock).mock.calls[0][0] as {
-      messages: unknown[];
-      hasMore: boolean;
-      nextCursor: null;
-      coach: { id: number; name: string } | null;
-    };
-    expect(body.messages).toEqual([]);
-    expect(body.hasMore).toBe(false);
-    expect(body.coach).toBeTruthy();
-    expect(body.coach?.id).toBe(22);
-  });
-
-  it("returns 400 when coach is not available", async () => {
-    (getLastAdminContact as jest.Mock).mockResolvedValue(null);
+    (getTeamManagersForUser as jest.Mock).mockResolvedValue([]);
     (getCoachUser as jest.Mock).mockResolvedValue(null);
-
-    const req = {
-      user: { id: 1 },
-      headers: {},
-      body: { content: "hello", contentType: "text" },
-    } as any;
-    const res = createRes();
-
-    await sendMessageToCoach(req, res);
-
-    expect(sendMessage).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Coach not available" });
   });
 
-  it("maps reaction service forbidden to 403", async () => {
-    (toggleDirectMessageReaction as jest.Mock).mockRejectedValue(new Error("Forbidden"));
+  describe("listMessages", () => {
+    it("returns the conversation page and the resolved coach", async () => {
+      (listConversationMessagesForUser as jest.Mock).mockResolvedValue({
+        messages: [],
+        hasMore: false,
+        nextCursor: null,
+      });
+      (getLastAdminContact as jest.Mock).mockResolvedValue({
+        id: 22,
+        name: "Coach",
+        email: "c@x.com",
+        role: "coach",
+      });
 
-    const req = {
-      user: { id: 1 },
+      const req = { user: { id: 1 }, headers: {}, query: {} } as never;
+      const res = createRes();
+
+      await listMessages(req, res as never);
+
+      // The controller reads from the conversations model, not the dead message.service.
+      expect(listConversationMessagesForUser).toHaveBeenCalledWith(1, {
+        limit: undefined,
+        cursorId: undefined,
+        peerUserId: undefined,
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+
+      const body = res.json.mock.calls[0][0];
+      expect(body.messages).toEqual([]);
+      expect(body.hasMore).toBe(false);
+      expect(body.coach?.id).toBe(22);
+    });
+
+    it("passes limit and cursor through, so the client can paginate", async () => {
+      (listConversationMessagesForUser as jest.Mock).mockResolvedValue({
+        messages: [],
+        hasMore: true,
+        nextCursor: 42,
+      });
+      (getLastAdminContact as jest.Mock).mockResolvedValue(null);
+
+      const req = { user: { id: 1 }, headers: {}, query: { limit: "50", cursor: "99" } } as never;
+      const res = createRes();
+
+      await listMessages(req, res as never);
+
+      expect(listConversationMessagesForUser).toHaveBeenCalledWith(1, {
+        limit: 50,
+        cursorId: 99,
+        peerUserId: undefined,
+      });
+      expect(res.json.mock.calls[0][0].nextCursor).toBe(42);
+    });
+  });
+
+  describe("toggleReaction", () => {
+    const reactionReq = {
+      user: { id: 1, role: "athlete" },
       headers: {},
       params: { messageId: "10" },
       body: { emoji: "thumbs-up" },
-    } as any;
-    const res = createRes();
+    } as never;
 
-    await toggleReaction(req, res);
+    it("maps a service Forbidden error to 403", async () => {
+      (toggleConversationReaction as jest.Mock).mockRejectedValue(new Error("Forbidden"));
+      const res = createRes();
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: "Forbidden" });
-  });
+      await toggleReaction(reactionReq, res as never);
 
-  it("maps reaction not found to 404", async () => {
-    (toggleDirectMessageReaction as jest.Mock).mockRejectedValue(new Error("Message not found"));
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({ error: "Forbidden" });
+    });
 
-    const req = {
-      user: { id: 1 },
-      headers: {},
-      params: { messageId: "10" },
-      body: { emoji: "thumbs-up" },
-    } as any;
-    const res = createRes();
+    it("maps a service 'Message not found' error to 404", async () => {
+      (toggleConversationReaction as jest.Mock).mockRejectedValue(new Error("Message not found"));
+      const res = createRes();
 
-    await toggleReaction(req, res);
+      await toggleReaction(reactionReq, res as never);
 
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: "Message not found" });
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: "Message not found" });
+    });
+
+    it("404s when the service returns no reactions (message gone)", async () => {
+      (toggleConversationReaction as jest.Mock).mockResolvedValue(null);
+      const res = createRes();
+
+      await toggleReaction(reactionReq, res as never);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+    });
+
+    it("returns the updated reactions on success", async () => {
+      (toggleConversationReaction as jest.Mock).mockResolvedValue([{ emoji: "thumbs-up", userIds: [1] }]);
+      const res = createRes();
+
+      await toggleReaction(reactionReq, res as never);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ reactions: [{ emoji: "thumbs-up", userIds: [1] }] });
+    });
   });
 });
