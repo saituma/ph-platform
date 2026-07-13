@@ -93,7 +93,8 @@ export default function ActiveRunScreen() {
   const [expandedStats, setExpandedStats] = useState(false);
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [startSheetOpen, setStartSheetOpen] = useState(false);
-  const [selectedSport, setSelectedSport] = useState<SportId>("run");
+  // store.sport is typed string for persistence, but only SportId values are ever written (setSport callers)
+  const selectedSport = useRunStore((s) => s.sport) as SportId;
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -216,7 +217,6 @@ export default function ActiveRunScreen() {
     void loadActivitySession().then((session) => {
       if (!mounted || !session || useRunStore.getState().lifecycle !== "ready") return;
       useRunStore.getState().restoreSession(session);
-      setSelectedSport(session.sport as SportId);
       Alert.alert(
         "Continue your activity?",
         "We recovered an unfinished activity saved on this device.",
@@ -765,7 +765,6 @@ export default function ActiveRunScreen() {
       <ActiveRunStartSheet
         open={startSheetOpen}
         onSelect={(sport) => {
-          setSelectedSport(sport);
           useRunStore.getState().setSport(sport);
           setStartSheetOpen(false);
           hasStartedRef.current = true;
@@ -781,7 +780,6 @@ export default function ActiveRunScreen() {
         open={sportSheetOpen}
         selectedSport={selectedSport}
         onSelect={(sport) => {
-          setSelectedSport(sport);
           useRunStore.getState().setSport(sport);
           setSportSheetOpen(false);
         }}

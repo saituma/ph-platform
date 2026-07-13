@@ -1143,6 +1143,7 @@ export default function TrackingHomeScreen() {
         setSportSheetOpen(false);
         const store = useRunStore.getState();
         store.resetRun();
+        store.setSport(sport);
         store.setDestination(null);
         store.setGoalKm(null);
         store.setProgressNotifyEveryMeters(null);
