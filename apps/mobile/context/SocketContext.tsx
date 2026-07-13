@@ -89,7 +89,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       transports: ["polling", "websocket"],
       upgrade: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      // Never give up. This was 10: after ten failures socket.io stops retrying permanently, so a
+      // tunnel, a lift, a flaky cell handover or airplane mode for a couple of minutes killed
+      // realtime for the REST OF THE SESSION — no messages, no typing, no presence — until the
+      // user force-quit the app. The backoff below already caps at 30s, so retrying forever costs
+      // one attempt every 30 seconds; it does not busy-loop.
+      reconnectionAttempts: Number.POSITIVE_INFINITY,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 30000,
       randomizationFactor: 0.5,

@@ -24,6 +24,7 @@ import {
   getMessagesRolePrefix,
   messagesTabHref,
 } from "@/lib/messages/roleMessageRoutes";
+import { newClientMessageId } from "@/lib/messages/clientMessageId";
 import type { TypingStatus } from "@/types/messages";
 import type { PendingAttachment } from "@/types/admin-messages";
 
@@ -342,7 +343,7 @@ export function useMessagesController(options?: {
 
       if (currentThread.id.startsWith("group:")) {
         const groupId = Number(currentThread.id.replace("group:", ""));
-        const clientId = `client-${Date.now()}`;
+        const clientId = newClientMessageId();
         const clientSentAt = Date.now();
         const clientTraceId = `${clientId}-group`;
         if (__DEV__) console.info("[RealtimeLatency] mobile.group.before_send", {
@@ -484,7 +485,7 @@ export function useMessagesController(options?: {
 
       const toUserId = Number(currentThread.id);
       if (!Number.isFinite(toUserId) || toUserId <= 0) return;
-      const clientId = `client-${Date.now()}`;
+      const clientId = newClientMessageId();
       const clientSentAt = Date.now();
       const clientTraceId = `${clientId}-direct`;
       if (__DEV__) console.info("[RealtimeLatency] mobile.direct.before_send", {
