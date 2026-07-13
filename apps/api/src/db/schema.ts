@@ -1200,7 +1200,7 @@ export const conversationMessageTable = pgTable(
     senderId: integer()
       .notNull()
       .references(() => userTable.id, { onDelete: "cascade" }),
-    content: varchar({ length: 500 }).notNull(),
+    content: text().notNull(),
     contentType: messageType().default("text").notNull(),
     mediaUrl: varchar({ length: 500 }),
     videoUploadId: integer(),

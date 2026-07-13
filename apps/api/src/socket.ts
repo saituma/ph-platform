@@ -21,6 +21,7 @@ import { db } from "./db";
 import { userTable } from "./db/schema";
 import { getRedisConnection } from "./jobs/connection";
 import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
+import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "./lib/message-limits";
 import { markOnline, markOffline, setActiveThread, getOnlineUserIds } from "./lib/presence";
 
 type AuthPayload = {
@@ -37,11 +38,11 @@ const actingJoinSchema = z.object({ actingUserId: z.coerce.number().int().positi
 
 const messageSendSchema = z.object({
   toUserId: z.coerce.number().int().positive(),
-  content: z.string().max(2000).optional(),
+  content: z.string().max(MAX_MESSAGE_LENGTH).optional(),
   contentType: z.enum(["text", "image", "video"]).default("text"),
   mediaUrl: z.string().url().max(2048).optional(),
   replyToMessageId: z.coerce.number().int().positive().optional(),
-  replyPreview: z.string().max(160).optional(),
+  replyPreview: z.string().max(MAX_REPLY_PREVIEW_LENGTH).optional(),
   clientId: z.string().max(64).optional(),
   clientTraceId: z.string().max(96).optional(),
   clientSentAt: z.union([z.number(), z.string()]).optional(),
@@ -50,11 +51,11 @@ const messageSendSchema = z.object({
 
 const groupSendSchema = z.object({
   groupId: z.coerce.number().int().positive(),
-  content: z.string().max(2000).optional(),
+  content: z.string().max(MAX_MESSAGE_LENGTH).optional(),
   contentType: z.enum(["text", "image", "video"]).default("text"),
   mediaUrl: z.string().url().max(2048).optional(),
   replyToMessageId: z.coerce.number().int().positive().optional(),
-  replyPreview: z.string().max(160).optional(),
+  replyPreview: z.string().max(MAX_REPLY_PREVIEW_LENGTH).optional(),
   clientId: z.string().max(64).optional(),
   clientTraceId: z.string().max(96).optional(),
   clientSentAt: z.union([z.number(), z.string()]).optional(),

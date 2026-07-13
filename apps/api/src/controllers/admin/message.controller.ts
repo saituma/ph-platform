@@ -8,6 +8,7 @@ import {
   sendConversationMessageAdmin,
 } from "../../services/conversation.service";
 import { notifyCoachResponseVideo } from "../../services/video.service";
+import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "../../lib/message-limits";
 
 const adminSearchQuerySchema = z.object({
   q: z.string().trim().optional(),
@@ -42,12 +43,12 @@ export async function sendAdminMessage(req: Request, res: Response) {
   const userId = z.coerce.number().int().min(1).parse(req.params.userId);
   const body = z
     .object({
-      content: z.string().trim().optional().default(""),
+      content: z.string().trim().max(MAX_MESSAGE_LENGTH).optional().default(""),
       contentType: z.enum(["text", "image", "video"]).default("text"),
       mediaUrl: z.string().url().optional(),
       videoUploadId: z.number().int().min(1).optional(),
       replyToMessageId: z.number().int().min(1).optional(),
-      replyPreview: z.string().trim().max(160).optional(),
+      replyPreview: z.string().trim().max(MAX_REPLY_PREVIEW_LENGTH).optional(),
     })
     .refine((value) => Boolean(value.content) || Boolean(value.mediaUrl), {
       message: "Message content or mediaUrl is required",

@@ -13,6 +13,7 @@ import {
   listGroupsForUser,
   markGroupRead,
 } from "../services/chat.service";
+import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "../lib/message-limits";
 import { toggleGroupMessageReaction } from "../services/reaction.service";
 import { db } from "../db";
 import { auditLogsTable, chatGroupMessageTable } from "../db/schema";
@@ -32,11 +33,11 @@ const addMembersSchema = z.object({
 
 const sendGroupMessageSchema = z
   .object({
-    content: z.string().trim().optional().default(""),
+    content: z.string().trim().max(MAX_MESSAGE_LENGTH).optional().default(""),
     contentType: z.enum(["text", "image", "video"]).default("text"),
     mediaUrl: z.string().url().optional(),
     replyToMessageId: z.number().int().min(1).optional(),
-    replyPreview: z.string().trim().max(160).optional(),
+    replyPreview: z.string().trim().max(MAX_REPLY_PREVIEW_LENGTH).optional(),
     clientId: z.string().trim().min(1).optional(),
     clientTraceId: z.string().trim().min(1).max(96).optional(),
     clientSentAt: z.union([z.number(), z.string()]).optional(),
@@ -165,7 +166,7 @@ export async function toggleGroupReaction(req: Request, res: Response) {
   }
 }
 
-const editGroupMessageSchema = z.object({ content: z.string().trim().min(1).max(2000) });
+const editGroupMessageSchema = z.object({ content: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) });
 
 export async function editGroupChatMessage(req: Request, res: Response) {
   const groupId = z.coerce.number().int().min(1).parse(req.params.groupId);

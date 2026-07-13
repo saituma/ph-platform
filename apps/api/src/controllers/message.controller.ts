@@ -8,6 +8,7 @@ import {
   isUserPremium,
 } from "../services/message.service";
 import { listGroupsForUser } from "../services/chat.service";
+import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "../lib/message-limits";
 import { db } from "../db";
 import { and, eq, inArray } from "drizzle-orm";
 import { auditLogsTable, userTable } from "../db/schema";
@@ -31,12 +32,12 @@ import {
 
 const sendSchema = z
   .object({
-    content: z.string().trim().optional().default(""),
+    content: z.string().trim().max(MAX_MESSAGE_LENGTH).optional().default(""),
     contentType: z.enum(["text", "image", "video"]).default("text"),
     mediaUrl: z.string().url().optional(),
     videoUploadId: z.number().int().min(1).optional(),
     replyToMessageId: z.number().int().min(1).optional(),
-    replyPreview: z.string().trim().max(160).optional(),
+    replyPreview: z.string().trim().max(MAX_REPLY_PREVIEW_LENGTH).optional(),
     clientId: z.string().trim().min(1).optional(),
     clientTraceId: z.string().trim().min(1).max(96).optional(),
     clientSentAt: z.union([z.number(), z.string()]).optional(),
@@ -546,7 +547,7 @@ export async function deleteMessage(req: Request, res: Response) {
   }
 }
 
-const editMessageSchema = z.object({ content: z.string().trim().min(1).max(500) });
+const editMessageSchema = z.object({ content: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) });
 
 export async function editMessage(req: Request, res: Response) {
   const messageId = z.coerce.number().int().min(1).parse(req.params.messageId);

@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import { getSocketServer } from "../socket-hub";
 import { resolveMessageMediaType } from "../lib/media-message-type";
+import { encodeReplyPrefix } from "../lib/message-limits";
 import { hasUserBlockBetween } from "./user-block.service";
 import { createLogger } from "../lib/logger";
 import { logRealtimeLatency, type RealtimeTrace } from "../lib/realtime-latency";
@@ -318,20 +319,6 @@ function safeLimit(value: unknown, fallback: number, max = 200) {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(1, Math.min(max, Math.floor(n)));
-}
-
-function encodeReplyPrefix(input: {
-  content: string;
-  replyToMessageId?: number | null;
-  replyPreview?: string | null;
-}) {
-  const safeBaseContent = input.content.trim() || "Attachment";
-  const safeReplyPreview = encodeURIComponent((input.replyPreview ?? "").trim().slice(0, 160));
-  const replyPrefix =
-    input.replyToMessageId && Number.isFinite(input.replyToMessageId)
-      ? `[reply:${input.replyToMessageId}:${safeReplyPreview}] `
-      : "";
-  return `${replyPrefix}${safeBaseContent}`;
 }
 
 export async function sendDirectMessage(input: {
