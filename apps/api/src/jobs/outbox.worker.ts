@@ -7,6 +7,8 @@ import {
 } from "../services/outbox.service";
 import { sendPushNotification } from "../services/push.service";
 import { deliverEmail } from "../lib/mailer/base.mailer";
+import { formatBatchedTitle } from "../lib/notification-batcher";
+import { isUserInThread } from "../lib/presence";
 import { createDedicatedClient } from "../db";
 import { logger } from "../lib/logger";
 import type { Client } from "pg";
@@ -38,7 +40,23 @@ async function drainOnce(): Promise<void> {
       try {
         if (row.channel === "push") {
           const p = row.payload as { userId: number; title: string; body: string; data?: Record<string, unknown> };
-          await sendPushNotification(p.userId, p.title, p.body, p.data);
+          const threadId = typeof p.data?.threadId === "string" ? p.data.threadId : null;
+
+          // Re-check presence at DELIVERY time, not enqueue time. The recipient may have opened
+          // the thread during the coalescing window — pushing them a notification for a message
+          // they are currently reading is the exact thing this suppression exists to prevent.
+          if (threadId && isUserInThread(p.userId, threadId)) {
+            logger.info({ outboxId: row.id, userId: p.userId }, "outbox.push_suppressed_user_in_thread");
+            await markSent(row.id);
+            continue;
+          }
+
+          // The coalesced count is only final now that the window has closed.
+          const messageCount = Number(p.data?.messageCount ?? 1);
+          const title = formatBatchedTitle(p.title, messageCount);
+          const body = messageCount > 1 ? `${messageCount} new messages` : p.body;
+
+          await sendPushNotification(p.userId, title, body, p.data);
         } else if (row.channel === "email") {
           const p = row.payload as { to: string; subject: string; html: string; attachments?: any[] };
           await deliverEmail(p);

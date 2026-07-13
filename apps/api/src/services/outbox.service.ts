@@ -34,6 +34,48 @@ export async function createPushIntent(payload: PushPayload): Promise<number> {
   return row.id;
 }
 
+/**
+ * Durable, coalescing push intent.
+ *
+ * Writes the intent to Postgres IMMEDIATELY with `next_run_at = now() + delayMs`, rather than
+ * holding it in an in-process setTimeout until the window closes. A restart, deploy or crash
+ * inside the window used to lose the notification silently.
+ *
+ * A further intent with the same dedupeKey while the first is still pending UPDATES that row —
+ * incrementing `data.messageCount` and pushing `next_run_at` out — so a burst of messages in one
+ * thread still produces exactly one push. The title is composed at delivery time from the count.
+ */
+export async function createCoalescingPushIntent(
+  payload: PushPayload,
+  options: { dedupeKey: string; delayMs: number },
+): Promise<void> {
+  const delaySeconds = Math.max(0, Math.round(options.delayMs / 1000));
+
+  await db.execute(sql`
+    INSERT INTO ${notificationOutboxTable} ("channel", "payload", "dedupe_key", "next_run_at")
+    VALUES (
+      'push',
+      ${JSON.stringify(payload)}::jsonb,
+      ${options.dedupeKey},
+      now() + (${delaySeconds} * interval '1 second')
+    )
+    ON CONFLICT ("dedupe_key") WHERE "status" = 'pending' AND "dedupe_key" IS NOT NULL
+    DO UPDATE SET
+      -- Take the newest message's title/body, but carry the running count forward.
+      "payload" = jsonb_set(
+        EXCLUDED."payload",
+        '{data,messageCount}',
+        to_jsonb(
+          COALESCE((${notificationOutboxTable}."payload" -> 'data' ->> 'messageCount')::int, 1) + 1
+        )
+      ),
+      "next_run_at" = now() + (${delaySeconds} * interval '1 second'),
+      "updated_at" = now()
+  `);
+
+  void notifyNewIntent();
+}
+
 export async function createEmailIntent(payload: EmailPayload): Promise<number> {
   const [row] = await db
     .insert(notificationOutboxTable)

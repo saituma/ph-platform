@@ -2349,6 +2349,12 @@ export const notificationOutboxTable = pgTable(
     payload: jsonb().notNull(),
     attempts: integer().notNull().default(0),
     lastError: text("last_error"),
+    /**
+     * Collapses repeat intents for the same target while one is still pending — e.g. a burst of
+     * messages in one thread becomes a single push. Enforced by a partial unique index over
+     * pending rows only (see migration 0185), so sent/failed rows never block a future push.
+     */
+    dedupeKey: varchar("dedupe_key", { length: 160 }),
     nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

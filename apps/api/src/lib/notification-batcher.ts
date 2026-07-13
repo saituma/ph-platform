@@ -1,39 +1,27 @@
 /**
- * Debounces push notifications per (userId, threadId) so a burst of messages
- * in the same thread produces one push rather than one per message.
+ * Coalesces push notifications per (userId, threadId) so a burst of messages in the same thread
+ * produces one push rather than one per message.
  *
- * Window: 3 seconds. After the window expires with no new messages the latest
- * queued push fires. The title is updated to reflect the count ("3 messages
- * from John") so users know they missed more than one.
- *
- * In-process only — in multi-instance deployments each process batches
- * independently, which still reduces volume significantly vs. per-message sends.
+ * The 3-second window lives in Postgres, not in this process. Previously the intent was held in
+ * an in-memory setTimeout and only written to the durable outbox once the window closed — so a
+ * dyno restart, a deploy, or a crash inside those 3 seconds silently dropped the notification,
+ * and the write failure was swallowed (`.catch(() => {})`). The intent is now persisted on the
+ * first message and simply scheduled to fire 3 seconds later; subsequent messages update that
+ * same row. Nothing is lost if the process dies.
  */
 
-import { createPushIntent } from "../services/outbox.service";
+import { createCoalescingPushIntent } from "../services/outbox.service";
 import { isUserInThread } from "./presence";
 import { isThreadMuted } from "../services/conversation-mute.service";
 
 const BATCH_WINDOW_MS = 3_000;
 
-type Batch = {
-  count: number;
-  latestTitle: string;
-  body: string;
-  data: Record<string, unknown>;
-  timer: ReturnType<typeof setTimeout>;
-};
-
-const pending = new Map<string, Batch>();
-
-function batchKey(userId: number, threadId: string): string {
-  return `${userId}:${threadId}`;
-}
-
-function formatTitle(base: string, count: number): string {
-  if (count <= 1) return base;
-  // "New message from John" → "3 messages from John"
-  return base.replace(/^New message from /, `${count} messages from `).replace(/^(.+) in (.+)$/, `${count} new messages in $2`);
+/**
+ * The key the outbox coalesces on. Scoped to (user, thread) so two different conversations never
+ * collapse into one push.
+ */
+function dedupeKey(userId: number, threadId: string): string {
+  return `push:msg:${userId}:${threadId}`;
 }
 
 export async function batchedPush(
@@ -43,45 +31,31 @@ export async function batchedPush(
   body: string,
   data: Record<string, unknown>,
 ): Promise<void> {
-  // Skip push if user is in the thread right now or has muted it.
+  // Cheap early-out. The outbox worker re-checks presence at delivery time, which is what
+  // actually matters: the recipient may open the thread during the 3-second window.
   if (isUserInThread(userId, threadId)) return;
   if (await isThreadMuted(userId, threadId)) return;
 
-  const key = batchKey(userId, threadId);
-  const existing = pending.get(key);
-
-  if (existing) {
-    clearTimeout(existing.timer);
-    existing.count += 1;
-    existing.latestTitle = title;
-    existing.body = body;
-    existing.data = data;
-    existing.timer = setTimeout(() => flush(userId, key), BATCH_WINDOW_MS);
-    return;
-  }
-
-  const batch: Batch = {
-    count: 1,
-    latestTitle: title,
-    body,
-    data,
-    timer: setTimeout(() => flush(userId, key), BATCH_WINDOW_MS),
-  };
-  pending.set(key, batch);
+  await createCoalescingPushIntent(
+    {
+      userId,
+      title,
+      body,
+      data: { ...data, threadId, messageCount: 1 },
+    },
+    { dedupeKey: dedupeKey(userId, threadId), delayMs: BATCH_WINDOW_MS },
+  );
 }
 
-async function flush(userId: number, key: string): Promise<void> {
-  const batch = pending.get(key);
-  if (!batch) return;
-  pending.delete(key);
-
-  const finalTitle = formatTitle(batch.latestTitle, batch.count);
-  const finalBody = batch.count > 1 ? `${batch.count} new messages` : batch.body;
-
-  await createPushIntent({
-    userId,
-    title: finalTitle,
-    body: finalBody,
-    data: { ...batch.data, messageCount: batch.count },
-  }).catch(() => {});
+/**
+ * Composes the delivered title from the coalesced count. Applied by the outbox worker at send
+ * time rather than at enqueue time, because the count is not final until the window closes.
+ *
+ *   "New message from John"  + 3  ->  "3 messages from John"
+ */
+export function formatBatchedTitle(base: string, count: number): string {
+  if (count <= 1) return base;
+  return base
+    .replace(/^New message from /, `${count} messages from `)
+    .replace(/^(.+) in (.+)$/, `${count} new messages in $2`);
 }
