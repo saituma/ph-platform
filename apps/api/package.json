@@ -15,7 +15,7 @@
     "lint:eslint": "eslint . --max-warnings=0",
     "format": "biome format --write src test",
     "check": "biome check src test",
-    "dev": "nodemon src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/worker.ts",
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
