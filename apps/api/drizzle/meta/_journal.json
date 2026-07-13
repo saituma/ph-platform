@@ -1289,6 +1289,13 @@
       "when": 1783400000000,
       "tag": "0183_conversation_messages_latest_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1783500000000,
+      "tag": "0184_conversation_receipts_delivered_nullable",
+      "breakpoints": true
     }
   ]
 }

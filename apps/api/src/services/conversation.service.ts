@@ -109,10 +109,17 @@ export async function isConversationMessageParticipant(messageId: number, userId
   return Boolean(row);
 }
 
+/** The db handle, or a transaction — so the storage primitives can be composed into one atomic write. */
+type DbClient = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** Find-or-create the direct conversation for a user pair, ensuring both participant rows. */
-export async function getOrCreateDirectConversation(userA: number, userB: number): Promise<number> {
+export async function getOrCreateDirectConversation(
+  userA: number,
+  userB: number,
+  client: DbClient = db,
+): Promise<number> {
   const key = directKeyFor(userA, userB);
-  const [existing] = await db
+  const [existing] = await client
     .select({ id: conversationTable.id })
     .from(conversationTable)
     .where(eq(conversationTable.directKey, key))
@@ -120,14 +127,14 @@ export async function getOrCreateDirectConversation(userA: number, userB: number
 
   let conversationId = existing?.id ?? null;
   if (conversationId == null) {
-    const inserted = await db
+    const inserted = await client
       .insert(conversationTable)
       .values({ kind: "direct", directKey: key })
       .onConflictDoNothing({ target: conversationTable.directKey })
       .returning({ id: conversationTable.id });
     conversationId = inserted[0]?.id ?? null;
     if (conversationId == null) {
-      const [row] = await db
+      const [row] = await client
         .select({ id: conversationTable.id })
         .from(conversationTable)
         .where(eq(conversationTable.directKey, key))
@@ -137,7 +144,7 @@ export async function getOrCreateDirectConversation(userA: number, userB: number
   }
   if (conversationId == null) throw new Error("Failed to resolve direct conversation");
 
-  await db
+  await client
     .insert(conversationParticipantTable)
     .values([
       { conversationId, userId: userA },
@@ -179,93 +186,103 @@ export async function persistDirectMessage(input: {
   videoUploadId?: number | null;
   clientMessageId?: string | null;
 }): Promise<PersistedDirectMessage> {
-  const conversationId = await getOrCreateDirectConversation(input.senderId, input.receiverId);
+  // One atomic write. This was five separate un-wrapped statements: find-or-create the
+  // conversation, insert the message, insert two receipts, bump conversations.updatedAt. A crash
+  // or a dropped connection between them left a message with NO receipt rows — which made it
+  // permanently invisible in unread counts and in the inbox preview, while still existing in the
+  // table. Nothing would ever repair it. Either the whole message lands or none of it does.
+  return db.transaction(async (tx) => {
+    const conversationId = await getOrCreateDirectConversation(input.senderId, input.receiverId, tx);
 
-  let insertedNew = true;
-  let row: typeof conversationMessageTable.$inferSelect | undefined;
+    let insertedNew = true;
+    let row: typeof conversationMessageTable.$inferSelect | undefined;
 
-  if (input.clientMessageId) {
-    const inserted = await db
-      .insert(conversationMessageTable)
-      .values({
-        conversationId,
-        senderId: input.senderId,
-        content: input.content,
-        contentType: input.contentType,
-        mediaUrl: input.mediaUrl ?? null,
-        videoUploadId: input.videoUploadId ?? null,
-        clientMessageId: input.clientMessageId,
-      })
-      .onConflictDoNothing({
-        target: [
-          conversationMessageTable.conversationId,
-          conversationMessageTable.senderId,
-          conversationMessageTable.clientMessageId,
-        ],
-      })
-      .returning();
-    row = inserted[0];
-    if (!row) {
-      insertedNew = false;
-      [row] = await db
-        .select()
-        .from(conversationMessageTable)
-        .where(
-          and(
-            eq(conversationMessageTable.conversationId, conversationId),
-            eq(conversationMessageTable.senderId, input.senderId),
-            eq(conversationMessageTable.clientMessageId, input.clientMessageId),
-          ),
-        )
-        .limit(1);
+    if (input.clientMessageId) {
+      const inserted = await tx
+        .insert(conversationMessageTable)
+        .values({
+          conversationId,
+          senderId: input.senderId,
+          content: input.content,
+          contentType: input.contentType,
+          mediaUrl: input.mediaUrl ?? null,
+          videoUploadId: input.videoUploadId ?? null,
+          clientMessageId: input.clientMessageId,
+        })
+        .onConflictDoNothing({
+          target: [
+            conversationMessageTable.conversationId,
+            conversationMessageTable.senderId,
+            conversationMessageTable.clientMessageId,
+          ],
+        })
+        .returning();
+      row = inserted[0];
+      if (!row) {
+        // Idempotent replay: the client retried a send we already stored.
+        insertedNew = false;
+        [row] = await tx
+          .select()
+          .from(conversationMessageTable)
+          .where(
+            and(
+              eq(conversationMessageTable.conversationId, conversationId),
+              eq(conversationMessageTable.senderId, input.senderId),
+              eq(conversationMessageTable.clientMessageId, input.clientMessageId),
+            ),
+          )
+          .limit(1);
+      }
+    } else {
+      const inserted = await tx
+        .insert(conversationMessageTable)
+        .values({
+          conversationId,
+          senderId: input.senderId,
+          content: input.content,
+          contentType: input.contentType,
+          mediaUrl: input.mediaUrl ?? null,
+          videoUploadId: input.videoUploadId ?? null,
+        })
+        .returning();
+      row = inserted[0];
     }
-  } else {
-    const inserted = await db
-      .insert(conversationMessageTable)
-      .values({
-        conversationId,
-        senderId: input.senderId,
-        content: input.content,
-        contentType: input.contentType,
-        mediaUrl: input.mediaUrl ?? null,
-        videoUploadId: input.videoUploadId ?? null,
-      })
-      .returning();
-    row = inserted[0];
-  }
 
-  if (!row) throw new Error("Failed to persist conversation message");
+    if (!row) throw new Error("Failed to persist conversation message");
 
-  if (insertedNew) {
-    await db
-      .insert(conversationReceiptTable)
-      .values([
-        { messageId: row.id, userId: input.senderId, deliveredAt: row.createdAt, readAt: row.createdAt },
-        { messageId: row.id, userId: input.receiverId, deliveredAt: row.createdAt, readAt: null },
-      ])
-      .onConflictDoNothing({
-        target: [conversationReceiptTable.messageId, conversationReceiptTable.userId],
-      });
+    if (insertedNew) {
+      await tx
+        .insert(conversationReceiptTable)
+        .values([
+          // The sender's own copy is delivered + read by definition. The receiver's is neither
+          // until their device says so — see markConversationMessageDelivered.
+          { messageId: row.id, userId: input.senderId, deliveredAt: row.createdAt, readAt: row.createdAt },
+          { messageId: row.id, userId: input.receiverId, deliveredAt: null, readAt: null },
+        ])
+        .onConflictDoNothing({
+          target: [conversationReceiptTable.messageId, conversationReceiptTable.userId],
+        });
 
-    await db
-      .update(conversationTable)
-      .set({ updatedAt: row.createdAt })
-      .where(eq(conversationTable.id, conversationId));
-  }
+      await tx
+        .update(conversationTable)
+        .set({ updatedAt: row.createdAt })
+        .where(eq(conversationTable.id, conversationId));
+    }
 
-  return {
-    id: row.id,
-    conversationId,
-    senderId: input.senderId,
-    receiverId: input.receiverId,
-    content: row.content,
-    contentType: row.contentType,
-    mediaUrl: row.mediaUrl ?? null,
-    videoUploadId: row.videoUploadId ?? null,
-    clientMessageId: row.clientMessageId ?? null,
-    createdAt: row.createdAt,
-    insertedNew,
-  };
+    return {
+      id: row.id,
+      conversationId,
+      senderId: input.senderId,
+      receiverId: input.receiverId,
+      content: row.content,
+      contentType: row.contentType,
+      mediaUrl: row.mediaUrl ?? null,
+      videoUploadId: row.videoUploadId ?? null,
+      clientMessageId: row.clientMessageId ?? null,
+      createdAt: row.createdAt,
+      insertedNew,
+    };
+  });
 }
 
 /** Emit `message:new` to both participants' rooms + admin oversight, preserving the old payload shape. */
@@ -288,7 +305,13 @@ export function emitDirectMessageNew(
     createdAt: message.createdAt,
     senderName: extra.senderName ?? null,
     senderProfilePicture: extra.senderProfilePicture ?? null,
-    deliveredCount: 2,
+    // A brand-new message is delivered to and read by its sender, and nobody else — yet. The
+    // recipient's device raises these via message:delivered / message:read.
+    //
+    // These were hardcoded to deliveredCount: 2, readCount: 1 — i.e. every message claimed the
+    // recipient had already received it the instant the server stored it. That is what made the
+    // second tick appear immediately whether or not the recipient's phone was even on.
+    deliveredCount: 1,
     readCount: 1,
     myReadAt: message.createdAt,
     ...(extra.clientId ? { clientId: extra.clientId } : {}),

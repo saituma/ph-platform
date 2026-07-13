@@ -1239,7 +1239,14 @@ export const conversationReceiptTable = pgTable(
     userId: integer()
       .notNull()
       .references(() => userTable.id, { onDelete: "cascade" }),
-    deliveredAt: timestamp().notNull().defaultNow(),
+    /**
+     * NULL until the recipient's device confirms receipt.
+     *
+     * Was NOT NULL DEFAULT now(), and set at insert for both participants — which made
+     * markConversationMessageDelivered's `WHERE deliveredAt IS NULL` guard permanently
+     * unmatchable. Every ✓✓ in the app meant "the server stored this", not "the recipient got it".
+     */
+    deliveredAt: timestamp(),
     readAt: timestamp(),
     createdAt: timestamp().notNull().defaultNow(),
   },
@@ -1857,7 +1864,9 @@ export const runLogTable = pgTable(
     feelTags: jsonb(),
     notes: text(),
     sport: varchar({ length: 40 }),
-    visibility: varchar({ length: 20 }).notNull().default("public"), // 'public' | 'private'
+    /** Final lifecycle metadata only; active checkpoints never leave the device. */
+    activityLifecycle: varchar({ length: 20 }),
+    visibility: varchar({ length: 20 }).notNull().default("private"), // 'public' | 'private'
     createdAt: timestamp().notNull().defaultNow(),
     updatedAt: timestamp().notNull().defaultNow(),
   },
