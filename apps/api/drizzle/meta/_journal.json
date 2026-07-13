@@ -1310,6 +1310,13 @@
       "when": 1783700000000,
       "tag": "0186_activity_session_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1783800000000,
+      "tag": "0187_scheduled_job_runs",
+      "breakpoints": true
     }
   ]
 }

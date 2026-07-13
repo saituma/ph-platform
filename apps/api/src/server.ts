@@ -5,7 +5,8 @@ import { pool } from "./db";
 import { getRedisConnection } from "./jobs/connection";
 import { logger } from "./lib/logger";
 import { startEventLoopDelayLogging } from "./lib/event-loop-delay";
-import { isQueueEnabled, startOutboxWorker, startScheduledWorker, stopOutboxWorker, stopScheduledWorker } from "./jobs";
+import { startOutboxWorker, stopOutboxWorker } from "./jobs";
+import { startPgScheduler, stopPgScheduler } from "./jobs/scheduled.pg";
 import http from "http";
 
 export async function startServer() {
@@ -38,23 +39,20 @@ export async function startServer() {
   startOutboxWorker();
   logger.info("API web process started; outbox worker enabled");
 
-  // The `worker` process type is never started on a single dyno, so nothing registers the
-  // scheduled repeatables — session/streak/nutrition reminders, subscription expiry and goal
-  // expiry have never fired. Register them here. They are I/O-bound, so they cost the socket
-  // event loop almost nothing.
+  // The five recurring reminders have NEVER run in production.
   //
-  // Email and push are NOT started here: both flow through the Postgres outbox, which
-  // startOutboxWorker() above already drains. Their BullMQ queues have no producers left.
+  // They were BullMQ repeatables registered only inside worker.ts, and Heroku starts new process
+  // types at 0 dynos — so nothing ever registered them. Moving that registration into the web
+  // process was not enough either: production sets DISABLE_REDIS=true, which makes isQueueEnabled()
+  // false and getRedisConnection() null, so BullMQ can never start regardless of which process
+  // asks it to.
+  //
+  // The scheduler is now Postgres-backed and needs no Redis at all. See jobs/scheduled.pg.ts.
+  //
+  // Email and push are not started here: both flow through the Postgres outbox, which
+  // startOutboxWorker() above already drains.
   if (env.runWorkersInProcess) {
-    if (isQueueEnabled()) {
-      await startScheduledWorker();
-      logger.info("BullMQ scheduled worker started in-process");
-    } else {
-      logger.warn(
-        { reason: "redis_missing" },
-        "RUN_WORKERS_IN_PROCESS is on but REDIS_URL is not set — scheduled reminders will NOT run",
-      );
-    }
+    await startPgScheduler();
   }
 
   server.listen(env.port, "0.0.0.0", () => {
@@ -90,11 +88,7 @@ export async function startServer() {
 
     await stopOutboxWorker();
     if (env.runWorkersInProcess) {
-      try {
-        await stopScheduledWorker();
-      } catch (err) {
-        logger.warn({ err }, "Error while stopping the in-process scheduled worker");
-      }
+      stopPgScheduler();
     }
 
     try {
