@@ -20,6 +20,14 @@ jest.mock("../../src/services/training-content-v2.service", () => ({
   getTrainingSessionItemById: jest.fn(),
 }));
 
+// createVideo gained a plan-feature gate (athleteHasFeature(athlete.id, "video_upload")). It was
+// never mocked, so the real feature-access.service ran and tried to query a database that does not
+// exist in unit tests ("Failed query: select … from athletes" / role "user" does not exist).
+// Defaults to granting the feature; the tests that care override it.
+jest.mock("../../src/services/billing/feature-access.service", () => ({
+  athleteHasFeature: jest.fn().mockResolvedValue(true),
+}));
+
 import { createUploadUrl, createVideo, listVideos, reviewVideo } from "../../src/controllers/video.controller";
 import { getPresignedUploadUrl } from "../../src/services/s3.service";
 import { createVideoUpload, listVideoUploadsByAthlete, reviewVideoUpload } from "../../src/services/video.service";

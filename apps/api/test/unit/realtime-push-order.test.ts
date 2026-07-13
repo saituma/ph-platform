@@ -67,7 +67,12 @@ async function loadServices(params: {
   jest.doMock("../../src/db", () => ({ db: params.db }));
   jest.doMock("../../src/socket-hub", () => ({ getSocketServer: () => params.io }));
   jest.doMock("../../src/services/outbox.service", () => ({
+    // Message pushes go through createCoalescingPushIntent — the 3s batching window now lives in
+    // Postgres (next_run_at + a dedupe_key upsert) rather than an in-process setTimeout, so a
+    // restart can no longer lose the notification. Mocking only createPushIntent left the real
+    // one undefined, so these tests passed for the wrong reason: the enqueue was never reached.
     createPushIntent: params.pushEnqueue,
+    createCoalescingPushIntent: params.pushEnqueue,
     createEmailIntent: jest.fn(),
   }));
   jest.doMock("../../src/lib/db-connectivity", () => ({

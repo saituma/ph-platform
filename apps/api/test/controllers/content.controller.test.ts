@@ -57,18 +57,19 @@ describe("content controller", () => {
 
     await createContentItem(req, res);
 
-    expect(createContent).toHaveBeenCalledWith({
-      title: "Title",
-      content: "Body",
-      type: "article",
-      body: undefined,
-      programTier: undefined,
-      surface: "home",
-      category: undefined,
-      minAge: undefined,
-      maxAge: undefined,
-      createdBy: 5,
-    });
+    // objectContaining, not an exact match. The content DTO keeps growing — scheduling
+    // (startsAt/endsAt/isActive) and audience targeting (audienceType/audienceTeam/ageList) were
+    // both added since this was written, and each addition broke an assertion that was only ever
+    // meant to check "the controller forwards the body and stamps createdBy".
+    expect(createContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Title",
+        content: "Body",
+        type: "article",
+        surface: "home",
+        createdBy: 5,
+      }),
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ item: { id: 3 } });
   });

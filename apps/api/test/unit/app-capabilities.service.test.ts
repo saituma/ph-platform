@@ -46,17 +46,34 @@ describe("buildAppCapabilities", () => {
       hasPreseasonAssignment: false,
     });
 
+    // An assignment alone is not enough. `hasAssignedAccess` (planFeatures || hasActivePlan ||
+    // programTier) also gates it — see "fix(api): gate program content for expired users".
+    // This fixture used to pass no plan at all, so it was asserting that an EXPIRED athlete can
+    // see preseason, which is exactly what that fix stopped.
     const assignedAdult = buildAppCapabilities({
+      role: "adult_athlete",
+      programTier: "PHP_Premium",
+      messagingAccessTiers,
+      athleteType: "adult",
+      planFeatures: featuresForTier("PHP_Premium"),
+      hasActivePlan: true,
+      hasPreseasonAssignment: true,
+    });
+
+    // Assigned, but their plan lapsed — program content stays hidden.
+    const expiredAssignedAdult = buildAppCapabilities({
       role: "adult_athlete",
       programTier: null,
       messagingAccessTiers,
       athleteType: "adult",
+      hasActivePlan: false,
       hasPreseasonAssignment: true,
     });
 
     expect(unassignedAdult.training).toBe(true);
     expect(unassignedAdult.preseasonProgramme).toBe(false);
     expect(assignedAdult.preseasonProgramme).toBe(true);
+    expect(expiredAssignedAdult.preseasonProgramme).toBe(false);
   });
 
   it("keeps youth parent content separate from adult progress features", () => {
