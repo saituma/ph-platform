@@ -3,19 +3,27 @@ import { z } from "zod";
 
 import * as runsService from "../services/runs.service";
 
+const coordinateSchema = z.object({
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  timestamp: z.number().finite().optional(),
+  altitude: z.number().finite().nullable().optional(),
+}).passthrough();
+
 const runPayloadSchema = z.object({
   clientId: z.string().min(1).max(64),
-  date: z.string().min(1),
-  distanceMeters: z.number().min(0),
+  date: z.string().datetime({ offset: true }),
+  distanceMeters: z.number().finite().min(0).max(2_000_000),
   durationSeconds: z.number().int().min(0),
   avgPace: z.number().nullable().optional(),
   avgSpeed: z.number().nullable().optional(),
   calories: z.number().nullable().optional(),
-  coordinates: z.any().optional(),
+  coordinates: z.array(coordinateSchema).max(10_000).nullable().optional(),
   effortLevel: z.number().int().min(0).max(10).nullable().optional(),
   feelTags: z.any().optional(),
   notes: z.string().max(500).nullable().optional(),
   sport: z.string().max(40).nullable().optional(),
+  activityLifecycle: z.enum(["saved", "discarded", "finishing"]).optional(),
   visibility: z.enum(["public", "private"]).optional(),
 });
 

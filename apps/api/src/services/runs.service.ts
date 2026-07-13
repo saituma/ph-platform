@@ -16,6 +16,7 @@ interface RunPayload {
   feelTags?: unknown | null;
   notes?: string | null;
   sport?: string | null;
+  activityLifecycle?: "saved" | "discarded" | "finishing" | null;
   visibility?: "public" | "private" | null;
 }
 
@@ -39,7 +40,9 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
       feelTags: run.feelTags ?? null,
       notes: run.notes ?? null,
       sport: run.sport ?? null,
-      visibility: (run.visibility === "private" ? "private" : "public") as "public" | "private",
+      activityLifecycle: run.activityLifecycle ?? "saved",
+      // Sharing is affirmative. Historical clients that omit this remain private.
+      visibility: (run.visibility === "public" ? "public" : "private") as "public" | "private",
     };
 
     await db
@@ -59,6 +62,7 @@ export async function upsertRuns(userId: number, runs: RunPayload[]) {
           feelTags: values.feelTags,
           notes: values.notes,
           sport: values.sport,
+          activityLifecycle: values.activityLifecycle,
           visibility: values.visibility,
           updatedAt: new Date(),
         },
