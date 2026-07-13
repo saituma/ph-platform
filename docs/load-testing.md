@@ -238,7 +238,14 @@ heroku features:enable http-session-affinity --app ph-performance
 
 Without this, clients using polling transport (mobile with unreliable WebSocket) will disconnect frequently as requests land on different dynos.
 
-If you run 2+ dynos **and** want accurate presence/rooms across dynos, also set `SOCKET_REQUIRE_REDIS=true` and configure `REDIS_URL` (Heroku Redis add-on).
+If you run 2+ dynos, set `SOCKET_CLUSTER=true` and configure `REDIS_URL` so the Socket.IO Redis adapter syncs **rooms and broadcasts** across dynos. On a single dyno leave it off — the adapter costs two extra TCP connections and a Redis publish per emit, syncing with nobody.
+
+> ⚠️ **The Redis adapter does NOT give you accurate presence.** It syncs broadcasts, not state.
+> `lib/presence.ts` is a plain in-process `Set`, so with 2+ dynos `getOnlineUserIds()` only sees
+> that dyno's users and `isUserInThread()` returns `false` for anyone connected elsewhere — which
+> means push notifications fire at users who are actively reading the thread. Presence must move to
+> Redis before a second socket-carrying dyno is safe. (This section previously claimed the adapter
+> fixed presence. It does not.)
 
 ### Heroku Postgres URL
 

@@ -7,13 +7,13 @@ import {
 } from "../services/outbox.service";
 import { sendPushNotification } from "../services/push.service";
 import { deliverEmail } from "../lib/mailer/base.mailer";
-import { pool } from "../db";
+import { createDedicatedClient } from "../db";
 import { logger } from "../lib/logger";
-import type { PoolClient } from "pg";
+import type { Client } from "pg";
 
 let _pollInterval: ReturnType<typeof setInterval> | null = null;
 let _cleanupInterval: ReturnType<typeof setInterval> | null = null;
-let _listenClient: PoolClient | null = null;
+let _listenClient: Client | null = null;
 let _draining = false;
 let _consecutiveDbErrors = 0;
 
@@ -79,17 +79,23 @@ async function drainOnce(): Promise<void> {
 
 async function startListening(): Promise<void> {
   try {
-    _listenClient = await pool.connect();
-    await _listenClient.query(`LISTEN ${OUTBOX_NOTIFY_CHANNEL}`);
-    _listenClient.on("notification", () => {
-      drainOnce().catch((err) => logger.error({ err }, "outbox.notify_drain_error"));
-    });
+    // A LISTEN subscriber holds its connection for the life of the process. Taking it from
+    // the pool permanently spent one of DB_POOL_MAX (5 in production), leaving 4 for every
+    // HTTP request and socket handler on the dyno. Use a connection outside the pool.
+    _listenClient = createDedicatedClient();
     _listenClient.on("error", (err) => {
       logger.warn({ err }, "outbox.listen_client_error");
       _listenClient = null;
     });
-    logger.info("Outbox LISTEN/NOTIFY active");
+    await _listenClient.connect();
+    await _listenClient.query(`LISTEN ${OUTBOX_NOTIFY_CHANNEL}`);
+    _listenClient.on("notification", () => {
+      drainOnce().catch((err) => logger.error({ err }, "outbox.notify_drain_error"));
+    });
+    logger.info("Outbox LISTEN/NOTIFY active (dedicated connection, outside the pool)");
   } catch (err) {
+    // Polling every POLL_MS still drains the outbox, so a LISTEN failure degrades latency
+    // rather than delivery.
     logger.warn({ err }, "outbox.listen_setup_failed — polling only");
     _listenClient = null;
   }
@@ -127,7 +133,7 @@ export async function stopOutboxWorker(): Promise<void> {
   }
   if (_listenClient) {
     try {
-      _listenClient.release();
+      await _listenClient.end();
     } catch {
       /* best effort */
     }

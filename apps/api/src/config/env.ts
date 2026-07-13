@@ -121,6 +121,7 @@ const envSchema = z.object({
    */
   SOCKET_REQUIRE_REDIS: z.string().optional(),
   RUN_WORKERS_IN_PROCESS: z.string().optional(),
+  SOCKET_CLUSTER: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -253,4 +254,7 @@ export const env = {
   // exactly one consumer — so the only cost of double-running is duplicate polling. Set to
   // "false" on the web dyno if you scale `worker` up and want the event loop kept clear.
   runWorkersInProcess: raw.RUN_WORKERS_IN_PROCESS !== "false",
+  // Only true when 2+ socket-carrying instances actually run. Gating the Socket.IO Redis
+  // adapter on REDIS_URL alone enabled it on a single dyno, where it is pure overhead.
+  socketCluster: raw.SOCKET_CLUSTER === "true" || raw.SOCKET_REQUIRE_REDIS === "true",
 };

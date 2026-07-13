@@ -31,7 +31,11 @@ export function logRealtimeLatency(
   const serverElapsedMs = Math.round(now - trace.startedAt);
   const clientToServerElapsedMs =
     typeof trace.clientSentAt === "number" ? Math.round(Date.now() - trace.clientSentAt) : undefined;
-  log.info(
+  // debug, not info: every message emits three of these checkpoints, so at the default
+  // LOG_LEVEL=info each send wrote three JSON lines to Heroku Logplex forever. Nothing
+  // aggregates them — there is no metrics backend reading these. Raise LOG_LEVEL=debug
+  // when you actually want to trace latency.
+  log.debug(
     {
       traceId: trace.traceId,
       stage,

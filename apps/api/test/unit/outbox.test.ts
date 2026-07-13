@@ -4,11 +4,21 @@ import path from "path";
 const srcRoot = path.resolve(__dirname, "../../src");
 
 describe("outbox architecture", () => {
-  it("server.ts does not start push or email or scheduled workers (only outbox is co-located)", () => {
+  it("server.ts registers the scheduled repeatables, gated on RUN_WORKERS_IN_PROCESS", () => {
     const serverSrc = fs.readFileSync(path.join(srcRoot, "server.ts"), "utf8");
-    // The outbox worker runs in the API process so socket-triggered events drain without a separate process.
-    // Push, email, and scheduled workers must stay in worker.ts only.
-    expect(serverSrc).not.toMatch(/startPushWorker|startEmailWorker|startScheduledWorker/);
+
+    // This test used to assert the OPPOSITE — that scheduled/email/push workers stay in
+    // worker.ts only. That holds only if a `worker` dyno is actually running, and Heroku starts
+    // new process types at 0 dynos. On a single-dyno deploy nothing registered the repeatables,
+    // so session/streak/nutrition reminders and subscription/goal expiry never fired.
+    expect(serverSrc).toMatch(/startScheduledWorker/);
+
+    // ...but never unconditionally — a real worker dyno must be able to opt the web dyno out.
+    expect(serverSrc).toMatch(/env\.runWorkersInProcess/);
+
+    // Email and push must NOT be started here. Both go through the Postgres outbox, which
+    // startOutboxWorker() drains; their BullMQ queues have no producers left.
+    expect(serverSrc).not.toMatch(/startPushWorker|startEmailWorker/);
   });
 
   it("worker.ts starts the outbox worker", () => {

@@ -214,7 +214,15 @@ export function initSocket(server: HttpServer) {
     },
   });
 
-  const redis = getRedisConnection();
+  // The adapter exists to sync broadcasts BETWEEN socket-carrying instances. With one dyno
+  // there is no peer to sync with, so enabling it merely because REDIS_URL happens to be set
+  // (it is also the BullMQ connection) costs two extra TCP connections and a Redis publish on
+  // every emit — against a quota-limited Upstash database, to nobody. Opt in explicitly.
+  //
+  // NOTE: the adapter alone does NOT make presence correct across dynos — lib/presence.ts is a
+  // per-process Set. Turning SOCKET_CLUSTER on today would give you cross-dyno rooms and
+  // silently wrong presence. Redis-backed presence lands with the P1 work.
+  const redis = env.socketCluster ? getRedisConnection() : null;
   if (redis) {
     const pubClient = redis.duplicate();
     const subClient = redis.duplicate();

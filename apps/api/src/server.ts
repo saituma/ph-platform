@@ -5,15 +5,7 @@ import { pool } from "./db";
 import { getRedisConnection } from "./jobs/connection";
 import { logger } from "./lib/logger";
 import { startEventLoopDelayLogging } from "./lib/event-loop-delay";
-import {
-  isQueueEnabled,
-  startEmailWorker,
-  startOutboxWorker,
-  startScheduledWorker,
-  stopEmailWorker,
-  stopOutboxWorker,
-  stopScheduledWorker,
-} from "./jobs";
+import { isQueueEnabled, startOutboxWorker, startScheduledWorker, stopOutboxWorker, stopScheduledWorker } from "./jobs";
 import http from "http";
 
 export async function startServer() {
@@ -46,18 +38,21 @@ export async function startServer() {
   startOutboxWorker();
   logger.info("API web process started; outbox worker enabled");
 
-  // On a single dyno the `worker` process type is never started, so nothing consumes the
-  // BullMQ queues. Run them here. They are I/O-bound (HTTP to Resend/Expo/FCM), so they cost
-  // the socket event loop almost nothing.
+  // The `worker` process type is never started on a single dyno, so nothing registers the
+  // scheduled repeatables — session/streak/nutrition reminders, subscription expiry and goal
+  // expiry have never fired. Register them here. They are I/O-bound, so they cost the socket
+  // event loop almost nothing.
+  //
+  // Email and push are NOT started here: both flow through the Postgres outbox, which
+  // startOutboxWorker() above already drains. Their BullMQ queues have no producers left.
   if (env.runWorkersInProcess) {
     if (isQueueEnabled()) {
-      startEmailWorker();
       await startScheduledWorker();
-      logger.info("BullMQ email + scheduled workers started in-process");
+      logger.info("BullMQ scheduled worker started in-process");
     } else {
       logger.warn(
         { reason: "redis_missing" },
-        "RUN_WORKERS_IN_PROCESS is on but REDIS_URL is not set — scheduled reminders and queued emails will NOT run",
+        "RUN_WORKERS_IN_PROCESS is on but REDIS_URL is not set — scheduled reminders will NOT run",
       );
     }
   }
@@ -97,9 +92,8 @@ export async function startServer() {
     if (env.runWorkersInProcess) {
       try {
         await stopScheduledWorker();
-        await stopEmailWorker();
       } catch (err) {
-        logger.warn({ err }, "Error while stopping in-process BullMQ workers");
+        logger.warn({ err }, "Error while stopping the in-process scheduled worker");
       }
     }
 

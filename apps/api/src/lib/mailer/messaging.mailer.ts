@@ -1,6 +1,6 @@
 import { emailLayout, escapeAttr, escapeHtml, labelRow, primaryButton, textP } from "./base.mailer";
 import { displayGreetingName } from "./greeting";
-import { emailQueue } from "../../jobs/email.queue";
+import { createEmailIntent } from "../../services/outbox.service";
 import { logger } from "../logger";
 
 export async function sendAdminNewMessageEmail(input: {
@@ -21,9 +21,7 @@ export async function sendAdminNewMessageEmail(input: {
 
     const greetingName = displayGreetingName(input.adminName, input.to);
 
-    const channelLabel = input.isGroup && input.groupName
-      ? escapeHtml(input.groupName)
-      : "Direct message";
+    const channelLabel = input.isGroup && input.groupName ? escapeHtml(input.groupName) : "Direct message";
 
     const fromValue = input.senderName
       ? input.senderEmail
@@ -74,7 +72,13 @@ ${primaryButton(escapeAttr(input.threadUrl), "View message")}`;
       bodyHtml,
     });
 
-    await emailQueue.enqueue({ to: input.to, subject, html });
+    // Was emailQueue.enqueue(). The BullMQ `emails` queue is consumed only by worker.ts, and
+    // Heroku starts new process types at 0 dynos — so on a single-dyno deploy this had no
+    // consumer and every new-message email vanished with no error and no alert.
+    //
+    // Every other mailer already goes through the outbox (Postgres-backed, retried with
+    // backoff, drained by a worker server.ts has always started). This was the sole outlier.
+    await createEmailIntent({ to: input.to, subject, html });
   } catch (err) {
     logger.error({ err, to: input.to }, "sendAdminNewMessageEmail failed");
   }

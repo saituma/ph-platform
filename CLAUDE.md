@@ -128,5 +128,5 @@ pnpm --filter mobile android
 - API formatter/linter: Biome (double quotes, semicolons, 2-space indent, 120 line width)
 - Web/Mobile linter: ESLint
 - DB ORM: Drizzle everywhere (no Prisma, no raw SQL in app code)
-- Deployment: API on Render, Web on Heroku, Mobile via EAS Build, Worker on Cloudflare
+- Deployment: **API on Heroku** (Procfile + `heroku-postbuild`; `.slugignore` excludes every other app), **Web on Vercel** (Next.js), Mobile via EAS Build, Worker on Cloudflare. `Dockerfile` + `render.yaml` are a dead Render config — `render.yaml` defines no `UPSTASH_*`, which `env.ts` hard-requires in production, so it would crash on boot.
 - Environment: `.env` files per app (never committed), validated in `src/config/env.ts`

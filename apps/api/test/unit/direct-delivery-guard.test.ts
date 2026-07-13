@@ -38,6 +38,12 @@ describe("direct notification delivery guard", () => {
       const source = fs.readFileSync(file, "utf8");
       const rel = path.relative(srcRoot, file);
 
+      // src/scripts/* are one-shot CLI tools (tsx/ts-node), not request paths. There is no
+      // outbox worker draining inside a script that exits immediately, so they MUST deliver
+      // directly. The guard exists to keep the queue/outbox boundary honest in the API, and it
+      // has been red because of this false positive — meaning it was protecting nothing.
+      if (rel.startsWith(`scripts${path.sep}`)) continue;
+
       if (source.includes("sendPushNotification") && source.includes("push.service") && !allowedPushImports.has(file)) {
         violations.push(`${rel}: import pushQueue instead of sendPushNotification`);
       }

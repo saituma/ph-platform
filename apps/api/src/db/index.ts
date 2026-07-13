@@ -1,6 +1,6 @@
 import dns from "node:dns";
 import net from "node:net";
-import { Pool } from "pg";
+import { Client, Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import { env } from "../config/env";
@@ -107,11 +107,20 @@ const poolConfig: ConstructorParameters<typeof Pool>[0] = {
     : {}),
 };
 
+/** pg's typings omit `lookup`, though both Pool and Client forward it to net.connect. */
+type DnsLookupFn = (
+  hostname: string,
+  options: dns.LookupOneOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+) => void;
+
+let neonDualStackLookup: DnsLookupFn | undefined;
+
 if (isNeonHost) {
   const hostCursor = new Map<string, number>();
   // Dual-stack lookup for Neon: prefer alternating IPv6/IPv4 so we can
   // survive environments where one family is degraded.
-  (poolConfig as any).lookup = (
+  neonDualStackLookup = (
     hostname: string,
     options: dns.LookupOneOptions,
     callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
@@ -141,6 +150,7 @@ if (isNeonHost) {
       callback(null, selected.address, selected.family);
     });
   };
+  Object.assign(poolConfig, { lookup: neonDualStackLookup });
 }
 
 export const pool = new Pool(poolConfig);
@@ -148,6 +158,22 @@ export const pool = new Pool(poolConfig);
 pool.on("error", (err) => {
   logger.error({ err }, "Pool idle client error");
 });
+
+/**
+ * A standalone connection that does NOT come out of the pool.
+ *
+ * For long-lived `LISTEN` subscribers only. A client checked out of the pool for LISTEN is
+ * never released, so it permanently costs one of DB_POOL_MAX (5 in production) — the outbox
+ * worker alone was leaving 4 connections for every HTTP request and socket handler on the dyno.
+ */
+export function createDedicatedClient(): Client {
+  return new Client({
+    connectionString,
+    ssl: sslOption,
+    keepAlive: true,
+    ...(neonDualStackLookup ? { lookup: neonDualStackLookup } : {}),
+  });
+}
 
 if (env.databaseUrl !== chosenDatabaseUrl) {
   try {
