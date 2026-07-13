@@ -1,12 +1,7 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import {
-  getCoachUser,
-  getLastAdminContact,
-  getTeamManagersForUser,
-  isUserPremium,
-} from "../services/message.service";
+import { getCoachUser, getLastAdminContact, getTeamManagersForUser, isUserPremium } from "../services/message.service";
 import { listGroupsForUser } from "../services/chat.service";
 import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "../lib/message-limits";
 import { db } from "../db";
@@ -501,7 +496,10 @@ export async function sendMessageToCoach(req: Request, res: Response) {
 
 export async function markRead(req: Request, res: Response) {
   const userId = req.user!.id;
-  const peerUserId = z.coerce.number().int().positive().optional().parse(req.body?.peerUserId);
+  // peerUserId was optional, and markConversationRead() with no peer marks EVERY unread
+  // message in EVERY conversation as read. An empty POST body silently wiped the user's
+  // entire unread state. No client ever relied on that; it is now required.
+  const peerUserId = z.coerce.number().int().positive().parse(req.body?.peerUserId);
   const count = await markConversationRead(userId, peerUserId);
   return res.status(200).json({ updated: count });
 }

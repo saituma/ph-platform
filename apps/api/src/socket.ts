@@ -12,6 +12,7 @@ import { verifyAccessToken } from "./lib/jwt";
 import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./services/user.service";
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
 import {
+  directConversationExists,
   markConversationMessageDelivered,
   markConversationRead,
   sendDirectMessage,
@@ -71,6 +72,8 @@ const typingSchema = z.object({
   groupId: z.coerce.number().int().positive().optional(),
 });
 
+// threadId is an opaque client string: a peer userId ("42") or "group:<id>".
+const threadFocusSchema = z.object({ threadId: z.string().max(64).nullish() });
 
 // Shared across every socket on this process; buckets are released on disconnect.
 const socketRateLimiter = new SocketRateLimiter();
@@ -569,10 +572,22 @@ export function initSocket(server: HttpServer) {
       await markConversationRead(userId, peerUserId);
     });
 
+    // typing:* accepted ANY toUserId with no authorization — anyone could make anyone
+    // else's client show "X is typing". Gate it on an existing direct conversation.
+    // Cached per connection: typing is high-frequency and the DB pool has 5 slots.
+    const verifiedTypingPeers = new Set<number>();
+    async function canTypeTo(peerUserId: number): Promise<boolean> {
+      if (verifiedTypingPeers.has(peerUserId)) return true;
+      const allowed = await directConversationExists(userId, peerUserId);
+      if (allowed) verifiedTypingPeers.add(peerUserId);
+      return allowed;
+    }
+
     guarded("typing:start", typingSchema, async (data) => {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);
       const fromUserId = (socket.data.actingUserId as number | null) ?? userId;
       if (data.toUserId) {
+        if (!(await canTypeTo(data.toUserId))) return;
         io.to(`user:${data.toUserId}`).emit("typing:update", {
           fromUserId,
           name,
@@ -596,6 +611,7 @@ export function initSocket(server: HttpServer) {
       const name = (socket.data.actingName as string | null) ?? (socket.data.name as string);
       const fromUserId = (socket.data.actingUserId as number | null) ?? userId;
       if (data.toUserId) {
+        if (!(await canTypeTo(data.toUserId))) return;
         io.to(`user:${data.toUserId}`).emit("typing:update", {
           fromUserId,
           name,
@@ -617,12 +633,10 @@ export function initSocket(server: HttpServer) {
 
     // Let the mobile tell the server which thread is currently open so push
     // notifications can be suppressed for that thread while the user is reading.
-    socket.on("thread:focus", (payload: unknown) => {
-      const threadId =
-        payload && typeof payload === "object" && "threadId" in payload
-          ? String((payload as Record<string, unknown>).threadId ?? "").trim() || null
-          : null;
-      setActiveThread(userId, threadId);
+    // Was a raw socket.on: no schema, no rate limit. Routed through guarded() so an
+    // unbounded string can't be parked in the presence map.
+    guarded("thread:focus", threadFocusSchema, async ({ threadId }) => {
+      setActiveThread(userId, threadId?.trim() || null);
     });
 
     socket.on("disconnect", (reason) => {

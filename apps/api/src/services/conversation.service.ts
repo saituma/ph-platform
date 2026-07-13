@@ -56,6 +56,30 @@ export function directKeyFor(a: number, b: number): string {
   return `${lo}:${hi}`;
 }
 
+/** True when a direct conversation already exists for the pair. Cheap: hits the directKey unique index. */
+export async function directConversationExists(a: number, b: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: conversationTable.id })
+    .from(conversationTable)
+    .where(eq(conversationTable.directKey, directKeyFor(a, b)))
+    .limit(1);
+  return Boolean(row);
+}
+
+/** True when the user is a participant of the conversation that owns this message. */
+export async function isConversationMessageParticipant(messageId: number, userId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: conversationParticipantTable.id })
+    .from(conversationMessageTable)
+    .innerJoin(
+      conversationParticipantTable,
+      eq(conversationParticipantTable.conversationId, conversationMessageTable.conversationId),
+    )
+    .where(and(eq(conversationMessageTable.id, messageId), eq(conversationParticipantTable.userId, userId)))
+    .limit(1);
+  return Boolean(row);
+}
+
 /** Find-or-create the direct conversation for a user pair, ensuring both participant rows. */
 export async function getOrCreateDirectConversation(userA: number, userB: number): Promise<number> {
   const key = directKeyFor(userA, userB);
@@ -245,7 +269,9 @@ export function emitDirectMessageNew(
   io.to("admin:all").emit("message:new", enriched);
 }
 
-async function attachConversationReactions<T extends { id: number }>(rows: T[]): Promise<Array<T & { reactions: ReactionSummary[] }>> {
+async function attachConversationReactions<T extends { id: number }>(
+  rows: T[],
+): Promise<Array<T & { reactions: ReactionSummary[] }>> {
   if (!rows.length) return rows.map((r) => ({ ...r, reactions: [] as ReactionSummary[] }));
   const ids = rows.map((r) => r.id);
   const reactionRows = await db
@@ -512,9 +538,7 @@ export async function sendDirectMessage(input: {
       const rawContent = String(input.content ?? "")
         .replace(/^\[reply:\d+:[^\]]*\]\s*/i, "")
         .trim();
-      const preview =
-        rawContent.slice(0, 200) ||
-        (input.contentType !== "text" ? `Sent a ${input.contentType}` : "");
+      const preview = rawContent.slice(0, 200) || (input.contentType !== "text" ? `Sent a ${input.contentType}` : "");
 
       await sendAdminNewMessageEmail({
         to: adminRow.email,
@@ -523,10 +547,7 @@ export async function sendDirectMessage(input: {
         senderEmail: senderRow?.email ?? null,
         messagePreview: preview,
         contentType: input.contentType,
-        sentAt:
-          message.createdAt instanceof Date
-            ? message.createdAt.toISOString()
-            : String(message.createdAt),
+        sentAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : String(message.createdAt),
         threadUrl: `${env.adminWebUrl}/messaging?tab=inbox&userId=${input.senderId}`,
         isGroup: false,
       });
@@ -675,24 +696,22 @@ export async function listConversationMessagesForPair(
     if (r.userId === userId) myReadAtByMessage.set(r.messageId, r.readAt ?? null);
   }
 
-  const shaped = page
-    .reverse()
-    .map((m) => ({
-      id: m.id,
-      conversationId: m.conversationId,
-      senderId: m.senderId,
-      receiverId: m.senderId === userId ? peerUserId : userId,
-      content: m.content,
-      contentType: resolveMessageMediaType({ contentType: m.contentType, mediaUrl: m.mediaUrl }),
-      mediaUrl: m.mediaUrl ?? null,
-      videoUploadId: m.videoUploadId ?? null,
-      read: (myReadAtByMessage.get(m.id) ?? null) != null,
-      myReadAt: (myReadAtByMessage.get(m.id) ?? null)?.toISOString() ?? null,
-      deliveredCount: 2,
-      readCount: readCountByMessage.get(m.id) ?? 0,
-      pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
-      createdAt: m.createdAt.toISOString(),
-    }));
+  const shaped = page.reverse().map((m) => ({
+    id: m.id,
+    conversationId: m.conversationId,
+    senderId: m.senderId,
+    receiverId: m.senderId === userId ? peerUserId : userId,
+    content: m.content,
+    contentType: resolveMessageMediaType({ contentType: m.contentType, mediaUrl: m.mediaUrl }),
+    mediaUrl: m.mediaUrl ?? null,
+    videoUploadId: m.videoUploadId ?? null,
+    read: (myReadAtByMessage.get(m.id) ?? null) != null,
+    myReadAt: (myReadAtByMessage.get(m.id) ?? null)?.toISOString() ?? null,
+    deliveredCount: 2,
+    readCount: readCountByMessage.get(m.id) ?? 0,
+    pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
+    createdAt: m.createdAt.toISOString(),
+  }));
 
   const withReactions = await attachConversationReactions(shaped);
   return { messages: withReactions, hasMore, nextCursor };
@@ -737,7 +756,9 @@ export async function listConversationMessagesForUser(
       userId: conversationParticipantTable.userId,
     })
     .from(conversationParticipantTable)
-    .where(inArray(conversationParticipantTable.conversationId, Array.from(new Set(page.map((m) => m.conversationId)))));
+    .where(
+      inArray(conversationParticipantTable.conversationId, Array.from(new Set(page.map((m) => m.conversationId)))),
+    );
   const peerByConversation = new Map<number, number>();
   for (const row of conversationPeers) {
     if (row.userId !== userId) peerByConversation.set(row.conversationId, row.userId);
@@ -761,27 +782,25 @@ export async function listConversationMessagesForUser(
     if (r.userId === userId) myReadAtByMessage.set(r.messageId, r.readAt ?? null);
   }
 
-  const shaped = page
-    .reverse()
-    .map((m) => {
-      const peerUserId = peerByConversation.get(m.conversationId) ?? userId;
-      return {
-        id: m.id,
-        conversationId: m.conversationId,
-        senderId: m.senderId,
-        receiverId: m.senderId === userId ? peerUserId : userId,
-        content: m.content,
-        contentType: resolveMessageMediaType({ contentType: m.contentType, mediaUrl: m.mediaUrl }),
-        mediaUrl: m.mediaUrl ?? null,
-        videoUploadId: m.videoUploadId ?? null,
-        read: (myReadAtByMessage.get(m.id) ?? null) != null,
-        myReadAt: (myReadAtByMessage.get(m.id) ?? null)?.toISOString() ?? null,
-        deliveredCount: 2,
-        readCount: readCountByMessage.get(m.id) ?? 0,
-        pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
-        createdAt: m.createdAt.toISOString(),
-      };
-    });
+  const shaped = page.reverse().map((m) => {
+    const peerUserId = peerByConversation.get(m.conversationId) ?? userId;
+    return {
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      receiverId: m.senderId === userId ? peerUserId : userId,
+      content: m.content,
+      contentType: resolveMessageMediaType({ contentType: m.contentType, mediaUrl: m.mediaUrl }),
+      mediaUrl: m.mediaUrl ?? null,
+      videoUploadId: m.videoUploadId ?? null,
+      read: (myReadAtByMessage.get(m.id) ?? null) != null,
+      myReadAt: (myReadAtByMessage.get(m.id) ?? null)?.toISOString() ?? null,
+      deliveredCount: 2,
+      readCount: readCountByMessage.get(m.id) ?? 0,
+      pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
+      createdAt: m.createdAt.toISOString(),
+    };
+  });
 
   const withReactions = await attachConversationReactions(shaped);
   return { messages: withReactions, hasMore, nextCursor };
@@ -900,6 +919,12 @@ export async function markConversationRead(userId: number, peerUserId?: number):
 }
 
 export async function markConversationMessageDelivered(messageId: number, receiverUserId: number) {
+  // The UPDATE below is scoped to the caller's own receipt row, so it was never
+  // exploitable for writes — but the emit that follows fired regardless of whether the
+  // caller was in the conversation at all. Any authenticated user could push a fake
+  // "delivered ✓✓" to any message's sender, for any messageId. Gate the whole thing.
+  if (!(await isConversationMessageParticipant(messageId, receiverUserId))) return;
+
   const now = new Date();
   await db
     .update(conversationReceiptTable)
@@ -951,7 +976,11 @@ export async function editConversationMessage(input: {
   return true;
 }
 
-export async function deleteConversationMessage(userId: number, messageId: number, isAdmin?: boolean): Promise<boolean> {
+export async function deleteConversationMessage(
+  userId: number,
+  messageId: number,
+  isAdmin?: boolean,
+): Promise<boolean> {
   const [message] = await db
     .select({
       id: conversationMessageTable.id,
@@ -1025,7 +1054,8 @@ export async function toggleConversationReaction(input: {
   const reactions = (enriched as { reactions: ReactionSummary[] }).reactions;
   const io = getSocketServer();
   if (io) {
-    for (const id of participantIds) io.to(`user:${id}`).emit("message:reaction", { messageId: input.messageId, reactions });
+    for (const id of participantIds)
+      io.to(`user:${id}`).emit("message:reaction", { messageId: input.messageId, reactions });
     io.to("admin:all").emit("message:reaction", { messageId: input.messageId, reactions });
   }
   return reactions;
@@ -1092,7 +1122,12 @@ export async function searchConversationMessages(input: { userId: number; q: str
       mediaUrl: conversationMessageTable.mediaUrl,
     })
     .from(conversationMessageTable)
-    .where(and(ilike(conversationMessageTable.content, `%${escaped}%`), inArray(conversationMessageTable.conversationId, conversationIds)))
+    .where(
+      and(
+        ilike(conversationMessageTable.content, `%${escaped}%`),
+        inArray(conversationMessageTable.conversationId, conversationIds),
+      ),
+    )
     .orderBy(desc(conversationMessageTable.createdAt))
     .limit(50);
 
@@ -1102,7 +1137,9 @@ export async function searchConversationMessages(input: { userId: number; q: str
       userId: conversationParticipantTable.userId,
     })
     .from(conversationParticipantTable)
-    .where(inArray(conversationParticipantTable.conversationId, Array.from(new Set(rows.map((r) => r.conversationId)))));
+    .where(
+      inArray(conversationParticipantTable.conversationId, Array.from(new Set(rows.map((r) => r.conversationId)))),
+    );
   const peerByConversation = new Map<number, number>();
   for (const row of participants) {
     if (row.userId !== input.userId) peerByConversation.set(row.conversationId, row.userId);
@@ -1159,7 +1196,11 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
   const adminIds = await getAdminCoachIds();
   if (!adminIds.includes(coachId)) return [];
 
-  const [callerUser] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, coachId)).limit(1);
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
   const sharedViewer = await isSharedInboxViewer(coachId, callerUser?.role ?? null);
   const visibleAdminIds = sharedViewer ? adminIds : [coachId];
   const visibleConversationIdsSubquery = db
@@ -1190,7 +1231,10 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
     .map(([conversationId, info]) => ({
       conversationId,
       updatedAt: info.updatedAt,
-      userId: info.participantIds.find((id) => !visibleAdminIds.includes(id) && id !== coachId) ?? info.participantIds.find((id) => id !== coachId) ?? null,
+      userId:
+        info.participantIds.find((id) => !visibleAdminIds.includes(id) && id !== coachId) ??
+        info.participantIds.find((id) => id !== coachId) ??
+        null,
     }))
     .filter((entry): entry is { conversationId: number; updatedAt: Date; userId: number } => entry.userId != null);
   if (!sharedViewer) {
@@ -1213,7 +1257,8 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
     .where(inArray(conversationMessageTable.conversationId, conversationIds))
     .orderBy(desc(conversationMessageTable.id));
   const latestByConversation = new Map<number, (typeof latestRows)[number]>();
-  for (const row of latestRows) if (!latestByConversation.has(row.conversationId)) latestByConversation.set(row.conversationId, row);
+  for (const row of latestRows)
+    if (!latestByConversation.has(row.conversationId)) latestByConversation.set(row.conversationId, row);
 
   const unreadRows = await db
     .select({
@@ -1231,7 +1276,9 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
       ),
     )
     .groupBy(conversationMessageTable.conversationId);
-  const unreadByConversation = new Map<number, number>(unreadRows.map((row) => [row.conversationId, Number(row.unread)]));
+  const unreadByConversation = new Map<number, number>(
+    unreadRows.map((row) => [row.conversationId, Number(row.unread)]),
+  );
 
   const userIds = Array.from(new Set(entries.map((entry) => entry.userId)));
   const users = userIds.length ? await db.select().from(userTable).where(inArray(userTable.id, userIds)) : [];
@@ -1272,7 +1319,11 @@ export async function listConversationMessagesAdmin(coachId: number, userId: num
   const adminIds = await getAdminCoachIds();
   if (!adminIds.includes(coachId)) return [];
 
-  const [callerUser] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, coachId)).limit(1);
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
   const sharedViewer = await isSharedInboxViewer(coachId, callerUser?.role ?? null);
   const visibleAdminIds = sharedViewer ? adminIds : [coachId];
 
@@ -1311,7 +1362,9 @@ export async function listConversationMessagesAdmin(coachId: number, userId: num
     .where(inArray(conversationParticipantTable.conversationId, conversationIds));
   const otherByConversationAndSender = new Map<string, number>();
   for (const row of participants) {
-    for (const other of participants.filter((p) => p.conversationId === row.conversationId && p.userId !== row.userId)) {
+    for (const other of participants.filter(
+      (p) => p.conversationId === row.conversationId && p.userId !== row.userId,
+    )) {
       otherByConversationAndSender.set(`${row.conversationId}:${row.userId}`, other.userId);
     }
   }
@@ -1341,7 +1394,11 @@ export async function markConversationReadAdmin(coachId: number, userId: number)
 export async function deleteConversationThreadAdmin(coachId: number, userId: number) {
   const adminIds = await getAdminCoachIds();
   if (!adminIds.includes(coachId)) return 0;
-  const [callerUser] = await db.select({ role: userTable.role }).from(userTable).where(eq(userTable.id, coachId)).limit(1);
+  const [callerUser] = await db
+    .select({ role: userTable.role })
+    .from(userTable)
+    .where(eq(userTable.id, coachId))
+    .limit(1);
   const sharedViewer = await isSharedInboxViewer(coachId, callerUser?.role ?? null);
   const visibleAdminIds = sharedViewer ? adminIds : [coachId];
 
