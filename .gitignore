@@ -23,6 +23,9 @@ build/
 **/.env.*
 **/.env.production
 **/.env.heroku
+# ...but .env.example carries no secrets and MUST be tracked. Without this negation
+# `**/.env.*` silently swallowed it, which is why apps/api never had one.
+!**/.env.example
 
 # Logs
 logs
