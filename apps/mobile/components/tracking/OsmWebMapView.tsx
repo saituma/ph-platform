@@ -119,14 +119,17 @@ const LEAFLET_HTML = `<!DOCTYPE html>
       try { layers = JSON.parse(layersJson) || []; } catch (e) { layers = []; }
       layers.forEach(function (layer) {
         if (layer.type === 'polyline' && layer.coordinates && layer.coordinates.length > 1) {
-          var latlngs = layer.coordinates.map(function (c) {
+          var latlngs = layer.coordinates.filter(function(c) {
+            return c && isFinite(c.latitude) && isFinite(c.longitude) && Math.abs(c.latitude) <= 90 && Math.abs(c.longitude) <= 180;
+          }).map(function (c) {
             return [c.latitude, c.longitude];
           });
+          if (latlngs.length < 2) return;
           L.polyline(latlngs, {
             color: layer.strokeColor || '#2979FF',
             weight: layer.strokeWidth || 3
           }).addTo(layerGroup);
-        } else if (layer.type === 'marker' && layer.coordinate) {
+        } else if (layer.type === 'marker' && layer.coordinate && isFinite(layer.coordinate.latitude) && isFinite(layer.coordinate.longitude) && Math.abs(layer.coordinate.latitude) <= 90 && Math.abs(layer.coordinate.longitude) <= 180) {
           var lat = layer.coordinate.latitude;
           var lng = layer.coordinate.longitude;
           var m = layer.marker || { kind: 'circle', color: '#2979FF', size: 6 };

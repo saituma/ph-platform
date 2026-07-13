@@ -28,6 +28,8 @@ type ServerRun = {
   createdAt: string;
   updatedAt: string;
   sport: string | null;
+  activityLifecycle?: "saved" | "discarded" | "finishing" | null;
+  visibility?: "public" | "private";
 };
 
 /**
@@ -68,6 +70,8 @@ export async function pushRunsToCloud(): Promise<void> {
         feelTags: safeJsonParse(r.feel_tags),
         notes: r.notes || null,
         sport: r.sport || null,
+        activityLifecycle: r.lifecycle === "finishing" ? "finishing" : "saved",
+        visibility: r.privacy === "team" ? "public" : "private",
       }));
 
       const result = await apiRequest<{ synced: string[] }>("/runs/sync", {

@@ -4,7 +4,6 @@ import { Text } from "@/components/ScaledText";
 import * as Crypto from "expo-crypto";
 import { deleteRunRecord, EFFORT_PENDING_FEEDBACK, initSQLiteRuns, saveActiveRunDraft, saveRunRecord } from "@/lib/sqliteRuns";
 import { estimateCalories } from "@/lib/tracking/runUtils";
-import { queueRunPushToCloud, syncRunWithVisibility } from "@/lib/runSync";
 import {
   announceRunComplete,
   announceRunStarted,
@@ -54,8 +53,8 @@ import { ActiveRunLayersSheet, type ActiveRunLayersSheetIndex } from "@/componen
 import { ActiveRunExpandedView } from "@/components/tracking/active-run/ActiveRunExpandedView";
 import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
 import { ActiveRunStartSheet } from "@/components/tracking/active-run/ActiveRunStartSheet";
-import { RunShareSheet } from "@/components/tracking/active-run/RunShareSheet";
 import { haversineDistance } from "@/lib/haversine";
+import { loadActivitySession } from "@/lib/tracking/activitySessionPersistence";
 
 export default function ActiveRunScreen() {
   const router = useRouter();
@@ -64,8 +63,6 @@ export default function ActiveRunScreen() {
   const insets = useAppSafeAreaInsets();
   const { setIsTabBarVisible } = useTabVisibility();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
-  const token = useAppSelector((s) => s.user.token);
-  const hasTeam = useAppSelector((s) => !!(s.user.authTeamMembership?.teamId));
   const hasStartedRef = React.useRef(false);
   const trackingActiveRef = React.useRef(false);
   const status = useRunStore((s) => s.status);
@@ -79,6 +76,7 @@ export default function ActiveRunScreen() {
   const currentRunId = useRunStore((s) => s.currentRunId);
   const liveDistanceMeters = useRunStore((s) => s.distanceMeters);
   const liveElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
+  const isLiveSharing = useRunStore((s) => s.shareCurrentLocation);
   const lastDraftSavedSecondsRef = React.useRef(-1);
 
   const [, setBgLocationAllowed] = useState(true);
@@ -96,13 +94,6 @@ export default function ActiveRunScreen() {
   const [sportSheetOpen, setSportSheetOpen] = useState(false);
   const [startSheetOpen, setStartSheetOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportId>("run");
-  const [shareSheetVisible, setShareSheetVisible] = useState(false);
-  const pendingRunRef = React.useRef<{
-    clientId: string; date: string; distanceMeters: number; durationSeconds: number;
-    avgPace: number | null; avgSpeed: number | null; calories: number | null;
-    coordinates: unknown; effortLevel: number | null; feelTags: unknown;
-    notes: string | null; sport: string | null;
-  } | null>(null);
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
   const toastTranslateY = useSharedValue(-120);
@@ -218,6 +209,45 @@ export default function ActiveRunScreen() {
     };
   }, []);
 
+  // A checkpoint may outlive the JS process. Make recovery an explicit user
+  // decision; background collection must never silently restart after launch.
+  useEffect(() => {
+    let mounted = true;
+    void loadActivitySession().then((session) => {
+      if (!mounted || !session || useRunStore.getState().lifecycle !== "ready") return;
+      useRunStore.getState().restoreSession(session);
+      setSelectedSport(session.sport as SportId);
+      Alert.alert(
+        "Continue your activity?",
+        "We recovered an unfinished activity saved on this device.",
+        [
+          {
+            text: "Discard",
+            style: "destructive",
+            onPress: discardActiveRun,
+          },
+          {
+            text: "Save",
+            onPress: () => {
+              hasStartedRef.current = true;
+              useRunStore.getState().recoverRun();
+              stopRun();
+              router.replace("/(tabs)/tracking/summary" as any);
+            },
+          },
+          {
+            text: "Resume",
+            onPress: () => {
+              hasStartedRef.current = true;
+              useRunStore.getState().recoverRun();
+            },
+          },
+        ],
+      );
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, [discardActiveRun, router, stopRun]);
+
   useEffect(() => {
     if (status !== "running") return;
     const interval = setInterval(() => {
@@ -276,7 +306,12 @@ export default function ActiveRunScreen() {
 
     return () => {
       stopForegroundWatch();
-      stopLocationTracking();
+      // A navigation transition must not tear down an activity that is still
+      // recording. The native background task owns it until finish/discard.
+      const lifecycle = useRunStore.getState().lifecycle;
+      if (lifecycle !== "recording" && lifecycle !== "paused" && lifecycle !== "recovery") {
+        void stopLocationTracking();
+      }
     };
   }, [stopForegroundWatch]);
 
@@ -334,41 +369,9 @@ export default function ActiveRunScreen() {
       announceRunComplete(finalDistance, finalSeconds);
     }
 
-    if (hasTeam && token) {
-      pendingRunRef.current = {
-        clientId: finalRunId,
-        date: new Date().toISOString(),
-        distanceMeters: finalDistance,
-        durationSeconds: finalSeconds,
-        avgPace: Number.isFinite(avg_pace) ? avg_pace : null,
-        avgSpeed: Number.isFinite(avg_speed) ? avg_speed : null,
-        calories,
-        coordinates: finalCoords ?? [],
-        effortLevel: null,
-        feelTags: [],
-        notes: null,
-        sport: selectedSport,
-      };
-      setShareSheetVisible(true);
-      return;
-    }
-
-    queueRunPushToCloud();
-    resetRun();
-    router.back();
-  };
-
-  const handleShareDecision = (share: boolean) => {
-    setShareSheetVisible(false);
-    const run = pendingRunRef.current;
-    pendingRunRef.current = null;
-    if (run && token) {
-      void syncRunWithVisibility(run, share ? "public" : "private", token);
-    } else {
-      queueRunPushToCloud();
-    }
-    resetRun();
-    router.back();
+    // Review is part of completion, not a best-effort side effect. The summary
+    // owns the final save/discard decision and sync stays private by default.
+    router.replace("/(tabs)/tracking/summary" as any);
   };
 
   const screenStyle = useAnimatedStyle(() => ({
@@ -575,6 +578,30 @@ export default function ActiveRunScreen() {
           </View>
         )}
 
+        {isLiveSharing && (status === "running" || status === "paused") ? (
+          <View
+            accessibilityRole="text"
+            accessibilityLabel="Live location sharing is active"
+            style={{
+              position: "absolute",
+              right: 16,
+              top: insets.top + 72,
+              backgroundColor: "#166534",
+              borderRadius: 16,
+              paddingHorizontal: 10,
+              paddingVertical: 7,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#86efac" }} />
+            <Text style={{ color: "#fff", fontFamily: "Outfit-Bold", fontSize: 10, letterSpacing: 0.5 }}>
+              SHARING LIVE
+            </Text>
+          </View>
+        ) : null}
+
 
         {sheetIndex >= 1 && layersSheetIndex === -1 && showRunSheetHint ? (
           <View
@@ -689,7 +716,7 @@ export default function ActiveRunScreen() {
           }}
           onFinishRun={handleFinishRun}
           onIndexChange={(i) => setSheetIndex(i)}
-          hasTeam={hasTeam}
+          hasTeam={false}
           autoPauseEnabled={autoPauseEnabled}
           onToggleAutoPause={() => {
             const next = !autoPauseEnabled;
@@ -739,6 +766,7 @@ export default function ActiveRunScreen() {
         open={startSheetOpen}
         onSelect={(sport) => {
           setSelectedSport(sport);
+          useRunStore.getState().setSport(sport);
           setStartSheetOpen(false);
           hasStartedRef.current = true;
           lastDraftSavedSecondsRef.current = -1;
@@ -754,6 +782,7 @@ export default function ActiveRunScreen() {
         selectedSport={selectedSport}
         onSelect={(sport) => {
           setSelectedSport(sport);
+          useRunStore.getState().setSport(sport);
           setSportSheetOpen(false);
         }}
         onClose={() => setSportSheetOpen(false)}
@@ -769,14 +798,6 @@ export default function ActiveRunScreen() {
           bottomInset={bottomSafeInset}
         />
       )}
-
-      <RunShareSheet
-        visible={shareSheetVisible}
-        distanceMeters={pendingRunRef.current?.distanceMeters ?? 0}
-        durationSeconds={pendingRunRef.current?.durationSeconds ?? 0}
-        onShare={() => handleShareDecision(true)}
-        onSkip={() => handleShareDecision(false)}
-      />
 
     </>
   );

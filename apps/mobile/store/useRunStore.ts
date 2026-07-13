@@ -2,6 +2,8 @@ import { create } from "zustand";
 import * as Crypto from "expo-crypto";
 import { haversineDistance } from "../lib/haversine";
 import { Platform } from "react-native";
+import type { ActivityLifecycleState, ActivityPrivacy, ActivitySession, ActivitySyncStatus } from "@/lib/tracking/activitySession";
+import { clearActivitySession, saveActivitySession } from "@/lib/tracking/activitySessionPersistence";
 
 const DEV_MODE = __DEV__ && Platform.OS === 'ios';
 
@@ -18,7 +20,12 @@ interface Destination {
 }
 
 interface RunStore {
+  /** Legacy UI status. New code should use lifecycle for durable session semantics. */
   status: 'idle' | 'running' | 'paused' | 'stopped';
+  lifecycle: ActivityLifecycleState;
+  sport: string;
+  privacy: ActivityPrivacy;
+  syncStatus: ActivitySyncStatus;
   startTime: number | null;
   pauseStart: number | null;
   totalPausedMs: number;
@@ -73,13 +80,50 @@ interface RunStore {
   setAudioCuesEnabled: (enabled: boolean) => void;
   consumeKmAnnouncement: () => number | null;
   setLiveCoordinate: (coord: { latitude: number; longitude: number } | null) => void;
+  setSport: (sport: string) => void;
+  setPrivacy: (privacy: ActivityPrivacy) => void;
+  setSyncStatus: (status: ActivitySyncStatus) => void;
+  restoreSession: (session: ActivitySession) => void;
+  recoverRun: () => void;
 }
 
 const MIN_RUN_SEGMENT_METERS = 12;
 const MAX_TRAIL_ACCURACY_METERS = 32;
+const CHECKPOINT_INTERVAL_MS = 3_000;
+let lastCheckpointAt = 0;
+
+function checkpoint(state: Pick<RunStore, "currentRunId" | "lifecycle" | "sport" | "startTime" | "pauseStart" | "totalPausedMs" | "distanceMeters" | "elapsedSeconds" | "coordinates" | "privacy" | "shareCurrentLocation" | "shareRouteTrail" | "syncStatus">, force = false) {
+  if (!state.currentRunId || !state.startTime) return;
+  if (["saved", "discarded", "ready"].includes(state.lifecycle)) return;
+  const now = Date.now();
+  if (!force && now - lastCheckpointAt < CHECKPOINT_INTERVAL_MS) return;
+  lastCheckpointAt = now;
+  const session: ActivitySession = {
+    version: 1,
+    id: state.currentRunId,
+    lifecycle: state.lifecycle,
+    sport: state.sport,
+    startedAt: state.startTime,
+    pausedAt: state.pauseStart,
+    totalPausedMs: state.totalPausedMs,
+    distanceMeters: state.distanceMeters,
+    elapsedSeconds: state.elapsedSeconds,
+    coordinates: state.coordinates,
+    privacy: state.privacy,
+    shareCurrentLocation: state.shareCurrentLocation,
+    shareRouteTrail: state.shareRouteTrail,
+    syncStatus: state.syncStatus,
+    updatedAt: now,
+  };
+  void saveActivitySession(session).catch(() => {});
+}
 
 export const useRunStore = create<RunStore>((set, get) => ({
   status: "idle",
+  lifecycle: "ready",
+  sport: "run",
+  privacy: "private",
+  syncStatus: "pending",
   startTime: null,
   pauseStart: null,
   totalPausedMs: 0,
@@ -107,8 +151,13 @@ export const useRunStore = create<RunStore>((set, get) => ({
   startRun: () => {
     const every = get().progressNotifyEveryMeters;
     const now = Date.now();
-    set({
-      status: "running",
+    const next = {
+      status: "running" as const,
+      lifecycle: "recording" as const,
+      privacy: "private" as const,
+      syncStatus: "pending" as const,
+      shareCurrentLocation: false,
+      shareRouteTrail: false,
       startTime: now,
       pauseStart: null,
       totalPausedMs: 0,
@@ -125,22 +174,28 @@ export const useRunStore = create<RunStore>((set, get) => ({
       lastManualResumeAt: now,
       autoPauseStillSince: null,
       isAutoPaused: false,
-    });
+    };
+    set(next);
+    checkpoint({ ...get(), ...next }, true);
   },
 
   pauseRun: () => {
-    set({
-      status: "paused",
+    const next = {
+      status: "paused" as const,
+      lifecycle: "paused" as const,
       pauseStart: Date.now(),
-    });
+    };
+    set(next);
+    checkpoint({ ...get(), ...next }, true);
   },
 
   resumeRun: () => {
     set((state) => {
       const now = Date.now();
       const pausedMs = state.pauseStart ? now - state.pauseStart : 0;
-      return {
-        status: "running",
+      const next = {
+        status: "running" as const,
+        lifecycle: "recording" as const,
         totalPausedMs: state.totalPausedMs + pausedMs,
         pauseStart: null,
         // Reset auto-pause state so the timer starts fresh after resume.
@@ -148,16 +203,23 @@ export const useRunStore = create<RunStore>((set, get) => ({
         isAutoPaused: false,
         lastManualResumeAt: now,
       };
+      checkpoint({ ...state, ...next }, true);
+      return next;
     });
   },
 
   stopRun: () => {
-    set({ status: "stopped" });
+    set({ status: "stopped", lifecycle: "finishing" });
+    checkpoint(get(), true);
   },
 
   resetRun: () => {
     set({
       status: "idle",
+      lifecycle: "ready",
+      sport: "run",
+      privacy: "private",
+      syncStatus: "pending",
       startTime: null,
       pauseStart: null,
       totalPausedMs: 0,
@@ -180,6 +242,8 @@ export const useRunStore = create<RunStore>((set, get) => ({
       lastManualResumeAt: null,
       lastAnnouncedKm: 0,
     });
+    lastCheckpointAt = 0;
+    void clearActivitySession().catch(() => {});
   },
 
   addCoordinate: (coord: Coordinate, accuracy: number | null) => {
@@ -217,10 +281,12 @@ export const useRunStore = create<RunStore>((set, get) => ({
 
       if (dist < MIN_RUN_SEGMENT_METERS) return state;
 
-      return {
+      const next = {
         coordinates: [...state.coordinates, coord],
         distanceMeters: state.distanceMeters + dist,
       };
+      checkpoint({ ...state, ...next });
+      return next;
     });
   },
 
@@ -230,9 +296,11 @@ export const useRunStore = create<RunStore>((set, get) => ({
       const now = Date.now();
       const elapsedMilliseconds = now - state.startTime - state.totalPausedMs;
 
-      return {
+      const next = {
         elapsedSeconds: Math.floor(elapsedMilliseconds / 1000),
       };
+      checkpoint({ ...state, ...next });
+      return next;
     });
   },
 
@@ -279,8 +347,14 @@ export const useRunStore = create<RunStore>((set, get) => ({
     return Date.now() >= warmupUntil;
   },
 
-  setShareCurrentLocation: (enabled) => set({ shareCurrentLocation: enabled }),
-  setShareRouteTrail: (enabled) => set({ shareRouteTrail: enabled }),
+  setShareCurrentLocation: (enabled) => {
+    set({ shareCurrentLocation: enabled });
+    checkpoint(get(), true);
+  },
+  setShareRouteTrail: (enabled) => {
+    set({ shareRouteTrail: enabled });
+    checkpoint(get(), true);
+  },
 
   setAutoPaused: (paused) => set({ isAutoPaused: paused }),
   setAutoPauseStillSince: (ts) => set({ autoPauseStillSince: ts }),
@@ -295,6 +369,47 @@ export const useRunStore = create<RunStore>((set, get) => ({
     }
     if (!prev && !coord) return;
     set({ liveCoordinate: coord });
+  },
+
+  setSport: (sport) => {
+    set({ sport });
+    checkpoint(get(), true);
+  },
+  setPrivacy: (privacy) => {
+    set({ privacy });
+    checkpoint(get(), true);
+  },
+  setSyncStatus: (syncStatus) => {
+    set({ syncStatus });
+    checkpoint(get());
+  },
+  restoreSession: (session) => {
+    set({
+      status: session.lifecycle === "paused" ? "paused" : "idle",
+      lifecycle: "recovery",
+      sport: session.sport,
+      privacy: session.privacy,
+      syncStatus: session.syncStatus,
+      currentRunId: session.id,
+      startTime: session.startedAt,
+      pauseStart: session.pausedAt,
+      totalPausedMs: session.totalPausedMs,
+      distanceMeters: session.distanceMeters,
+      elapsedSeconds: session.elapsedSeconds,
+      coordinates: session.coordinates,
+      shareCurrentLocation: session.shareCurrentLocation,
+      shareRouteTrail: session.shareRouteTrail,
+    });
+    checkpoint(get());
+  },
+  recoverRun: () => {
+    const state = get();
+    if (state.lifecycle !== "recovery") return;
+    const now = Date.now();
+    const pauseStart = state.pauseStart ?? now;
+    const next = { status: "paused" as const, lifecycle: "paused" as const, pauseStart };
+    set(next);
+    checkpoint({ ...state, ...next }, true);
   },
 
   consumeKmAnnouncement: () => {

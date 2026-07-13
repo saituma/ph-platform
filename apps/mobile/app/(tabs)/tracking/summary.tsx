@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TextInput,
   Platform,
+  Alert,
   useWindowDimensions,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -81,6 +82,7 @@ export default function RunSummaryScreen() {
     resetRun,
     currentRunId,
     status,
+    sport,
   } = useRunStore();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
 
@@ -138,7 +140,7 @@ export default function RunSummaryScreen() {
         feel_tags: "[]",
         notes: "",
         user_id: userId,
-        sport: null,
+        sport,
       });
       persistedThisSummaryRef.current = true;
       queueRunPushToCloud();
@@ -168,11 +170,15 @@ export default function RunSummaryScreen() {
   };
 
   const handleSave = () => {
+    if (!currentRunId) {
+      Alert.alert("Couldn't save activity", "This activity is missing its local ID. Please try finishing it again.");
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
       initSQLiteRuns();
-      updateRunFeedback(currentRunId ?? "", {
+      updateRunFeedback(currentRunId, {
         effort_level: effort !== null ? effort * 2 : 0,
         feel_tags: JSON.stringify(
           selectedTags

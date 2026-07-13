@@ -1,7 +1,14 @@
-import React, { useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
-import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
-import { BottomSheet } from "heroui-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, TextInput, View } from "react-native";
+// Raw @gorhom/bottom-sheet, NOT the heroui BottomSheet wrapper.
+//
+// heroui's wrapper renders children inside a gorhom BottomSheetView (content-sized), which makes
+// the sheet pan as a whole instead of scrolling its contents — no prop combination made the inner
+// list scroll on device. BottomSheetModal + BottomSheetScrollView is the pattern that already
+// scrolls elsewhere in this app (tracking/summary.tsx, AdminDmSection). The BottomSheetModalProvider
+// it needs is mounted at the app root (app/_layout.tsx).
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -79,6 +86,30 @@ export function ActiveRunSportSheet({
 }) {
   const [query, setQuery] = useState("");
   const accent = colors.accent ?? ACCENT;
+  const sheetRef = useRef<BottomSheetModal>(null);
+  const snapPoints = useMemo(() => ["85%"], []);
+
+  // Drive the modal from the `open` prop the caller already passes.
+  useEffect(() => {
+    if (open) sheetRef.current?.present();
+    else sheetRef.current?.dismiss();
+  }, [open]);
+
+  const renderBackdrop = useMemo(
+    () =>
+      function Backdrop(props: BottomSheetBackdropProps) {
+        return (
+          <BottomSheetBackdrop
+            {...props}
+            appearsOnIndex={0}
+            disappearsOnIndex={-1}
+            opacity={0.55}
+            pressBehavior="close"
+          />
+        );
+      },
+    [],
+  );
 
   const filteredCategories = useMemo(() => {
     if (!query.trim()) return SPORT_CATEGORIES;
@@ -90,31 +121,35 @@ export function ActiveRunSportSheet({
   }, [query]);
 
   return (
-    <BottomSheet isOpen={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <BottomSheet.Portal>
-        <BottomSheet.Overlay className="bg-black/55" />
-        <BottomSheet.Content
-          snapPoints={["85%"]}
-          enablePanDownToClose
-          backgroundStyle={{
-            backgroundColor: SHEET_BG,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.08)",
-          }}
-          handleIndicatorStyle={{
-            backgroundColor: "rgba(255,255,255,0.22)",
-            width: 36,
-            height: 4,
-            borderRadius: 2,
-          }}
-        >
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
-          <ScrollView
+    <BottomSheetModal
+      ref={sheetRef}
+      index={0}
+      snapPoints={snapPoints}
+      // Fixed height (not content-sized), so BottomSheetScrollView bounds to the sheet and its
+      // content scrolls INSIDE it instead of the whole sheet panning.
+      enableDynamicSizing={false}
+      enablePanDownToClose
+      onDismiss={onClose}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={{
+        backgroundColor: SHEET_BG,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.08)",
+      }}
+      handleIndicatorStyle={{
+        backgroundColor: "rgba(255,255,255,0.22)",
+        width: 36,
+        height: 4,
+        borderRadius: 2,
+      }}
+    >
+          <BottomSheetScrollView
+            style={{ flex: 1 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 40 }}
+            contentContainerStyle={{ paddingBottom: 56 }}
           >
             <View
               style={{
@@ -324,10 +359,7 @@ export function ActiveRunSportSheet({
                 })}
               </View>
             ))}
-          </ScrollView>
-          </KeyboardAvoidingView>
-        </BottomSheet.Content>
-      </BottomSheet.Portal>
-    </BottomSheet>
+          </BottomSheetScrollView>
+    </BottomSheetModal>
   );
 }

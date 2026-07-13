@@ -155,8 +155,9 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
 export async function startLocationTracking() {
   try {
-    // Bail out immediately if the task is already running — no permission calls needed.
-    const alreadyRunning = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
+    // Registration survives process restarts, so it is not evidence that native
+    // location updates are active. Ask Location for the actual update state.
+    const alreadyRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     if (alreadyRunning) {
       return;
     }
@@ -211,8 +212,8 @@ export async function startLocationTracking() {
 
 export async function stopLocationTracking() {
   try {
-    const hasTask = await TaskManager.isTaskRegisteredAsync(BACKGROUND_LOCATION_TASK);
-    if (!hasTask) return;
+    const isRunning = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+    if (!isRunning) return;
     try {
       await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
     } catch (innerErr: any) {

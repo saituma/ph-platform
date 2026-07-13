@@ -19,6 +19,9 @@ export interface RunRecord {
   user_id: string | null;
   sport: string | null;
   is_draft?: number | null;
+  lifecycle?: string | null;
+  privacy?: string | null;
+  sync_status?: string | null;
 }
 
 const db = SQLite.openDatabaseSync("tracking_premium.db"); // new db name to prevent schema mismatch
@@ -40,7 +43,13 @@ export function initSQLiteRuns() {
       effort_level INTEGER,
       feel_tags TEXT,
       notes TEXT,
-      synced_at TEXT
+      synced_at TEXT,
+      user_id TEXT,
+      sport TEXT,
+      is_draft INTEGER DEFAULT 0,
+      lifecycle TEXT,
+      privacy TEXT DEFAULT 'private',
+      sync_status TEXT DEFAULT 'pending'
     );
   `);
 
@@ -59,6 +68,15 @@ export function initSQLiteRuns() {
     }
     if (!colNames.includes("is_draft")) {
       db.execSync("ALTER TABLE runs ADD COLUMN is_draft INTEGER DEFAULT 0;");
+    }
+    if (!colNames.includes("lifecycle")) {
+      db.execSync("ALTER TABLE runs ADD COLUMN lifecycle TEXT;");
+    }
+    if (!colNames.includes("privacy")) {
+      db.execSync("ALTER TABLE runs ADD COLUMN privacy TEXT DEFAULT 'private';");
+    }
+    if (!colNames.includes("sync_status")) {
+      db.execSync("ALTER TABLE runs ADD COLUMN sync_status TEXT DEFAULT 'pending';");
     }
   } catch {
     // ignore — columns likely already exist
@@ -82,8 +100,8 @@ function ensureInitialized() {
 export function saveRunRecord(run: Omit<RunRecord, "synced_at">) {
   ensureInitialized();
   return db.runSync(
-    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport, is_draft)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0)`,
+    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport, is_draft, lifecycle, privacy, sync_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 0, 'saved', 'private', 'pending')`,
     [
       run.id,
       run.date,
@@ -116,8 +134,8 @@ export function saveActiveRunDraft(run: {
 }) {
   ensureInitialized();
   return db.runSync(
-    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport, is_draft)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
+    `INSERT OR REPLACE INTO runs (id, date, distance_meters, duration_seconds, avg_pace, avg_speed, calories, coordinates, effort_level, feel_tags, notes, synced_at, user_id, sport, is_draft, lifecycle, privacy, sync_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, 'finishing', 'private', 'pending')`,
     [
       run.id,
       run.date,

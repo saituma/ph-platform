@@ -4,7 +4,7 @@ import type { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { TrackingMapView } from "../TrackingMapView";
 import { MapErrorBoundary } from "../MapErrorBoundary";
-import type { TrackingMapLayer, TrackingMapStyle, TrackingMapViewRef } from "../trackingMapLayers";
+import { validRoutePoints, type TrackingMapLayer, type TrackingMapStyle, type TrackingMapViewRef } from "../trackingMapLayers";
 import { useRunStore } from "@/store/useRunStore";
 
 interface LiveMapProps {
@@ -99,29 +99,31 @@ export const LiveMap = React.memo(function LiveMap({
 
   const stableLayers = useMemo((): TrackingMapLayer[] => {
     const out: TrackingMapLayer[] = [];
-    if (routePolyline && routePolyline.length > 1) {
+    const safeRoute = validRoutePoints(routePolyline);
+    const safeTrail = validRoutePoints(throttledCoords);
+    if (safeRoute.length > 1) {
       out.push({
         id: "route-osrm",
         type: "polyline",
-        coordinates: routePolyline,
+        coordinates: safeRoute,
         strokeColor: `${colors.cyan}b3`,
         strokeWidth: 3,
       });
     }
-    if (throttledCoords.length > 1) {
+    if (safeTrail.length > 1) {
       out.push({
         id: "path",
         type: "polyline",
-        coordinates: throttledCoords,
+        coordinates: safeTrail,
         strokeColor: colors.mapRoute,
         strokeWidth: 4,
       });
     }
-    if (throttledCoords.length > 0) {
+    if (safeTrail.length > 0) {
       out.push({
         id: "start",
         type: "marker",
-        coordinate: throttledCoords[0],
+        coordinate: safeTrail[0],
         title: "Start",
         marker: {
           kind: "circle",

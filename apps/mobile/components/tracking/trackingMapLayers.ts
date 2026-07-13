@@ -5,6 +5,17 @@ export type TrackingMapStyle = "road" | "satellite" | "hybrid" | "terrain";
 
 export type LatLng = { latitude: number; longitude: number };
 
+export function isValidLatLng(value: unknown): value is LatLng {
+  if (!value || typeof value !== "object") return false;
+  const point = value as Partial<LatLng>;
+  return typeof point.latitude === "number" && Number.isFinite(point.latitude) && point.latitude >= -90 && point.latitude <= 90 &&
+    typeof point.longitude === "number" && Number.isFinite(point.longitude) && point.longitude >= -180 && point.longitude <= 180;
+}
+
+export function validRoutePoints(points: readonly LatLng[] | null | undefined): LatLng[] {
+  return (points ?? []).filter(isValidLatLng);
+}
+
 export type MarkerVisual =
   | {
       kind: "circle";
