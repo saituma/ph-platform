@@ -22,6 +22,7 @@ import { userTable } from "./db/schema";
 import { getRedisConnection } from "./jobs/connection";
 import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
 import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "./lib/message-limits";
+import { SocketRateLimiter } from "./lib/socket-rate-limit";
 import { markOnline, markOffline, setActiveThread, getOnlineUserIds } from "./lib/presence";
 
 type AuthPayload = {
@@ -70,6 +71,9 @@ const typingSchema = z.object({
   groupId: z.coerce.number().int().positive().optional(),
 });
 
+
+// Shared across every socket on this process; buckets are released on disconnect.
+const socketRateLimiter = new SocketRateLimiter();
 
 // ── lastSeenAt debounce (Fix B) ────────────────────────────────────
 // Mobile reconnect storms fire disconnect rapidly; batching DB writes
@@ -390,6 +394,11 @@ export function initSocket(server: HttpServer) {
 
     function guarded<T extends z.ZodTypeAny>(event: string, schema: T, handler: (data: z.infer<T>) => Promise<void>) {
       socket.on(event, async (rawPayload: unknown) => {
+        // Rate limit BEFORE parsing — a flood should not get to spend CPU on Zod.
+        if (!socketRateLimiter.consume(socket.id, event)) {
+          socket.emit("error:rate_limited", { event, message: "Slow down" });
+          return;
+        }
         const parsed = schema.safeParse(rawPayload ?? {});
         if (!parsed.success) {
           socket.emit("error:validation", { event, issues: parsed.error.issues.map((i) => i.message) });
@@ -626,6 +635,7 @@ export function initSocket(server: HttpServer) {
         },
         "Socket disconnected",
       );
+      socketRateLimiter.release(socket.id);
       markOffline(userId);
       io.emit("presence:offline", { userId });
       // Fix B: Debounce lastSeenAt writes to prevent DB spam during mobile

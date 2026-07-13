@@ -8,31 +8,10 @@
 
 import { createLastSeenDebouncer } from "../../src/socket";
 
-// ---------------------------------------------------------------------------
-// Helpers — re-implement inline so tests do not depend on module internals
-// that can't be safely imported without side-effects (env validation, DB, etc.)
-// ---------------------------------------------------------------------------
-
-/** Inline sliding-window rate limiter matching socket.ts implementation. */
-const SOCKET_SLIDING_MAX = 20;
-const SOCKET_SLIDING_WINDOW_MS = 10_000;
-const SOCKET_SLIDING_EVENTS = new Set(["message:send", "group:send", "typing:start", "typing:stop"]);
-
-function isSocketSlidingRateLimited(socketData: Record<string, unknown>, event: string): boolean {
-  if (!SOCKET_SLIDING_EVENTS.has(event)) return false;
-  const key = `__sliding_${event}`;
-  const now = Date.now();
-  const cutoff = now - SOCKET_SLIDING_WINDOW_MS;
-  const timestamps = (socketData[key] as number[] | undefined) ?? [];
-  const trimmed = timestamps.filter((t) => t > cutoff);
-  if (trimmed.length >= SOCKET_SLIDING_MAX) {
-    socketData[key] = trimmed;
-    return true;
-  }
-  trimmed.push(now);
-  socketData[key] = trimmed;
-  return false;
-}
+// Socket rate limiting is now a real module (src/lib/socket-rate-limit.ts) and is tested
+// against the real implementation in socket-rate-limit.test.ts. This file previously
+// defined its own limiter inline and asserted against that — it passed while socket.ts
+// had no limiter at all.
 
 // ---------------------------------------------------------------------------
 // Fix B: lastSeenAt debounce
@@ -119,59 +98,6 @@ describe("createLastSeenDebouncer", () => {
     expect(writeFn).toHaveBeenCalledTimes(2);
     expect(writeFn).toHaveBeenCalledWith(1);
     expect(writeFn).toHaveBeenCalledWith(2);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Fix C: Per-socket sliding-window rate limiter
-// ---------------------------------------------------------------------------
-
-describe("isSocketSlidingRateLimited (inline)", () => {
-  it("allows up to SOCKET_SLIDING_MAX events within the window", () => {
-    const data: Record<string, unknown> = {};
-    for (let i = 0; i < SOCKET_SLIDING_MAX; i++) {
-      expect(isSocketSlidingRateLimited(data, "message:send")).toBe(false);
-    }
-  });
-
-  it("rejects the (SOCKET_SLIDING_MAX + 1)th event within the window", () => {
-    const data: Record<string, unknown> = {};
-    for (let i = 0; i < SOCKET_SLIDING_MAX; i++) {
-      isSocketSlidingRateLimited(data, "message:send");
-    }
-    expect(isSocketSlidingRateLimited(data, "message:send")).toBe(true);
-  });
-
-  it("does NOT rate-limit events not in SOCKET_SLIDING_EVENTS", () => {
-    const data: Record<string, unknown> = {};
-    // Flood with an unguarded event
-    for (let i = 0; i < SOCKET_SLIDING_MAX + 100; i++) {
-      expect(isSocketSlidingRateLimited(data, "group:join")).toBe(false);
-    }
-  });
-
-  it("tracks limits per event independently on the same socket", () => {
-    const data: Record<string, unknown> = {};
-    // Fill message:send
-    for (let i = 0; i < SOCKET_SLIDING_MAX; i++) {
-      isSocketSlidingRateLimited(data, "message:send");
-    }
-    // typing:start should still be allowed
-    expect(isSocketSlidingRateLimited(data, "typing:start")).toBe(false);
-  });
-
-  it("allows events again after the sliding window expires", () => {
-    jest.useFakeTimers();
-    const data: Record<string, unknown> = {};
-
-    // Manually seed old timestamps (outside the window)
-    const oldTime = Date.now() - SOCKET_SLIDING_WINDOW_MS - 1;
-    data["__sliding_message:send"] = Array(SOCKET_SLIDING_MAX).fill(oldTime);
-
-    // Should be allowed now since all timestamps are stale
-    expect(isSocketSlidingRateLimited(data, "message:send")).toBe(false);
-
-    jest.useRealTimers();
   });
 });
 
