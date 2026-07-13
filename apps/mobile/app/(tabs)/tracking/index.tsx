@@ -89,6 +89,11 @@ import {
 import { useStreakStore } from "@/lib/streakStore";
 import { WorkoutShareSheet } from "@/components/tracking/WorkoutShareSheet";
 import { RunDetailOverlay } from "@/components/tracking/RunDetailOverlay";
+import { ActivityRoutePreview } from "@/components/tracking/ActivityRoutePreview";
+import {
+  CurrentLocationPreviewProvider,
+  type CurrentLocationPreviewController,
+} from "@/components/tracking/CurrentLocationPreviewProvider";
 
 const TRACKING_BG = require("@/assets/images/trakcing-bg.png");
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -210,7 +215,6 @@ export default function TrackingHomeScreen() {
   const streak = useStreakStore((s) => s.currentStreak);
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
   const profilePic = profile?.avatar ?? null;
-
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
@@ -382,6 +386,16 @@ export default function TrackingHomeScreen() {
   }, [runs]);
 
   const hasCategorized = categorizedRuns.length > 1 || (categorizedRuns.length === 1 && categorizedRuns[0]!.label !== "Foot Sports");
+  const displayedRuns = useMemo(
+    () => hasCategorized
+      ? categorizedRuns.flatMap((section) => section.data.slice(0, 5))
+      : runs.slice(0, 6),
+    [categorizedRuns, hasCategorized, runs],
+  );
+  const hasRouteLessRuns = useMemo(
+    () => displayedRuns.some((run) => parseRunCoords(run.coordinates).length === 0),
+    [displayedRuns],
+  );
 
   const latestRun = runs[0] ?? null;
   const weeklyRunCountLabel = `${displayWeeklyStats.numRuns} ${displayWeeklyStats.numRuns === 1 ? "run" : "runs"} this week`;
@@ -1030,48 +1044,56 @@ export default function TrackingHomeScreen() {
 
             {runs.length === 0 ? (
               <TrackingEmptyState onStartRun={handleStartRun} p={p} />
-            ) : hasCategorized ? (
-              <View style={{ gap: 14 }}>
-                {categorizedRuns.map((section) => (
-                  <View key={section.label} style={{ gap: 8 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
-                      <Zap size={14} color={p.accent} />
-                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
-                        {section.label}
-                      </Text>
-                    </View>
-                    <View style={{ gap: 12 }}>
-                      {section.data.slice(0, 5).map((run, idx) => (
-                        <WorkoutRunCard
-                          key={run.id}
-                          run={run}
-                          idx={idx}
-                          isDark={isDark}
-                          p={p}
-                          formatKm={formatKm}
-                          onPress={() => setSelectedRun(run)}
-                          onShare={() => setShareRun(run)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ))}
-              </View>
             ) : (
-              <View style={{ gap: 12 }}>
-                {runs.slice(0, 6).map((run, idx) => (
-                  <WorkoutRunCard
-                    key={run.id}
-                    run={run}
-                    idx={idx}
-                    isDark={isDark}
-                    p={p}
-                    formatKm={formatKm}
-                    onPress={() => setSelectedRun(run)}
-                    onShare={() => setShareRun(run)}
-                  />
-                ))}
-              </View>
+              <CurrentLocationPreviewProvider enabled={hasRouteLessRuns}>
+                {(currentLocationPreview, reducedMotion) => hasCategorized ? (
+                  <View style={{ gap: 14 }}>
+                    {categorizedRuns.map((section) => (
+                      <View key={section.label} style={{ gap: 8 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+                          <Zap size={14} color={p.accent} />
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
+                            {section.label}
+                          </Text>
+                        </View>
+                        <View style={{ gap: 12 }}>
+                          {section.data.slice(0, 5).map((run, idx) => (
+                            <WorkoutRunCard
+                              key={run.id}
+                              run={run}
+                              idx={idx}
+                              isDark={isDark}
+                              p={p}
+                              formatKm={formatKm}
+                              locationPreview={currentLocationPreview}
+                              reducedMotion={reducedMotion}
+                              onPress={() => setSelectedRun(run)}
+                              onShare={() => setShareRun(run)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={{ gap: 12 }}>
+                    {runs.slice(0, 6).map((run, idx) => (
+                      <WorkoutRunCard
+                        key={run.id}
+                        run={run}
+                        idx={idx}
+                        isDark={isDark}
+                        p={p}
+                        formatKm={formatKm}
+                        locationPreview={currentLocationPreview}
+                        reducedMotion={reducedMotion}
+                        onPress={() => setSelectedRun(run)}
+                        onShare={() => setShareRun(run)}
+                      />
+                    ))}
+                  </View>
+                )}
+              </CurrentLocationPreviewProvider>
             )}
           </View>}
         </View>
@@ -1169,84 +1191,6 @@ function effortLabel(score: number): string {
   return "Easy";
 }
 
-function RoutePreview({
-  coords,
-  isDark,
-  accent,
-}: {
-  coords: RunCoord[];
-  isDark: boolean;
-  accent: string;
-}) {
-  const path = useMemo(() => {
-    if (coords.length < 2) return "";
-    const thin = coords.length > 80
-      ? coords.filter((_, i) => i % Math.ceil(coords.length / 80) === 0)
-      : coords;
-    const sortedLats = [...thin.map((c) => c.latitude)].sort((a, b) => a - b);
-    const sortedLngs = [...thin.map((c) => c.longitude)].sort((a, b) => a - b);
-    const medLat = sortedLats[Math.floor(sortedLats.length / 2)]!;
-    const medLng = sortedLngs[Math.floor(sortedLngs.length / 2)]!;
-    const clean = thin.filter(
-      (c) => Math.abs(c.latitude - medLat) < 0.05 && Math.abs(c.longitude - medLng) < 0.05,
-    );
-    if (clean.length < 2) return "";
-    const lats = clean.map((c) => c.latitude);
-    const lngs = clean.map((c) => c.longitude);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const latRange = maxLat - minLat || 0.0001;
-    const lngRange = maxLng - minLng || 0.0001;
-    return clean
-      .map((coord, index) => {
-        const x = 24 + ((coord.longitude - minLng) / lngRange) * 252;
-        const y = 24 + ((maxLat - coord.latitude) / latRange) * 142;
-        return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
-      })
-      .join(" ");
-  }, [coords]);
-
-  return (
-    <View
-      style={{
-        height: 190,
-        backgroundColor: isDark ? "#1a1a1a" : "#e8e8e8",
-        overflow: "hidden",
-      }}
-    >
-      <Svg width="100%" height="100%" viewBox="0 0 300 190">
-        {path ? (
-          <>
-            <Path d={path} stroke="rgba(0,0,0,0.12)" strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            <Path d={path} stroke={accent} strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-          </>
-        ) : null}
-      </Svg>
-      <View
-        style={{
-          position: "absolute",
-          left: 12,
-          bottom: 12,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 5,
-          backgroundColor: "rgba(0,0,0,0.52)",
-          borderRadius: 999,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-        }}
-      >
-        <MapPin size={12} color="#fff" />
-        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: "#fff" }}>
-          {path ? "Route Preview" : "No GPS data"}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // ── WorkoutRunCard ───────────────────────────────────────────────────────────
 
 function WorkoutRunCard({
@@ -1255,6 +1199,8 @@ function WorkoutRunCard({
   isDark,
   p,
   formatKm,
+  locationPreview,
+  reducedMotion,
   onPress,
   onShare,
 }: {
@@ -1263,6 +1209,8 @@ function WorkoutRunCard({
   isDark: boolean;
   p: ReturnType<typeof useAdminPastel>;
   formatKm: (m: number) => string;
+  locationPreview: CurrentLocationPreviewController;
+  reducedMotion: boolean;
   onPress: () => void;
   onShare: () => void;
 }) {
@@ -1281,38 +1229,48 @@ function WorkoutRunCard({
   const fg = isDark ? "#fff" : "#1a1a1a";
   const muted = isDark ? "#8b8b8b" : "#666";
 
-  const cardTap = useMemo(() => Gesture.Tap()
-    .onBegin(() => {
-      "worklet";
-      scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
-      runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
-    })
-    .onFinalize(() => {
-      "worklet";
-      scale.value = withSpring(1, { damping: 20, stiffness: 300 });
-    })
-    .onEnd(() => {
-      "worklet";
-      runOnJS(onPress)();
-    }), [onPress]);
-
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(idx, 10) * 50).duration(250)}>
-      <GestureDetector gesture={cardTap}>
       <Animated.View
-        style={[scaleStyle, {
+        style={{
           backgroundColor: cardBg,
           borderColor: border,
           borderRadius: 18,
           borderWidth: 1,
           overflow: "hidden",
-        }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${label} from ${date}`}
+        }}
       >
-        <RoutePreview coords={coords} isDark={isDark} accent={p.accent} />
+        <ActivityRoutePreview
+          coordinates={coords}
+          locationState={locationPreview.state}
+          colors={{
+            background: isDark ? "#1a1a1a" : "#e8e8e8",
+            foreground: fg,
+            muted,
+            accent: p.accent,
+            border,
+          }}
+          reducedMotion={reducedMotion}
+          onOpenActivity={onPress}
+          onRequestPermission={() => { void locationPreview.requestPermission(); }}
+          onRetry={() => { void locationPreview.retry(); }}
+          onOpenSettings={() => { void locationPreview.openSettings(); }}
+        />
 
-        <View style={{ gap: 14, padding: 16 }}>
+        <Animated.View style={scaleStyle}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${label} from ${date}`}
+            onPress={onPress}
+            onPressIn={() => {
+              scale.value = withSpring(0.985, { damping: 20, stiffness: 300 });
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            onPressOut={() => {
+              scale.value = withSpring(1, { damping: 20, stiffness: 300 });
+            }}
+            style={{ gap: 14, padding: 16 }}
+          >
           {/* Header: icon + You + date + share */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <View
@@ -1428,9 +1386,9 @@ function WorkoutRunCard({
             </Text>
             <ChevronRight size={18} color={muted} />
           </View>
-        </View>
+          </Pressable>
+        </Animated.View>
       </Animated.View>
-      </GestureDetector>
     </Animated.View>
   );
 }
