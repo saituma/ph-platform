@@ -3,7 +3,13 @@ import { useCreateContentMutation, useGetHomeContentQuery, useUpdateContentMutat
 
 export type HomeDraft = {
   introVideoUrl?: string;
-  introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
+  introVideos?: Array<{
+    url: string;
+    roles: Array<"team" | "youth" | "adult">;
+    title?: string;
+    description?: string;
+    posterUrl?: string;
+  }>;
   testimonials?: unknown;
   adminStory?: string;
   professionalPhoto?: string;

@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/api";
+import { normalizeIntroVideoRules, type IntroVideoRule } from "@/lib/home/introVideo";
 
 export type HomeTestimonial = {
   id: string;
@@ -17,7 +18,7 @@ export type HomeContentPayload = {
   description?: string | null;
   welcome?: string | null;
   introVideoUrl?: string | null;
-  introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }> | null;
+  introVideos?: IntroVideoRule[] | null;
   heroImageUrl?: string | null;
   testimonials?: HomeTestimonial[] | null;
   adminStory?: string | null;
@@ -45,30 +46,6 @@ export async function fetchHomeContent(token: string) {
       return raw as HomeContentPayload;
     }
     return {};
-  };
-
-  const normalizeIntroVideos = (body: HomeContentPayload) => {
-    const rawRules = (body as any).introVideos;
-    if (!Array.isArray(rawRules)) return null;
-    const normalized = (rawRules as any[])
-      .map((rule) => {
-        const url = String(rule?.url ?? "").trim();
-        const rolesRaw = rule?.roles;
-        const rolesList = Array.isArray(rolesRaw)
-          ? rolesRaw
-          : typeof rolesRaw === "string"
-            ? rolesRaw.split(/[,|\s]+/)
-            : [];
-        const roles = rolesList
-          .map((r: any) => String(r).trim().toLowerCase())
-          .filter((r: string) => r === "team" || r === "youth" || r === "adult");
-        return {
-          url,
-          roles: Array.from(new Set(roles)).sort() as Array<"team" | "youth" | "adult">,
-        };
-      })
-      .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
-    return normalized.length ? normalized : null;
   };
 
   const parseTestimonials = (body: any): HomeTestimonial[] | null => {
@@ -114,7 +91,7 @@ export async function fetchHomeContent(token: string) {
     const headlineCandidate = body.headline ?? item?.content ?? item?.title ?? null;
     const professionalPhotoCandidate = resolveProfessionalPhoto(body);
     const testimonialsCandidate = parseTestimonials(body);
-    const introVideosCandidate = normalizeIntroVideos(body);
+    const introVideosCandidate = normalizeIntroVideoRules(body.introVideos);
 
     if (!merged.headline && typeof headlineCandidate === "string" && headlineCandidate.trim().length) {
       merged.headline = headlineCandidate.trim();

@@ -43,7 +43,7 @@ type ContentTabsProps = {
   defaultTab?: string;
   initialHome?: {
     introVideoUrl?: string;
-    introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
+    introVideos?: IntroVideoRule[];
     adminStory?: string;
     professionalPhoto?: string;
     testimonials?: TestimonialEntry[] | string;
@@ -52,7 +52,7 @@ type ContentTabsProps = {
   onSaveTestimonials: (data: { testimonials: TestimonialEntry[] }) => Promise<void>;
   onSaveIntroVideo: (data: {
     introVideoUrl: string;
-    introVideos: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
+    introVideos: IntroVideoRule[];
   }) => Promise<void>;
   testimonialSubmissions?: TestimonialSubmission[];
   onApproveTestimonial?: (submissionId: number) => void;
@@ -60,7 +60,13 @@ type ContentTabsProps = {
 };
 
 type IntroAudience = "team" | "youth" | "adult";
-type IntroVideoRule = { url: string; roles: IntroAudience[] };
+type IntroVideoRule = {
+  url: string;
+  roles: IntroAudience[];
+  title?: string;
+  description?: string;
+  posterUrl?: string;
+};
 
 const ALL_INTRO_AUDIENCES: IntroAudience[] = ["team", "youth", "adult"];
 
@@ -163,9 +169,12 @@ export function ContentTabs({
       .map((rule) => ({
         url: String(rule?.url ?? "").trim(),
         roles: Array.isArray(rule?.roles) ? rule.roles : [],
+        title: String(rule?.title ?? "").trim() || undefined,
+        description: String(rule?.description ?? "").trim() || undefined,
+        posterUrl: String(rule?.posterUrl ?? "").trim() || undefined,
       }))
       .map((rule) => ({
-        url: rule.url,
+        ...rule,
         roles: Array.from(
           new Set(rule.roles.map((r) => String(r).trim().toLowerCase() as IntroAudience)),
         ).filter((r) => r === "team" || r === "youth" || r === "adult"),
@@ -195,9 +204,12 @@ export function ContentTabs({
         roles: Array.isArray(rule?.roles)
           ? (rule.roles as unknown[]).map((r) => String(r).trim().toLowerCase() as IntroAudience)
           : [],
+        title: String(rule?.title ?? "").trim() || undefined,
+        description: String(rule?.description ?? "").trim() || undefined,
+        posterUrl: String(rule?.posterUrl ?? "").trim() || undefined,
       }))
       .map((rule) => ({
-        url: rule.url,
+        ...rule,
         roles: Array.from(new Set(rule.roles.filter((r) => r === "team" || r === "youth" || r === "adult"))).sort(),
       }))
       .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
@@ -829,6 +841,56 @@ export function ContentTabs({
                           >
                             Delete
                           </Button>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Mobile title</Label>
+                            <Input
+                              placeholder="Welcome video"
+                              value={rule.title ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, title: event.target.value } : item)
+                              )}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Poster image URL</Label>
+                            <Input
+                              placeholder="https://…jpg"
+                              value={rule.posterUrl ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, posterUrl: event.target.value } : item)
+                              )}
+                            />
+                          </div>
+                          <div className="space-y-2 sm:col-span-2">
+                            <Label className="text-xs text-muted-foreground">Mobile description</Label>
+                            <Textarea
+                              placeholder="A short reason to watch this introduction"
+                              value={rule.description ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, description: event.target.value } : item)
+                              )}
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-border bg-background p-4">
+                          <p className="text-[11px] font-bold tracking-[0.14em] text-primary">START HERE</p>
+                          <p className="mt-1 text-xl font-bold">{rule.title?.trim() || "Welcome video"}</p>
+                          {rule.description?.trim() ? (
+                            <p className="mt-1 text-sm text-muted-foreground">{rule.description.trim()}</p>
+                          ) : null}
+                          {rule.posterUrl?.trim() ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={rule.posterUrl.trim()}
+                              alt="Intro video poster preview"
+                              className="mt-3 aspect-video w-full rounded-xl bg-black object-cover"
+                            />
+                          ) : null}
                         </div>
 
                         {(() => {

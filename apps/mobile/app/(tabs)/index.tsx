@@ -47,6 +47,7 @@ import { PermissionPromptSheet } from "@/components/home/PermissionPromptSheet";
 import { useStreakStore } from "@/lib/streakStore";
 import { scheduleStreakReminder } from "@/lib/streakReminder";
 import { useHomeContent } from "@/hooks/home/useHomeContent";
+import { pickIntroVideoForAudience, type IntroAudience } from "@/lib/home/introVideo";
 import { selectBootstrapReady } from "@/store/slices/appSlice";
 import { useRunStore } from "@/store/useRunStore";
 import { apiRequest } from "@/lib/api";
@@ -71,29 +72,12 @@ function getGreeting(): string {
   return "Good evening,";
 }
 
-type IntroAudience = "team" | "youth" | "adult";
-
 function audienceFromAppRole(role: string | null | undefined): IntroAudience | null {
   if (!role) return null;
   if (role === "team" || role.endsWith("_team") || role.endsWith("_team_guardian")) return "team";
   if (role.startsWith("youth")) return "youth";
   if (role.startsWith("adult")) return "adult";
   return null;
-}
-
-function pickIntroVideoForRole(
-  introVideos: Array<{ url: string; roles: Array<IntroAudience> }> | null | undefined,
-  fallback: string | null | undefined,
-  audience: IntroAudience | null,
-): string | null {
-  // If the role-based system is in use (introVideos has entries), only show a
-  // video when this role has an explicit match — no cross-role bleed via fallback.
-  if (Array.isArray(introVideos) && introVideos.length > 0) {
-    if (!audience) return null;
-    return introVideos.find((rule) => rule?.roles?.includes(audience))?.url ?? null;
-  }
-  // Legacy: single URL with no role targeting — show to everyone.
-  return fallback ?? null;
 }
 
 function formatKm(m: number): string {
@@ -587,10 +571,12 @@ const HomeScreen = memo(function HomeScreen() {
           {/* Intro video */}
           <Animated.View entering={reduceMotion ? undefined : FadeInDown.delay(560).duration(300)}>
             <IntroVideoSection
-              introVideoUrl={pickIntroVideoForRole(homeContent?.introVideos, homeContent?.introVideoUrl, audienceFromAppRole(appRole))}
-              posterUrl={homeContent?.heroImageUrl}
-              isTabActive={true}
-              tabIndex={0}
+              video={pickIntroVideoForAudience(
+                homeContent?.introVideos,
+                audienceFromAppRole(appRole),
+                homeContent?.introVideoUrl,
+              )}
+              heroPosterUrl={homeContent?.heroImageUrl}
               loading={homeContentLoading}
             />
           </Animated.View>

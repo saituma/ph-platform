@@ -10,9 +10,12 @@ import { Skeleton } from "../../../components/ui/skeleton";
 import { ParentCourseMediaUpload } from "../../../components/parent/config/parent-course-media-upload";
 import { useHomeContent } from "../_shared/use-home-content";
 import { useGetHomeContentQuery } from "../../../lib/apiSlice";
-
-type IntroAudience = "team" | "youth" | "adult";
-type IntroVideoRule = { url: string; roles: IntroAudience[] };
+import {
+  deriveIntroVideos,
+  normalizeIntroRules,
+  type IntroAudience,
+  type IntroVideoRule,
+} from "../../../lib/home/introVideoRules";
 
 const ALL_INTRO_AUDIENCES: IntroAudience[] = ["team", "youth", "adult"];
 
@@ -95,57 +98,6 @@ const isDirectVideoUrl = (raw: string): boolean => {
   } catch {
     return false;
   }
-};
-
-const normalizeIntroRules = (rules: IntroVideoRule[]): IntroVideoRule[] => {
-  const normalized = rules
-    .map((rule) => ({
-      url: String(rule?.url ?? "").trim(),
-      roles: Array.isArray(rule?.roles) ? rule.roles : [],
-    }))
-    .map((rule) => ({
-      url: rule.url,
-      roles: Array.from(
-        new Set(rule.roles.map((r) => String(r).trim().toLowerCase() as IntroAudience)),
-      ).filter((r) => r === "team" || r === "youth" || r === "adult"),
-    }))
-    .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
-
-  // Enforce: one role can only be assigned once (last wins).
-  const lastIndexByRole = new Map<IntroAudience, number>();
-  normalized.forEach((rule, index) => {
-    rule.roles.forEach((role) => lastIndexByRole.set(role, index));
-  });
-
-  return normalized
-    .map((rule, index) => ({
-      ...rule,
-      roles: rule.roles.filter((role) => lastIndexByRole.get(role) === index),
-    }))
-    .filter((rule) => rule.roles.length > 0);
-};
-
-const deriveIntroVideos = (home: {
-  introVideoUrl?: string;
-  introVideos?: Array<{ url: string; roles: Array<"team" | "youth" | "adult"> }>;
-} | null): IntroVideoRule[] => {
-  if (!home) return [];
-  const rulesRaw = Array.isArray(home.introVideos) ? home.introVideos : [];
-  const rules = rulesRaw
-    .map((rule) => ({
-      url: String(rule?.url ?? "").trim(),
-      roles: Array.isArray(rule?.roles)
-        ? (rule.roles as unknown[]).map((r) => String(r).trim().toLowerCase() as IntroAudience)
-        : [],
-    }))
-    .map((rule) => ({
-      url: rule.url,
-      roles: Array.from(new Set(rule.roles.filter((r) => r === "team" || r === "youth" || r === "adult"))).sort(),
-    }))
-    .filter((rule) => rule.url.length > 0 && rule.roles.length > 0);
-  if (rules.length) return normalizeIntroRules(rules);
-  const legacy = String(home.introVideoUrl ?? "").trim();
-  return legacy ? normalizeIntroRules([{ url: legacy, roles: ["adult", "team", "youth"] }]) : [];
 };
 
 const introRoleStateFromList = (roles: IntroAudience[]) => ({
@@ -273,6 +225,57 @@ export default function ContentIntroVideoPage() {
                           >
                             Delete
                           </Button>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Mobile title</Label>
+                            <Input
+                              placeholder="Welcome video"
+                              value={rule.title ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, title: event.target.value } : item)
+                              )}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Poster image URL</Label>
+                            <Input
+                              placeholder="https://…jpg"
+                              value={rule.posterUrl ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, posterUrl: event.target.value } : item)
+                              )}
+                            />
+                          </div>
+                          <div className="space-y-2 sm:col-span-2">
+                            <Label className="text-xs text-muted-foreground">Mobile description</Label>
+                            <textarea
+                              className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              placeholder="A short reason to watch this introduction"
+                              value={rule.description ?? ""}
+                              onChange={(event) => setIntroVideos((prev) =>
+                                prev.map((item, idx) => idx === index ? { ...item, description: event.target.value } : item)
+                              )}
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-border bg-background p-4">
+                          <p className="text-[11px] font-bold tracking-[0.14em] text-primary">START HERE</p>
+                          <p className="mt-1 text-xl font-bold">{rule.title?.trim() || "Welcome video"}</p>
+                          {rule.description?.trim() ? (
+                            <p className="mt-1 text-sm text-muted-foreground">{rule.description.trim()}</p>
+                          ) : null}
+                          {rule.posterUrl?.trim() ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={rule.posterUrl.trim()}
+                              alt="Intro video poster preview"
+                              className="mt-3 aspect-video w-full rounded-xl bg-black object-cover"
+                            />
+                          ) : null}
                         </div>
 
                         {(() => {
