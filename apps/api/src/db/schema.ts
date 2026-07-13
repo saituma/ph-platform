@@ -1216,6 +1216,11 @@ export const conversationMessageTable = pgTable(
       table.conversationId,
       table.createdAt,
     ),
+    /** Serves the inbox's DISTINCT ON (conversationId) ... ORDER BY conversationId, id DESC. */
+    conversationLatestIdx: index("conversation_messages_conversation_id_desc_idx").on(
+      table.conversationId,
+      table.id.desc(),
+    ),
     conversationSenderClientUnique: uniqueIndex("conversation_messages_conversation_sender_client_unique").on(
       table.conversationId,
       table.senderId,

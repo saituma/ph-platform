@@ -320,11 +320,14 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     }));
   }
 
+  // Was a plain SELECT with no LIMIT: it pulled every message of every group the user belongs
+  // to, then took the head per group in JS. The ORDER BY was already the DISTINCT ON ordering —
+  // it just never asked Postgres to do the grouping. Now it returns one row per group.
   const lastMessageRows = await withTransientDbRetryConfigured(
     "listGroupsForUser:lastMessages",
     () =>
       db
-        .select({
+        .selectDistinctOn([chatGroupMessageTable.groupId], {
           groupId: chatGroupMessageTable.groupId,
           id: chatGroupMessageTable.id,
           senderId: chatGroupMessageTable.senderId,
@@ -970,9 +973,7 @@ export async function createGroupMessage(input: {
           .trim();
         const preview =
           rawContent.slice(0, 200) ||
-          (input.contentType && input.contentType !== "text"
-            ? `Sent a ${input.contentType}`
-            : "");
+          (input.contentType && input.contentType !== "text" ? `Sent a ${input.contentType}` : "");
 
         // Get sender info
         const [senderRow] = await db
@@ -982,10 +983,7 @@ export async function createGroupMessage(input: {
           .limit(1);
 
         const resolvedGroupName = groupName ?? "Group";
-        const sentAt =
-          message.createdAt instanceof Date
-            ? message.createdAt.toISOString()
-            : String(message.createdAt);
+        const sentAt = message.createdAt instanceof Date ? message.createdAt.toISOString() : String(message.createdAt);
 
         for (const member of adminMembers) {
           if (isGroupEmailRateLimited(member.userId, input.groupId)) continue;
@@ -1026,7 +1024,13 @@ export async function createGroupMessage(input: {
   };
 }
 
-export async function editGroupMessage(input: { groupId: number; messageId: number; userId: number; content: string; isAdmin?: boolean }) {
+export async function editGroupMessage(input: {
+  groupId: number;
+  messageId: number;
+  userId: number;
+  content: string;
+  isAdmin?: boolean;
+}) {
   const rows = await db
     .select()
     .from(chatGroupMessageTable)
@@ -1047,7 +1051,12 @@ export async function editGroupMessage(input: { groupId: number; messageId: numb
   return { edited: true };
 }
 
-export async function deleteGroupMessage(input: { groupId: number; messageId: number; userId: number; isAdmin?: boolean }) {
+export async function deleteGroupMessage(input: {
+  groupId: number;
+  messageId: number;
+  userId: number;
+  isAdmin?: boolean;
+}) {
   const rows = await db
     .select()
     .from(chatGroupMessageTable)

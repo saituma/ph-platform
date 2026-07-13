@@ -586,9 +586,18 @@ export async function listConversationThreadsForUser(userId: number, limit = 200
   const conversationIds = rows.map((r) => r.conversationId);
   if (!conversationIds.length) return [];
 
-  // Last message per conversation
+  // Last message per conversation.
+  //
+  // This used to SELECT every message across all of the user's conversations with NO LIMIT,
+  // then pick the head of each group in JavaScript. Opening the inbox loaded every message you
+  // had ever sent or received; for a platform admin it was effectively a full table scan of
+  // conversation_messages — on the app's hottest endpoint, against a 5-connection pool.
+  //
+  // DISTINCT ON is the Postgres-native form of exactly that "first row per group" intent, and
+  // returns one row per conversation instead of all of them. Backed by the
+  // conversation_messages_conversation_id_desc_idx (conversationId, id DESC) index.
   const lastMsgs = await db
-    .select({
+    .selectDistinctOn([conversationMessageTable.conversationId], {
       conversationId: conversationMessageTable.conversationId,
       id: conversationMessageTable.id,
       senderId: conversationMessageTable.senderId,
@@ -598,9 +607,8 @@ export async function listConversationThreadsForUser(userId: number, limit = 200
     })
     .from(conversationMessageTable)
     .where(inArray(conversationMessageTable.conversationId, conversationIds))
-    .orderBy(desc(conversationMessageTable.id));
-  const lastByConversation = new Map<number, (typeof lastMsgs)[number]>();
-  for (const m of lastMsgs) if (!lastByConversation.has(m.conversationId)) lastByConversation.set(m.conversationId, m);
+    .orderBy(conversationMessageTable.conversationId, desc(conversationMessageTable.id));
+  const lastByConversation = new Map<number, (typeof lastMsgs)[number]>(lastMsgs.map((m) => [m.conversationId, m]));
 
   // Unread per conversation = my receipts with readAt null on messages I didn't send
   const unreadRows = await db
@@ -1247,18 +1255,22 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
   if (!entries.length) return [];
 
   const conversationIds = entries.map((entry) => entry.conversationId);
+  // Same unbounded "last message per conversation" scan as the user inbox, but the conversation
+  // set here is every conversation an admin participates in — so for a platform admin this was
+  // effectively SELECT * FROM conversation_messages, on every admin inbox open. DISTINCT ON
+  // returns one row per conversation.
   const latestRows = await db
-    .select({
+    .selectDistinctOn([conversationMessageTable.conversationId], {
       conversationId: conversationMessageTable.conversationId,
       content: conversationMessageTable.content,
       createdAt: conversationMessageTable.createdAt,
     })
     .from(conversationMessageTable)
     .where(inArray(conversationMessageTable.conversationId, conversationIds))
-    .orderBy(desc(conversationMessageTable.id));
-  const latestByConversation = new Map<number, (typeof latestRows)[number]>();
-  for (const row of latestRows)
-    if (!latestByConversation.has(row.conversationId)) latestByConversation.set(row.conversationId, row);
+    .orderBy(conversationMessageTable.conversationId, desc(conversationMessageTable.id));
+  const latestByConversation = new Map<number, (typeof latestRows)[number]>(
+    latestRows.map((row) => [row.conversationId, row]),
+  );
 
   const unreadRows = await db
     .select({

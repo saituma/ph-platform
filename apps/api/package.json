@@ -6,8 +6,8 @@
   "scripts": {
     "build:deps": "pnpm --dir ../.. --filter @ph/roles build && pnpm --dir ../.. --filter @ph/billing build",
     "pretest": "pnpm run build:deps",
-    "test": "pnpm run test:types && jest",
-    "test:watch": "jest --watch",
+    "test": "pnpm run test:types && NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:types": "tsc --noEmit",
     "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit",
