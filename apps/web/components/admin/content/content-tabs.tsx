@@ -15,6 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { Textarea } from "../../ui/textarea";
 import { ParentCourseMediaUpload } from "../../parent/config/parent-course-media-upload";
+import { isSupportedIntroVideoUrl, isValidIntroPosterUrl } from "../../../lib/home/introVideoRules";
 
 export type TestimonialEntry = {
   id?: string | number;
@@ -326,10 +327,6 @@ export function ContentTabs({
     });
   }, [initialHome]);
 
-  const isBlockedIntroVideoUrl = (value: string) => {
-    const normalized = value.trim().toLowerCase();
-    return normalized.includes("vimeo.com");
-  };
   const wrapSelection = (
     ref: React.RefObject<HTMLTextAreaElement | null>,
     prefix: string,
@@ -1079,9 +1076,9 @@ export function ContentTabs({
                         onClick={() => {
                           const normalized = newIntroUrl.trim();
                           if (!normalized) return;
-                          if (isBlockedIntroVideoUrl(normalized)) {
+                          if (!isSupportedIntroVideoUrl(normalized)) {
                             setIntroVideoError(
-                              "Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.",
+                              "Use a valid direct video file, YouTube, or Loom URL.",
                             );
                             return;
                           }
@@ -1129,7 +1126,7 @@ export function ContentTabs({
                             <video
                               src={newIntroUrl.trim()}
                               controls
-                              className="h-56 w-full object-cover"
+                              className="h-56 w-full bg-black object-contain"
                               preload="metadata"
                             />
                           </div>
@@ -1154,11 +1151,16 @@ export function ContentTabs({
 	              onClick={async () => {
 	                const normalizedRules = normalizeIntroRules(introVideos);
 
-	                const bad = normalizedRules.find((rule) => isBlockedIntroVideoUrl(rule.url));
+	                const bad = normalizedRules.find((rule) => !isSupportedIntroVideoUrl(rule.url));
 	                if (bad) {
-	                  setIntroVideoError(
-	                    "Vimeo URLs are not supported for intro video. Use an upload, a direct .mp4 URL, or YouTube.",
-	                  );
+	                  setIntroVideoError("Use a valid direct video file, YouTube, or Loom URL.");
+	                  return;
+	                }
+	                const badPoster = normalizedRules.find(
+	                  (rule) => rule.posterUrl && !isValidIntroPosterUrl(rule.posterUrl),
+	                );
+	                if (badPoster) {
+	                  setIntroVideoError("Use a valid http or https URL for the poster image.");
 	                  return;
 	                }
 	                const seen = new Map<IntroAudience, string>();

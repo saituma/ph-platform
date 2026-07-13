@@ -10,3 +10,28 @@ export function deriveIntroVideos(home: { introVideoUrl?: string; introVideos?: 
   if (!home) return []; const rules = normalizeIntroRules(Array.isArray(home.introVideos) ? home.introVideos : []); if (rules.length) return rules;
   const legacyUrl = String(home.introVideoUrl ?? "").trim(); return legacyUrl ? [{ url: legacyUrl, roles: ["adult", "team", "youth"] }] : [];
 }
+
+const DIRECT_VIDEO_EXTENSIONS = [".mp4", ".webm", ".mov", ".m4v", ".mkv", ".ogg", ".ogv", ".m3u8"];
+
+export function isSupportedIntroVideoUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const host = url.hostname.toLowerCase();
+    if (host === "youtu.be" || host.endsWith(".youtube.com") || host.endsWith(".youtube-nocookie.com")) return true;
+    if (host === "loom.com" || host.endsWith(".loom.com")) return /^\/(share|embed)\/[^/]+/.test(url.pathname);
+    return DIRECT_VIDEO_EXTENSIONS.some((extension) => url.pathname.toLowerCase().endsWith(extension));
+  } catch {
+    return false;
+  }
+}
+
+export function isValidIntroPosterUrl(value: string): boolean {
+  if (!value.trim()) return true;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}

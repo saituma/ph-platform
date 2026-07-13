@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Maximize, Pause, Play, RotateCcw, Volume2, VolumeX } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
@@ -15,6 +15,7 @@ function ControlButton({ label, onPress, children }: { label: string; onPress: (
 export const IntroVideoControls = React.memo(function IntroVideoControls(props: Props) {
   const { visible, isPlaying, isMuted, isEnded, position, duration, bufferedPosition = 0, accentColor, onTogglePlay, onToggleMute, onSeekStart, onSeek, onSeekEnd, onFullscreen } = props;
   const trackWidth = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
   const scrubX = useSharedValue(0);
   const progress = duration > 0 ? Math.min(1, position / duration) : 0;
   const scrubGesture = useMemo(() => Gesture.Pan().minDistance(0)
@@ -24,7 +25,7 @@ export const IntroVideoControls = React.memo(function IntroVideoControls(props: 
   const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: Math.max(0, trackWidth.value * progress - 7) }] }), [progress]);
   if (!visible) return null;
   const buffered = duration > 0 ? Math.max(0, Math.min(100, (bufferedPosition / duration) * 100)) : 0;
-  return <View style={styles.overlay} pointerEvents="box-none">
+  return <Animated.View entering={reduceMotion ? undefined : FadeIn.duration(120)} exiting={reduceMotion ? undefined : FadeOut.duration(160)} style={styles.overlay} pointerEvents="box-none">
     <LinearGradient colors={["transparent", "rgba(0,0,0,0.78)"]} locations={[0, 0.55]} style={styles.gradient} pointerEvents="none" />
     <View style={styles.content}>
       <GestureDetector gesture={scrubGesture}>
@@ -40,7 +41,7 @@ export const IntroVideoControls = React.memo(function IntroVideoControls(props: 
         <ControlButton label="Enter fullscreen" onPress={onFullscreen}><Maximize size={20} color="#FFF" /></ControlButton>
       </View>
     </View>
-  </View>;
+  </Animated.View>;
 });
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end", zIndex: 30 }, gradient: { ...StyleSheet.absoluteFillObject, top: "28%" }, content: { paddingHorizontal: 10, paddingBottom: 7 }, seekTouchArea: { height: 30, justifyContent: "center" }, track: { height: 3, borderRadius: 2, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.28)" }, buffered: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.42)" }, progress: { height: "100%" }, thumb: { position: "absolute", width: 14, height: 14, borderRadius: 7, top: 8 }, row: { height: 44, flexDirection: "row", alignItems: "center" }, controlButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" }, time: { color: "#FFF", fontFamily: "Outfit-Medium", fontSize: 12, fontVariant: ["tabular-nums"] }, spacer: { flex: 1 },

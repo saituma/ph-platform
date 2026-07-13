@@ -7,9 +7,14 @@ import { Text } from "@/components/ScaledText";
 import { IntroVideoControls } from "./IntroVideoControls";
 import { IntroVideoPoster } from "./IntroVideoPoster";
 import { clearIntroProgress, readIntroProgress, writeIntroProgress } from "./sessionProgress";
+import {
+  clampIntroSeek,
+  isIntroEnded,
+  retryDelayForAttempt,
+  shouldShowIntroControls,
+} from "@/lib/home/introPlaybackPolicy";
 
 type Props = { url: string; posterUrl: string | null; accentColor: string; onAspectRatio: (ratio: number) => void };
-const RETRY_DELAYS = [1200, 2500, 5000];
 
 export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, posterUrl, accentColor, onAspectRatio }: Props) {
   const videoRef = useRef<ExpoVideoView>(null);
@@ -18,6 +23,8 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   const wasPlayingBeforeScrub = useRef(false);
   const controlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const positionRef = useRef(readIntroProgress(url));
+  const sourceReleased = useRef(false);
+  const pendingPlay = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +45,12 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
     if (isPlaying) controlTimer.current = setTimeout(() => setControlsVisible(false), 2500);
   }, [isPlaying]);
   useEffect(() => { scheduleHide(); return () => { if (controlTimer.current) clearTimeout(controlTimer.current); }; }, [scheduleHide]);
-  useEffect(() => { const sub = AppState.addEventListener("change", (state) => { if (state !== "active") { writeIntroProgress(url, player.currentTime ?? positionRef.current); player.pause(); } }); return () => sub.remove(); }, [player, url]);
+  useEffect(() => { const sub = AppState.addEventListener("change", (state) => { if (state !== "active") {
+    writeIntroProgress(url, player.currentTime ?? positionRef.current);
+    player.pause(); pendingPlay.current = false; sourceReleased.current = true;
+    setHasStarted(false); setFirstFrame(false); setIsLoading(false);
+    void player.replaceAsync(null).catch(() => {});
+  } }); return () => sub.remove(); }, [player, url]);
   useEffect(() => () => { writeIntroProgress(url, player.currentTime ?? positionRef.current); try { player.pause(); } catch {} if (retryTimer.current) clearTimeout(retryTimer.current); }, [player, url]);
 
   useEventListener(player, "sourceLoad", (event) => {
@@ -56,17 +68,28 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   useEventListener(player, "mutedChange", (event) => setIsMuted(event.muted));
   useEventListener(player, "statusChange", (event) => {
     setIsLoading(event.status === "loading");
-    if (event.status === "readyToPlay") { retryCount.current = 0; setError(null); }
+    if (event.status === "readyToPlay") {
+      retryCount.current = 0; setError(null);
+      if (pendingPlay.current) {
+        pendingPlay.current = false;
+        const saved = readIntroProgress(url);
+        if (saved > 0) player.currentTime = saved;
+        player.play();
+      }
+    }
     if (event.status !== "error") return;
     setFirstFrame(false);
-    const delay = RETRY_DELAYS[retryCount.current];
+    const delay = retryDelayForAttempt(retryCount.current);
     if (delay != null) { setIsLoading(true); retryCount.current += 1; retryTimer.current = setTimeout(() => { void player.replaceAsync({ uri: url, useCaching: true }).catch(() => {}); }, delay); }
     else { setIsLoading(false); setError("Video unavailable"); }
   });
 
   const play = useCallback(() => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setHasStarted(true); setControlsVisible(true); setIsLoading(true);
-    if (duration > 0 && position >= duration - 0.5) { clearIntroProgress(url); positionRef.current = 0; setPosition(0); player.replay(); } else player.play();
+    if (sourceReleased.current) {
+      sourceReleased.current = false; pendingPlay.current = true;
+      void player.replaceAsync({ uri: url, useCaching: true }).catch(() => { pendingPlay.current = false; setError("Video unavailable"); });
+    } else if (duration > 0 && position >= duration - 0.5) { clearIntroProgress(url); positionRef.current = 0; setPosition(0); player.replay(); } else player.play();
   }, [duration, player, position, url]);
   const togglePlay = useCallback(() => {
     setControlsVisible(true);
@@ -75,9 +98,9 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   }, [duration, isPlaying, player, position, url]);
   const handleStageTap = useCallback(() => { setControlsVisible((visible) => !visible); if (!controlsVisible) scheduleHide(); }, [controlsVisible, scheduleHide]);
   const seekStart = useCallback(() => { wasPlayingBeforeScrub.current = isPlaying; player.pause(); setControlsVisible(true); }, [isPlaying, player]);
-  const seek = useCallback((seconds: number) => { const next = Math.max(0, Math.min(duration, seconds)); positionRef.current = next; setPosition(next); }, [duration]);
-  const seekEnd = useCallback((seconds: number) => { player.currentTime = Math.max(0, Math.min(duration, seconds)); if (wasPlayingBeforeScrub.current) player.play(); }, [duration, player]);
-  const isEnded = duration > 0 && position >= duration - 0.5;
+  const seek = useCallback((seconds: number) => { const next = clampIntroSeek(seconds, duration); positionRef.current = next; setPosition(next); }, [duration]);
+  const seekEnd = useCallback((seconds: number) => { player.currentTime = clampIntroSeek(seconds, duration); if (wasPlayingBeforeScrub.current) player.play(); }, [duration, player]);
+  const isEnded = isIntroEnded(position, duration);
 
   if (error) return <View style={styles.error}><Text style={styles.errorTitle}>{error}</Text><View style={styles.errorActions}>
     <Pressable accessibilityRole="button" accessibilityLabel="Retry video" onPress={() => { retryCount.current = 0; setError(null); setFirstFrame(false); setIsLoading(true); void player.replaceAsync({ uri: url, useCaching: true }).catch(() => {}); }} style={styles.retry}><Text style={styles.retryText}>Retry</Text></Pressable>
@@ -86,9 +109,9 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
 
   return <View style={styles.fill}>
     <VideoView ref={videoRef} player={player} style={styles.fill} contentFit="contain" nativeControls={false} fullscreenOptions={{ enable: true, orientation: "default" }} onFirstFrameRender={() => { setFirstFrame(true); setIsLoading(false); }} />
-    {(!hasStarted || (!firstFrame && isLoading) || isEnded) && <IntroVideoPoster posterUrl={posterUrl} loading={hasStarted && isLoading && !firstFrame} replay={isEnded} onPress={play} />}
+    {(!hasStarted || (!firstFrame && isLoading) || isEnded) && <IntroVideoPoster posterUrl={posterUrl} loading={hasStarted && isLoading && !firstFrame} replay={isEnded} duration={duration} onPress={play} />}
     {hasStarted && firstFrame && !isEnded ? <Pressable accessibilityRole="button" accessibilityLabel="Show or hide video controls" onPress={handleStageTap} style={styles.fill} /> : null}
-    {hasStarted && firstFrame && !isEnded && <IntroVideoControls visible={controlsVisible || !isPlaying || isLoading} isPlaying={isPlaying} isMuted={isMuted} isEnded={isEnded} position={position} duration={duration} bufferedPosition={bufferedPosition} accentColor={accentColor} onTogglePlay={togglePlay} onToggleMute={() => { player.muted = !player.muted; }} onSeekStart={seekStart} onSeek={seek} onSeekEnd={seekEnd} onFullscreen={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void videoRef.current?.enterFullscreen(); }} />}
+    {hasStarted && firstFrame && !isEnded && <IntroVideoControls visible={shouldShowIntroControls({ requestedVisible: controlsVisible, isPlaying, isLoading })} isPlaying={isPlaying} isMuted={isMuted} isEnded={isEnded} position={position} duration={duration} bufferedPosition={bufferedPosition} accentColor={accentColor} onTogglePlay={togglePlay} onToggleMute={() => { player.muted = !player.muted; }} onSeekStart={seekStart} onSeek={seek} onSeekEnd={seekEnd} onFullscreen={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void videoRef.current?.enterFullscreen(); }} />}
   </View>;
 });
 const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFillObject }, error: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 14, backgroundColor: "#111" }, errorTitle: { color: "#FFF", fontFamily: "Outfit-Bold", fontSize: 16 }, errorActions: { flexDirection: "row", alignItems: "center", gap: 8 }, retry: { minWidth: 88, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF" }, retryText: { color: "#111", fontFamily: "Outfit-Bold", fontSize: 14 }, external: { minHeight: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" }, externalText: { color: "#FFF", fontFamily: "Outfit-Medium", fontSize: 13 } });
