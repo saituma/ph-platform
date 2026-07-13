@@ -42,6 +42,20 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 config.resolver.disableHierarchicalLookup = true;
 config.resolver.sourceExts = [...(config.resolver.sourceExts || [])];
+
+// watchFolders is the workspace root, so Metro's file-map crawls EVERYTHING under it — including
+// .pnpm-store (6 GB / 134k files) and .turbo (2.1 GB), neither of which contains app source.
+// metro-file-map gives up after a hardcoded 240s ("Failed to start watch mode"), which is exactly
+// what `expo start` was dying with. These paths are already gitignored build/cache artefacts.
+const escapedRoot = workspaceRoot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+config.resolver.blockList = [
+  new RegExp(`^${escapedRoot}/\\.pnpm-store/.*`),
+  new RegExp(`^${escapedRoot}/\\.turbo/.*`),
+  new RegExp(`^${escapedRoot}/\\.git/.*`),
+  new RegExp(`^${escapedRoot}/apps/(api|web|onboarding|docs|superadmin|worker|showcase|parent)/.*`),
+  new RegExp(`^${escapedRoot}/android/.*`),
+  new RegExp(`^${escapedRoot}/qa-audit-results/.*`),
+];
 config.serializer.getModulesRunBeforeMainModule = () => [
   require.resolve("react-native/Libraries/Core/InitializeCore"),
 ];
