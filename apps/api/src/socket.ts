@@ -13,6 +13,7 @@ import { getUserByCognitoSub, getUserById, getGuardianAndAthlete } from "./servi
 import { createGroupMessage, listGroupsForUser, isGroupMember } from "./services/chat.service";
 import {
   directConversationExists,
+  listDirectPeerIds,
   markConversationMessageDelivered,
   markConversationRead,
   sendDirectMessage,
@@ -24,7 +25,7 @@ import { getRedisConnection } from "./jobs/connection";
 import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
 import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "./lib/message-limits";
 import { SocketRateLimiter } from "./lib/socket-rate-limit";
-import { markOnline, markOffline, setActiveThread, getOnlineUserIds } from "./lib/presence";
+import { markOnline, markOffline, setActiveThread, getOnlineSubset } from "./lib/presence";
 
 type AuthPayload = {
   sub?: string;
@@ -77,6 +78,20 @@ const threadFocusSchema = z.object({ threadId: z.string().max(64).nullish() });
 
 // Shared across every socket on this process; buckets are released on disconnect.
 const socketRateLimiter = new SocketRateLimiter();
+
+/**
+ * Tell a user's DM partners that their online status changed.
+ *
+ * The whole point of the presence rewrite: this is O(people you talk to) — typically a handful —
+ * where the old io.emit was O(every socket on the server).
+ */
+function emitPresenceChanged(io: SocketIOServer, userId: number, peerIds: number[], online: boolean): void {
+  if (!peerIds.length) return;
+  const payload = { userId, online, at: new Date().toISOString() };
+  for (const peerId of peerIds) {
+    io.to(`user:${peerId}`).emit("presence:changed", payload);
+  }
+}
 
 // ── lastSeenAt debounce (Fix B) ────────────────────────────────────
 // Mobile reconnect storms fire disconnect rapidly; batching DB writes
@@ -384,10 +399,28 @@ export function initSocket(server: HttpServer) {
       socket.join("admin:all");
     }
 
-    // Presence: send snapshot to new socket, then delta to everyone.
+    // ── Presence ──────────────────────────────────────────────────────────────
+    //
+    // Was: socket.emit("presence:snapshot", getOnlineUserIds()) — the FULL online roster of the
+    // platform pushed to every client on every connect — followed by io.emit("presence:online"),
+    // a broadcast to EVERY connected socket. One connect cost O(N) frames on a single-threaded
+    // event loop; a morning rush of N users cost O(N²). No client even listened for those event
+    // names (mobile listens for `presence:update`), so the whole thing burned CPU for nobody.
+    //
+    // Now: presence goes only to the people entitled to see it — this user's DM partners.
     markOnline(userId);
-    socket.emit("presence:snapshot", getOnlineUserIds());
-    io.emit("presence:online", { userId });
+    let dmPeerIds: number[] = [];
+    try {
+      dmPeerIds = await listDirectPeerIds(userId);
+    } catch (error) {
+      log.warn({ err: error, userId }, "Presence peer lookup failed — presence disabled for this socket");
+    }
+    socket.data.dmPeerIds = dmPeerIds;
+
+    // Tell this client which of ITS peers are online (bounded by who they talk to, not by N).
+    socket.emit("presence:sync", { online: getOnlineSubset(dmPeerIds) });
+    // Tell those peers this user came online. Bounded fan-out.
+    emitPresenceChanged(io, userId, dmPeerIds, true);
 
     try {
       const groups = await listGroupsForUser(userId);
@@ -659,7 +692,10 @@ export function initSocket(server: HttpServer) {
       );
       socketRateLimiter.release(socket.id);
       markOffline(userId);
-      io.emit("presence:offline", { userId });
+      // Was io.emit — a broadcast to every connected socket on every disconnect. Mobile networks
+      // flap constantly, so this was the other half of the O(N²) storm. Only this user's DM
+      // partners are told, and only they ever needed to know.
+      emitPresenceChanged(io, userId, (socket.data.dmPeerIds as number[] | undefined) ?? [], false);
       // Fix B: Debounce lastSeenAt writes to prevent DB spam during mobile
       // reconnect storms. Write fires after LAST_SEEN_DEBOUNCE_MS unless the
       // user reconnects first (reconnect handler cancels the timer).

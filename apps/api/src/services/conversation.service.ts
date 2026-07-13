@@ -66,6 +66,35 @@ export async function directConversationExists(a: number, b: number): Promise<bo
   return Boolean(row);
 }
 
+/**
+ * The users this user shares a DIRECT conversation with — i.e. everyone entitled to see their
+ * online status.
+ *
+ * Presence is deliberately scoped to DM partners and NOT to group co-members. A 200-person
+ * announcement group would otherwise mean 200 emits every time one member's phone flaps, which
+ * is the O(N) fan-out this replaces. WhatsApp does not show presence in groups either.
+ */
+export async function listDirectPeerIds(userId: number): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ peerId: conversationParticipantTable.userId })
+    .from(conversationParticipantTable)
+    .innerJoin(conversationTable, eq(conversationTable.id, conversationParticipantTable.conversationId))
+    .where(
+      and(
+        eq(conversationTable.kind, "direct"),
+        ne(conversationParticipantTable.userId, userId),
+        inArray(
+          conversationParticipantTable.conversationId,
+          db
+            .select({ id: conversationParticipantTable.conversationId })
+            .from(conversationParticipantTable)
+            .where(eq(conversationParticipantTable.userId, userId)),
+        ),
+      ),
+    );
+  return rows.map((r) => r.peerId);
+}
+
 /** True when the user is a participant of the conversation that owns this message. */
 export async function isConversationMessageParticipant(messageId: number, userId: number): Promise<boolean> {
   const [row] = await db

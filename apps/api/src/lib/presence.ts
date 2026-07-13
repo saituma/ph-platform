@@ -45,6 +45,19 @@ export function isUserInThread(userId: number, threadId: string): boolean {
   return onlineUsers.has(userId) && activeThreads.get(userId) === threadId;
 }
 
-export function getOnlineUserIds(): number[] {
-  return Array.from(onlineUsers);
+/**
+ * Which of `candidateIds` are currently online.
+ *
+ * Replaces getOnlineUserIds(), which returned EVERY online user id on the server. That array was
+ * pushed to every client on every connect (`presence:snapshot`) — an O(N) payload to each of N
+ * clients, and it leaked the entire platform's online roster to every athlete. Callers now ask
+ * only about the users they are entitled to see.
+ */
+export function getOnlineSubset(candidateIds: number[]): number[] {
+  return candidateIds.filter((id) => onlineUsers.has(id));
+}
+
+/** Exposed for the leak test — the number of users currently marked online on this process. */
+export function onlineCount(): number {
+  return onlineUsers.size;
 }

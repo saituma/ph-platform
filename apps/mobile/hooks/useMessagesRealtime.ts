@@ -392,23 +392,44 @@ export function useMessagesRealtime({
       );
     };
 
-    const handlePresenceUpdate = (onlineUserIds: number[]) => {
-      const key = [...onlineUserIds].sort((a, b) => a - b).join(",");
+    // The client listened for "presence:update", which the server never emitted — it sent
+    // presence:snapshot / presence:online / presence:offline. Presence has therefore been dead
+    // on every client. The server now emits the two events below, and only to the DM partners
+    // entitled to see them rather than broadcasting to every connected socket.
+    const applyPresence = <T extends { lastSeen?: string; lastSeenAt?: string | null }>(thread: T, isOnline: boolean): T => {
+      if (isOnline) return thread.lastSeen === "Online" ? thread : { ...thread, lastSeen: "Online" };
+      if (thread.lastSeen !== "Online") return thread;
+      return { ...thread, lastSeen: thread.lastSeenAt ? formatLastSeen(thread.lastSeenAt) : "Recently active" };
+    };
+
+    /** Sent once on connect: which of MY peers are online. Bounded by who I talk to. */
+    const handlePresenceSync = (payload: { online?: number[] }) => {
+      const online = Array.isArray(payload?.online) ? payload.online : [];
+      const key = [...online].sort((a, b) => a - b).join(",");
       if (key === prevOnlineKeyRef.current) return;
       prevOnlineKeyRef.current = key;
-      const onlineSet = new Set(onlineUserIds.map(Number));
+      const onlineSet = new Set(online.map(Number));
       setThreadsRef.current((prev) =>
         prev.map((thread) => {
           if (thread.channelType !== "direct") return thread;
           const peerId = Number(thread.id);
           if (!Number.isFinite(peerId) || peerId <= 0) return thread;
-          const isOnline = onlineSet.has(peerId);
-          if (isOnline) return { ...thread, lastSeen: "Online" };
-          if (thread.lastSeen === "Online") {
-            return { ...thread, lastSeen: thread.lastSeenAt ? formatLastSeen(thread.lastSeenAt) : "Recently active" };
-          }
-          return thread;
+          return applyPresence(thread, onlineSet.has(peerId));
         }),
+      );
+    };
+
+    /** A single peer came online or went offline. Touches only that thread. */
+    const handlePresenceChanged = (payload: { userId?: number; online?: boolean }) => {
+      const peerId = Number(payload?.userId);
+      if (!Number.isFinite(peerId) || peerId <= 0) return;
+      prevOnlineKeyRef.current = "";
+      setThreadsRef.current((prev) =>
+        prev.map((thread) =>
+          thread.channelType === "direct" && Number(thread.id) === peerId
+            ? applyPresence(thread, Boolean(payload.online))
+            : thread,
+        ),
       );
     };
 
@@ -444,7 +465,8 @@ export function useMessagesRealtime({
     socket.on("group:message:deleted", handleGroupMessageDeleted);
     socket.on("message:read", handleMessageRead);
     socket.on("group:read", handleGroupRead);
-    socket.on("presence:update", handlePresenceUpdate);
+    socket.on("presence:sync", handlePresenceSync);
+    socket.on("presence:changed", handlePresenceChanged);
     socket.on("error:blocked", handleErrorBlocked);
     socket.on("error:rate_limited", handleErrorRateLimited);
     socket.on("error:server", handleErrorServer);
@@ -461,7 +483,8 @@ export function useMessagesRealtime({
       socket.off("group:message:deleted", handleGroupMessageDeleted);
       socket.off("message:read", handleMessageRead);
       socket.off("group:read", handleGroupRead);
-      socket.off("presence:update", handlePresenceUpdate);
+      socket.off("presence:sync", handlePresenceSync);
+      socket.off("presence:changed", handlePresenceChanged);
       socket.off("error:blocked", handleErrorBlocked);
       socket.off("error:rate_limited", handleErrorRateLimited);
       socket.off("error:server", handleErrorServer);
