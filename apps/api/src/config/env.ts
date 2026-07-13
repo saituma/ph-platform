@@ -120,6 +120,7 @@ const envSchema = z.object({
    * Optional — defaults to false so existing single-instance deploys are unaffected.
    */
   SOCKET_REQUIRE_REDIS: z.string().optional(),
+  RUN_WORKERS_IN_PROCESS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -242,4 +243,14 @@ export const env = {
    * Safe default: false — existing single-instance deploys continue to work.
    */
   socketRequireRedis: raw.SOCKET_REQUIRE_REDIS === "true",
+  // The Procfile declares a separate `worker` dyno, but Heroku starts new process types at
+  // 0 dynos. Running only `web` means startEmailWorker/startScheduledWorker are never called:
+  // the 5 scheduled repeatables (session/streak/nutrition reminders, subscription + goal
+  // expiry) have never fired, and messaging emails enqueued to the BullMQ `emails` queue have
+  // no consumer and vanish silently.
+  //
+  // Default ON. Running these alongside a real worker dyno is safe — BullMQ hands each job to
+  // exactly one consumer — so the only cost of double-running is duplicate polling. Set to
+  // "false" on the web dyno if you scale `worker` up and want the event loop kept clear.
+  runWorkersInProcess: raw.RUN_WORKERS_IN_PROCESS !== "false",
 };
