@@ -87,17 +87,22 @@ export async function createEmailIntent(payload: EmailPayload): Promise<number> 
 }
 
 export async function claimPendingBatch(limit = 25) {
-  const now = new Date();
-  // Use a subquery with LIMIT + FOR UPDATE SKIP LOCKED so we only touch `limit` rows,
-  // not all pending rows (which caused expensive full-table updates before).
+  // The due check uses SQL now(), NOT a JS `new Date()` parameter.
+  //
+  // next_run_at is `timestamp without time zone` storing UTC. Passing a JS Date compares it against
+  // the API host's wall clock — on a non-UTC host (e.g. developing in EAT/UTC+3) a row scheduled 3
+  // seconds out reads as hours overdue, so the coalescing push window (createCoalescingPushIntent)
+  // drains instantly and never batches. Comparing against the database's own now() is
+  // timezone-correct on any host. Heroku dynos are UTC so production was unaffected, but this was
+  // one deploy-region change away from silently breaking.
   const rows = await db
     .update(notificationOutboxTable)
-    .set({ status: "processing", updatedAt: now })
+    .set({ status: "processing", updatedAt: sql`now()` })
     .where(
       sql`${notificationOutboxTable.id} IN (
         SELECT id FROM ${notificationOutboxTable}
         WHERE ${notificationOutboxTable.status} = 'pending'
-          AND ${notificationOutboxTable.nextRunAt} <= ${now}
+          AND ${notificationOutboxTable.nextRunAt} <= now()
         ORDER BY ${notificationOutboxTable.nextRunAt} ASC
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED
