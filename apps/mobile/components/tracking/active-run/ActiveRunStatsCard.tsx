@@ -21,7 +21,7 @@ const PANEL_BG = "rgba(18,18,18,0.98)";
 const DIVIDER = "rgba(255,255,255,0.14)";
 const AMBER = "#EAB308";
 
-const SPORT_LABELS: Record<string, string> = {
+export const SPORT_LABELS: Record<string, string> = {
   run: "Run",
   trail_run: "Trail Run",
   walk: "Walk",

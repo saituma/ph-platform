@@ -34,6 +34,9 @@ import {
   Trash2,
   TrendingUp,
   Save,
+  Lock,
+  Users,
+  Check,
 } from "lucide-react-native";
 import * as Crypto from "expo-crypto";
 import { useAdminPastel } from "@/components/admin/AdminUI";
@@ -66,6 +69,7 @@ import {
   FEEL_TAGS,
 } from "../../../components/tracking/FeelTagSelector";
 import { queueRunPushToCloud } from "../../../lib/runSync";
+import { SPORT_LABELS } from "../../../components/tracking/active-run/ActiveRunStatsCard";
 
 export default function RunSummaryScreen() {
   const { height: screenHeight } = useWindowDimensions();
@@ -83,6 +87,8 @@ export default function RunSummaryScreen() {
     currentRunId,
     status,
     sport,
+    privacy,
+    setPrivacy,
   } = useRunStore();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
 
@@ -157,16 +163,25 @@ export default function RunSummaryScreen() {
 
   const handleDiscard = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    if (currentRunId) {
-      try {
-        initSQLiteRuns();
-        deleteRunRecord(currentRunId);
-      } catch (e) {
-        console.warn("[summary] failed to delete pending run", e);
-      }
-    }
-    resetRun();
-    router.replace("/(tabs)/tracking" as any);
+    Alert.alert("Discard activity?", "This activity and its route will be permanently deleted.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Discard",
+        style: "destructive",
+        onPress: () => {
+          if (currentRunId) {
+            try {
+              initSQLiteRuns();
+              deleteRunRecord(currentRunId);
+            } catch (e) {
+              console.warn("[summary] failed to delete pending run", e);
+            }
+          }
+          resetRun();
+          router.replace("/(tabs)/tracking" as any);
+        },
+      },
+    ]);
   };
 
   const handleSave = () => {
@@ -186,6 +201,7 @@ export default function RunSummaryScreen() {
             .filter(Boolean),
         ),
         notes,
+        privacy,
       });
       queueRunPushToCloud();
     } catch (e) {
@@ -365,7 +381,7 @@ export default function RunSummaryScreen() {
                 </View>
                 <View>
                   <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: p.textPrimary, letterSpacing: -0.3 }}>
-                    Run Complete!
+                    {`${SPORT_LABELS[sport] ?? "Activity"} Complete!`}
                   </Text>
                   <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary }}>
                     Excellent effort today
@@ -448,12 +464,9 @@ export default function RunSummaryScreen() {
                 </View>
               )}
 
-              {/* Optional feedback */}
+              {/* Post-activity questionnaire — everything optional */}
               <View style={{ borderTopWidth: 1, borderTopColor: p.divider, paddingTop: 20, marginBottom: 4 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2, marginBottom: 16 }}>
-                  HOW DID IT GO? (OPTIONAL)
-                </Text>
-
+                <SectionLabel text="HOW DID THAT FEEL?" />
                 <EffortSelector
                   value={effort ?? 0}
                   onChange={(val) => {
@@ -462,33 +475,64 @@ export default function RunSummaryScreen() {
                   }}
                 />
 
-                <View style={{ marginTop: 16 }}>
+                <View style={{ marginTop: 22 }}>
+                  <SectionLabel text="TAG THIS ACTIVITY" />
                   <FeelTagSelector selectedKeys={selectedTags} onToggle={toggleTag} />
                 </View>
 
-                <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  onFocus={() => setNotesFocused(true)}
-                  onBlur={() => setNotesFocused(false)}
-                  placeholder="Add a note..."
-                  placeholderTextColor={p.textMuted}
-                  multiline
-                  maxLength={200}
-                  textAlignVertical="top"
-                  style={{
-                    marginTop: 14,
-                    backgroundColor: p.inputBg,
-                    borderColor: notesFocused ? p.accent : p.divider,
-                    borderWidth: 1,
-                    borderRadius: 16,
-                    padding: 14,
-                    minHeight: 80,
-                    fontFamily: "Outfit-Regular",
-                    fontSize: 15,
-                    color: p.textPrimary,
-                  }}
-                />
+                <View style={{ marginTop: 22 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <SectionLabel text="PRIVATE NOTES" />
+                    <Lock size={11} color={p.textMuted} style={{ marginBottom: 12 }} />
+                  </View>
+                  <TextInput
+                    value={notes}
+                    onChangeText={setNotes}
+                    onFocus={() => setNotesFocused(true)}
+                    onBlur={() => setNotesFocused(false)}
+                    placeholder="How did it go? Only you can see these."
+                    placeholderTextColor={p.textMuted}
+                    multiline
+                    maxLength={200}
+                    textAlignVertical="top"
+                    accessibilityLabel="Private notes"
+                    style={{
+                      backgroundColor: p.inputBg,
+                      borderColor: notesFocused ? p.accent : p.divider,
+                      borderWidth: 1,
+                      borderRadius: 16,
+                      padding: 14,
+                      minHeight: 80,
+                      fontFamily: "Outfit-Regular",
+                      fontSize: 15,
+                      color: p.textPrimary,
+                    }}
+                  />
+                </View>
+
+                <View style={{ marginTop: 22 }}>
+                  <SectionLabel text="WHO CAN SEE THIS" />
+                  <VisibilityRow
+                    icon={Lock}
+                    title="Only you"
+                    subtitle="Kept private to you and your coach history"
+                    selected={privacy === "private"}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setPrivacy("private");
+                    }}
+                  />
+                  <VisibilityRow
+                    icon={Users}
+                    title="Team"
+                    subtitle="Shared to your team activity feed"
+                    selected={privacy === "team"}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setPrivacy("team");
+                    }}
+                  />
+                </View>
               </View>
 
               {/* Action buttons */}
@@ -525,7 +569,7 @@ export default function RunSummaryScreen() {
                     ]}
                   >
                     <Save size={20} color={p.buttonPrimaryText} strokeWidth={2.5} />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.buttonPrimaryText }}>SAVE RUN</Text>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 18, color: p.buttonPrimaryText }}>SAVE ACTIVITY</Text>
                   </Animated.View>
                 </GestureDetector>
 
@@ -552,6 +596,58 @@ export default function RunSummaryScreen() {
       </SafeAreaView>
 
     </>
+  );
+}
+
+function SectionLabel({ text }: { text: string }) {
+  const p = useAdminPastel();
+  return (
+    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2, marginBottom: 12 }}>
+      {text}
+    </Text>
+  );
+}
+
+function VisibilityRow({
+  icon: Icon,
+  title,
+  subtitle,
+  selected,
+  onPress,
+}: {
+  icon: typeof Lock;
+  title: string;
+  subtitle: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const p = useAdminPastel();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityLabel={title}
+      accessibilityState={{ selected }}
+      style={({ pressed }) => ({
+        flexDirection: "row" as const,
+        alignItems: "center" as const,
+        gap: 12,
+        backgroundColor: p.inputBg,
+        borderColor: selected ? p.accent : p.divider,
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 14,
+        marginBottom: 10,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Icon size={18} color={selected ? p.accent : p.textMuted} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>{title}</Text>
+        <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textSecondary, marginTop: 1 }}>{subtitle}</Text>
+      </View>
+      {selected && <Check size={18} color={p.accent} strokeWidth={2.5} />}
+    </Pressable>
   );
 }
 

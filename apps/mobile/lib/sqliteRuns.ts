@@ -299,8 +299,18 @@ export function getUnsyncedRuns(userId?: string | null): RunRecord[] {
   return db.getAllSync<RunRecord>("SELECT * FROM runs WHERE synced_at IS NULL AND user_id IS NULL AND COALESCE(is_draft, 0) = 0");
 }
 
-export function updateRunFeedback(id: string, feedback: { effort_level: number; feel_tags: string; notes: string }) {
+export function updateRunFeedback(
+  id: string,
+  feedback: { effort_level: number; feel_tags: string; notes: string; privacy?: string },
+) {
   ensureInitialized();
+  if (feedback.privacy) {
+    db.runSync(
+      "UPDATE runs SET effort_level = ?, feel_tags = ?, notes = ?, privacy = ?, synced_at = NULL WHERE id = ?",
+      [feedback.effort_level, feedback.feel_tags, feedback.notes, feedback.privacy, id],
+    );
+    return;
+  }
   db.runSync(
     "UPDATE runs SET effort_level = ?, feel_tags = ?, notes = ?, synced_at = NULL WHERE id = ?",
     [feedback.effort_level, feedback.feel_tags, feedback.notes, id],
