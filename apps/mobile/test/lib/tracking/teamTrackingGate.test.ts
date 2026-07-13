@@ -2,7 +2,6 @@ import {
   parseTeamIdFromApi,
   extractAuthTeamFieldsFromMeUser,
   shouldUseTeamTrackingFeatures,
-  canAccessTrackingTab,
 } from "@/lib/tracking/teamTrackingGate";
 
 describe("parseTeamIdFromApi", () => {
@@ -64,29 +63,6 @@ describe("shouldUseTeamTrackingFeatures", () => {
     expect(shouldUseTeamTrackingFeatures({
       appRole: "adult_athlete",
       authTeamMembership: null,
-    })).toBe(false);
-  });
-});
-
-describe("canAccessTrackingTab", () => {
-  it("returns true for adult athletes", () => {
-    expect(canAccessTrackingTab({ appRole: "adult_athlete", authTeamMembership: null })).toBe(true);
-  });
-
-  it("requires tracking capabilities for team managers", () => {
-    expect(canAccessTrackingTab({ appRole: "team_manager", authTeamMembership: null })).toBe(false);
-    expect(canAccessTrackingTab({
-      appRole: "team_manager",
-      authTeamMembership: null,
-      capabilities: { runTracking: true } as any,
-    })).toBe(true);
-  });
-
-  it("returns true when runTracking capability exists", () => {
-    expect(canAccessTrackingTab({
-      appRole: "youth_athlete_team_guardian" as any,
-      authTeamMembership: null,
-      capabilities: { runTracking: true } as any,
     })).toBe(false);
   });
 });

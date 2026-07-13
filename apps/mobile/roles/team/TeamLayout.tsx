@@ -7,7 +7,6 @@ import { useBaseLayoutLogic } from "../shared/useBaseLayoutLogic";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { TEAM_TAB_ROUTES, TEAM_YOUTH_TAB_ROUTES } from "./tabs";
 import TeamMessagesScreen from "./screens/Messages";
-import { canAccessTrackingTab } from "@/lib/tracking/teamTrackingGate";
 import { filterTabsByCapabilities } from "../shared/capabilityTabs";
 
 export function TeamLayout() {
@@ -18,30 +17,21 @@ export function TeamLayout() {
     messagingAccessTiers,
     planFeatures,
     appRole,
-    authTeamMembership,
-    managedAthletes,
     capabilities,
   } = useAppSelector((state) => state.user);
   const hasMessaging = canUseCoachMessaging(programTier, messagingAccessTiers, planFeatures);
   const { unreadCount: messagesUnread } = useUnreadMessaging(token, hasMessaging, profile.id);
-  const canUseTracking = canAccessTrackingTab({
-    appRole,
-    capabilities,
-    authTeamMembership,
-    firstManagedAthlete: managedAthletes[0] ?? null,
-  });
-
   const isYouthTeam = appRole === "youth_athlete_team_guardian";
   const baseTabs = isYouthTeam ? TEAM_YOUTH_TAB_ROUTES : TEAM_TAB_ROUTES;
 
   const visibleTabs = useMemo(() => {
-    return filterTabsByCapabilities(baseTabs, capabilities).filter((tab) => canUseTracking || tab.key !== "tracking").map((tab) => {
+    return filterTabsByCapabilities(baseTabs, capabilities).map((tab) => {
       if (tab.key === "messages") {
         return { ...tab, badgeCount: messagesUnread };
       }
       return tab;
     });
-  }, [baseTabs, canUseTracking, capabilities, messagesUnread]);
+  }, [baseTabs, capabilities, messagesUnread]);
 
   const tabComponents = useMemo(
     () => ({

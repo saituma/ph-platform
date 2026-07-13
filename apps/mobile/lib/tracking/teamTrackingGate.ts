@@ -1,6 +1,6 @@
 import type { AppRole } from "@/lib/appRole";
 import { hasOrgTeamMembership } from "@/lib/teamMembership";
-import type { AppCapabilities, ManagedAthlete } from "@/store/slices/userSlice";
+import type { ManagedAthlete } from "@/store/slices/userSlice";
 
 export type AuthTeamMembership = { team: string | null; teamId: number | null };
 
@@ -49,31 +49,5 @@ export function shouldUseTeamTrackingFeatures(input: {
     return true;
   if (hasOrgTeamMembership(input.authTeamMembership ?? undefined)) return true;
   if (hasOrgTeamMembership(input.firstManagedAthlete ?? undefined)) return true;
-  return false;
-}
-
-export function canAccessTrackingTab(input: {
-  appRole: AppRole | null;
-  programTier?: string | null;
-  capabilities?: AppCapabilities | null;
-  authTeamMembership: AuthTeamMembership | null;
-  firstManagedAthlete?: ManagedAthlete | null;
-}): boolean {
-  if (input.appRole === "adult_athlete" || input.appRole === "adult_athlete_team") {
-    return true;
-  }
-
-  if (input.appRole === "team_manager") {
-    return true;
-  }
-
-  if (shouldUseTeamTrackingFeatures(input)) {
-    return true;
-  }
-
-  if (input.capabilities?.runTracking) {
-    return true;
-  }
-
   return false;
 }

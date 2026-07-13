@@ -48,10 +48,7 @@ import { ActiveRunBanner } from "@/components/tracking/ActiveRunBanner";
 import { useAppSelector } from "@/store/hooks";
 import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
 import type { ManagedAthlete } from "@/store/slices/userSlice";
-import {
-  canAccessTrackingTab,
-  shouldUseTeamTrackingFeatures,
-} from "@/lib/tracking/teamTrackingGate";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import {
   fetchLeaderboard,
   type SocialLeaderboardItem,
@@ -353,20 +350,12 @@ export default function TrackingHomeScreen() {
 
   const capabilities = useAppSelector((s) => s.user.capabilities);
   const capabilitiesLoaded = useAppSelector((s) => s.user.capabilitiesLoaded);
-  const canAccessTracking = canAccessTrackingTab({
+  const isTeamManager = appRole === "team_manager";
+  const showTeamTab = shouldUseTeamTrackingFeatures({
     appRole,
-    capabilities,
     authTeamMembership,
     firstManagedAthlete: managedAthletes[0] ?? null,
   });
-  const isTeamManager = appRole === "team_manager";
-  const showTeamTab =
-    canAccessTracking &&
-    shouldUseTeamTrackingFeatures({
-      appRole,
-      authTeamMembership,
-      firstManagedAthlete: managedAthletes[0] ?? null,
-    });
 
   const categorizedRuns = useMemo(() => {
     const sections: { label: string; icon: string; data: RunRecord[] }[] = [];
@@ -455,16 +444,7 @@ export default function TrackingHomeScreen() {
       runOnJS(handleStartRun)();
     });
 
-  useEffect(() => {
-    // team_manager (team_coach) always has tracking access — never redirect them.
-    // This guards against the race where social.tsx pops back and triggers a
-    // brief re-render here before Redux state fully settles.
-    if (appRole === "team_manager") return;
-    if (!capabilitiesLoaded || appRole === null || canAccessTracking) return;
-    router.replace("/(tabs)" as any);
-  }, [capabilitiesLoaded, appRole, canAccessTracking, router]);
-
-  if (!capabilitiesLoaded || appRole === null || !canAccessTracking) return null;
+  if (!capabilitiesLoaded || appRole === null) return null;
 
   if (isTeamManager) {
     return (

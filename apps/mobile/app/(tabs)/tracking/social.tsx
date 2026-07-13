@@ -59,10 +59,7 @@ import { useAppSelector } from "@/store/hooks";
 import { spacing } from "@/constants/theme";
 import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
-import {
-  canAccessTrackingTab,
-  shouldUseTeamTrackingFeatures,
-} from "@/lib/tracking/teamTrackingGate";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import { MiniRunPathPreview } from "@/components/tracking/social/MiniRunPathPreview";
 import { CommentsSheet } from "@/components/tracking/social/CommentsSheet";
 import { PostCommentsSheet } from "@/components/tracking/social/PostCommentsSheet";
@@ -115,7 +112,6 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
   const insets = useAppSafeAreaInsets();
   const token = useAppSelector((s) => s.user.token);
   const appRole = useAppSelector((s) => s.user.appRole);
-  const capabilities = useAppSelector((s) => s.user.capabilities);
   const capabilitiesLoaded = useAppSelector((s) => s.user.capabilitiesLoaded);
   const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
   const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
@@ -128,17 +124,6 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
         firstManagedAthlete: managedAthletes[0] ?? null,
       }),
     [appRole, authTeamMembership, managedAthletes],
-  );
-
-  const canAccessTracking = useMemo(
-    () =>
-      canAccessTrackingTab({
-        appRole,
-        capabilities,
-        authTeamMembership,
-        firstManagedAthlete: managedAthletes[0] ?? null,
-      }),
-    [appRole, authTeamMembership, managedAthletes, capabilities],
   );
 
   const teamName = (authTeamMembership?.team ?? "Team").trim() || "Team";
@@ -497,22 +482,23 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
 
   const isFeedLoading = loading && feed.length === 0 && postFeed.length === 0;
 
-  // ── Gate check (standalone route only — embedded mode skips entirely) ──
+  // ── Gate check (standalone route only — embedded mode skips entirely).
+  // Team feed stays team-gated; tracking itself is open to all roles. ──
   useEffect(() => {
     if (onGoBack) return;
     if (!capabilitiesLoaded || appRole === null) return;
     if (appRole === "team_manager") return;
-    if (canAccessTracking && useTeamFeed) return;
+    if (useTeamFeed) return;
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace("/(tabs)/tracking" as any);
     }
-  }, [onGoBack, capabilitiesLoaded, appRole, canAccessTracking, router, useTeamFeed]);
+  }, [onGoBack, capabilitiesLoaded, appRole, router, useTeamFeed]);
 
   if (!onGoBack) {
     if (!capabilitiesLoaded || appRole === null) return null;
-    if (appRole !== "team_manager" && (!canAccessTracking || !useTeamFeed)) return null;
+    if (appRole !== "team_manager" && !useTeamFeed) return null;
   }
 
   if (!token) {
