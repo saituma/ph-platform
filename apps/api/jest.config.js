@@ -1,6 +1,10 @@
 const { createDefaultPreset } = require("ts-jest");
 
-const tsJestTransformCfg = createDefaultPreset().transform;
+// Transpile-only. Type-checking every test run builds a full TS program over src/, and
+// Drizzle's generics on the 2,600-line schema push that past Node's 4GB heap — the suite
+// OOMed before a single test ran. Types are already checked by the separate `test:types`
+// step (`"test": "pnpm run test:types && jest"`), so doing it again here bought nothing.
+const tsJestTransformCfg = createDefaultPreset({ isolatedModules: true }).transform;
 
 /** @type {import("jest").Config} **/
 module.exports = {
@@ -8,7 +12,6 @@ module.exports = {
   transform: {
     ...tsJestTransformCfg,
   },
-  preset: "ts-jest",
   testMatch: ["**/test/**/*.test.ts"],
   testPathIgnorePatterns:
     process.env.API_INTEGRATION === "1"
