@@ -5,9 +5,18 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { WebView } from "react-native-webview";
+import { Text } from "@/components/ScaledText";
 import type { Region } from "react-native-maps";
 
 import type { LatLng, TrackingMapLayer, TrackingMapStyle } from "./trackingMapLayers";
@@ -49,19 +58,41 @@ const LEAFLET_HTML = `<!DOCTYPE html>
     var TILE_SAT = ${JSON.stringify(ESRI_IMAGERY)};
     var TILE_SAT_LABELS = ${JSON.stringify(ESRI_IMAGERY_LABELS)};
     var TILE_TERRAIN = ${JSON.stringify(OTM_TERRAIN)};
+	    var OSM_FALLBACK = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 	    var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([20, 0], 2);
 	    var layerGroup = L.featureGroup().addTo(map);
-	    var base = L.tileLayer(TILE_LIGHT, {
-	      subdomains: 'abcd',
-	      maxZoom: 19,
-	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-	    }).addTo(map);
 
     function post(msg) {
       if (window.ReactNativeWebView) {
         window.ReactNativeWebView.postMessage(JSON.stringify(msg));
       }
     }
+
+    /* If the primary tile CDN keeps failing with no successful loads, swap once to plain OSM tiles. */
+    var tileErrorStreak = 0;
+    var usedTileFallback = false;
+    function watchTiles(layer) {
+      layer.on('tileload', function () { tileErrorStreak = 0; });
+      layer.on('tileerror', function () {
+        tileErrorStreak++;
+        if (tileErrorStreak >= 8 && !usedTileFallback) {
+          usedTileFallback = true;
+          map.removeLayer(base);
+          base = watchTiles(L.tileLayer(OSM_FALLBACK, {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          })).addTo(map);
+          post({ type: 'tilefallback' });
+        }
+      });
+      return layer;
+    }
+
+	    var base = watchTiles(L.tileLayer(TILE_LIGHT, {
+	      subdomains: 'abcd',
+	      maxZoom: 19,
+	      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+	    })).addTo(map);
 
     map.on('click', function (e) {
       post({ type: 'press', latitude: e.latlng.lat, longitude: e.latlng.lng });
@@ -80,32 +111,34 @@ const LEAFLET_HTML = `<!DOCTYPE html>
 	    window.__setMapStyle = function (mode, dark) {
 	      map.removeLayer(base);
 	      if (labelLayer) { map.removeLayer(labelLayer); labelLayer = null; }
+	      tileErrorStreak = 0;
+	      usedTileFallback = false;
 	      if (mode === 'satellite') {
-	        base = L.tileLayer(TILE_SAT, {
+	        base = watchTiles(L.tileLayer(TILE_SAT, {
 	          maxZoom: 19,
 	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
-	        }).addTo(map);
+	        })).addTo(map);
 	      } else if (mode === 'hybrid') {
-	        base = L.tileLayer(TILE_SAT, {
+	        base = watchTiles(L.tileLayer(TILE_SAT, {
 	          maxZoom: 19,
 	          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'
-	        }).addTo(map);
+	        })).addTo(map);
 	        labelLayer = L.tileLayer(TILE_SAT_LABELS, {
 	          maxZoom: 19, pane: 'overlayPane'
 	        }).addTo(map);
 	      } else if (mode === 'terrain') {
-	        base = L.tileLayer(TILE_TERRAIN, {
+	        base = watchTiles(L.tileLayer(TILE_TERRAIN, {
 	          subdomains: 'abc',
 	          maxZoom: 17,
 	          attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-	        }).addTo(map);
+	        })).addTo(map);
 	      } else {
 	        var u = dark ? TILE_DARK : TILE_LIGHT;
-	        base = L.tileLayer(u, {
+	        base = watchTiles(L.tileLayer(u, {
 	          subdomains: 'abcd',
 	          maxZoom: 19,
 	          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-	        }).addTo(map);
+	        })).addTo(map);
 	      }
 	    };
 
@@ -194,6 +227,9 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
   ) {
     const webRef = useRef<WebView>(null);
     const readyRef = useRef(false);
+    const [loadFailed, setLoadFailed] = useState(false);
+    /** Bumping the key fully remounts the WebView — the only reliable recovery from a dead render process. */
+    const [webViewKey, setWebViewKey] = useState(0);
     /** First camera placement after WebView ready (live maps: only once; summary: fitBounds-only path skips setView). */
     const needInitialCameraRef = useRef(true);
     /** Last applied road/satellite + light/dark — avoid retiling on every GPS tick (only layers change). */
@@ -284,6 +320,23 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
       if (readyRef.current) pushAll();
     }, [layersSignature, isDark, mapStyle, fitBounds, pushAll]);
 
+    // Watchdog: if the inlined Leaflet bundle never posts `ready`, the map would
+    // otherwise stay a blank dark surface forever with no signal to the user.
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (!readyRef.current) setLoadFailed(true);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }, [webViewKey]);
+
+    const handleRetry = useCallback(() => {
+      readyRef.current = false;
+      needInitialCameraRef.current = true;
+      appliedBasemapStampRef.current = null;
+      setLoadFailed(false);
+      setWebViewKey((k) => k + 1);
+    }, []);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -309,7 +362,12 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
           };
           if (msg.type === "ready") {
             readyRef.current = true;
+            setLoadFailed(false);
             pushAll();
+            return;
+          }
+          if (msg.type === "tilefallback") {
+            console.warn("[OsmWebMapView] primary tile source failing, switched to OSM fallback tiles");
             return;
           }
           if (msg.type === "press" && msg.latitude != null && msg.longitude != null) {
@@ -333,6 +391,7 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
     return (
       <View style={[styles.fill, style]}>
         <WebView
+          key={webViewKey}
           ref={webRef}
           source={{ html }}
           style={styles.fill}
@@ -347,9 +406,30 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
           // Leaflet HTML body, no white can leak through.
           androidLayerType="hardware"
           containerStyle={styles.fill}
-          renderLoading={() => <View style={styles.fill} />}
+          onError={() => setLoadFailed(true)}
+          onRenderProcessGone={() => setLoadFailed(true)}
+          onContentProcessDidTerminate={() => setLoadFailed(true)}
+          renderLoading={() => (
+            <View style={[styles.fill, styles.center]}>
+              <ActivityIndicator color="#8a8a8e" />
+            </View>
+          )}
           startInLoadingState
         />
+        {loadFailed && (
+          <View style={[StyleSheet.absoluteFillObject, styles.center, styles.errorOverlay]}>
+            <Text style={styles.errorTitle}>Map failed to load</Text>
+            <Text style={styles.errorHint}>Check your connection and try again.</Text>
+            <Pressable
+              onPress={handleRetry}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading map"
+              style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
+            >
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   },
@@ -357,4 +437,25 @@ export const OsmWebMapView = forwardRef<TrackingMapViewRef, OsmWebMapViewProps>(
 
 const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: "#0a0a0b" },
+  center: { alignItems: "center", justifyContent: "center" },
+  errorOverlay: { backgroundColor: "#0a0a0b", paddingHorizontal: 32 },
+  errorTitle: { fontFamily: "Outfit-Bold", fontSize: 16, color: "#f4f4f5" },
+  errorHint: {
+    fontFamily: "Outfit-Regular",
+    fontSize: 13,
+    color: "#8a8a8e",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  retryButtonPressed: { opacity: 0.7 },
+  retryText: { fontFamily: "Outfit-Bold", fontSize: 14, color: "#f4f4f5" },
 });
