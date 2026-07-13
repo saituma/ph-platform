@@ -25,6 +25,7 @@ import {
   messagesTabHref,
 } from "@/lib/messages/roleMessageRoutes";
 import { newClientMessageId } from "@/lib/messages/clientMessageId";
+import { enqueueSend, listPendingSends, recordFailure, removeSend } from "@/lib/messages/outbox";
 import type { TypingStatus } from "@/types/messages";
 import type { PendingAttachment } from "@/types/admin-messages";
 
@@ -397,20 +398,30 @@ export function useMessagesController(options?: {
           ),
         );
 
+        const groupBody = {
+          content: trimmed,
+          contentType: payload.contentType ?? "text",
+          ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
+          ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
+          clientId,
+          clientTraceId,
+          clientSentAt,
+        };
+
+        // Same durability as the direct path — a group message composed offline is not lost.
+        enqueueSend(effectiveProfileId, {
+          clientId,
+          threadId: `group:${groupId}`,
+          payload: { kind: "group", groupId, body: groupBody },
+        });
+
         try {
           const created = await messagesApi.groups.sendMessage(
             groupId,
-            {
-              content: trimmed,
-              contentType: payload.contentType ?? "text",
-              ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
-              ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
-              clientId,
-              clientTraceId,
-              clientSentAt,
-            } as any,
+            groupBody as never,
             { token, headers: actingHeaders },
           );
+          removeSend(effectiveProfileId, clientId);
           if (__DEV__) console.info("[RealtimeLatency] mobile.group.http_response", {
             clientTraceId,
             clientId,
@@ -476,6 +487,8 @@ export function useMessagesController(options?: {
           }
         } catch (err) {
           console.warn("[send] group message failed:", err);
+          // Stays in the outbox; retried on the next reconnect.
+          recordFailure(effectiveProfileId, clientId, err instanceof Error ? err.message : String(err));
           setMessages((prev) =>
             prev.map((m) => (m.clientId === clientId ? { ...m, status: "failed" } : m)),
           );
@@ -536,20 +549,31 @@ export function useMessagesController(options?: {
         ),
       );
 
+      const sendBody = {
+        content: trimmed,
+        receiverId: toUserId,
+        contentType: payload.contentType ?? "text",
+        ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
+        ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
+        clientId,
+        clientTraceId,
+        clientSentAt,
+      };
+
+      // Persist the send BEFORE it leaves the device. Composing offline used to lose the message
+      // outright: the POST threw, the bubble flipped to `failed`, and nothing ever retried it —
+      // `failed` had no resend affordance, and the bubble lived only in React state, so
+      // backgrounding the app dropped it. Retrying is safe: clientId is a UUID and the server
+      // upserts on it, so a message can be sent any number of times and still land exactly once.
+      enqueueSend(effectiveProfileId, {
+        clientId,
+        threadId: String(toUserId),
+        payload: { kind: "direct", body: sendBody },
+      });
+
       try {
-        const created = await messagesApi.send(
-          {
-            content: trimmed,
-            receiverId: toUserId,
-            contentType: payload.contentType ?? "text",
-            ...(payload.mediaUrl ? { mediaUrl: payload.mediaUrl } : {}),
-            ...(replyTarget ? { replyToMessageId: replyTarget.messageId, replyPreview: replyTarget.preview } : {}),
-            clientId,
-            clientTraceId,
-            clientSentAt,
-          },
-          { token, headers: actingHeaders },
-        );
+        const created = await messagesApi.send(sendBody, { token, headers: actingHeaders });
+        removeSend(effectiveProfileId, clientId);
         if (__DEV__) console.info("[RealtimeLatency] mobile.direct.http_response", {
           clientTraceId,
           clientId,
@@ -590,6 +614,10 @@ export function useMessagesController(options?: {
         }
       } catch (err) {
         console.warn("[send] direct message failed:", err);
+        // The entry STAYS in the outbox and is retried on the next reconnect. Only the attempt
+        // count moves, so a permanently-rejected send (blocked user, revoked plan) eventually
+        // stops looping instead of retrying forever.
+        recordFailure(effectiveProfileId, clientId, err instanceof Error ? err.message : String(err));
         setMessages((prev) =>
           prev.map((m) => (m.clientId === clientId ? { ...m, status: "failed" } : m)),
         );
@@ -613,6 +641,60 @@ export function useMessagesController(options?: {
       getMediaPreviewLabel,
     ],
   );
+
+  /**
+   * Re-send everything that never reached the server.
+   *
+   * This is what makes the outbox worth having: without it, a message composed offline stayed
+   * `failed` forever with no way to retry it. Safe to run at any time — clientId is a UUID and
+   * the server upserts on (conversationId, senderId, clientMessageId), so a re-send of a message
+   * that DID land is a no-op rather than a duplicate.
+   */
+  const drainSendOutbox = useCallback(async () => {
+    if (!token || !effectiveProfileId) return;
+    const pending = listPendingSends(effectiveProfileId);
+    if (!pending.length) return;
+
+    // Sequential on purpose. Promise.all would race the backlog and could land a thread's
+    // messages out of order — the server orders by insertion, so the queue must too.
+    for (const entry of pending) {
+      try {
+        const parsed = JSON.parse(entry.payloadJson) as
+          | { kind: "direct"; body: unknown }
+          | { kind: "group"; groupId: number; body: unknown };
+
+        if (parsed.kind === "group") {
+          await messagesApi.groups.sendMessage(parsed.groupId, parsed.body as never, {
+            token,
+            headers: actingHeaders,
+          });
+        } else {
+          await messagesApi.send(parsed.body as never, { token, headers: actingHeaders });
+        }
+
+        removeSend(effectiveProfileId, entry.clientId);
+        setMessages((prev) => prev.map((m) => (m.clientId === entry.clientId ? { ...m, status: "sent" } : m)));
+      } catch (err) {
+        recordFailure(effectiveProfileId, entry.clientId, err instanceof Error ? err.message : String(err));
+        // Still offline, or the send is permanently rejected. Stop the sweep — the next
+        // reconnect will try again, and recordFailure drops it after MAX_SEND_ATTEMPTS.
+        break;
+      }
+    }
+
+    void loadMessages({ silent: true });
+  }, [token, effectiveProfileId, actingHeaders, loadMessages, setMessages]);
+
+  // Drain whenever the socket comes back — that is the signal that the network returned.
+  useEffect(() => {
+    if (!socket) return;
+    const handleReconnect = () => void drainSendOutbox();
+    socket.on("connect", handleReconnect);
+    if (socket.connected) void drainSendOutbox();
+    return () => {
+      socket.off("connect", handleReconnect);
+    };
+  }, [socket, drainSendOutbox]);
 
   const handleSend = useCallback(async () => {
     const trimmed = draftRef.current.trim();
