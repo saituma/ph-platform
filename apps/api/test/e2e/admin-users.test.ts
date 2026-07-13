@@ -80,44 +80,30 @@ jest.mock("../../src/services/health.service", () => ({
 
 jest.mock("uuid", () => ({ v4: () => "test-uuid" }));
 
+/**
+ * Every export of the billing controllers, stubbed.
+ *
+ * This used to be a hand-written list of ~30 names. Adding a route to billing.routes.ts without
+ * remembering to add its controller here made Express receive `undefined` as a handler:
+ *
+ *     TypeError: argument handler must be a function
+ *
+ * ...which killed the ENTIRE suite at import time — which is exactly why all three e2e suites
+ * have been failing on main. The Proxy stubs any name the routes ask for, so it cannot rot again.
+ */
 const stubHandler = (_req: any, res: any) => res.status(200).json({});
-jest.mock("../../src/controllers/billing", () => ({
-  stripeWebhook: (_req: any, res: any) => res.sendStatus(200),
-  listPlans: (_req: any, res: any) => res.json({ plans: [] }),
-  getBillingStatus: stubHandler,
-  downgradePlan: stubHandler,
-  getTeamPaymentConfigDraft: stubHandler,
-  upsertTeamPaymentConfigDraft: stubHandler,
-  createCheckout: stubHandler,
-  createTeamCheckout: stubHandler,
-  createPaymentSheet: stubHandler,
-  confirmPaymentSheet: stubHandler,
-  confirmCheckout: stubHandler,
-  confirmCheckoutPublic: stubHandler,
-  getPaymentReceipt: stubHandler,
-  listPlansAdmin: stubHandler,
-  listStripePricesAdmin: stubHandler,
-  createPlanAdmin: stubHandler,
-  invitePlanUserAdmin: stubHandler,
-  getPlanInviteSummaryPublic: stubHandler,
-  consumePlanInvitePublic: stubHandler,
-  getPublicInvoice: stubHandler,
-  importPlanAdmin: stubHandler,
-  updatePlanAdmin: stubHandler,
-  listRequestsAdmin: stubHandler,
-  approveRequestAdmin: stubHandler,
-  rejectRequestAdmin: stubHandler,
-  syncRequestPaymentAdmin: stubHandler,
-  listTeamRequestsAdmin: stubHandler,
-  approveTeamRequestAdmin: stubHandler,
-  rejectTeamRequestAdmin: stubHandler,
-  syncTeamRequestPaymentAdmin: stubHandler,
-  listInvoices: stubHandler,
-  listTeamPlayerInvitesAdmin: stubHandler,
-  resendTeamPlayerInviteAdmin: stubHandler,
-  sponsorTeamPlayerInviteAdmin: stubHandler,
-  createCustomerPortalSession: stubHandler,
-}));
+
+jest.mock("../../src/controllers/billing", () => {
+  const overrides: Record<string, unknown> = {
+    __esModule: true,
+    stripeWebhook: (_req: any, res: any) => res.sendStatus(200),
+    listPlans: (_req: any, res: any) => res.json({ plans: [] }),
+  };
+  return new Proxy(overrides, {
+    get: (target, prop: string) => (prop in target ? (target as any)[prop] : stubHandler),
+    has: () => true,
+  });
+});
 
 jest.mock("../../src/services/fcm.service", () => ({
   sendFcmPush: jest.fn(),
@@ -131,6 +117,10 @@ jest.mock("../../src/db", () => ({
         where: jest.fn().mockReturnValue({
           limit: jest.fn().mockResolvedValue([]),
         }),
+        // Not every query has a .where(): getPortalConfig (reached via GET /auth/me) does
+        // db.select().from().limit(), and the chain stopped at .where() — so .limit was
+        // undefined and the request 500'd with "….limit is not a function".
+        limit: jest.fn().mockResolvedValue([]),
       }),
     }),
     execute: jest.fn(),
