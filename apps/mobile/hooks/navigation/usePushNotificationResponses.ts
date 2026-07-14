@@ -12,6 +12,7 @@ import {
   getMessagesRolePrefix,
   type MessagesRolePrefix,
 } from "@/lib/messages/roleMessageRoutes";
+import { isSafeInternalPath } from "@/lib/navigation/isSafeInternalPath";
 /** Map web-only or legacy push `url` values to Expo Router paths (esp. coach/admin). */
 function resolveNavigationPathFromPushData(
   rolePrefix: MessagesRolePrefix,
@@ -111,16 +112,6 @@ export function usePushNotificationResponses(enabled: boolean) {
       body: { content, receiverId },
       suppressStatusCodes: [401, 403],
     });
-  };
-
-  const isSafeInternalPath = (value: unknown): value is string => {
-    if (typeof value !== "string") return false;
-    const url = value.trim();
-    if (!url.startsWith("/")) return false;
-    if (url.startsWith("//")) return false;
-    if (url.includes("://")) return false;
-    if (url.includes("..")) return false;
-    return true;
   };
 
   useEffect(() => {

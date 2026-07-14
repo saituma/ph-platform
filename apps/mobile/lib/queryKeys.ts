@@ -130,8 +130,8 @@ export const queryKeys = {
   },
 
   notifications: {
-    all: () => ["notifications"] as const,
-    infinite: () => ["notifications", "infinite"] as const,
+    all: (token: string | null) => ["notifications", token] as const,
+    infinite: (token: string | null) => ["notifications", "infinite", token] as const,
   },
 
   profile: {

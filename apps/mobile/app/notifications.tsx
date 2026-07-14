@@ -33,6 +33,7 @@ import type { LucideIcon } from "lucide-react-native";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import { queryKeys } from "@/lib/queryKeys";
+import { isSafeInternalPath, remapLegacyNotificationLink } from "@/lib/navigation/isSafeInternalPath";
 
 const PAGE_SIZE = 20;
 const GROUP_WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -100,7 +101,7 @@ export default function NotificationsScreen() {
     refetch,
     isRefetching,
   } = useInfiniteQuery<NotificationPage>({
-    queryKey: queryKeys.notifications.infinite(),
+    queryKey: queryKeys.notifications.infinite(token),
     queryFn: async ({ pageParam }) => {
       const offset = typeof pageParam === "number" ? pageParam : 0;
       const result = await apiRequest<{ items: NotificationItem[] }>(
@@ -141,7 +142,7 @@ export default function NotificationsScreen() {
     async (id: number) => {
       if (!token) return;
       queryClient.setQueryData<{ pages: NotificationPage[]; pageParams: unknown[] }>(
-        queryKeys.notifications.infinite(),
+        queryKeys.notifications.infinite(token),
         (prev) => {
           if (!prev) return prev;
           return {
@@ -285,7 +286,8 @@ export default function NotificationsScreen() {
               group.items.forEach((n) => {
                 if (!n.read) markRead(n.id);
               });
-              if (group.link) router.navigate(group.link as never);
+              const target = group.link ? remapLegacyNotificationLink(group.link) : group.link;
+              if (isSafeInternalPath(target)) router.navigate(target as never);
             }}
             style={({ pressed }) => ({
               opacity: pressed ? 0.9 : 1,

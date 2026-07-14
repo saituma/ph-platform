@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/api";
 
 export function useNotificationBadge(token: string | null) {
   const { data: unreadCount = 0 } = useQuery({
-    queryKey: queryKeys.notifications.all(),
+    queryKey: queryKeys.notifications.all(token),
     queryFn: async () => {
       const result = await apiRequest<{ items: Array<{ read?: boolean }> }>(
         "/notifications?limit=200&offset=0",
