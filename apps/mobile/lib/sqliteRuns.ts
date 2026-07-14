@@ -53,6 +53,17 @@ export function initSQLiteRuns() {
     );
   `);
 
+  // A discarded run may already have been pushed to the server. Deleting only the local row
+  // would leave it visible to the coach forever, so record a tombstone and let the sync queue
+  // propagate the delete — it must survive being offline, a crash, or an app restart.
+  db.execSync(`
+    CREATE TABLE IF NOT EXISTS run_deletions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+
   // Migrations
   try {
     const columns = db.getAllSync<{ name: string }>("PRAGMA table_info(runs)");
@@ -399,6 +410,37 @@ export function upsertServerRuns(runs: ServerRunPayload[], userId: string) {
 export function deleteRunRecord(id: string) {
   ensureInitialized();
   db.runSync("DELETE FROM runs WHERE id = ?", [id]);
+}
+
+/**
+ * Discard a run everywhere: drop the local row and leave a tombstone so the delete
+ * still reaches the server if this run was already synced (the summary screen pushes
+ * on open, so by the time the athlete taps Discard the coach can already see it).
+ */
+export function discardRunRecord(id: string, userId?: string | null) {
+  ensureInitialized();
+  db.runSync("INSERT OR REPLACE INTO run_deletions (id, user_id, created_at) VALUES (?, ?, ?)", [
+    id,
+    userId ?? null,
+    new Date().toISOString(),
+  ]);
+  db.runSync("DELETE FROM runs WHERE id = ?", [id]);
+}
+
+export function getPendingRunDeletions(userId?: string | null): string[] {
+  ensureInitialized();
+  const rows = userId
+    ? db.getAllSync<{ id: string }>(
+        "SELECT id FROM run_deletions WHERE user_id = ? OR user_id IS NULL",
+        [userId],
+      )
+    : db.getAllSync<{ id: string }>("SELECT id FROM run_deletions WHERE user_id IS NULL");
+  return rows.map((r) => r.id);
+}
+
+export function clearRunDeletion(id: string) {
+  ensureInitialized();
+  db.runSync("DELETE FROM run_deletions WHERE id = ?", [id]);
 }
 
 export function markRunsSynced(ids: string[]) {

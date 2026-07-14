@@ -51,7 +51,7 @@ import {
 } from "@/lib/tracking/runUtils";
 import { thinRoutePointsForDisplay } from "@/lib/tracking/thinRoute";
 import {
-  deleteRunRecord,
+  discardRunRecord,
   EFFORT_PENDING_FEEDBACK,
   initSQLiteRuns,
   saveRunRecord,
@@ -173,9 +173,12 @@ export default function RunSummaryScreen() {
           if (currentRunId) {
             try {
               initSQLiteRuns();
-              deleteRunRecord(currentRunId);
+              // This run was already pushed when the summary opened, so the local delete
+              // alone would leave it on the coach's dashboard. Tombstone + drain the queue.
+              discardRunRecord(currentRunId, userId ? String(userId) : null);
+              queueRunPushToCloud();
             } catch (e) {
-              console.warn("[summary] failed to delete pending run", e);
+              console.warn("[summary] failed to discard run", e);
             }
           }
           resetRun();

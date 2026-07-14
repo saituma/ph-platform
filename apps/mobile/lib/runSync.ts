@@ -2,6 +2,8 @@ import { apiRequest } from "@/lib/api";
 import { store } from "@/store";
 import {
   adoptOrphanRuns,
+  clearRunDeletion,
+  getPendingRunDeletions,
   getUnsyncedRuns,
   markRunsSynced,
   upsertRunFromServer,
@@ -32,6 +34,50 @@ type ServerRun = {
   visibility?: "public" | "private";
 };
 
+/** apiRequest throws `Error("<status> <message>")`, so the status is the leading token. */
+function isStatus(err: unknown, status: number): boolean {
+  return err instanceof Error && err.message.startsWith(`${status} `);
+}
+
+/**
+ * Propagate discarded runs to the server.
+ *
+ * The summary screen pushes a run as soon as it opens, so a run the athlete then
+ * discards can already be visible to their coach. Deleting the local row alone would
+ * leave it there permanently, so discards are recorded as tombstones and drained here.
+ * A tombstone is only cleared once the server confirms the run is gone (200) or was
+ * never there (404) — anything else keeps it queued for the next sync trigger.
+ */
+export async function pushRunDeletionsToCloud(): Promise<void> {
+  const token = store.getState().user.token;
+  if (!token) return;
+  const userId = store.getState().user.profile.id ?? null;
+
+  initSQLiteRuns();
+  const pending = getPendingRunDeletions(userId ? String(userId) : null);
+
+  for (const clientId of pending) {
+    try {
+      await apiRequest(`/runs/${encodeURIComponent(clientId)}`, {
+        method: "DELETE",
+        token,
+        suppressLog: true,
+        suppressStatusCodes: [404],
+      });
+      clearRunDeletion(clientId);
+    } catch (err) {
+      // 404 = the run never reached the server (or is already gone). Either way it is
+      // not visible to the coach, so the discard is satisfied.
+      if (isStatus(err, 404)) {
+        clearRunDeletion(clientId);
+        continue;
+      }
+      // Offline / server error — keep the tombstone and retry on the next trigger.
+      if (__DEV__) console.warn("[runSync] delete failed, will retry:", clientId, err);
+    }
+  }
+}
+
 /**
  * Push unsynced local runs to the server.
  * Fire-and-forget safe — never throws.
@@ -43,6 +89,10 @@ export async function pushRunsToCloud(): Promise<void> {
     const userId = store.getState().user.profile.id ?? null;
 
     initSQLiteRuns();
+    // Drain discards first so a run the athlete deleted can never be resurrected by a
+    // push that races it.
+    await pushRunDeletionsToCloud();
+
     if (userId) adoptOrphanRuns(userId);
     const unsynced = getUnsyncedRuns(userId);
     if (!unsynced.length) return;
