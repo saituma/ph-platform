@@ -464,6 +464,14 @@ export function initSocket(server: HttpServer) {
       });
     }
 
+    // presence:sync is emitted once, at connect. A client whose socket is shared across screens
+    // (the web admin creates it in the shell, long before the messaging page mounts) has no way to
+    // catch that one shot, so let it ask for a replay. Rate-limited like every other inbound event.
+    guarded("presence:request", z.object({}).passthrough(), async () => {
+      const peerIds = (socket.data.dmPeerIds as number[] | undefined) ?? [];
+      socket.emit("presence:sync", { online: await getOnlineSubset(peerIds) });
+    });
+
     guarded("group:join", groupIdSchema, async ({ groupId }) => {
       const actingUserId = (socket.data.actingUserId as number | null) ?? null;
       const ids = [userId, actingUserId].filter((value): value is number => Boolean(value) && Number.isFinite(value));

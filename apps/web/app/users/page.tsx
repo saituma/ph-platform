@@ -36,6 +36,7 @@ type AdminUser = {
   isDeleted?: boolean | null;
   onboardingCompleted?: boolean | null;
   createdAt?: string | null;
+  lastSeenAt?: string | null;
   athleteId?: number | null;
   athleteName?: string | null;
   athleteAge?: number | null;
@@ -66,8 +67,9 @@ function formatJoinedDate(dateStr?: string | null): string {
   });
 }
 
+/** lastSeenAt is only written when a user holds a socket, so a null here means they never have. */
 function formatLastActive(dateStr?: string | null): string {
-  if (!dateStr) return "-";
+  if (!dateStr) return "Never";
   const d = new Date(dateStr);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
@@ -206,7 +208,7 @@ function UsersPageContent() {
         status: getUserStatus(user),
         joined: formatJoinedDate(user.createdAt),
         joinedRaw: user.createdAt ?? null,
-        lastActive: formatLastActive(user.createdAt),
+        lastActive: formatLastActive(user.lastSeenAt),
         profilePicture: user.profilePicture ?? null,
       };
     });

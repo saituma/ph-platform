@@ -39,6 +39,9 @@ import {
 } from "@/lib/apiSlice";
 import { getOrCreateAdminSocket } from "@/lib/admin-socket";
 
+/** Clears a "Typing…" row whose typing:stop never arrived. */
+const TYPING_TIMEOUT_MS = 5_000;
+
 export default function MessagingPage() {
   return (
     <Suspense fallback={null}>
@@ -60,8 +63,17 @@ function MessagingPageInner() {
     null,
   );
   const [requestedGroupId, setRequestedGroupId] = useState<number | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = useState<ReadonlySet<number>>(
+    () => new Set<number>(),
+  );
+  const [typingUserIds, setTypingUserIds] = useState<ReadonlySet<number>>(
+    () => new Set<number>(),
+  );
 
   const socketRef = useRef<Socket | null>(null);
+  const typingExpiryRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
   const inboxRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentUserIdRef = useRef<number | null>(null);
   const isWindowFocusedRef = useRef(true);
@@ -152,6 +164,8 @@ function MessagingPageInner() {
           updatedAt: String(thread.updatedAt ?? ""),
           isPremium: isPremiumTier(tier),
           tierLabel: tier,
+          online: onlineUserIds.has(userId),
+          lastSeenAt: thread.lastSeenAt ? String(thread.lastSeenAt) : null,
         };
       })
       .filter(
@@ -166,7 +180,7 @@ function MessagingPageInner() {
           new Date(a.updatedAt || 0).getTime()
         );
       });
-  }, [chatEligibleUsers, inboxThreads, userNameById]);
+  }, [chatEligibleUsers, inboxThreads, userNameById, onlineUserIds]);
 
   const groups = useMemo<ChatGroupItem[]>(
     () =>
@@ -246,6 +260,15 @@ function MessagingPageInner() {
     return allUserNameById.get(userId) ?? `User ${userId}`;
   };
 
+  const emitTyping = useMemo(
+    () => (toUserId: number, isTyping: boolean) => {
+      socketRef.current?.emit(isTyping ? "typing:start" : "typing:stop", {
+        toUserId,
+      });
+    },
+    [],
+  );
+
   const scheduleInboxRefetch = useMemo(
     () => (delayMs = 120) => {
       if (inboxRefetchTimerRef.current) return;
@@ -295,7 +318,11 @@ function MessagingPageInner() {
     };
     socketRef.current = socket;
 
-    on("connect", () => console.log("[Messaging Socket] Connected"));
+    on("connect", () => socket.emit("presence:request", {}));
+
+    // The socket is created by the admin shell, so it is usually already connected by the time this
+    // page mounts and the one-shot connect-time presence:sync has long since fired.
+    if (socket.connected) socket.emit("presence:request", {});
 
     const canShowBrowserNotification = () => {
       if (typeof window === "undefined") return false;
@@ -557,10 +584,64 @@ function MessagingPageInner() {
       scheduleInboxRefetch(120);
     });
 
+    // The server scopes presence to the users you share a direct conversation with, so this is
+    // bounded by the size of the admin's inbox — never the platform's online roster.
+    on("presence:sync", (payload: any) => {
+      const ids = Array.isArray(payload?.online) ? payload.online : [];
+      setOnlineUserIds(new Set(ids.map(Number).filter(Number.isFinite)));
+    });
+
+    on("presence:changed", (payload: any) => {
+      const userId = Number(payload?.userId ?? NaN);
+      if (!Number.isFinite(userId)) return;
+      setOnlineUserIds((current) => {
+        const next = new Set(current);
+        if (payload?.online) next.add(userId);
+        else next.delete(userId);
+        return next;
+      });
+    });
+
+    on("typing:update", (payload: any) => {
+      if (payload?.scope !== "direct") return;
+      const fromUserId = Number(payload?.fromUserId ?? NaN);
+      if (!Number.isFinite(fromUserId)) return;
+
+      const timers = typingExpiryRef.current;
+      const pending = timers.get(fromUserId);
+      if (pending) clearTimeout(pending);
+      timers.delete(fromUserId);
+
+      const setTyping = (isTyping: boolean) =>
+        setTypingUserIds((current) => {
+          const next = new Set(current);
+          if (isTyping) next.add(fromUserId);
+          else next.delete(fromUserId);
+          return next;
+        });
+
+      if (!payload?.isTyping) {
+        setTyping(false);
+        return;
+      }
+      setTyping(true);
+      // A dropped typing:stop (tab closed, network flap) would otherwise leave the row stuck
+      // on "Typing…" forever.
+      timers.set(
+        fromUserId,
+        setTimeout(() => {
+          timers.delete(fromUserId);
+          setTyping(false);
+        }, TYPING_TIMEOUT_MS),
+      );
+    });
+
     return () => {
       for (const { event, listener } of subscriptions) {
         socket.off(event, listener);
       }
+      for (const timer of typingExpiryRef.current.values()) clearTimeout(timer);
+      typingExpiryRef.current.clear();
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -647,6 +728,8 @@ function MessagingPageInner() {
             threads={threads}
             groups={groups}
             users={users}
+            typingUserIds={typingUserIds}
+            onTypingChange={emitTyping}
             currentUserId={currentUserId}
             resolveUserName={resolveUserName}
             formatTime={formatTime}

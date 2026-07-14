@@ -203,6 +203,7 @@ export type UserListRow = {
   onboarding_completed?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  lastSeenAt?: string | null;
   cognitoSub?: string | null;
   athleteId?: number | null;
   athleteName?: string | null;

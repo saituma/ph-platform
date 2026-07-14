@@ -1,7 +1,7 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useCreateChatGroupMutation,
   useCreateMediaUploadUrlMutation,
@@ -43,16 +43,22 @@ import {
   SelectItem,
 } from "../../ui/select";
 import { cleanPreview, initials } from "./inbox-thread-panel";
+import { formatPresence } from "@/lib/last-seen";
 
 type GifApiResponse = {
   error?: string;
   results?: GifResult[];
 };
 
+/** Idle gap after the last keystroke before the peer's "Typing…" is retracted. */
+const TYPING_IDLE_MS = 2_500;
+
 type InboxTabProps = {
   threads: ThreadListItem[];
   groups: ChatGroupItem[];
   users: MessagingUser[];
+  typingUserIds: ReadonlySet<number>;
+  onTypingChange: (toUserId: number, isTyping: boolean) => void;
   currentUserId: number | null;
   resolveUserName: (userId: number) => string;
   formatTime: (value?: string | null) => string;
@@ -71,6 +77,8 @@ export function InboxTab({
   threads,
   groups,
   users,
+  typingUserIds,
+  onTypingChange,
   currentUserId,
   resolveUserName,
   formatTime,
@@ -153,6 +161,48 @@ export function InboxTab({
     if (!threadUserId) return "";
     return userNameById.get(threadUserId) ?? `User ${threadUserId}`;
   }, [threadUserId, userNameById]);
+
+  const activeThread = useMemo(
+    () => threads.find((thread) => thread.userId === threadUserId) ?? null,
+    [threads, threadUserId],
+  );
+
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+
+  const stopTyping = useCallback(() => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (!isTypingRef.current) return;
+    isTypingRef.current = false;
+    if (activeThreadUserIdRef.current)
+      onTypingChange(activeThreadUserIdRef.current, false);
+  }, [onTypingChange]);
+
+  const handleDirectDraftChange = useCallback(
+    (value: string) => {
+      setDirectMessage(value);
+      const peerUserId = activeThreadUserIdRef.current;
+      if (!peerUserId) return;
+
+      if (!value.trim()) {
+        stopTyping();
+        return;
+      }
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        onTypingChange(peerUserId, true);
+      }
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = setTimeout(stopTyping, TYPING_IDLE_MS);
+    },
+    [onTypingChange, stopTyping],
+  );
+
+  // Leaving the thread — or the page — must retract a typing indicator the peer is still showing.
+  useEffect(() => stopTyping, [threadUserId, stopTyping]);
 
   const scheduleDirectRefetch = useMemo(
     () => (delayMs = 120) => {
@@ -333,6 +383,7 @@ export function InboxTab({
 
   const handleSendDirect = async () => {
     if (!threadUserId || !directMessage.trim()) return;
+    stopTyping();
     const pendingId = -Date.now();
     const pendingMsg: ChatMessage = {
       id: pendingId,
@@ -642,12 +693,20 @@ export function InboxTab({
                       : ""
                   }`}
                 >
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
-                    thread.unread > 0
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {initials(thread.name)}
+                  <div className="relative shrink-0">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold ${
+                      thread.unread > 0
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {initials(thread.name)}
+                    </div>
+                    {thread.online ? (
+                      <span
+                        className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500"
+                        aria-label={`${thread.name} is online`}
+                      />
+                    ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-1">
@@ -659,9 +718,13 @@ export function InboxTab({
                       </p>
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-1">
-                      <p className={`truncate text-xs ${thread.unread > 0 ? "text-foreground/80" : "text-muted-foreground"}`}>
-                        {cleanPreview(thread.preview)}
-                      </p>
+                      {typingUserIds.has(thread.userId) ? (
+                        <p className="truncate text-xs font-medium text-primary">Typing…</p>
+                      ) : (
+                        <p className={`truncate text-xs ${thread.unread > 0 ? "text-foreground/80" : "text-muted-foreground"}`}>
+                          {cleanPreview(thread.preview)}
+                        </p>
+                      )}
                       {thread.unread > 0 ? (
                         <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                           {thread.unread > 99 ? "99+" : thread.unread}
@@ -745,12 +808,24 @@ export function InboxTab({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-                  {initials(directThreadName || "U")}
+                <div className="relative shrink-0">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+                    {initials(directThreadName || "U")}
+                  </div>
+                  {activeThread?.online ? (
+                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background bg-emerald-500" />
+                  ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{directThreadName || "Conversation"}</p>
-                  <p className="text-xs text-muted-foreground">Direct message</p>
+                  <p className={`text-xs ${activeThread?.online ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                    {typingUserIds.has(threadUserId)
+                      ? "Typing…"
+                      : formatPresence(
+                          Boolean(activeThread?.online),
+                          activeThread?.lastSeenAt ?? null,
+                        )}
+                  </p>
                 </div>
               </div>
               {/* Messages */}
@@ -779,7 +854,7 @@ export function InboxTab({
               {/* Composer */}
               <ChatComposer
                 value={directMessage}
-                onChange={setDirectMessage}
+                onChange={handleDirectDraftChange}
                 placeholder="Message"
                 onSend={() => void handleSendDirect()}
                 canSend={Boolean(threadUserId && directMessage.trim())}

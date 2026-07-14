@@ -10,6 +10,8 @@ export type ThreadListItem = {
   updatedAt: string;
   isPremium: boolean;
   tierLabel: string | null;
+  online: boolean;
+  lastSeenAt: string | null;
 };
 
 export type AdminTeamItem = {
