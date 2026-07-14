@@ -1,4 +1,5 @@
 import { parseReplyPrefix } from "@/lib/messages/reply";
+import { formatPresence } from "@/lib/messages/presence";
 import { MessageThread } from "@/types/messages";
 import { ApiChatGroup, ApiCoach, ApiChatMessage } from "@/types/chat-api";
 
@@ -59,7 +60,8 @@ export function mapGroupToThread(group: ApiChatGroup): MessageThread {
     pinned: false,
     premium: false,
     unread: Number(group?.unreadCount ?? 0) || 0,
-    lastSeen: "Active",
+    // Groups carry no presence by design (the server never fans it out to them), so there is no
+    // status line to show — the header falls back to responseTime.
     responseTime: "Group updates",
     updatedAtMs,
   };
@@ -101,7 +103,8 @@ export function mapCoachToThread(
       (messages ?? []).filter(
         (msg: ApiChatMessage) => !msg.read && String(msg.senderId) === String(coach.id),
       ).length ?? 0,
-    lastSeen: "Active",
+    lastSeen: formatPresence(false, coach.lastSeenAt),
+    lastSeenAt: coach.lastSeenAt ?? null,
     responseTime: isPremium
       ? "Priority response window"
       : "Standard response window",

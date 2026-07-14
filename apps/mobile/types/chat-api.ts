@@ -26,6 +26,7 @@ export type ApiCoach = {
   name: string;
   role?: string;
   profilePicture?: string | null;
+  lastSeenAt?: string | null;
   isAi?: boolean;
 };
 

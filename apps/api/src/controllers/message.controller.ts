@@ -401,6 +401,7 @@ export async function listMessages(req: Request, res: Response) {
         email: userTable.email,
         role: userTable.role,
         profilePicture: userTable.profilePicture,
+        lastSeenAt: userTable.lastSeenAt,
       })
       .from(userTable)
       .where(and(inArray(userTable.id, peerIds), eq(userTable.isDeleted, false), eq(userTable.isBlocked, false)));
@@ -413,9 +414,25 @@ export async function listMessages(req: Request, res: Response) {
           email: peer.email,
           role: peer.role ?? "Member",
           profilePicture: peer.profilePicture ?? null,
+          lastSeenAt: peer.lastSeenAt,
           isAi: false,
         });
       }
+    }
+  }
+
+  // coach/manager come from lookups with differing projections, so fill lastSeenAt for every peer
+  // from one query rather than trusting each of them to have selected it. Without this the mobile
+  // client has no offline status to fall back on and every coach reads as online-or-nothing.
+  const coachIds = Array.from(coachesMap.keys());
+  if (coachIds.length > 0) {
+    const seenRows = await db
+      .select({ id: userTable.id, lastSeenAt: userTable.lastSeenAt })
+      .from(userTable)
+      .where(inArray(userTable.id, coachIds));
+    for (const row of seenRows) {
+      const entry = coachesMap.get(row.id);
+      if (entry) entry.lastSeenAt = row.lastSeenAt;
     }
   }
 
@@ -434,6 +451,7 @@ export async function listMessages(req: Request, res: Response) {
       name: publicDisplayName({ id: c.id, name: c.name, email: c.email ?? null }),
       role: c.role ?? "Member",
       profilePicture: c.profilePicture ?? null,
+      lastSeenAt: c.lastSeenAt instanceof Date ? c.lastSeenAt.toISOString() : (c.lastSeenAt ?? null),
       isAi: false,
     };
   });

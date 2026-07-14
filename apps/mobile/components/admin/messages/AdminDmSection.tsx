@@ -45,6 +45,7 @@ import { ThreadHeader } from "@/components/messages/ThreadHeader";
 import { ThreadChatBody } from "@/components/messages/ThreadChatBody";
 import { ReactionPickerModal } from "@/components/messages/ReactionPickerModal";
 import type { MessageThread, TypingStatus } from "@/types/messages";
+import { formatPresence } from "@/lib/messages/presence";
 import type { ChatMessage } from "@/constants/messages";
 import { useAppSelector } from "@/store/hooks";
 import { MessageCircle, Search, SquarePen } from "lucide-react-native";
@@ -77,6 +78,9 @@ export function AdminDmSection({
 
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
+  const [onlineUserIds, setOnlineUserIds] = useState<ReadonlySet<number>>(
+    () => new Set<number>(),
+  );
   const [isSending, setIsSending] = useState(false);
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -256,9 +260,33 @@ export function AdminDmSection({
       }
     };
 
+    const handlePresenceSync = (payload: { online?: number[] }) => {
+      const ids = Array.isArray(payload?.online) ? payload.online : [];
+      setOnlineUserIds(new Set(ids.map(Number).filter(Number.isFinite)));
+    };
+
+    const handlePresenceChanged = (payload: { userId?: number; online?: boolean }) => {
+      const peerId = Number(payload?.userId);
+      if (!Number.isFinite(peerId)) return;
+      setOnlineUserIds((current) => {
+        const next = new Set(current);
+        if (payload?.online) next.add(peerId);
+        else next.delete(peerId);
+        return next;
+      });
+    };
+
     socket.on("direct_message", handleNewMessage);
+    socket.on("presence:sync", handlePresenceSync);
+    socket.on("presence:changed", handlePresenceChanged);
+    // The socket connects at login, so the connect-time presence:sync fired long before this
+    // screen mounted. Ask for a replay.
+    if (socket.connected) socket.emit("presence:request", {});
+
     return () => {
       socket.off("direct_message", handleNewMessage);
+      socket.off("presence:sync", handlePresenceSync);
+      socket.off("presence:changed", handlePresenceChanged);
     };
   }, [socket, dms.activeDmUserId, dms.activeDmName, myUserId, upsertInboxThread]);
 
@@ -399,11 +427,15 @@ export function AdminDmSection({
       pinned: false,
       premium: Boolean(thread?.premium),
       unread: safeNumber(thread?.unread, 0),
-      lastSeen: "Active",
+      lastSeen: formatPresence(
+        onlineUserIds.has(dms.activeDmUserId),
+        thread?.lastSeenAt,
+      ),
+      lastSeenAt: thread?.lastSeenAt ?? null,
       responseTime: thread?.premium ? "Priority thread" : "Direct thread",
       updatedAtMs: Date.now(),
     };
-  }, [dms.activeDmName, dms.activeDmUserId, dms.threads]);
+  }, [dms.activeDmName, dms.activeDmUserId, dms.threads, onlineUserIds]);
 
   const typingStatus = useMemo<TypingStatus>(() => ({}), []);
 
@@ -556,10 +588,11 @@ export function AdminDmSection({
       pinned: false,
       premium: Boolean(t.premium),
       unread: safeNumber(t.unread, 0),
-      lastSeen: "Active",
+      lastSeen: formatPresence(onlineUserIds.has(t.userId), t.lastSeenAt),
+      lastSeenAt: t.lastSeenAt ?? null,
       updatedAtMs: Date.now(),
     }));
-  }, [dms.threads]);
+  }, [dms.threads, onlineUserIds]);
 
   return (
     <View style={{ flex: 1, gap: 12, paddingHorizontal: 16 }}>

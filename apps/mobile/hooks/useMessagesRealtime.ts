@@ -2,17 +2,7 @@ import { Alert } from "react-native";
 import { ChatMessage } from "@/constants/messages";
 import { MessageThread, TypingStatus } from "@/types/messages";
 
-function formatLastSeen(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "Last seen just now";
-  if (minutes < 60) return `Last seen ${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Last seen ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Last seen yesterday";
-  return `Last seen ${days}d ago`;
-}
+import { ONLINE_LABEL, formatPresence } from "@/lib/messages/presence";
 import { parseReplyPrefix } from "@/lib/messages/reply";
 import { resolveMediaType } from "@/lib/messages/mediaType";
 import { useEffect, useRef } from "react";
@@ -172,7 +162,9 @@ export function useMessagesRealtime({
           premium: false,
           unread: isIncoming && !isActiveThread ? 1 : 0,
           updatedAtMs,
-          lastSeen: "Active",
+          // They just sent a message over a live socket, so they are connected. A later
+          // presence:changed{online:false} recomputes this from lastSeenAt.
+          lastSeen: ONLINE_LABEL,
           responseTime: "Replies soon",
           avatarUrl: payload.senderAvatar ?? null,
         };
@@ -279,7 +271,6 @@ export function useMessagesRealtime({
           premium: false,
           unread: isIncoming && !isActive ? 1 : 0,
           updatedAtMs,
-          lastSeen: "Active",
           responseTime: "Group updates",
         };
         return [createdThread, ...prev];
@@ -396,10 +387,12 @@ export function useMessagesRealtime({
     // presence:snapshot / presence:online / presence:offline. Presence has therefore been dead
     // on every client. The server now emits the two events below, and only to the DM partners
     // entitled to see them rather than broadcasting to every connected socket.
+    // The offline branch used to bail unless the thread was already "Online". A thread built from
+    // REST starts on its lastSeenAt-derived status, never "Online", so presence could only ever
+    // turn a status ON — an offline peer kept whatever the mapper guessed. Recompute either way.
     const applyPresence = <T extends { lastSeen?: string; lastSeenAt?: string | null }>(thread: T, isOnline: boolean): T => {
-      if (isOnline) return thread.lastSeen === "Online" ? thread : { ...thread, lastSeen: "Online" };
-      if (thread.lastSeen !== "Online") return thread;
-      return { ...thread, lastSeen: thread.lastSeenAt ? formatLastSeen(thread.lastSeenAt) : "Recently active" };
+      const next = formatPresence(isOnline, thread.lastSeenAt);
+      return thread.lastSeen === next ? thread : { ...thread, lastSeen: next };
     };
 
     /** Sent once on connect: which of MY peers are online. Bounded by who I talk to. */
@@ -453,9 +446,16 @@ export function useMessagesRealtime({
 
     // Invalidate the TQ thread cache whenever the socket (re)connects so we
     // immediately get fresh data after a disconnect/reconnect cycle.
-    const handleConnect = () => { invalidateThreadsRef.current?.(); };
+    const handleConnect = () => {
+      invalidateThreadsRef.current?.();
+      socket.emit("presence:request", {});
+    };
 
     socket.on("connect", handleConnect);
+
+    // SocketProvider connects at login, so by the time this screen mounts the connect-time
+    // presence:sync has long since fired and we never saw it. Ask for a replay.
+    if (socket.connected) socket.emit("presence:request", {});
     socket.on("message:new", handleMessageNew);
     socket.on("group:message", handleGroupMessage);
     socket.on("typing:update", handleTypingUpdate);

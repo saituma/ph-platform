@@ -6,6 +6,7 @@ export type AdminDmThread = {
   unread?: number | null;
   programTier?: string | null;
   premium?: boolean | null;
+  lastSeenAt?: string | null;
 };
 
 export type DirectMessage = {

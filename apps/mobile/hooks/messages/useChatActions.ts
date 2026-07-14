@@ -1,19 +1,8 @@
 import { useCallback, useRef } from "react";
 import { Socket } from "socket.io-client";
 
-function formatLastSeenStatic(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "Last seen just now";
-  if (minutes < 60) return `Last seen ${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Last seen ${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Last seen yesterday";
-  return `Last seen ${days}d ago`;
-}
-
 import { ChatMessage } from "@/constants/messages";
+import { ONLINE_LABEL, formatPresence } from "@/lib/messages/presence";
 import { MessageThread } from "@/types/messages";
 import { messagesApi } from "@/lib/apiClient/messages";
 import {
@@ -146,7 +135,6 @@ export function useChatActions({
               )
                 ? 0
                 : Number(thread.unread ?? 0) || 0,
-              lastSeen: "Active",
               responseTime: "Group updates",
               updatedAtMs: Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
               avatarUrl: thread.avatarUrl ?? null,
@@ -169,7 +157,7 @@ export function useChatActions({
             unread: isMessagingThreadLocallyRead(directId)
               ? 0
               : Number(thread.unread ?? 0) || 0,
-            lastSeen: thread.lastSeenAt ? formatLastSeenStatic(thread.lastSeenAt) : "Active",
+            lastSeen: formatPresence(false, thread.lastSeenAt),
             responseTime: isPremium
               ? "Priority response window"
               : "Standard response window",
@@ -263,7 +251,7 @@ export function useChatActions({
         pinned: false,
         premium: isPremium,
         unread: t.unread,
-        lastSeen: "Active",
+        lastSeen: formatPresence(false, null),
         responseTime: isPremium ? "Priority response window" : "Standard response window",
         updatedAtMs: t.updatedAtMs,
         avatarUrl: null,
@@ -279,14 +267,14 @@ export function useChatActions({
       ].sort(
         (a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0),
       );
-      // Preserve real-time "Online" status that presence:update wrote before
-      // this fetch completed — a full array replace would wipe it.
+      // Preserve real-time online status that presence wrote before this fetch
+      // completed — a full array replace would wipe it.
       setThreads((prev) => {
         const onlineIds = new Set(
-          prev.filter((t) => t.lastSeen === "Online").map((t) => t.id),
+          prev.filter((t) => t.lastSeen === ONLINE_LABEL).map((t) => t.id),
         );
         return sortedThreads.map((t) =>
-          onlineIds.has(t.id) ? { ...t, lastSeen: "Online" } : t,
+          onlineIds.has(t.id) ? { ...t, lastSeen: ONLINE_LABEL } : t,
         );
       });
       const deletedIds = pendingDeleteIds.current;

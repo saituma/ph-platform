@@ -1365,6 +1365,7 @@ export async function listConversationThreadsAdmin(coachId: number, options?: { 
       unread: unreadByConversation.get(entry.conversationId) ?? 0,
       programTier,
       premium: programTier === "PHP_Premium",
+      lastSeenAt: user?.lastSeenAt ? user.lastSeenAt.toISOString() : null,
     };
   });
 
