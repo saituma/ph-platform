@@ -41,13 +41,11 @@ function getLinksForRole(
       return [
         push("Nutrition", "tracking", "/nutrition"),
         tab("Schedule", "calendar", "schedule"),
-        tab("Messages", "chat", "messages"),
       ];
     case "team_manager":
       return [
         tab("Team", "user", "manager-home"),
         push("Nutrition", "tracking", "/nutrition"),
-        tab("Messages", "chat", "messages"),
         tab("Schedule", "calendar", "schedule"),
       ];
     case "adult_athlete":
@@ -67,13 +65,12 @@ function getLinksForRole(
       if (!hideWellbeingSleep && capabilities?.wellbeing === true) links.push(push("Wellbeing", "wellbeing", "/wellbeing"));
       if (!hideWellbeingSleep && capabilities?.sleep === true) links.push(push("Sleep", "sleep", "/sleep"));
       links.push(push("Nutrition", "tracking", "/nutrition"));
-      links.push(tab("Messages", "chat", "messages"));
+      links.push(push("Parents", "parents", "/parent-platform"));
       return links;
     }
     default:
       return [
         push("Nutrition", "tracking", "/nutrition"),
-        tab("Messages", "chat", "messages"),
         tab("More", "more", "more"),
       ];
   }
