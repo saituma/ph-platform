@@ -96,14 +96,14 @@ async function processExpiredPlans(now: Date) {
       userId: payerUserId,
       type: "plan_expired",
       content: "Your plan period ended. Renew to restore full access.",
-      link: "/plans",
+      link: "/(tabs)/programs",
       read: false,
     });
     void createPushIntent({
       userId: payerUserId,
       title: "Plan ended",
       body: "Your paid plan period has ended. Renew to keep messaging and bookings.",
-      data: { url: "/plans", type: "plan_expired" },
+      data: { url: "/(tabs)/programs", type: "plan_expired" },
     });
     void sendPlanExpiredEmail({
       to: payer.email,
@@ -211,13 +211,13 @@ async function processExpiringReminders(now: Date, horizon: Date) {
       userId: payerUserId,
       title: "Plan renewing soon",
       body: `Your plan access ends ${expires.toLocaleDateString()}. Renew to avoid losing perks.`,
-      data: { url: "/plans", type: "plan_expiring" },
+      data: { url: "/(tabs)/programs", type: "plan_expiring" },
     });
     notificationRows.push({
       userId: payerUserId,
       type: "plan_expiring",
       content: `Your plan period ends ${expires.toLocaleDateString()}.`,
-      link: "/plans",
+      link: "/(tabs)/programs",
       read: false,
     });
     reminderAthleteIds.push(athlete.id);

@@ -927,7 +927,7 @@ export async function approveSubscriptionRequest(requestId: number) {
       userId: request.userId,
       type: "plan_approved",
       content: `Your ${planLabel} plan has been approved.`,
-      link: "/plans",
+      link: "/(tabs)/programs",
       read: false,
     });
 
@@ -936,7 +936,7 @@ export async function approveSubscriptionRequest(requestId: number) {
         userId: request.userId,
         title: "Plan approved",
         body: `Your ${planLabel} plan is now active.`,
-        data: { url: "/plans", type: "plan_approved", planTier: request.planTier ?? "custom" },
+        data: { url: "/(tabs)/programs", type: "plan_approved", planTier: request.planTier ?? "custom" },
       });
     } catch (error) {
       logger.error({ err: error }, "[Billing] Failed to send plan approval push");
