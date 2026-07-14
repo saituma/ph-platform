@@ -408,6 +408,11 @@ export async function fetchPrivacySettings(token: string) {
     return await apiRequest<{ settings: PrivacySettings }>("/social/privacy", {
       token,
       suppressLog: true,
+      // apiRequest caches GETs for 5 minutes. Without this, the refetch that follows the
+      // opt-in PATCH replays the pre-opt-in body and the "Enable team features" prompt
+      // reappears on pull-to-refresh.
+      skipCache: true,
+      forceRefresh: true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
