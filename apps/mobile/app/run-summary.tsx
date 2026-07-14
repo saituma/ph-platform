@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppSafeAreaInsets } from "@/hooks/useAppSafeAreaInsets";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 
-import { useRunStore } from "../../../store/useRunStore";
+import { useRunStore } from "@/store/useRunStore";
 import { useAppSelector } from "@/store/hooks";
 import { Stack, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -47,29 +47,29 @@ import {
   formatDistanceKm,
   formatDurationClock,
   estimateCalories,
-} from "../../../lib/tracking/runUtils";
-import { thinRoutePointsForDisplay } from "../../../lib/tracking/thinRoute";
+} from "@/lib/tracking/runUtils";
+import { thinRoutePointsForDisplay } from "@/lib/tracking/thinRoute";
 import {
   deleteRunRecord,
   EFFORT_PENDING_FEEDBACK,
   initSQLiteRuns,
   saveRunRecord,
   updateRunFeedback,
-} from "../../../lib/sqliteRuns";
-import { haversineDistance } from "../../../lib/haversine";
-import { TrackingMapView } from "../../../components/tracking/TrackingMapView";
-import { MapStyleSwitcher } from "../../../components/tracking/MapStyleSwitcher";
+} from "@/lib/sqliteRuns";
+import { haversineDistance } from "@/lib/haversine";
+import { TrackingMapView } from "@/components/tracking/TrackingMapView";
+import { MapStyleSwitcher } from "@/components/tracking/MapStyleSwitcher";
 import type {
   TrackingMapLayer,
   TrackingMapStyle,
-} from "../../../components/tracking/trackingMapLayers";
-import { EffortSelector } from "../../../components/tracking/EffortSelector";
+} from "@/components/tracking/trackingMapLayers";
+import { EffortSelector } from "@/components/tracking/EffortSelector";
 import {
   FeelTagSelector,
   FEEL_TAGS,
-} from "../../../components/tracking/FeelTagSelector";
-import { queueRunPushToCloud } from "../../../lib/runSync";
-import { SPORT_LABELS } from "../../../components/tracking/active-run/ActiveRunStatsCard";
+} from "@/components/tracking/FeelTagSelector";
+import { queueRunPushToCloud } from "@/lib/runSync";
+import { SPORT_LABELS } from "@/components/tracking/active-run/ActiveRunStatsCard";
 
 export default function RunSummaryScreen() {
   const { height: screenHeight } = useWindowDimensions();

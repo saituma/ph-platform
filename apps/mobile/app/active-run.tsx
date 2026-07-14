@@ -232,7 +232,7 @@ export default function ActiveRunScreen() {
               hasStartedRef.current = true;
               useRunStore.getState().recoverRun();
               stopRun();
-              router.replace("/(tabs)/tracking/summary" as any);
+              router.replace("/run-summary" as any);
             },
           },
           {
@@ -371,7 +371,7 @@ export default function ActiveRunScreen() {
 
     // Review is part of completion, not a best-effort side effect. The summary
     // owns the final save/discard decision and sync stays private by default.
-    router.replace("/(tabs)/tracking/summary" as any);
+    router.replace("/run-summary" as any);
   };
 
   const screenStyle = useAnimatedStyle(() => ({
