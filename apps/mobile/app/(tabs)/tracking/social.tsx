@@ -729,7 +729,7 @@ export default function TrackingSocialScreen({ onGoBack }: { onGoBack?: () => vo
               onToggleRunLike={toggleLike}
               onPressOpenRun={(runLogId) =>
                 router.push({
-                  pathname: "/(tabs)/tracking/run-path/[runLogId]" as any,
+                  pathname: "/run-path/[runLogId]" as any,
                   params: { runLogId: String(runLogId) },
                 } as any)
               }
