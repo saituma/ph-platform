@@ -14,7 +14,12 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
+// BottomSheetScrollView, not BottomSheetView: the sheet is a fixed 80% height, and this form
+// (mode toggle, time wheels, duration, quality stars, notes, save) is taller than that. With a
+// non-scrolling view the overflow renders outside the sheet's bounds, where Android does not
+// deliver touches to it — taps on the lower controls fell through to the backdrop, whose default
+// pressBehavior is "close", so tapping a star dismissed the sheet instead of setting quality.
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import { Moon, Sun, Star, Check, Clock } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
@@ -291,7 +296,12 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
       handleIndicatorStyle={{ backgroundColor: p.textMuted, width: 40, height: 4, borderRadius: 2 }}
       backdropComponent={renderBackdrop}
     >
-      <BottomSheetView style={styles.container}>
+      <BottomSheetScrollView
+        style={styles.sheetScroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={[styles.title, { color: p.textPrimary }]}>Log Sleep</Text>
 
         {/* Mode toggle */}
@@ -405,12 +415,15 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
             </Text>
           </Animated.View>
         </Pressable>
-      </BottomSheetView>
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 });
 
 const styles = StyleSheet.create({
+  sheetScroll: {
+    flex: 1,
+  },
   container: {
     paddingHorizontal: 24,
     paddingBottom: 32,
