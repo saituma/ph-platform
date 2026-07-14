@@ -7,8 +7,19 @@ import {
   hydrateCache,
   getCachedData,
   setCachedData,
+  invalidateCachedPath,
   clearApiCache as clearMemoryApiCache,
 } from "./api/cache";
+
+/**
+ * `/progress/entries/12` → `/progress`. A write is scoped to its resource root so it clears the
+ * list and detail reads it affects, without dropping every other cached GET in the app.
+ */
+function resourceRootPath(path: string): string {
+  const withoutQuery = path.split("?")[0] ?? path;
+  const segments = withoutQuery.split("/").filter(Boolean);
+  return segments.length > 0 ? `/${segments[0]}` : "";
+}
 import { isTransportFailure, extractErrorMessage } from "./api/errorUtils";
 import {
   getToken,
@@ -298,6 +309,14 @@ export async function apiRequest<T>(
   const shouldWriteCache = method === "GET" && !options.skipCache && requestCacheGeneration === cacheGeneration;
   if (shouldWriteCache) {
     setCachedData(cacheKey, payload);
+  }
+
+  // A write invalidates cached reads of the same resource. Without this, a screen that saves and
+  // then refetches gets the pre-write body back from the GET cache and looks like nothing
+  // happened — the athlete opts into team features, logs progress, or gets a program assigned,
+  // and the UI keeps showing the old state until the entry expires.
+  if (method !== "GET") {
+    invalidateCachedPath(resourceRootPath(normalizedPath));
   }
 
   return payload as T;

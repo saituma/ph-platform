@@ -19,6 +19,21 @@ export function clearApiCache() {
   apiCache.clear();
 }
 
+/**
+ * Drop cached GETs for a resource after writing to it.
+ *
+ * GET responses are cached for minutes, so a write followed by a refetch used to replay the
+ * pre-write body: opting into team features, assigning a program, and logging a progress entry
+ * all appeared to do nothing. Callers invalidate their client-side query cache, but the HTTP
+ * layer underneath has to be invalidated too or it just serves the stale answer back.
+ */
+export function invalidateCachedPath(pathPrefix: string) {
+  if (!pathPrefix) return;
+  for (const key of [...apiCache.keys()]) {
+    if (key.includes(pathPrefix)) apiCache.delete(key);
+  }
+}
+
 export function getCachedData<T>(cacheKey: string, ttlMs: number): T | null {
   const cached = apiCache.get(cacheKey);
   if (cached && Date.now() - cached.savedAt < ttlMs) {

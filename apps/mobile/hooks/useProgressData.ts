@@ -54,17 +54,27 @@ export type NewMeasurement = Omit<MeasurementEntry, "id">;
 export function useProgressData(token: string | null) {
   const queryClient = useQueryClient();
 
-  const { data: entries = [], isLoading, error: queryError } = useQuery({
+  const { data, isLoading, error: queryError } = useQuery({
     queryKey: queryKeys.progress.entries(),
     queryFn: async () => {
       const res = await apiRequest<{ entries?: ProgressEntry[] }>("/progress/entries", {
         token: token!,
+        // apiRequest caches GETs for 5 minutes and persists that cache across restarts, so
+        // saving an entry and invalidating React Query still replayed the pre-save list —
+        // the athlete logged progress and saw nothing. React Query's staleTime below is the
+        // deduping we actually want here.
+        skipCache: true,
+        forceRefresh: true,
       });
-      return res.entries ?? [];
+      return Array.isArray(res.entries) ? res.entries : [];
     },
     enabled: Boolean(token),
     staleTime: 2 * 60 * 1000,
   });
+
+  // The React Query cache is persisted to AsyncStorage; a rehydrated non-array would slip past
+  // a `= []` default (which only applies to undefined) and crash screens that map over it.
+  const entries = Array.isArray(data) ? data : [];
 
   const error = queryError
     ? (queryError instanceof Error ? queryError.message : "Failed to load progress.")

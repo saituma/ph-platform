@@ -4,6 +4,15 @@ import { apiRequest } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { useSocket } from "@/context/SocketContext";
 
+/**
+ * The API response and the AsyncStorage-persisted React Query cache are both trust boundaries:
+ * either can hand back something that isn't a list (older build, changed payload, truncated
+ * write). Screens iterate these results directly, so a non-array crashes the whole app.
+ */
+function toArray<T>(value: T[] | undefined | null): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export type AssignedProgram = {
   id: number;
   name: string;
@@ -87,7 +96,7 @@ export function useMyPrograms(token: string | null, autoFetch = false) {
   const queryClient = useQueryClient();
   const { socket } = useSocket();
 
-  const { data: programs = [], isLoading, error: queryError } = useQuery({
+  const { data: programsData, isLoading, error: queryError } = useQuery({
     queryKey: queryKeys.programs.myAssigned(),
     queryFn: async () => {
       const res = await apiRequest<{ programs?: AssignedProgram[] }>(
@@ -103,11 +112,13 @@ export function useMyPrograms(token: string | null, autoFetch = false) {
           forceRefresh: true,
         },
       );
-      return res.programs ?? [];
+      return toArray(res.programs);
     },
     enabled: Boolean(token) && autoFetch,
     staleTime: 2 * 60 * 1000,
   });
+
+  const programs = toArray(programsData);
 
   const error = queryError
     ? (queryError instanceof Error ? queryError.message : "Failed to load programs.")
@@ -204,18 +215,24 @@ export function useMySessionExercises(token: string | null) {
 
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
 
-  const { data: exercises = [], isLoading, error: queryError } = useQuery({
+  const { data, isLoading, error: queryError } = useQuery({
     queryKey: queryKeys.programs.sessionExercises(activeSessionId ?? 0),
     queryFn: async () => {
       const res = await apiRequest<{ exercises?: SessionExercise[] }>(
         `/programs/my-sessions/${activeSessionId!}/exercises`,
         { token: token! },
       );
-      return (res.exercises ?? []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return toArray(res.exercises).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     },
     enabled: Boolean(token) && activeSessionId != null,
     staleTime: 2 * 60 * 1000,
   });
+
+  // React Query's `= []` default only applies when data is undefined, and this cache is
+  // persisted to AsyncStorage — a restored entry from an older build (or a truncated write)
+  // can rehydrate as a non-array, and the screen's `for (const ex of exercises)` then throws
+  // and takes the whole app down through the root error boundary.
+  const exercises = toArray(data);
 
   const error = queryError
     ? (queryError instanceof Error ? queryError.message : "Failed to load exercises.")
