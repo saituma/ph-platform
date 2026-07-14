@@ -187,11 +187,8 @@ export async function ensureTeamPublicRun(runLogId: number, viewerTeamId: number
     throw new SocialAccessError("FORBIDDEN", "Run not available");
   }
 
-  const ownerSettings = await getPrivacySettings(r.ownerUserId);
-  if (!ownerSettings.socialEnabled || !ownerSettings.shareRunsPublicly) {
-    throw new SocialAccessError("FORBIDDEN", "Run not available");
-  }
-
+  // Team membership is the consent here (same as listPublicRuns' bypassPrivacy path) — the
+  // owner's global socialEnabled/shareRunsPublicly settings don't apply within their own team.
   return { ownerUserId: r.ownerUserId };
 }
 
