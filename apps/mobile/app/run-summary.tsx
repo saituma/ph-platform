@@ -35,6 +35,7 @@ import {
   TrendingUp,
   Save,
   Lock,
+  NotebookPen,
   Users,
   Check,
 } from "lucide-react-native";
@@ -482,15 +483,15 @@ export default function RunSummaryScreen() {
 
                 <View style={{ marginTop: 22 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <SectionLabel text="PRIVATE NOTES" />
-                    <Lock size={11} color={p.textMuted} style={{ marginBottom: 12 }} />
+                    <SectionLabel text="NOTES" />
+                    <NotebookPen size={11} color={p.textMuted} style={{ marginBottom: 12 }} />
                   </View>
                   <TextInput
                     value={notes}
                     onChangeText={setNotes}
                     onFocus={() => setNotesFocused(true)}
                     onBlur={() => setNotesFocused(false)}
-                    placeholder="How did it go? Only you can see these."
+                    placeholder="How did it go? Your coach can see this."
                     placeholderTextColor={p.textMuted}
                     multiline
                     maxLength={200}
@@ -515,7 +516,7 @@ export default function RunSummaryScreen() {
                   <VisibilityRow
                     icon={Lock}
                     title="Only you"
-                    subtitle="Kept private to you and your coach history"
+                    subtitle="Only you and your coach — not your team feed"
                     selected={privacy === "private"}
                     onPress={() => {
                       Haptics.selectionAsync();

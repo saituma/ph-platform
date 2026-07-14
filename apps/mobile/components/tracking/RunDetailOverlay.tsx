@@ -14,8 +14,10 @@ import {
   Flame,
   Gauge,
   MapPin,
+  NotebookPen,
   Route,
   Share2,
+  Users,
   Zap,
 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
@@ -49,6 +51,18 @@ function formatRunPace(distanceMeters: number, durationSeconds: number): string 
   const mins = Math.floor(secPerKm / 60);
   const secs = Math.round(secPerKm % 60);
   return `${mins}:${String(secs).padStart(2, "0")} /km`;
+}
+
+/** feel_tags is a JSON array of labels; tolerate legacy/corrupt rows rather than crashing the sheet. */
+function parseFeelTags(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((t): t is string => typeof t === "string" && t.length > 0);
+  } catch {
+    return [];
+  }
 }
 
 function effortScoreForRun(run: RunRecord): number {
@@ -160,6 +174,7 @@ function RunDetailContent({
   onShare: () => void;
 }) {
   const coords = useMemo(() => parseCoords(run.coordinates), [run.coordinates]);
+  const feelTags = useMemo(() => parseFeelTags(run.feel_tags), [run.feel_tags]);
   const score = effortScoreForRun(run);
   const label = sportLabel(run.sport);
   const date = new Date(run.date).toLocaleDateString(undefined, {
@@ -228,6 +243,36 @@ function RunDetailContent({
             <View style={{ backgroundColor: p.accentSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 }}>
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>{score}/100</Text>
             </View>
+          </View>
+
+          {feelTags.length > 0 && (
+            <View style={{ backgroundColor: p.cardWhite, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: p.divider, gap: 10 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2 }}>HOW IT FELT</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {feelTags.map((tag) => (
+                  <View key={tag} style={{ backgroundColor: p.accentSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.accent }}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {run.notes ? (
+            <View style={{ backgroundColor: p.cardWhite, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: p.divider, gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <NotebookPen size={14} color={p.textSecondary} />
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: p.textSecondary, letterSpacing: 2 }}>NOTES</Text>
+              </View>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textPrimary, lineHeight: 20 }}>{run.notes}</Text>
+            </View>
+          ) : null}
+
+          <View style={{ backgroundColor: p.cardWhite, borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: p.divider }}>
+            <Users size={18} color={p.textMuted} />
+            <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textMuted, flex: 1 }}>
+              {run.privacy === "team" ? "Shared with your team" : "Visible to you and your coach"}
+            </Text>
           </View>
 
           {coords.length < 2 && (
