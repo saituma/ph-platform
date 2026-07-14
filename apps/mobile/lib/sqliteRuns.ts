@@ -203,7 +203,8 @@ export async function getRecentRunsAsync(limit: number = 3, userId?: string | nu
   );
 }
 
-export function getWeeklySummaries(now: Date = new Date(), userId?: string | null) {
+/** Async — a sync read here blocks the JS thread, which stalls tab switching while it runs. */
+export async function getWeeklySummaries(now: Date = new Date(), userId?: string | null) {
   ensureInitialized();
   const windowEnd = new Date(now);
   windowEnd.setHours(23, 59, 59, 999);
@@ -211,55 +212,40 @@ export function getWeeklySummaries(now: Date = new Date(), userId?: string | nul
   windowStart.setDate(windowStart.getDate() - 6);
   windowStart.setHours(0, 0, 0, 0);
 
-  let summary: {
+  type SummaryRow = {
     totalDistance: number | null;
     totalTime: number | null;
     numRuns: number | null;
     draftDistance: number | null;
     draftTime: number | null;
     draftRuns: number | null;
-  } | null;
-  if (userId) {
-    summary = db.getFirstSync<{
-      totalDistance: number | null;
-      totalTime: number | null;
-      numRuns: number | null;
-      draftDistance: number | null;
-      draftTime: number | null;
-      draftRuns: number | null;
-    }>(
-      `SELECT
-        COALESCE(SUM(distance_meters), 0) AS totalDistance,
-        COALESCE(SUM(duration_seconds), 0) AS totalTime,
-        COUNT(*) AS numRuns,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN distance_meters ELSE 0 END), 0) AS draftDistance,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN duration_seconds ELSE 0 END), 0) AS draftTime,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN 1 ELSE 0 END), 0) AS draftRuns
-       FROM runs
-       WHERE date >= ? AND date <= ? AND user_id = ?`,
-      [windowStart.toISOString(), windowEnd.toISOString(), userId],
-    );
-  } else {
-    summary = db.getFirstSync<{
-      totalDistance: number | null;
-      totalTime: number | null;
-      numRuns: number | null;
-      draftDistance: number | null;
-      draftTime: number | null;
-      draftRuns: number | null;
-    }>(
-      `SELECT
-        COALESCE(SUM(distance_meters), 0) AS totalDistance,
-        COALESCE(SUM(duration_seconds), 0) AS totalTime,
-        COUNT(*) AS numRuns,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN distance_meters ELSE 0 END), 0) AS draftDistance,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN duration_seconds ELSE 0 END), 0) AS draftTime,
-        COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN 1 ELSE 0 END), 0) AS draftRuns
-       FROM runs
-       WHERE date >= ? AND date <= ? AND user_id IS NULL`,
-      [windowStart.toISOString(), windowEnd.toISOString()],
-    );
-  }
+  };
+
+  const summary = userId
+    ? await db.getFirstAsync<SummaryRow>(
+        `SELECT
+          COALESCE(SUM(distance_meters), 0) AS totalDistance,
+          COALESCE(SUM(duration_seconds), 0) AS totalTime,
+          COUNT(*) AS numRuns,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN distance_meters ELSE 0 END), 0) AS draftDistance,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN duration_seconds ELSE 0 END), 0) AS draftTime,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN 1 ELSE 0 END), 0) AS draftRuns
+         FROM runs
+         WHERE date >= ? AND date <= ? AND user_id = ?`,
+        [windowStart.toISOString(), windowEnd.toISOString(), userId],
+      )
+    : await db.getFirstAsync<SummaryRow>(
+        `SELECT
+          COALESCE(SUM(distance_meters), 0) AS totalDistance,
+          COALESCE(SUM(duration_seconds), 0) AS totalTime,
+          COUNT(*) AS numRuns,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN distance_meters ELSE 0 END), 0) AS draftDistance,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN duration_seconds ELSE 0 END), 0) AS draftTime,
+          COALESCE(SUM(CASE WHEN COALESCE(is_draft, 0) = 1 THEN 1 ELSE 0 END), 0) AS draftRuns
+         FROM runs
+         WHERE date >= ? AND date <= ? AND user_id IS NULL`,
+        [windowStart.toISOString(), windowEnd.toISOString()],
+      );
 
   return {
     totalDistance: summary?.totalDistance ?? 0,

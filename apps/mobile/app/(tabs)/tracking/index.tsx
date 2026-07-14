@@ -218,7 +218,15 @@ export default function TrackingHomeScreen() {
   // History is read from SQLite asynchronously, so without this the empty state flashes
   // ("No runs tracked") before the rows arrive.
   const [runsLoading, setRunsLoading] = useState(true);
-  const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [weeklyStats, setWeeklyStats] = useState({
+    totalDistance: 0,
+    totalTime: 0,
+    numRuns: 0,
+    draftDistance: 0,
+    draftTime: 0,
+    draftRuns: 0,
+  });
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
 
   type TrackingGoal = {
@@ -270,11 +278,12 @@ export default function TrackingHomeScreen() {
       .then(setRuns)
       .catch(() => setRuns([]))
       .finally(() => setRunsLoading(false));
-    try {
-      setWeeklyStats(getWeeklySummaries(new Date(), userId));
-    } catch {
-      setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0, draftDistance: 0, draftTime: 0, draftRuns: 0 });
-    }
+    getWeeklySummaries(new Date(), userId)
+      .then(setWeeklyStats)
+      .catch(() =>
+        setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0, draftDistance: 0, draftTime: 0, draftRuns: 0 }),
+      )
+      .finally(() => setStatsLoading(false));
   }, [userId]);
 
   const syncRunsFromServer = useCallback(async () => {
@@ -565,26 +574,38 @@ export default function TrackingHomeScreen() {
                 <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Route size={14} color={p.accent} />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {(displayWeeklyStats.totalDistance / 1000).toFixed(1)}
-                    </Text>
+                    {statsLoading ? (
+                      <Skeleton width={28} height={14} style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
+                    ) : (
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                        {(displayWeeklyStats.totalDistance / 1000).toFixed(1)}
+                      </Text>
+                    )}
                     <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: "rgba(255,255,255,0.5)" }}>km</Text>
                   </View>
                 </BlurView>
                 <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Timer size={14} color={p.accent} />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {weeklyTimeLabel}
-                    </Text>
+                    {statsLoading ? (
+                      <Skeleton width={36} height={14} style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
+                    ) : (
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                        {weeklyTimeLabel}
+                      </Text>
+                    )}
                   </View>
                 </BlurView>
                 <BlurView intensity={40} tint="dark" style={{ borderRadius: 100, overflow: "hidden" }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
                     <Zap size={14} color={p.accent} />
-                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
-                      {displayWeeklyStats.numRuns}
-                    </Text>
+                    {statsLoading ? (
+                      <Skeleton width={14} height={14} style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
+                    ) : (
+                      <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                        {displayWeeklyStats.numRuns}
+                      </Text>
+                    )}
                   </View>
                 </BlurView>
               </Animated.View>
@@ -783,17 +804,21 @@ export default function TrackingHomeScreen() {
             </View>
 
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-              <AnimatedStat
-                value={displayWeeklyStats.totalDistance / 1000}
-                decimals={1}
-                style={{
-                  fontFamily: "Outfit-Bold",
-                  fontSize: 64,
-                  lineHeight: 68,
-                  color: PASTEL_MINT_TEXT,
-                  letterSpacing: -2,
-                }}
-              />
+              {statsLoading ? (
+                <Skeleton width={140} height={64} />
+              ) : (
+                <AnimatedStat
+                  value={displayWeeklyStats.totalDistance / 1000}
+                  decimals={1}
+                  style={{
+                    fontFamily: "Outfit-Bold",
+                    fontSize: 64,
+                    lineHeight: 68,
+                    color: PASTEL_MINT_TEXT,
+                    letterSpacing: -2,
+                  }}
+                />
+              )}
               <Text
                 style={{
                   fontFamily: "Outfit-Medium",
@@ -830,9 +855,13 @@ export default function TrackingHomeScreen() {
                 <Clock size={18} color={PASTEL_PEACH_TEXT} />
               </View>
               <View style={{ gap: 2, marginTop: 8 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_PEACH_TEXT, letterSpacing: -1 }}>
-                  {weeklyTimeLabel}
-                </Text>
+                {statsLoading ? (
+                  <Skeleton width={60} height={28} />
+                ) : (
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_PEACH_TEXT, letterSpacing: -1 }}>
+                    {weeklyTimeLabel}
+                  </Text>
+                )}
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_PEACH_TEXT, opacity: 0.6 }}>
                   Time
                 </Text>
@@ -855,9 +884,13 @@ export default function TrackingHomeScreen() {
                 <Gauge size={18} color={PASTEL_LAVENDER_TEXT} />
               </View>
               <View style={{ gap: 2, marginTop: 8 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LAVENDER_TEXT, letterSpacing: -1 }}>
-                  {averageRunDistanceKm}
-                </Text>
+                {statsLoading ? (
+                  <Skeleton width={60} height={28} />
+                ) : (
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 28, color: PASTEL_LAVENDER_TEXT, letterSpacing: -1 }}>
+                    {averageRunDistanceKm}
+                  </Text>
+                )}
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_LAVENDER_TEXT, opacity: 0.6 }}>
                   km / run avg
                 </Text>
@@ -884,9 +917,13 @@ export default function TrackingHomeScreen() {
                 <Zap size={22} color={PASTEL_SKY_TEXT} />
               </View>
               <View style={{ gap: 2 }}>
-                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: PASTEL_SKY_TEXT, letterSpacing: -0.5 }}>
-                  {displayWeeklyStats.numRuns > 0 ? "Active" : "Ready"}
-                </Text>
+                {statsLoading ? (
+                  <Skeleton width={50} height={22} />
+                ) : (
+                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 22, color: PASTEL_SKY_TEXT, letterSpacing: -0.5 }}>
+                    {displayWeeklyStats.numRuns > 0 ? "Active" : "Ready"}
+                  </Text>
+                )}
                 <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: PASTEL_SKY_TEXT, opacity: 0.6 }}>
                   Status
                 </Text>
@@ -906,9 +943,13 @@ export default function TrackingHomeScreen() {
                 ...BENTO_BORDER,
               }}
             >
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 32, color: PASTEL_ROSE_TEXT, letterSpacing: -1 }}>
-                {displayWeeklyStats.numRuns}
-              </Text>
+              {statsLoading ? (
+                <Skeleton width={32} height={32} />
+              ) : (
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 32, color: PASTEL_ROSE_TEXT, letterSpacing: -1 }}>
+                  {displayWeeklyStats.numRuns}
+                </Text>
+              )}
               <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: PASTEL_ROSE_TEXT, opacity: 0.6 }}>
                 runs
               </Text>
