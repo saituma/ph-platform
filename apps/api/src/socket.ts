@@ -25,7 +25,7 @@ import { getRedisConnection } from "./jobs/connection";
 import { createRealtimeTrace, logRealtimeLatency } from "./lib/realtime-latency";
 import { MAX_MESSAGE_LENGTH, MAX_REPLY_PREVIEW_LENGTH } from "./lib/message-limits";
 import { SocketRateLimiter } from "./lib/socket-rate-limit";
-import { markOnline, markOffline, setActiveThread, getOnlineSubset } from "./lib/presence";
+import { markOnline, markOffline, setActiveThread, getOnlineSubset, startPresenceRefresh } from "./lib/presence";
 
 type AuthPayload = {
   sub?: string;
@@ -267,6 +267,10 @@ export function initSocket(server: HttpServer) {
 
   const log = createLogger({ component: "socket" });
 
+  // Re-arms the TTL on the presence keys this process owns. Without it a long-idle user's key
+  // expires and they silently drop offline while still connected.
+  startPresenceRefresh();
+
   // Fix B: lastSeenAt debouncer — shared across all sockets in this process.
   const lastSeenDebouncer = createLastSeenDebouncer((userId: number) => {
     db.update(userTable)
@@ -408,13 +412,13 @@ export function initSocket(server: HttpServer) {
     // names (mobile listens for `presence:update`), so the whole thing burned CPU for nobody.
     //
     // Now: presence goes only to the people entitled to see it — this user's DM partners.
-    markOnline(userId);
-
-    // Both connect-time lookups run concurrently. They are independent, and reconnect storms make
-    // this the hottest path on the server — a mobile network flap replays it for every client.
+    // Both connect-time lookups run concurrently with the presence write. They are independent, and
+    // reconnect storms make this the hottest path on the server — a mobile network flap replays it
+    // for every client.
     const [peersResult, groupsResult] = await Promise.allSettled([
       listDirectPeerIds(userId),
       listGroupsForUser(userId),
+      markOnline(userId),
     ]);
 
     const dmPeerIds = peersResult.status === "fulfilled" ? peersResult.value : [];
@@ -424,7 +428,7 @@ export function initSocket(server: HttpServer) {
     socket.data.dmPeerIds = dmPeerIds;
 
     // Tell this client which of ITS peers are online (bounded by who they talk to, not by N).
-    socket.emit("presence:sync", { online: getOnlineSubset(dmPeerIds) });
+    socket.emit("presence:sync", { online: await getOnlineSubset(dmPeerIds) });
     // Tell those peers this user came online. Bounded fan-out.
     emitPresenceChanged(io, userId, dmPeerIds, true);
 
@@ -680,7 +684,7 @@ export function initSocket(server: HttpServer) {
     // Was a raw socket.on: no schema, no rate limit. Routed through guarded() so an
     // unbounded string can't be parked in the presence map.
     guarded("thread:focus", threadFocusSchema, async ({ threadId }) => {
-      setActiveThread(userId, threadId?.trim() || null);
+      await setActiveThread(userId, threadId?.trim() || null);
     });
 
     socket.on("disconnect", (reason) => {
@@ -694,7 +698,7 @@ export function initSocket(server: HttpServer) {
         "Socket disconnected",
       );
       socketRateLimiter.release(socket.id);
-      markOffline(userId);
+      void markOffline(userId);
       // Was io.emit — a broadcast to every connected socket on every disconnect. Mobile networks
       // flap constantly, so this was the other half of the O(N²) storm. Only this user's DM
       // partners are told, and only they ever needed to know.

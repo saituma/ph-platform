@@ -33,7 +33,7 @@ export async function batchedPush(
 ): Promise<void> {
   // Cheap early-out. The outbox worker re-checks presence at delivery time, which is what
   // actually matters: the recipient may open the thread during the 3-second window.
-  if (isUserInThread(userId, threadId)) return;
+  if (await isUserInThread(userId, threadId)) return;
   if (await isThreadMuted(userId, threadId)) return;
 
   await createCoalescingPushIntent(

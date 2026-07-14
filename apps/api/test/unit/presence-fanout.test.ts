@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
 
+/** Exercises the process-local fallback: no Redis, so presence must still be correct on one dyno. */
+jest.mock("../../src/jobs/connection", () => ({ getRedisConnection: () => null }));
+
 import { getOnlineSubset, markOffline, markOnline, onlineCount } from "../../src/lib/presence";
 
 const socketSrc = fs.readFileSync(path.resolve(__dirname, "../../src/socket.ts"), "utf8");
@@ -28,8 +31,8 @@ const socketCode = socketSrc
  * Presence now goes only to a user's DM partners.
  */
 describe("presence fan-out", () => {
-  afterEach(() => {
-    for (let id = 1; id <= 50; id++) markOffline(id);
+  afterEach(async () => {
+    for (let id = 1; id <= 50; id++) await markOffline(id);
   });
 
   describe("the global broadcast cannot come back", () => {
@@ -44,33 +47,33 @@ describe("presence fan-out", () => {
   });
 
   describe("getOnlineSubset", () => {
-    test("returns only the candidates that are online — never the whole roster", () => {
-      markOnline(1);
-      markOnline(2);
-      markOnline(3);
+    test("returns only the candidates that are online — never the whole roster", async () => {
+      await markOnline(1);
+      await markOnline(2);
+      await markOnline(3);
 
       // A user whose only DM partner is 2 must learn about 2 and nobody else.
-      expect(getOnlineSubset([2])).toEqual([2]);
+      await expect(getOnlineSubset([2])).resolves.toEqual([2]);
     });
 
-    test("never leaks users the caller did not ask about", () => {
-      for (let id = 1; id <= 40; id++) markOnline(id);
+    test("never leaks users the caller did not ask about", async () => {
+      for (let id = 1; id <= 40; id++) await markOnline(id);
       expect(onlineCount()).toBe(40);
 
       // 40 users online, but a caller with two peers sees at most two.
-      const visible = getOnlineSubset([7, 9]);
+      const visible = await getOnlineSubset([7, 9]);
       expect(visible).toEqual([7, 9]);
       expect(visible.length).toBeLessThan(onlineCount());
     });
 
-    test("omits peers who are offline", () => {
-      markOnline(5);
-      expect(getOnlineSubset([5, 6])).toEqual([5]);
+    test("omits peers who are offline", async () => {
+      await markOnline(5);
+      await expect(getOnlineSubset([5, 6])).resolves.toEqual([5]);
     });
 
-    test("an isolated user with no peers gets an empty list, not the roster", () => {
-      for (let id = 1; id <= 30; id++) markOnline(id);
-      expect(getOnlineSubset([])).toEqual([]);
+    test("an isolated user with no peers gets an empty list, not the roster", async () => {
+      for (let id = 1; id <= 30; id++) await markOnline(id);
+      await expect(getOnlineSubset([])).resolves.toEqual([]);
     });
   });
 });

@@ -45,7 +45,7 @@ async function drainOnce(): Promise<void> {
           // Re-check presence at DELIVERY time, not enqueue time. The recipient may have opened
           // the thread during the coalescing window — pushing them a notification for a message
           // they are currently reading is the exact thing this suppression exists to prevent.
-          if (threadId && isUserInThread(p.userId, threadId)) {
+          if (threadId && (await isUserInThread(p.userId, threadId))) {
             logger.info({ outboxId: row.id, userId: p.userId }, "outbox.push_suppressed_user_in_thread");
             await markSent(row.id);
             continue;

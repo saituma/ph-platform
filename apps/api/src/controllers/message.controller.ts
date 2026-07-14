@@ -128,11 +128,14 @@ export async function listInbox(req: Request, res: Response) {
     shouldIncludeAdminThreads ? listConversationThreadsAdmin(userId, { limit: pageLimit }) : Promise.resolve([]),
   ]);
 
+  // Admin-oversight threads are peers too: an admin watching the shared inbox needs their
+  // lastSeenAt, even though they never exchanged a DM with them personally.
   const peerIds = Array.from(
     new Set(
-      (conversationThreads ?? [])
-        .map((thread) => Number(thread.peerUserId))
-        .filter((id) => Number.isFinite(id) && id > 0 && id !== userId),
+      [
+        ...(conversationThreads ?? []).map((thread) => Number(thread.peerUserId)),
+        ...adminThreads.map((thread) => Number(thread.userId)),
+      ].filter((id) => Number.isFinite(id) && id > 0 && id !== userId),
     ),
   );
 
@@ -206,15 +209,16 @@ export async function listInbox(req: Request, res: Response) {
     const existing = directByPeer.get(peerUserId);
     const threadTime = toIsoTime(thread.time);
     if (!existing) {
+      const peer = peerById.get(peerUserId);
       directByPeer.set(peerUserId, {
         peerUserId,
         name: String(thread.name ?? `User ${peerUserId}`),
         role: "Athlete",
-        avatarUrl: null,
+        avatarUrl: peer?.profilePicture ?? null,
         preview: stripReplyPrefix(thread.preview) || "Start a conversation",
         unread: Number(thread.unread ?? 0) || 0,
         updatedAt: threadTime,
-        lastSeenAt: null,
+        lastSeenAt: peer?.lastSeenAt ? peer.lastSeenAt.toISOString() : null,
       });
       continue;
     }
