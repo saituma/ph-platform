@@ -78,12 +78,21 @@ export type ClientDataAthlete = ClientDataAthleteRow & {
   guardianRelationToAthlete?: string | null;
 };
 
+export type ClientDataProgramProgress = {
+  programId: number;
+  programName: string;
+  totalSessions: number;
+  completedSessions: number;
+  percentComplete: number;
+};
+
 export type ClientDataDetail = {
   athlete: ClientDataAthlete;
   profile: {
     nutritionTargets?: Record<string, unknown> | null;
     nutritionOnboarding?: Record<string, unknown> | null;
     streak?: Record<string, unknown> | null;
+    programProgress?: ClientDataProgramProgress[];
     counts: Record<string, number>;
   };
   sections: Record<ClientDataSectionKey, ClientDataPage>;

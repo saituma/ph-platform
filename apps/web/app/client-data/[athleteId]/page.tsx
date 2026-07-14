@@ -38,6 +38,7 @@ import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
 import {
   type ClientDataPage,
+  type ClientDataProgramProgress,
   type ClientDataRecord,
   type ClientDataSectionKey,
   useGetClientDataAthleteDetailQuery,
@@ -193,6 +194,37 @@ function MetricCard({
         <Icon className="h-4 w-4 text-primary" />
       </div>
       <p className="mt-3 text-2xl font-black text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function ProgramProgressCard({ programs }: { programs: ClientDataProgramProgress[] }) {
+  if (!programs.length) return null;
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <Dumbbell className="h-4 w-4 text-primary" />
+        <h2 className="text-sm font-black uppercase tracking-wide text-foreground">Program Progress</h2>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {programs.map((program) => (
+          <div key={program.programId} className="rounded-lg bg-secondary/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-sm font-semibold text-foreground">{program.programName}</p>
+              <p className="shrink-0 text-xs font-bold text-muted-foreground">
+                {program.completedSessions}/{program.totalSessions} sessions
+              </p>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.min(100, program.percentComplete)}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{program.percentComplete}% complete</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -459,6 +491,8 @@ export default function ClientDataDetailPage() {
           <MetricCard label="Videos" value={counts.videos ?? 0} icon={Video} />
           <MetricCard label="Bookings" value={counts.bookings ?? 0} icon={CalendarCheck} />
         </section>
+
+        <ProgramProgressCard programs={data.profile.programProgress ?? []} />
 
         <section className="rounded-lg border border-border bg-card p-4">
           <div className="mb-4 flex items-center gap-2">

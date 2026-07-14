@@ -14,9 +14,13 @@ import {
   nutritionOnboardingProfileTable,
   nutritionTargetsTable,
   physioRefferalsTable,
+  programAssignmentTable,
   programSectionCompletionTable,
   programSectionContentTable,
+  programSessionCompletionTable,
+  programTable,
   runLogTable,
+  sessionTable,
   sleepLogsTable,
   subscriptionRequestTable,
   teamTable,
@@ -564,6 +568,33 @@ async function getCounts(athleteId: number, athleteUserId: number) {
   };
 }
 
+async function getProgramProgress(athleteId: number) {
+  const rows = await db
+    .select({
+      programId: programAssignmentTable.programId,
+      programName: programTable.name,
+      totalSessions: sql<number>`count(distinct ${sessionTable.id})::int`,
+      completedSessions: sql<number>`count(distinct ${programSessionCompletionTable.sessionId})::int`,
+    })
+    .from(programAssignmentTable)
+    .innerJoin(programTable, eq(programTable.id, programAssignmentTable.programId))
+    .leftJoin(sessionTable, eq(sessionTable.programId, programAssignmentTable.programId))
+    .leftJoin(
+      programSessionCompletionTable,
+      and(
+        eq(programSessionCompletionTable.sessionId, sessionTable.id),
+        eq(programSessionCompletionTable.athleteId, athleteId),
+      ),
+    )
+    .where(eq(programAssignmentTable.athleteId, athleteId))
+    .groupBy(programAssignmentTable.programId, programTable.name);
+
+  return rows.map((row) => ({
+    ...row,
+    percentComplete: row.totalSessions > 0 ? Math.round((row.completedSessions / row.totalSessions) * 100) : 0,
+  }));
+}
+
 export async function getClientDataAthleteDetail(
   athleteId: number,
   input?: { limit?: number | null } & ClientDataAccess,
@@ -571,10 +602,11 @@ export async function getClientDataAthleteDetail(
   const athlete = await getAthleteBase(athleteId, input);
   if (!athlete) return null;
 
-  const [nutritionTargets, nutritionOnboarding, streak, counts, ...sectionPages] = await Promise.all([
+  const [nutritionTargets, nutritionOnboarding, streak, programProgress, counts, ...sectionPages] = await Promise.all([
     db.select().from(nutritionTargetsTable).where(eq(nutritionTargetsTable.userId, athlete.athleteUserId)).limit(1),
     db.select().from(nutritionOnboardingProfileTable).where(eq(nutritionOnboardingProfileTable.userId, athlete.athleteUserId)).limit(1),
     db.select().from(userStreakTable).where(eq(userStreakTable.userId, athlete.athleteUserId)).limit(1),
+    getProgramProgress(athlete.athleteId),
     getCounts(athlete.athleteId, athlete.athleteUserId),
     ...CLIENT_DATA_SECTIONS.map((section) =>
       pageBySection({
@@ -598,6 +630,7 @@ export async function getClientDataAthleteDetail(
       nutritionTargets: nutritionTargets[0] ?? null,
       nutritionOnboarding: nutritionOnboarding[0] ?? null,
       streak: streak[0] ?? null,
+      programProgress,
       counts,
     },
     sections,
