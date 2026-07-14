@@ -71,6 +71,7 @@ import {
 } from "@/components/tracking/FeelTagSelector";
 import { queueRunPushToCloud } from "@/lib/runSync";
 import { SPORT_LABELS } from "@/components/tracking/active-run/ActiveRunStatsCard";
+import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 
 export default function RunSummaryScreen() {
   const { height: screenHeight } = useWindowDimensions();
@@ -92,6 +93,23 @@ export default function RunSummaryScreen() {
     setPrivacy,
   } = useRunStore();
   const userId = useAppSelector((s) => s.user.profile.id ?? null);
+  const appRole = useAppSelector((s) => s.user.appRole);
+  const authTeamMembership = useAppSelector((s) => s.user.authTeamMembership);
+  const managedAthletes = useAppSelector((s) => s.user.managedAthletes);
+
+  // Athletes with no team have no feed to share into: the team endpoints reject them with
+  // NOT_TEAM, so offering "Team" would silently send the run nowhere.
+  const canShareToTeam = shouldUseTeamTrackingFeatures({
+    appRole,
+    authTeamMembership,
+    firstManagedAthlete: managedAthletes[0] ?? null,
+  });
+
+  // The store keeps `privacy` across runs, so an athlete who left their team could otherwise
+  // still be carrying "team" — which would sync as public with no feed to land in.
+  useEffect(() => {
+    if (!canShareToTeam && privacy === "team") setPrivacy("private");
+  }, [canShareToTeam, privacy, setPrivacy]);
 
   const persistedThisSummaryRef = useRef(false);
   const [mapStyle, setMapStyle] = useState<TrackingMapStyle>("road");
@@ -525,29 +543,32 @@ export default function RunSummaryScreen() {
                   />
                 </View>
 
-                <View style={{ marginTop: 22 }}>
-                  <SectionLabel text="WHO CAN SEE THIS" />
-                  <VisibilityRow
-                    icon={Lock}
-                    title="Only you"
-                    subtitle="Only you and your coach — not your team feed"
-                    selected={privacy === "private"}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setPrivacy("private");
-                    }}
-                  />
-                  <VisibilityRow
-                    icon={Users}
-                    title="Team"
-                    subtitle="Shared to your team activity feed"
-                    selected={privacy === "team"}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setPrivacy("team");
-                    }}
-                  />
-                </View>
+                {/* No team means no feed to share into, so there is nothing to choose between. */}
+                {canShareToTeam && (
+                  <View style={{ marginTop: 22 }}>
+                    <SectionLabel text="WHO CAN SEE THIS" />
+                    <VisibilityRow
+                      icon={Lock}
+                      title="Only you"
+                      subtitle="Only you and your coach — not your team feed"
+                      selected={privacy === "private"}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setPrivacy("private");
+                      }}
+                    />
+                    <VisibilityRow
+                      icon={Users}
+                      title="Team"
+                      subtitle="Shared to your team activity feed"
+                      selected={privacy === "team"}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setPrivacy("team");
+                      }}
+                    />
+                  </View>
+                )}
               </View>
 
               {/* Action buttons */}
