@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, Linking, Pressable, StyleSheet, View } from "react-native";
+import { AppState, Linking, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useEventListener } from "expo";
 import { useVideoPlayer, VideoView, type VideoView as ExpoVideoView } from "expo-video";
 import * as Haptics from "expo-haptics";
+import { X } from "lucide-react-native";
 import { Text } from "@/components/ScaledText";
 import { IntroVideoControls } from "./IntroVideoControls";
 import { IntroVideoPoster } from "./IntroVideoPoster";
@@ -31,6 +32,7 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   const [hasStarted, setHasStarted] = useState(false);
   const [firstFrame, setFirstFrame] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
   const [position, setPosition] = useState(positionRef.current);
   const [duration, setDuration] = useState(0);
   const [bufferedPosition, setBufferedPosition] = useState(0);
@@ -45,13 +47,18 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
     if (isPlaying) controlTimer.current = setTimeout(() => setControlsVisible(false), 2500);
   }, [isPlaying]);
   useEffect(() => { scheduleHide(); return () => { if (controlTimer.current) clearTimeout(controlTimer.current); }; }, [scheduleHide]);
-  useEffect(() => { const sub = AppState.addEventListener("change", (state) => { if (state !== "active") {
+  useEffect(() => { const sub = AppState.addEventListener("change", (state) => { if (state === "background") {
     writeIntroProgress(url, player.currentTime ?? positionRef.current);
     player.pause(); pendingPlay.current = false; sourceReleased.current = true;
     setHasStarted(false); setFirstFrame(false); setIsLoading(false);
     void player.replaceAsync(null).catch(() => {});
   } }); return () => sub.remove(); }, [player, url]);
-  useEffect(() => () => { writeIntroProgress(url, player.currentTime ?? positionRef.current); try { player.pause(); } catch {} if (retryTimer.current) clearTimeout(retryTimer.current); }, [player, url]);
+  useEffect(() => () => {
+    let last = positionRef.current;
+    try { last = player.currentTime ?? last; player.pause(); } catch {}
+    writeIntroProgress(url, last);
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+  }, [player, url]);
 
   useEventListener(player, "sourceLoad", (event) => {
     if (event.duration > 0) setDuration(event.duration);
@@ -108,10 +115,18 @@ export const DirectIntroPlayer = React.memo(function DirectIntroPlayer({ url, po
   </View></View>;
 
   return <View style={styles.fill}>
-    <VideoView ref={videoRef} player={player} style={styles.fill} contentFit="contain" nativeControls={false} fullscreenOptions={{ enable: true, orientation: "default" }} onFirstFrameRender={() => { retryCount.current = 0; setFirstFrame(true); setIsLoading(false); }} />
+    {!fullscreenOpen && <VideoView ref={videoRef} player={player} style={styles.fill} contentFit="contain" nativeControls={false} fullscreenOptions={{ enable: false, orientation: "default" }} onFirstFrameRender={() => { retryCount.current = 0; setFirstFrame(true); setIsLoading(false); }} {...(Platform.OS === "android" ? { surfaceType: "textureView" as const } : {})} />}
     {(!hasStarted || (!firstFrame && isLoading) || isEnded) && <IntroVideoPoster posterUrl={posterUrl} loading={hasStarted && isLoading && !firstFrame} replay={isEnded} duration={duration} onPress={play} />}
     {hasStarted && firstFrame && !isEnded ? <Pressable accessibilityRole="button" accessibilityLabel="Show or hide video controls" onPress={handleStageTap} style={styles.fill} /> : null}
-    {hasStarted && firstFrame && !isEnded && <IntroVideoControls visible={shouldShowIntroControls({ requestedVisible: controlsVisible, isPlaying, isLoading })} isPlaying={isPlaying} isMuted={isMuted} isEnded={isEnded} position={position} duration={duration} bufferedPosition={bufferedPosition} accentColor={accentColor} onTogglePlay={togglePlay} onToggleMute={() => { player.muted = !player.muted; }} onSeekStart={seekStart} onSeek={seek} onSeekEnd={seekEnd} onFullscreen={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); void videoRef.current?.enterFullscreen(); }} />}
+    {hasStarted && firstFrame && !isEnded && <IntroVideoControls visible={shouldShowIntroControls({ requestedVisible: controlsVisible, isPlaying, isLoading })} isPlaying={isPlaying} isMuted={isMuted} isEnded={isEnded} position={position} duration={duration} bufferedPosition={bufferedPosition} accentColor={accentColor} onTogglePlay={togglePlay} onToggleMute={() => { player.muted = !player.muted; }} onSeekStart={seekStart} onSeek={seek} onSeekEnd={seekEnd} onFullscreen={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFullscreenOpen(true); }} />}
+    <Modal visible={fullscreenOpen} animationType="fade" onRequestClose={() => setFullscreenOpen(false)} supportedOrientations={["portrait", "landscape"]}>
+      <View style={styles.fullscreenModal}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Exit fullscreen" onPress={() => setFullscreenOpen(false)} style={styles.fullscreenClose}>
+          <X size={22} color="#FFF" />
+        </Pressable>
+        <VideoView player={player} style={styles.fill} contentFit="contain" nativeControls {...(Platform.OS === "android" ? { surfaceType: "textureView" as const } : {})} />
+      </View>
+    </Modal>
   </View>;
 });
-const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFillObject }, error: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 14, backgroundColor: "#111" }, errorTitle: { color: "#FFF", fontFamily: "Outfit-Bold", fontSize: 16 }, errorActions: { flexDirection: "row", alignItems: "center", gap: 8 }, retry: { minWidth: 88, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF" }, retryText: { color: "#111", fontFamily: "Outfit-Bold", fontSize: 14 }, external: { minHeight: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" }, externalText: { color: "#FFF", fontFamily: "Outfit-Medium", fontSize: 13 } });
+const styles = StyleSheet.create({ fill: { ...StyleSheet.absoluteFillObject }, fullscreenModal: { flex: 1, backgroundColor: "#000" }, fullscreenClose: { position: "absolute", top: 18, right: 18, zIndex: 20, width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22, backgroundColor: "rgba(0,0,0,0.55)" }, error: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", gap: 14, backgroundColor: "#111" }, errorTitle: { color: "#FFF", fontFamily: "Outfit-Bold", fontSize: 16 }, errorActions: { flexDirection: "row", alignItems: "center", gap: 8 }, retry: { minWidth: 88, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF" }, retryText: { color: "#111", fontFamily: "Outfit-Bold", fontSize: 14 }, external: { minHeight: 44, paddingHorizontal: 14, alignItems: "center", justifyContent: "center" }, externalText: { color: "#FFF", fontFamily: "Outfit-Medium", fontSize: 13 } });
