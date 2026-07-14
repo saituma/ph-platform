@@ -32,6 +32,11 @@ const JOBS: ScheduledJob[] = [
     run: async () => (await import("../services/nutrition-reminder.service")).runNutritionLogReminderSweep(),
   },
   {
+    name: "meal-reminder",
+    cadence: { everyMs: 5 * 60_000 },
+    run: async () => (await import("../services/nutrition-reminder.service")).runMealReminderSweep(),
+  },
+  {
     name: "session-reminder",
     cadence: { everyMs: 30 * 60_000 },
     run: async () => (await import("../services/session-reminder.service")).sendSessionReminders(),

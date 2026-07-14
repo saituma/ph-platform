@@ -137,6 +137,11 @@ export const userTable = pgTable("users", {
   lastNutritionReminderDateKey: varchar("last_nutrition_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
   lastNutritionReminderSentAt: timestamp("last_nutrition_reminder_sent_at"),
 
+  mealReminderEnabled: boolean("meal_reminder_enabled").notNull().default(true),
+  lastBreakfastReminderDateKey: varchar("last_breakfast_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
+  lastLunchReminderDateKey: varchar("last_lunch_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
+  lastDinnerReminderDateKey: varchar("last_dinner_reminder_date_key", { length: 10 }), // 'YYYY-MM-DD'
+
   lastSeenAt: timestamp("last_seen_at"),
 
   termsAcceptedAt: timestamp("terms_accepted_at"),

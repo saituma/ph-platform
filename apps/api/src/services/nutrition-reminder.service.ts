@@ -193,3 +193,106 @@ export async function runNutritionLogReminderSweep() {
 
   return { sent, skippedNotYet, skippedLogged, skippedDup, totalEligible: athletes.length };
 }
+
+type MealKey = "breakfast" | "lunch" | "dinner";
+
+// ponytail: fixed default times, not per-user configurable yet — add settings columns/UI if requested.
+const MEAL_REMINDER_TIMES_LOCAL: Record<MealKey, string> = {
+  breakfast: "09:00",
+  lunch: "13:00",
+  dinner: "19:00",
+};
+
+const MEAL_REMINDER_COPY: Record<MealKey, { title: string; body: string }> = {
+  breakfast: { title: "Breakfast reminder", body: "Don't forget to log your breakfast." },
+  lunch: { title: "Lunch reminder", body: "Don't forget to log your lunch." },
+  dinner: { title: "Dinner reminder", body: "Don't forget to log your dinner." },
+};
+
+const MEAL_LAST_SENT_UPDATE: Record<MealKey, (dateKey: string) => Partial<typeof userTable.$inferInsert>> = {
+  breakfast: (dateKey) => ({ lastBreakfastReminderDateKey: dateKey }),
+  lunch: (dateKey) => ({ lastLunchReminderDateKey: dateKey }),
+  dinner: (dateKey) => ({ lastDinnerReminderDateKey: dateKey }),
+};
+
+export async function runMealReminderSweep() {
+  const now = new Date();
+
+  const athletes = await db
+    .select({
+      id: userTable.id,
+      timezone: userTable.nutritionReminderTimezone,
+      lastBreakfast: userTable.lastBreakfastReminderDateKey,
+      lastLunch: userTable.lastLunchReminderDateKey,
+      lastDinner: userTable.lastDinnerReminderDateKey,
+    })
+    .from(userTable)
+    .where(
+      and(
+        eq(userTable.role, "athlete"),
+        eq(userTable.isDeleted, false),
+        eq(userTable.isBlocked, false),
+        eq(userTable.mealReminderEnabled, true),
+      ),
+    );
+
+  let sent = 0;
+
+  for (const athlete of athletes) {
+    const timeZone = athlete.timezone?.trim() || "UTC";
+
+    let dateKey: string;
+    let minutesNow: number;
+    try {
+      ({ dateKey, minutesNow } = getLocalDateKeyAndMinutes(now, timeZone));
+    } catch {
+      ({ dateKey, minutesNow } = getLocalDateKeyAndMinutes(now, "UTC"));
+    }
+
+    const lastSentByMeal: Record<MealKey, string | null> = {
+      breakfast: athlete.lastBreakfast,
+      lunch: athlete.lastLunch,
+      dinner: athlete.lastDinner,
+    };
+
+    const dueMeals = (Object.keys(MEAL_REMINDER_TIMES_LOCAL) as MealKey[]).filter((meal) => {
+      if (lastSentByMeal[meal] === dateKey) return false;
+      const threshold = parseTimeLocal(MEAL_REMINDER_TIMES_LOCAL[meal]);
+      return threshold !== null && minutesNow >= threshold.minutes;
+    });
+
+    if (dueMeals.length === 0) continue;
+
+    const [log] = await db
+      .select()
+      .from(nutritionLogsTable)
+      .where(and(eq(nutritionLogsTable.userId, athlete.id), eq(nutritionLogsTable.dateKey, dateKey)))
+      .limit(1);
+
+    for (const meal of dueMeals) {
+      const alreadyLogged = log ? isNonEmptyText(log[meal]) : false;
+
+      // Update de-dupe marker first to prevent double-sends if the sweep overlaps.
+      await db
+        .update(userTable)
+        .set({ ...MEAL_LAST_SENT_UPDATE[meal](dateKey), updatedAt: new Date() })
+        .where(eq(userTable.id, athlete.id));
+
+      if (alreadyLogged) continue;
+
+      const { title, body } = MEAL_REMINDER_COPY[meal];
+      void createPushIntent({
+        userId: athlete.id,
+        title,
+        body,
+        data: { type: "nutrition_reminder", url: "/nutrition", dateKey, meal },
+      });
+
+      sent++;
+    }
+  }
+
+  logger.info({ sent, totalEligible: athletes.length }, "[meal-reminder] sweep complete");
+
+  return { sent, totalEligible: athletes.length };
+}

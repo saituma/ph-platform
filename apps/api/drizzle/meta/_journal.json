@@ -1317,6 +1317,13 @@
       "when": 1783800000000,
       "tag": "0187_scheduled_job_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1783900000000,
+      "tag": "0188_meal_reminders",
+      "breakpoints": true
     }
   ]
 }
