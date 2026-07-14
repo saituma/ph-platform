@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -14,12 +14,15 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-// BottomSheetScrollView, not BottomSheetView: the sheet is a fixed 80% height, and this form
-// (mode toggle, time wheels, duration, quality stars, notes, save) is taller than that. With a
-// non-scrolling view the overflow renders outside the sheet's bounds, where Android does not
-// deliver touches to it — taps on the lower controls fell through to the backdrop, whose default
-// pressBehavior is "close", so tapping a star dismissed the sheet instead of setting quality.
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
+// The form is taller than the sheet's fixed snap point, so it must scroll. With a non-scrolling
+// BottomSheetView the overflow rendered outside the sheet's bounds, where Android delivers no
+// touches — taps on the quality stars fell through to the backdrop (pressBehavior defaults to
+// "close") and dismissed the sheet instead of setting the rating.
+import {
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetBackdrop,
+} from "@gorhom/bottom-sheet";
 import { Moon, Sun, Star, Check, Clock } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 
@@ -77,7 +80,7 @@ function WheelColumn({
   mutedColor: string;
   bgColor: string;
 }) {
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<ScrollView>(null);
   const isUserScrolling = useRef(false);
   const lastReportedIdx = useRef(data.indexOf(selected));
 
@@ -89,13 +92,24 @@ function WheelColumn({
 
   const initialIndex = data.indexOf(selected);
 
+  // FlatList had initialScrollIndex; a plain scroller must be positioned explicitly on mount.
+  useEffect(() => {
+    if (initialIndex < 0) return;
+    const timer = setTimeout(() => {
+      listRef.current?.scrollTo({ y: initialIndex * ITEM_HEIGHT, animated: false });
+    }, 0);
+    return () => clearTimeout(timer);
+    // Mount only: later changes are handled by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!isUserScrolling.current && listRef.current) {
       const idx = data.indexOf(selected);
       if (idx >= 0 && idx !== lastReportedIdx.current) {
         lastReportedIdx.current = idx;
         const timer = setTimeout(() => {
-          listRef.current?.scrollToOffset({ offset: idx * ITEM_HEIGHT, animated: true });
+          listRef.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: true });
         }, 50);
         return () => clearTimeout(timer);
       }
@@ -117,39 +131,6 @@ function WheelColumn({
     [data, selected, onSelect],
   );
 
-  const renderItem = useCallback(
-    ({ item }: { item: number | null }) => {
-      if (item === null) {
-        return <View style={{ height: ITEM_HEIGHT }} />;
-      }
-      const isSelected = item === selected;
-      return (
-        <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
-          <Text
-            style={{
-              fontFamily: isSelected ? fonts.heroNumber : fonts.bodyMedium,
-              fontSize: isSelected ? 38 : 20,
-              color: isSelected ? accentColor : mutedColor,
-              opacity: isSelected ? 1 : 0.35,
-            }}
-          >
-            {pad(item)}
-          </Text>
-        </View>
-      );
-    },
-    [selected, accentColor, mutedColor],
-  );
-
-  const getItemLayout = useCallback(
-    (_: any, index: number) => ({
-      length: ITEM_HEIGHT,
-      offset: ITEM_HEIGHT * index,
-      index,
-    }),
-    [],
-  );
-
   return (
     <View style={[styles.wheelContainer, { backgroundColor: bgColor }]}>
       <View
@@ -163,13 +144,11 @@ function WheelColumn({
           },
         ]}
       />
-      <FlatList
+      {/* A plain ScrollView, not a FlatList: 24 hours / 12 minutes need no virtualization, and a
+          VirtualizedList nested inside the sheet's scroll view breaks windowing (and warns).
+          nestedScrollEnabled keeps the wheel's own drag from scrolling the sheet on Android. */}
+      <ScrollView
         ref={listRef}
-        data={paddedData}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={renderItem}
-        getItemLayout={getItemLayout}
-        initialScrollIndex={initialIndex >= 0 ? initialIndex : 0}
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
@@ -180,7 +159,31 @@ function WheelColumn({
         nestedScrollEnabled
         overScrollMode="always"
         bounces
-      />
+      >
+        {paddedData.map((item, i) => {
+          if (item === null) {
+            return <View key={i} style={{ height: ITEM_HEIGHT }} />;
+          }
+          const isSelected = item === selected;
+          return (
+            <View
+              key={i}
+              style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}
+            >
+              <Text
+                style={{
+                  fontFamily: isSelected ? fonts.heroNumber : fonts.bodyMedium,
+                  fontSize: isSelected ? 38 : 20,
+                  color: isSelected ? accentColor : mutedColor,
+                  opacity: isSelected ? 1 : 0.35,
+                }}
+              >
+                {pad(item)}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -297,7 +300,6 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
       backdropComponent={renderBackdrop}
     >
       <BottomSheetScrollView
-        style={styles.sheetScroll}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -421,9 +423,6 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
 });
 
 const styles = StyleSheet.create({
-  sheetScroll: {
-    flex: 1,
-  },
   container: {
     paddingHorizontal: 24,
     paddingBottom: 32,
