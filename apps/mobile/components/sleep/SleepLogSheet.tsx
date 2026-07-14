@@ -13,7 +13,9 @@ import Animated, {
   withSpring,
   withSequence,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 // The form is taller than the sheet's fixed snap point, so it must scroll. With a non-scrolling
 // BottomSheetView the overflow rendered outside the sheet's bounds, where Android delivers no
 // touches — taps on the quality stars fell through to the backdrop (pressBehavior defaults to
@@ -205,18 +207,29 @@ function AnimatedStar({
     transform: [{ scale: scale.value }],
   }));
 
+  // A gesture-handler tap, not RN's Pressable. The sheet's gestures are driven by
+  // react-native-gesture-handler, and on Android an RN Pressable inside it never received the
+  // touch — the tap fell through to the backdrop (pressBehavior "close"), so tapping a star
+  // dismissed the sheet instead of setting the rating. Confirmed by logging: the star's onPress
+  // never fired, while the sheet reported onChange index=-1 then onDismiss.
+  const tap = useMemo(
+    () =>
+      Gesture.Tap()
+        .maxDuration(500)
+        .onEnd(() => {
+          "worklet";
+          scale.value = withSequence(
+            withSpring(1.35, { damping: 6, stiffness: 400 }),
+            withSpring(1, { damping: 10, stiffness: 200 }),
+          );
+          runOnJS(onPress)();
+        }),
+    [onPress, scale],
+  );
+
   return (
-    <Pressable
-      onPress={() => {
-        scale.value = withSequence(
-          withSpring(1.35, { damping: 6, stiffness: 400 }),
-          withSpring(1, { damping: 10, stiffness: 200 }),
-        );
-        onPress();
-      }}
-      hitSlop={10}
-    >
-      <Animated.View style={animStyle}>
+    <GestureDetector gesture={tap}>
+      <Animated.View style={[animStyle, styles.starHit]}>
         <Star
           size={32}
           color={filled ? color : mutedColor}
@@ -224,7 +237,7 @@ function AnimatedStar({
           strokeWidth={1.5}
         />
       </Animated.View>
-    </Pressable>
+    </GestureDetector>
   );
 }
 
@@ -250,6 +263,12 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
   const [saving, setSaving] = useState(false);
 
   const snapPoints = useMemo(() => ["80%"], []);
+
+  // TEMPORARY DIAGNOSTICS — remove once the star-tap dismissal is understood.
+  useEffect(() => {
+    console.log("[SleepSheetDebug] SleepLogSheet MOUNT");
+    return () => console.log("[SleepSheetDebug] SleepLogSheet UNMOUNT");
+  }, []);
 
   const totalMin = calcSleepMinutes(bedH, bedM, wakeH, wakeM);
 
@@ -298,6 +317,9 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
       backgroundStyle={{ backgroundColor: p.cardWhite, borderRadius: 32 }}
       handleIndicatorStyle={{ backgroundColor: p.textMuted, width: 40, height: 4, borderRadius: 2 }}
       backdropComponent={renderBackdrop}
+      // TEMPORARY DIAGNOSTICS — remove once the star-tap dismissal is understood.
+      onChange={(i) => console.log("[SleepSheetDebug] onChange index=", i)}
+      onDismiss={() => console.log("[SleepSheetDebug] onDismiss")}
     >
       <BottomSheetScrollView
         contentContainerStyle={styles.container}
@@ -391,6 +413,7 @@ export const SleepLogSheet = React.memo(function SleepLogSheet({
                 color={accentColor}
                 mutedColor={p.textMuted}
                 onPress={() => {
+                  console.log("[SleepSheetDebug] star pressed", n);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setQuality(n);
                 }}
@@ -526,6 +549,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 16,
+  },
+  starHit: {
+    padding: 6,
   },
   saveBtn: {
     flexDirection: "row",
