@@ -14,3 +14,16 @@ export function hasOrgTeamMembership(athlete?: {
   return typeof id === "number" && Number.isFinite(id) && id > 0;
 }
 
+/**
+ * True only when the athlete is linked to a real team row.
+ *
+ * `athletes.team` is free text and is set even when the name matches no team (admin resolves
+ * teamId by name and silently stores null on a miss). Every team feed/social endpoint scopes by
+ * `athletes.teamId` and rejects a missing one with NOT_TEAM, so anything that talks to those
+ * endpoints must gate on this — not on the name, or the UI promises a feed that cannot exist.
+ */
+export function hasLinkedTeam(athlete?: { teamId?: number | null } | null): boolean {
+  const id = athlete?.teamId;
+  return typeof id === "number" && Number.isFinite(id) && id > 0;
+}
+

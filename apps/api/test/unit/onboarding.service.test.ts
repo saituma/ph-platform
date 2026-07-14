@@ -43,6 +43,13 @@ jest.mock("../../src/services/push.service", () => ({
   sendPushNotification: jest.fn(),
 }));
 
+// submitOnboarding resolves the team name to a teamId before opening its transaction. Mock the
+// lookup so it doesn't consume an entry from this file's hand-sequenced db.select mock.
+jest.mock("../../src/services/team-lookup", () => ({
+  ...jest.requireActual("../../src/services/team-lookup"),
+  findTeamIdByName: jest.fn().mockResolvedValue(99),
+}));
+
 describe("onboarding.service - submitOnboarding", () => {
   const mockNow = new Date("2023-01-01T00:00:00Z");
 

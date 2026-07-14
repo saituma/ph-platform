@@ -25,6 +25,7 @@ import { createPushIntent } from "../services/outbox.service";
 import { getActiveSubscriptionPlanByTier, isSubscriptionPlanFree } from "./billing.service";
 import { normalizeStoredMediaUrl } from "./s3.service";
 import { isAthleteUserRole, resolveAthleteUserRoleFromAthleteRow } from "../lib/user-roles";
+import { findTeamIdByName, normalizeTeamName } from "./team-lookup";
 
 const defaultPublicConfig = {
   version: 1,
@@ -670,7 +671,10 @@ export async function submitOnboarding(input: {
     throw new Error("Youth athletes must be under 18.");
   }
   const birthDateValue = input.birthDate ?? null;
-  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
+  const resolvedTeam = normalizeTeamName(input.team);
+  // Storing the team name without its id produced athletes the client treats as teamed while
+  // every team endpoint rejects them (NOT_TEAM). Always resolve and store both.
+  const resolvedTeamId = await findTeamIdByName(resolvedTeam);
   const desiredTier = input.desiredProgramType ?? ("PHP" as (typeof ProgramType.enumValues)[number]);
   const starterPlan = await getActiveSubscriptionPlanByTier(desiredTier);
   const shouldAutoAssignStarterTier =
@@ -720,6 +724,7 @@ export async function submitOnboarding(input: {
           age: resolvedAge,
           birthDate: birthDateValue,
           team: resolvedTeam,
+          teamId: resolvedTeamId,
           trainingPerWeek: input.trainingPerWeek,
           preferredTrainingDays: input.preferredTrainingDays,
           injuries: input.injuries ?? null,
@@ -771,6 +776,7 @@ export async function submitOnboarding(input: {
           age: resolvedAge,
           birthDate: birthDateValue,
           team: resolvedTeam,
+          teamId: resolvedTeamId,
           trainingPerWeek: input.trainingPerWeek,
           preferredTrainingDays: input.preferredTrainingDays,
           injuries: input.injuries ?? null,

@@ -4,6 +4,7 @@ import type { SQL } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import { ROLES_ATHLETE } from "../../lib/user-roles";
+import { findTeamIdByName, normalizeTeamName } from "../team-lookup";
 import {
   athleteTable,
   guardianTable,
@@ -671,16 +672,14 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
     throw { status: 409, message: "An account with this email already exists." };
   }
 
-  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
+  const resolvedTeam = normalizeTeamName(input.team);
 
-  let resolvedTeamIdForGuardian: number | null = null;
-  if (resolvedTeam) {
-    const teamRows = await db
-      .select({ id: teamTable.id })
-      .from(teamTable)
-      .where(eq(teamTable.name, resolvedTeam))
-      .limit(1);
-    resolvedTeamIdForGuardian = teamRows[0]?.id ?? null;
+  // Refuse to create an athlete on a team that does not exist. Storing the name with a null
+  // teamId used to look fine in the admin portal while every team feature (feed, leaderboard,
+  // roster) rejected the athlete with NOT_TEAM — a silent, invisible break.
+  const resolvedTeamIdForGuardian = await findTeamIdByName(resolvedTeam);
+  if (resolvedTeam && resolvedTeamIdForGuardian == null) {
+    throw { status: 400, message: `Team "${resolvedTeam}" does not exist. Create the team first.` };
   }
 
   const tempPassword = resolveProvisionPassword(input.initialPassword);
@@ -808,16 +807,11 @@ export async function createAdultAthleteAdmin(input: CreateAdultAthleteAdminInpu
   const email = input.email.trim().toLowerCase();
   const athleteName = input.athleteName.trim();
   const existing = await getUserByEmail(email);
-  const resolvedTeam = (() => { const t = input.team?.trim() || ""; return ["individual","none","n/a","solo","unknown"].includes(t.toLowerCase()) ? "" : t; })();
+  const resolvedTeam = normalizeTeamName(input.team);
 
-  let resolvedTeamId: number | null = null;
-  if (resolvedTeam) {
-    const teamRows = await db
-      .select({ id: teamTable.id })
-      .from(teamTable)
-      .where(eq(teamTable.name, resolvedTeam))
-      .limit(1);
-    resolvedTeamId = teamRows[0]?.id ?? null;
+  const resolvedTeamId = await findTeamIdByName(resolvedTeam);
+  if (resolvedTeam && resolvedTeamId == null) {
+    throw { status: 400, message: `Team "${resolvedTeam}" does not exist. Create the team first.` };
   }
 
   // If the account already exists (e.g. from a previous failed attempt), just attach them to the team.

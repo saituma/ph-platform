@@ -65,4 +65,14 @@ describe("shouldUseTeamTrackingFeatures", () => {
       authTeamMembership: null,
     })).toBe(false);
   });
+
+  it("returns false for a team NAME that resolved to no team row", () => {
+    // Admin resolves teamId by team name and silently stores null on a miss, so an athlete can
+    // carry a name like "Lions U15" with teamId null. /teams/social/* scopes by teamId and 403s
+    // NOT_TEAM, so treating the bare name as membership shows a team feed that can never load.
+    expect(shouldUseTeamTrackingFeatures({
+      appRole: "adult_athlete",
+      authTeamMembership: { team: "Lions U15", teamId: null },
+    })).toBe(false);
+  });
 });

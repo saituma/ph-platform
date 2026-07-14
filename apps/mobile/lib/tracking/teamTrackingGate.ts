@@ -1,5 +1,5 @@
 import type { AppRole } from "@/lib/appRole";
-import { hasOrgTeamMembership } from "@/lib/teamMembership";
+import { hasLinkedTeam } from "@/lib/teamMembership";
 import type { ManagedAthlete } from "@/store/slices/userSlice";
 
 export type AuthTeamMembership = { team: string | null; teamId: number | null };
@@ -47,7 +47,9 @@ export function shouldUseTeamTrackingFeatures(input: {
     input.appRole === "youth_athlete_team_guardian"
   )
     return true;
-  if (hasOrgTeamMembership(input.authTeamMembership ?? undefined)) return true;
-  if (hasOrgTeamMembership(input.firstManagedAthlete ?? undefined)) return true;
+  // Team tracking talks to /teams/social/*, which scopes by athletes.teamId and 403s NOT_TEAM
+  // without one. A free-text team name that resolved to no team row is not membership here.
+  if (hasLinkedTeam(input.authTeamMembership ?? undefined)) return true;
+  if (hasLinkedTeam(input.firstManagedAthlete ?? undefined)) return true;
   return false;
 }
