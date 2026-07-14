@@ -77,6 +77,7 @@ export function useMessagesController(options?: {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
+  const isNavigatingRef = useRef(false);
   const { thread, id, draft: draftQuery } = useLocalSearchParams<{
     thread?: string;
     id?: string;
@@ -264,7 +265,12 @@ export function useMessagesController(options?: {
       sharedBoundTag?: string,
       sharedAvatarTag?: string,
     ) => {
-      if (openingThreadId === thread.id && threadId === thread.id) return;
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 600);
+
       setOpeningThreadId(thread.id);
       setSelectedThread(thread);
 
@@ -287,15 +293,7 @@ export function useMessagesController(options?: {
         params: { id: thread.id, sharedBoundTag, sharedAvatarTag },
       } as any);
     },
-    [
-      openingThreadId,
-      threadId,
-      messages,
-      loadGroupMessages,
-      loadMessages,
-      rolePrefix,
-      setSelectedThread,
-    ],
+    [messages, loadGroupMessages, loadMessages, rolePrefix, setSelectedThread],
   );
 
   const resetOpeningThread = useCallback(() => {

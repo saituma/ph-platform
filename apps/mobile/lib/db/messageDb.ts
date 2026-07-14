@@ -84,7 +84,7 @@ export function loadCacheSync(profileId: number): CacheData | null {
       .filter((m: { id: string }) => !deletedIds.has(String(m.id)));
 
     const gmRows = db.getAllSync<{ group_id: number; raw_json: string }>(
-      "SELECT group_id, raw_json FROM group_member_snapshots WHERE profile_id = ?",
+      "SELECT group_id, raw_json FROM group_member_snapshots WHERE profile_id = ? LIMIT 200",
       [profileId],
     );
     const groupMembers: Record<number, Record<number, { name: string; avatar?: string | null }>> = {};
