@@ -92,7 +92,16 @@ export function useMyPrograms(token: string | null, autoFetch = false) {
     queryFn: async () => {
       const res = await apiRequest<{ programs?: AssignedProgram[] }>(
         "/programs/my-assigned",
-        { token: token! },
+        {
+          token: token!,
+          // apiRequest caches GETs for 5 minutes and persists that cache across restarts.
+          // Without this, a coach assigning a program leaves the athlete staring at
+          // "No programs assigned" — pull-to-refresh and the program:assigned socket event
+          // both invalidate React Query, but the HTTP layer just replays the stale body.
+          // React Query's staleTime below already does the deduping we want here.
+          skipCache: true,
+          forceRefresh: true,
+        },
       );
       return res.programs ?? [];
     },
@@ -142,7 +151,13 @@ export function useMyProgramDetail(token: string | null) {
       const path = pid < 0
         ? `/programs/my-assigned/team/${-pid}`
         : `/programs/my-assigned/${pid}`;
-      const res = await apiRequest<{ program?: any }>(path, { token: token! });
+      // Same reason as myAssigned above: the program:changed socket event and pull-to-refresh
+      // invalidate React Query, but the HTTP cache would keep replaying the pre-edit program.
+      const res = await apiRequest<{ program?: any }>(path, {
+        token: token!,
+        skipCache: true,
+        forceRefresh: true,
+      });
       return res.program ?? null;
     },
     enabled: Boolean(token) && activeProgramId != null,
