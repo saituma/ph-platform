@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { AppState, Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
@@ -49,6 +49,7 @@ import { useAppSelector } from "@/store/hooks";
 import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-run/ActiveRunSportSheet";
 import type { ManagedAthlete } from "@/store/slices/userSlice";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
+import { queueRunPushToCloud } from "@/lib/runSync";
 import {
   fetchLeaderboard,
   type SocialLeaderboardItem,
@@ -288,10 +289,22 @@ export default function TrackingHomeScreen() {
     initSQLiteRuns();
     const task = requestAnimationFrame(() => {
       reload();
+      // Push before pulling: a run saved while offline stays unsynced until something
+      // retries it, and the summary screen's save is the only other trigger.
+      queueRunPushToCloud();
       syncRunsFromServer();
     });
     return () => cancelAnimationFrame(task);
   }, [reload, syncRunsFromServer]);
+
+  // Retry stranded runs as soon as the app comes back to the foreground (typically when
+  // connectivity has returned), so no completed activity is left sitting on the device.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") queueRunPushToCloud();
+    });
+    return () => sub.remove();
+  }, []);
 
   const runStatus = useRunStore((s) => s.status);
   const liveRunDistanceMeters = useRunStore((s) => s.distanceMeters);
@@ -424,11 +437,13 @@ export default function TrackingHomeScreen() {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     reload();
+    queueRunPushToCloud();
+    syncRunsFromServer();
     apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
       .then((r) => setGoals(r.goals))
       .catch(() => {})
       .finally(() => setRefreshing(false));
-  }, [reload]);
+  }, [reload, syncRunsFromServer]);
 
   const fabTap = Gesture.Tap()
     .onBegin(() => {

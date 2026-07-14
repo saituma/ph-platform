@@ -94,15 +94,27 @@ export async function pushRunsToCloud(): Promise<void> {
 }
 
 let queuedPush: Promise<void> | null = null;
+let pushRequestedWhileRunning = false;
 
 /**
  * Coalesces save-triggered sync calls so screens can request immediate admin
  * visibility without starting overlapping /runs/sync requests.
+ *
+ * A request that arrives mid-flight schedules a trailing push rather than being
+ * dropped: the summary screen pushes once on mount and again on save, and the
+ * save (which carries the questionnaire answers) must never be the one discarded.
  */
 export function queueRunPushToCloud(): void {
-  if (queuedPush) return;
+  if (queuedPush) {
+    pushRequestedWhileRunning = true;
+    return;
+  }
   queuedPush = pushRunsToCloud().finally(() => {
     queuedPush = null;
+    if (pushRequestedWhileRunning) {
+      pushRequestedWhileRunning = false;
+      queueRunPushToCloud();
+    }
   });
 }
 
