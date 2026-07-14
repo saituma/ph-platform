@@ -50,6 +50,7 @@ import { ActiveRunSportSheet, type SportId } from "@/components/tracking/active-
 import type { ManagedAthlete } from "@/store/slices/userSlice";
 import { shouldUseTeamTrackingFeatures } from "@/lib/tracking/teamTrackingGate";
 import { queueRunPushToCloud } from "@/lib/runSync";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   fetchLeaderboard,
   type SocialLeaderboardItem,
@@ -214,6 +215,9 @@ export default function TrackingHomeScreen() {
   const firstName = profile?.name?.trim()?.split(/\s+/)[0] ?? "Athlete";
   const profilePic = profile?.avatar ?? null;
   const [runs, setRuns] = useState<RunRecord[]>([]);
+  // History is read from SQLite asynchronously, so without this the empty state flashes
+  // ("No runs tracked") before the rows arrive.
+  const [runsLoading, setRunsLoading] = useState(true);
   const [weeklyStats, setWeeklyStats] = useState(() => getWeeklySummaries(new Date(), userId));
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
 
@@ -264,7 +268,8 @@ export default function TrackingHomeScreen() {
   const reload = useCallback(() => {
     void getRecentRunsAsync(80, userId)
       .then(setRuns)
-      .catch(() => setRuns([]));
+      .catch(() => setRuns([]))
+      .finally(() => setRunsLoading(false));
     try {
       setWeeklyStats(getWeeklySummaries(new Date(), userId));
     } catch {
@@ -1033,12 +1038,14 @@ export default function TrackingHomeScreen() {
               </Text>
               <View style={{ backgroundColor: p.accentSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 }}>
                 <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>
-                  {runs.length} total
+                  {runsLoading ? "—" : `${runs.length} total`}
                 </Text>
               </View>
             </View>
 
-            {runs.length === 0 ? (
+            {runsLoading ? (
+              <RunHistorySkeleton p={p} />
+            ) : runs.length === 0 ? (
               <TrackingEmptyState onStartRun={handleStartRun} p={p} />
             ) : (
               <CurrentLocationPreviewProvider enabled={hasRouteLessRuns}>
@@ -1569,6 +1576,36 @@ function BackgroundLocationInfoCard({ p }: { p: ReturnType<typeof useAdminPastel
 }
 
 // ── EmptyState ───────────────────────────────────────────────────────────────
+
+/** Mirrors WorkoutRunCard's shape (icon + two text lines + route preview) so the list doesn't jump when rows land. */
+function RunHistorySkeleton({ p }: { p: ReturnType<typeof useAdminPastel> }) {
+  return (
+    <View style={{ gap: 12 }} accessibilityLabel="Loading activities">
+      {[0, 1, 2].map((i) => (
+        <View
+          key={i}
+          style={{
+            backgroundColor: p.cardWhite,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: p.divider,
+            padding: 16,
+            gap: 14,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Skeleton width={40} height={40} variant="rounded" />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Skeleton width="45%" height={12} variant="rounded" />
+              <Skeleton width="30%" height={10} variant="rounded" />
+            </View>
+          </View>
+          <Skeleton width="100%" height={72} variant="rounded" />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 function TrackingEmptyState({
   onStartRun,

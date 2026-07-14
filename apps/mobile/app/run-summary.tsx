@@ -162,6 +162,17 @@ export default function RunSummaryScreen() {
     transform: [{ scale: scaleSaveBtn.value }],
   }));
 
+  // `router.replace("/(tabs)/tracking")` lands on Home: the tabs group's initialRouteName is
+  // "index" and `tracking` is not a real route (role layouts render it as a component). Popping
+  // back to the tabs screen keeps SwipeableTabLayout's preserved tab index — i.e. Tracking.
+  const returnToTracking = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)" as any);
+  };
+
   const handleDiscard = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert("Discard activity?", "This activity and its route will be permanently deleted.", [
@@ -182,7 +193,7 @@ export default function RunSummaryScreen() {
             }
           }
           resetRun();
-          router.replace("/(tabs)/tracking" as any);
+          returnToTracking();
         },
       },
     ]);
@@ -213,7 +224,7 @@ export default function RunSummaryScreen() {
     }
 
     resetRun();
-    router.replace("/(tabs)/tracking" as any);
+    returnToTracking();
   };
 
   const toggleTag = (id: string) => {
