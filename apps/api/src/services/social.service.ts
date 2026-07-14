@@ -376,9 +376,14 @@ export async function listPublicRuns(input: {
     .innerJoin(athleteTable, eq(athleteTable.userId, runLogTable.userId));
 
   const rows = await (input.bypassPrivacy
-    ? baseQuery.where(
+    ? // Team feed: membership is the consent, so the global social-privacy settings
+      // (socialEnabled / shareRunsPublicly) are bypassed. The athlete's PER-RUN choice is
+      // not — a run they marked "Only you" must never surface to their teammates. It still
+      // reaches their coach, who reads run_logs directly rather than through this feed.
+      baseQuery.where(
         and(
           scopeFilter,
+          eq(runLogTable.visibility, "public"),
           since ? gte(runLogTable.date, since) : sql`true`,
           cursor != null ? lt(runLogTable.id, cursor) : sql`true`,
         ),
