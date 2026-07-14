@@ -31,7 +31,7 @@ import { trackingScrollBottomPad } from "@/lib/tracking/mainTabBarInset";
 import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import TrackingSocialScreen from "./social";
 import {
-  getRecentRuns,
+  getRecentRunsAsync,
   getWeeklySummaries,
   initSQLiteRuns,
   upsertServerRuns,
@@ -261,11 +261,12 @@ export default function TrackingHomeScreen() {
   }));
 
   const reload = useCallback(() => {
+    void getRecentRunsAsync(80, userId)
+      .then(setRuns)
+      .catch(() => setRuns([]));
     try {
-      setRuns(getRecentRuns(80, userId));
       setWeeklyStats(getWeeklySummaries(new Date(), userId));
     } catch {
-      setRuns([]);
       setWeeklyStats({ totalDistance: 0, totalTime: 0, numRuns: 0, draftDistance: 0, draftTime: 0, draftRuns: 0 });
     }
   }, [userId]);

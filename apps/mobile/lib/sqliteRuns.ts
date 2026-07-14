@@ -177,6 +177,21 @@ export function getRecentRuns(limit: number = 3, userId?: string | null): RunRec
 /**
  * Matches the "THIS WEEK" card: last 7 calendar days through end of today.
  */
+/** Async variant for screen loads — run rows carry full coordinate blobs, so a sync read blocks the JS thread. */
+export async function getRecentRunsAsync(limit: number = 3, userId?: string | null): Promise<RunRecord[]> {
+  ensureInitialized();
+  if (userId) {
+    return db.getAllAsync<RunRecord>(
+      "SELECT * FROM runs WHERE user_id = ? AND COALESCE(is_draft, 0) = 0 ORDER BY date DESC LIMIT ?",
+      [userId, limit],
+    );
+  }
+  return db.getAllAsync<RunRecord>(
+    "SELECT * FROM runs WHERE user_id IS NULL AND COALESCE(is_draft, 0) = 0 ORDER BY date DESC LIMIT ?",
+    [limit],
+  );
+}
+
 export function getWeeklySummaries(now: Date = new Date(), userId?: string | null) {
   ensureInitialized();
   const windowEnd = new Date(now);

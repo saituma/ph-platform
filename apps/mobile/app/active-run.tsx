@@ -73,9 +73,6 @@ export default function ActiveRunScreen() {
   const stopRun = useRunStore((s) => s.stopRun);
   const resetRun = useRunStore((s) => s.resetRun);
   const setDestination = useRunStore((s) => s.setDestination);
-  const currentRunId = useRunStore((s) => s.currentRunId);
-  const liveDistanceMeters = useRunStore((s) => s.distanceMeters);
-  const liveElapsedSeconds = useRunStore((s) => s.elapsedSeconds);
   const isLiveSharing = useRunStore((s) => s.shareCurrentLocation);
   const lastDraftSavedSecondsRef = React.useRef(-1);
 
@@ -264,41 +261,54 @@ export default function ActiveRunScreen() {
     }
   }, []);
 
+  // SQLite draft is the secondary crash-recovery path (the 3s AsyncStorage checkpoint is primary),
+  // so a 10s interval is enough. It reads the store imperatively instead of subscribing — per-tick
+  // subscriptions here re-render the whole screen every second and made every tap feel laggy.
   useEffect(() => {
-    if (status !== "running" && status !== "paused") return;
-    if (!currentRunId) return;
-    if (liveElapsedSeconds <= 0 && liveDistanceMeters <= 0) return;
-    if (liveElapsedSeconds === lastDraftSavedSecondsRef.current) return;
-    lastDraftSavedSecondsRef.current = liveElapsedSeconds;
+    if (status !== "running") return;
+    const saveDraft = () => {
+      const s = useRunStore.getState();
+      // Never write a draft once the run left running/paused — the cleanup call would
+      // otherwise race handleFinishRun's final save and flip the record back to a draft.
+      if (s.status !== "running" && s.status !== "paused") return;
+      if (!s.currentRunId) return;
+      if (s.elapsedSeconds <= 0 && s.distanceMeters <= 0) return;
+      if (s.elapsedSeconds === lastDraftSavedSecondsRef.current) return;
+      lastDraftSavedSecondsRef.current = s.elapsedSeconds;
 
-    const coords = useRunStore.getState().coordinates;
-    const distanceKm = liveDistanceMeters / 1000;
-    const avg_speed =
-      distanceKm > 0 && liveElapsedSeconds > 0
-        ? distanceKm / (liveElapsedSeconds / 3600)
-        : 0;
-    const avg_pace =
-      distanceKm > 0 && liveElapsedSeconds > 0
-        ? liveElapsedSeconds / 60 / distanceKm
-        : 0;
+      const distanceKm = s.distanceMeters / 1000;
+      const avg_speed =
+        distanceKm > 0 && s.elapsedSeconds > 0
+          ? distanceKm / (s.elapsedSeconds / 3600)
+          : 0;
+      const avg_pace =
+        distanceKm > 0 && s.elapsedSeconds > 0
+          ? s.elapsedSeconds / 60 / distanceKm
+          : 0;
 
-    try {
-      saveActiveRunDraft({
-        id: currentRunId,
-        date: new Date().toISOString(),
-        distance_meters: liveDistanceMeters,
-        duration_seconds: liveElapsedSeconds,
-        avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
-        avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
-        calories: estimateCalories(liveDistanceMeters),
-        coordinates: JSON.stringify(coords ?? []),
-        user_id: userId,
-        sport: selectedSport,
-      });
-    } catch (e) {
-      console.warn("[active-run] failed to save active draft", e);
-    }
-  }, [status, currentRunId, liveElapsedSeconds, liveDistanceMeters, selectedSport, userId]);
+      try {
+        saveActiveRunDraft({
+          id: s.currentRunId,
+          date: new Date().toISOString(),
+          distance_meters: s.distanceMeters,
+          duration_seconds: s.elapsedSeconds,
+          avg_pace: Number.isFinite(avg_pace) ? avg_pace : 0,
+          avg_speed: Number.isFinite(avg_speed) ? avg_speed : 0,
+          calories: estimateCalories(s.distanceMeters),
+          coordinates: JSON.stringify(s.coordinates ?? []),
+          user_id: userId,
+          sport: s.sport,
+        });
+      } catch (e) {
+        console.warn("[active-run] failed to save active draft", e);
+      }
+    };
+    const interval = setInterval(saveDraft, 10_000);
+    return () => {
+      clearInterval(interval);
+      saveDraft();
+    };
+  }, [status, userId]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
