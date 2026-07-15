@@ -25,6 +25,7 @@ const createGroupSchema = z.object({
   name: z.string().min(1),
   category: z.enum(["announcement", "coach_group", "team"]).default("coach_group"),
   memberIds: z.array(z.number().int().min(1)).default([]),
+  teamId: z.number().int().min(1).optional(),
 });
 
 const addMembersSchema = z.object({
@@ -73,6 +74,7 @@ export async function createGroupChat(req: Request, res: Response) {
     category: input.category,
     createdBy: req.user!.id,
     memberIds: input.memberIds,
+    teamId: input.category === "team" ? input.teamId : undefined,
   });
   return res.status(201).json({ group });
 }

@@ -1018,13 +1018,20 @@ export const messageTable = pgTable(
   }),
 );
 
-export const chatGroupTable = pgTable("chat_groups", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  name: varchar({ length: 255 }).notNull(),
-  category: chatGroupCategory().notNull().default("coach_group"),
-  createdBy: integer().references(() => userTable.id, { onDelete: "set null" }),
-  createdAt: timestamp().notNull().defaultNow(),
-});
+export const chatGroupTable = pgTable(
+  "chat_groups",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    name: varchar({ length: 255 }).notNull(),
+    category: chatGroupCategory().notNull().default("coach_group"),
+    createdBy: integer().references(() => userTable.id, { onDelete: "set null" }),
+    teamId: integer().references(() => teamTable.id, { onDelete: "set null" }),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    teamIdx: index("chat_groups_team_idx").on(table.teamId),
+  }),
+);
 
 export const chatGroupMemberTable = pgTable(
   "chat_group_members",

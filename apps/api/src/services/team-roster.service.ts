@@ -529,7 +529,7 @@ export async function createTeamRosterAthlete(
     throw e;
   }
 
-  await addTeamAthleteToTeamChat(team.name, userId, user.id).catch((err) => {
+  await addTeamAthleteToTeamChat(team.name, userId, user.id, team.id).catch((err) => {
     logger.warn({ err }, "[team-roster] addTeamAthleteToTeamChat failed");
   });
 

@@ -151,6 +151,7 @@ export async function createGroup(input: {
   category?: "announcement" | "coach_group" | "team";
   createdBy: number;
   memberIds: number[];
+  teamId?: number | null;
 }) {
   const group = await db
     .insert(chatGroupTable)
@@ -158,6 +159,7 @@ export async function createGroup(input: {
       name: input.name,
       category: input.category ?? "coach_group",
       createdBy: input.createdBy,
+      teamId: input.teamId ?? null,
     })
     .returning();
 
@@ -201,19 +203,31 @@ export async function ensureManagedTeamInboxMemberships(userId: number) {
   if (!isTeamManagerRole) return;
 
   const managedTeamIds = await getManagedTeamIds(userId);
-  const managedTeams = managedTeamIds.length
-    ? await db.select({ name: teamTable.name }).from(teamTable).where(inArray(teamTable.id, managedTeamIds))
-    : [];
+  if (!managedTeamIds.length) return;
+
+  const managedTeams = await db
+    .select({ name: teamTable.name })
+    .from(teamTable)
+    .where(inArray(teamTable.id, managedTeamIds));
 
   const managedTeamNames = Array.from(
     new Set(managedTeams.map((team) => String(team.name ?? "").trim()).filter(Boolean)),
   );
-  if (!managedTeamNames.length) return;
 
+  // Prefer the real teamId link; fall back to name matching for legacy groups that
+  // predate the teamId column and haven't been backfilled.
   const managedTeamGroups = await db
     .select({ id: chatGroupTable.id })
     .from(chatGroupTable)
-    .where(and(eq(chatGroupTable.category, "team"), inArray(chatGroupTable.name, managedTeamNames)));
+    .where(
+      and(
+        eq(chatGroupTable.category, "team"),
+        or(
+          inArray(chatGroupTable.teamId, managedTeamIds),
+          managedTeamNames.length ? inArray(chatGroupTable.name, managedTeamNames) : sql`false`,
+        ),
+      ),
+    );
 
   const values = managedTeamGroups
     .map((group) => Number(group.id))
@@ -253,6 +267,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
           name: chatGroupTable.name,
           category: chatGroupTable.category,
           createdBy: chatGroupTable.createdBy,
+          teamId: chatGroupTable.teamId,
           createdAt: chatGroupTable.createdAt,
           memberCreatedAt: chatGroupMemberTable.createdAt,
           memberLastReadAt: sql<Date | null>`null`,
@@ -270,6 +285,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
         name: chatGroupTable.name,
         category: chatGroupTable.category,
         createdBy: chatGroupTable.createdBy,
+        teamId: chatGroupTable.teamId,
         createdAt: chatGroupTable.createdAt,
         memberCreatedAt: chatGroupMemberTable.createdAt,
         memberLastReadAt: chatGroupMemberTable.lastReadAt,
@@ -286,6 +302,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
     name: string | null;
     category: string | null;
     createdBy: number | null;
+    teamId: number | null;
     createdAt: Date;
     memberCreatedAt: Date;
     memberLastReadAt: Date | null;
@@ -397,6 +414,7 @@ export async function listGroupsForUser(userId: number, options?: { q?: string; 
       name: group.name,
       category: group.category,
       createdBy: group.createdBy,
+      teamId: group.teamId,
       createdAt: group.createdAt,
       unreadCount,
       lastMessage: last

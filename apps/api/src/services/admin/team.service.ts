@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { logger } from "../../lib/logger";
 import {
@@ -76,16 +76,25 @@ async function ensureTeamExists(input: {
   return fallback[0] ?? null;
 }
 
-async function ensureTeamChatGroup(teamName: string, createdByUserId: number) {
+async function ensureTeamChatGroup(teamName: string, createdByUserId: number, teamId?: number | null) {
   const cleanTeamName = teamName.trim();
   if (!cleanTeamName) return null;
 
+  const nameMatch = and(eq(chatGroupTable.name, cleanTeamName), eq(chatGroupTable.category, "team"));
+  const matchCondition = teamId ? or(eq(chatGroupTable.teamId, teamId), nameMatch) : nameMatch;
+
   const existing = await db
-    .select({ id: chatGroupTable.id })
+    .select({ id: chatGroupTable.id, teamId: chatGroupTable.teamId })
     .from(chatGroupTable)
-    .where(and(eq(chatGroupTable.name, cleanTeamName), eq(chatGroupTable.category, "team")))
+    .where(matchCondition)
     .limit(1);
-  if (existing[0]) return existing[0];
+  if (existing[0]) {
+    // Backfill teamId on a legacy row that was only found by name.
+    if (teamId && existing[0].teamId == null) {
+      await db.update(chatGroupTable).set({ teamId }).where(eq(chatGroupTable.id, existing[0].id));
+    }
+    return existing[0];
+  }
 
   const [created] = await db
     .insert(chatGroupTable)
@@ -93,15 +102,12 @@ async function ensureTeamChatGroup(teamName: string, createdByUserId: number) {
       name: cleanTeamName,
       category: "team",
       createdBy: createdByUserId,
+      teamId: teamId ?? null,
     })
     .returning({ id: chatGroupTable.id });
   if (created) return created;
 
-  const fallback = await db
-    .select({ id: chatGroupTable.id })
-    .from(chatGroupTable)
-    .where(and(eq(chatGroupTable.name, cleanTeamName), eq(chatGroupTable.category, "team")))
-    .limit(1);
+  const fallback = await db.select({ id: chatGroupTable.id }).from(chatGroupTable).where(matchCondition).limit(1);
   return fallback[0] ?? null;
 }
 
@@ -380,7 +386,7 @@ export async function createTeamAdmin(input: {
     }
   }
 
-  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
+  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId, created.id);
   if (group?.id) {
     await syncTeamChatMembers(created.id, group.id);
   }
@@ -1452,7 +1458,7 @@ export async function attachAthleteToTeamAdmin(input: {
     await db.update(teamTable).set({ updatedAt: new Date() }).where(eq(teamTable.id, athlete.teamId));
   }
 
-  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId);
+  const group = await ensureTeamChatGroup(cleanTeamName, input.createdByUserId, team.id);
   if (group?.id) {
     const memberIds: number[] = [athlete.userId];
     if (athlete.guardianId) {
@@ -1492,7 +1498,12 @@ export async function deleteTeamAdmin(teamId: number) {
   const groups = await db
     .select({ id: chatGroupTable.id })
     .from(chatGroupTable)
-    .where(and(eq(chatGroupTable.name, team.name), eq(chatGroupTable.category, "team")))
+    .where(
+      and(
+        eq(chatGroupTable.category, "team"),
+        or(eq(chatGroupTable.teamId, teamId), eq(chatGroupTable.name, team.name)),
+      ),
+    )
     .limit(1);
   if (groups[0]) {
     await db.delete(chatGroupMemberTable).where(eq(chatGroupMemberTable.groupId, groups[0].id));
@@ -1505,8 +1516,13 @@ export async function deleteTeamAdmin(teamId: number) {
 }
 
 /** Adds a coach-provisioned athlete user to the team chat group (best-effort). */
-export async function addTeamAthleteToTeamChat(teamName: string, athleteUserId: number, createdByUserId: number) {
-  const group = await ensureTeamChatGroup(teamName.trim(), createdByUserId);
+export async function addTeamAthleteToTeamChat(
+  teamName: string,
+  athleteUserId: number,
+  createdByUserId: number,
+  teamId?: number | null,
+) {
+  const group = await ensureTeamChatGroup(teamName.trim(), createdByUserId, teamId);
   if (!group?.id) return;
   await addUsersToGroup(group.id, [athleteUserId]);
 }

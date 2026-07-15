@@ -256,6 +256,7 @@ export async function listInbox(req: Request, res: Response) {
       id: `group:${group.id}`,
       type: "group" as const,
       groupId: group.id,
+      teamId: group.teamId ?? null,
       groupCategory: String(group.category ?? "coach_group"),
       name: String(group.name ?? "Group"),
       role: String(group.category ?? "Group"),
