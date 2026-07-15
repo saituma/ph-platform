@@ -1324,6 +1324,13 @@
       "when": 1783900000000,
       "tag": "0188_meal_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1784117346949,
+      "tag": "0189_tracking_goal_progress",
+      "breakpoints": true
     }
   ]
 }

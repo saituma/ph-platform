@@ -1,63 +1,63 @@
 -- Core ordering/join indexes for command-palette queries
 CREATE INDEX IF NOT EXISTS users_is_deleted_updated_at_idx
-  ON users ("isDeleted", "updatedAt" DESC);
+  ON users ("isDeleted", "updatedAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS athletes_user_id_idx
-  ON athletes ("userId");
+  ON athletes ("userId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS athletes_guardian_id_idx
-  ON athletes ("guardianId");
+  ON athletes ("guardianId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS guardians_user_id_idx
-  ON guardians ("userId");
+  ON guardians ("userId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS messages_sender_created_at_idx
-  ON messages ("senderId", "createdAt" DESC);
+  ON messages ("senderId", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS messages_receiver_created_at_idx
-  ON messages ("receiverId", "createdAt" DESC);
+  ON messages ("receiverId", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS messages_sender_receiver_created_at_idx
-  ON messages ("senderId", "receiverId", "createdAt" DESC);
+  ON messages ("senderId", "receiverId", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS messages_receiver_sender_created_at_idx
-  ON messages ("receiverId", "senderId", "createdAt" DESC);
+  ON messages ("receiverId", "senderId", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS messages_receiver_read_created_at_idx
-  ON messages ("receiverId", "read", "createdAt" DESC);
+  ON messages ("receiverId", "read", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS chat_groups_created_at_idx
-  ON chat_groups ("createdAt" DESC);
+  ON chat_groups ("createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS chat_group_messages_group_created_at_idx
-  ON chat_group_messages ("groupId", "createdAt" DESC);
+  ON chat_group_messages ("groupId", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS bookings_starts_at_idx
-  ON bookings ("startsAt" DESC);
+  ON bookings ("startsAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS bookings_athlete_id_idx
-  ON bookings ("athleteId");
+  ON bookings ("athleteId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS bookings_service_type_id_idx
-  ON bookings ("serviceTypeId");
+  ON bookings ("serviceTypeId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS video_uploads_created_at_idx
-  ON video_uploads ("createdAt" DESC);
+  ON video_uploads ("createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS video_uploads_athlete_id_idx
-  ON video_uploads ("athleteId");
+  ON video_uploads ("athleteId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS programs_is_template_created_at_idx
-  ON programs ("isTemplate", "createdAt" DESC);
+  ON programs ("isTemplate", "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS food_diary_guardian_date_created_at_idx
-  ON food_diary ("guardianId", "date" DESC, "createdAt" DESC);
+  ON food_diary ("guardianId", "date" DESC, "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS food_diary_athlete_date_created_at_idx
-  ON food_diary ("athleteId", "date" DESC, "createdAt" DESC);
+  ON food_diary ("athleteId", "date" DESC, "createdAt" DESC);--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS physio_refferals_athlete_created_at_idx
-  ON physio_refferals ("athleteId", "createdAt" DESC);
+  ON physio_refferals ("athleteId", "createdAt" DESC);--> statement-breakpoint
 
 -- Optional substring-search acceleration via pg_trgm.
 DO $$
@@ -67,7 +67,7 @@ EXCEPTION
   WHEN insufficient_privilege THEN
     RAISE NOTICE 'Skipping pg_trgm extension (insufficient privilege).';
 END
-$$;
+$$;--> statement-breakpoint
 
 DO $$
 BEGIN
@@ -102,4 +102,4 @@ BEGIN
       ON physio_refferals USING gin ("referalLink" gin_trgm_ops);
   END IF;
 END
-$$;
+$$;--> statement-breakpoint

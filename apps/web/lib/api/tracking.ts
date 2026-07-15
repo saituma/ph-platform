@@ -60,14 +60,29 @@ const trackingApi = apiSlice.injectEndpoints({
         athleteId: number;
         athleteName: string;
         userId: number;
-        totalMeters: number | null;
+        progressValue: number;
         runCount: number;
         lastRunDate: string | null;
         percentage: number;
+        completed: boolean;
+        completedAt: string | null;
       }[];
+      completedCount: number;
+      totalCount: number;
     }, number>({
       query: (goalId) => `/admin/tracking-goals/${goalId}/progress`,
       providesTags: ["TrackingGoals"],
+    }),
+    overrideGoalCompletion: builder.mutation<
+      { ok: boolean },
+      { goalId: number; athleteId: number; completed: boolean; completionValue?: number }
+    >({
+      query: ({ goalId, athleteId, ...body }) => ({
+        url: `/admin/tracking-goals/${goalId}/athletes/${athleteId}/completion`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["TrackingGoals"],
     }),
     getAdminTrainingQuestionnaires: builder.query<
       { items: AdminTrainingQuestionnaireRow[] },
@@ -141,5 +156,6 @@ export const {
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
   useGetGoalProgressQuery,
+  useOverrideGoalCompletionMutation,
   useGetTeamRunStatsQuery,
 } = trackingApi;

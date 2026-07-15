@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
+  Check,
   ChevronDown,
   ChevronUp,
   Flag,
@@ -56,6 +57,7 @@ import {
   useGetYouthTrackingAthletesQuery,
   useToggleYouthTrackingMutation,
   useGetGoalProgressQuery,
+  useOverrideGoalCompletionMutation,
   useGetTeamRunStatsQuery,
 } from "../../lib/api/tracking";
 import {
@@ -536,6 +538,8 @@ function GoalCard({
   onDelete: () => void;
 }) {
   const { data, isFetching } = useGetGoalProgressQuery(goal.id, { skip: !expanded });
+  const [overrideCompletion] = useOverrideGoalCompletionMutation();
+  const unitLabel = goal.unit === "custom" ? goal.customUnit || "units" : (UNIT_LABELS[goal.unit] ?? goal.unit);
 
   return (
     <Card className="relative overflow-hidden">
@@ -591,7 +595,15 @@ function GoalCard({
           onClick={onToggle}
           className="flex w-full items-center justify-between rounded-lg border border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-secondary/50 hover:text-foreground"
         >
-          <span>Player progress</span>
+          <span className="flex items-center gap-2">
+            Player progress
+            {expanded && data && (
+              <Badge variant="secondary" className="text-[10px] gap-1">
+                <Check className="h-2.5 w-2.5" />
+                {data.completedCount}/{data.totalCount} completed
+              </Badge>
+            )}
+          </span>
           {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         </button>
 
@@ -610,20 +622,34 @@ function GoalCard({
                 <div key={p.athleteId} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium text-foreground">{p.athleteName}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {goal.unit === "km"
-                        ? `${((p.totalMeters ?? 0) / 1000).toFixed(1)} / ${goal.targetValue} km`
-                        : `${p.runCount} run${p.runCount !== 1 ? "s" : ""}`}
-                    </span>
+                    {p.completed ? (
+                      <Badge variant="default" className="text-[10px] gap-1">
+                        <Check className="h-2.5 w-2.5" />
+                        {p.completedAt
+                          ? new Date(p.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                          : "Completed"}
+                      </Badge>
+                    ) : (
+                      <span className="tabular-nums text-muted-foreground">
+                        {p.progressValue.toFixed(1)} / {goal.targetValue} {unitLabel}
+                      </span>
+                    )}
                   </div>
-                  {goal.unit === "km" && (
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{ width: `${p.percentage}%` }}
-                      />
-                    </div>
-                  )}
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${p.percentage}%` }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      overrideCompletion({ goalId: goal.id, athleteId: p.athleteId, completed: !p.completed })
+                    }
+                    className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    {p.completed ? "Undo completion" : "Mark complete"}
+                  </button>
                 </div>
               ))
             )}

@@ -2282,6 +2282,49 @@ export const trackingGoalTable = pgTable(
   }),
 );
 
+export const trackingGoalCompletionTable = pgTable(
+  "tracking_goal_completions",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    goalId: integer()
+      .notNull()
+      .references(() => trackingGoalTable.id, { onDelete: "cascade" }),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id, { onDelete: "cascade" }),
+    completedAt: timestamp().notNull().defaultNow(),
+    completionValue: doublePrecision().notNull(),
+    source: varchar({ length: 20 }).notNull().default("auto"),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    goalAthleteUnique: uniqueIndex("tracking_goal_completions_goal_athlete_unique").on(
+      table.goalId,
+      table.athleteId,
+    ),
+    athleteIdx: index("tracking_goal_completions_athlete_idx").on(table.athleteId),
+  }),
+);
+
+export const trackingGoalProgressLogTable = pgTable(
+  "tracking_goal_progress_logs",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    goalId: integer()
+      .notNull()
+      .references(() => trackingGoalTable.id, { onDelete: "cascade" }),
+    athleteId: integer()
+      .notNull()
+      .references(() => athleteTable.id, { onDelete: "cascade" }),
+    value: doublePrecision().notNull(),
+    note: varchar({ length: 255 }),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    goalAthleteIdx: index("tracking_goal_progress_logs_goal_athlete_idx").on(table.goalId, table.athleteId),
+  }),
+);
+
 // ── Enquiries ──────────────────────────────────────────────
 
 export const enquiryStatusEnum = pgEnum("enquiry_status", ["new", "contacted", "booked", "closed"]);

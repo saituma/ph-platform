@@ -8,4 +8,4 @@ BEGIN
   ) THEN
     ALTER TYPE "role" ADD VALUE 'athlete';
   END IF;
-END $$;
+END $$;--> statement-breakpoint

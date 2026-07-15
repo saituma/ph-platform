@@ -2,13 +2,13 @@ DO $$ BEGIN
  CREATE TYPE "public"."training_other_type" AS ENUM('mobility', 'recovery', 'inseason', 'offseason', 'education');
 EXCEPTION
  WHEN duplicate_object THEN null;
-END $$;
+END $$;--> statement-breakpoint
 
 DO $$ BEGIN
  CREATE TYPE "public"."training_session_block_type" AS ENUM('warmup', 'main', 'cooldown');
 EXCEPTION
  WHEN duplicate_object THEN null;
-END $$;
+END $$;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "training_modules" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS "training_modules" (
   "createdBy" integer NOT NULL REFERENCES "users"("id"),
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "training_module_sessions" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS "training_module_sessions" (
   "order" integer NOT NULL DEFAULT 1,
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "training_session_items" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS "training_session_items" (
   "createdBy" integer NOT NULL REFERENCES "users"("id"),
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "training_other_contents" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS "training_other_contents" (
   "createdBy" integer NOT NULL REFERENCES "users"("id"),
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "athlete_training_session_completions" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -67,16 +67,16 @@ CREATE TABLE IF NOT EXISTS "athlete_training_session_completions" (
   "completedAt" timestamp NOT NULL DEFAULT now(),
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
-CREATE INDEX IF NOT EXISTS "training_modules_age_idx" ON "training_modules" ("age");
-CREATE INDEX IF NOT EXISTS "training_modules_age_order_idx" ON "training_modules" ("age", "order");
-CREATE INDEX IF NOT EXISTS "training_module_sessions_module_idx" ON "training_module_sessions" ("moduleId");
-CREATE INDEX IF NOT EXISTS "training_module_sessions_module_order_idx" ON "training_module_sessions" ("moduleId", "order");
-CREATE INDEX IF NOT EXISTS "training_session_items_session_idx" ON "training_session_items" ("sessionId");
-CREATE INDEX IF NOT EXISTS "training_session_items_session_block_order_idx" ON "training_session_items" ("sessionId", "blockType", "order");
-CREATE INDEX IF NOT EXISTS "training_other_contents_age_type_idx" ON "training_other_contents" ("age", "type");
-CREATE INDEX IF NOT EXISTS "training_other_contents_age_type_order_idx" ON "training_other_contents" ("age", "type", "order");
-CREATE INDEX IF NOT EXISTS "athlete_training_session_completions_athlete_idx" ON "athlete_training_session_completions" ("athleteId");
-CREATE INDEX IF NOT EXISTS "athlete_training_session_completions_session_idx" ON "athlete_training_session_completions" ("sessionId");
-CREATE UNIQUE INDEX IF NOT EXISTS "athlete_training_session_completions_unique" ON "athlete_training_session_completions" ("athleteId", "sessionId");
+CREATE INDEX IF NOT EXISTS "training_modules_age_idx" ON "training_modules" ("age");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_modules_age_order_idx" ON "training_modules" ("age", "order");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_module_sessions_module_idx" ON "training_module_sessions" ("moduleId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_module_sessions_module_order_idx" ON "training_module_sessions" ("moduleId", "order");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_session_items_session_idx" ON "training_session_items" ("sessionId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_session_items_session_block_order_idx" ON "training_session_items" ("sessionId", "blockType", "order");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_other_contents_age_type_idx" ON "training_other_contents" ("age", "type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "training_other_contents_age_type_order_idx" ON "training_other_contents" ("age", "type", "order");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "athlete_training_session_completions_athlete_idx" ON "athlete_training_session_completions" ("athleteId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "athlete_training_session_completions_session_idx" ON "athlete_training_session_completions" ("sessionId");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "athlete_training_session_completions_unique" ON "athlete_training_session_completions" ("athleteId", "sessionId");--> statement-breakpoint

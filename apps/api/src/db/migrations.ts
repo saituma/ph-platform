@@ -84,12 +84,36 @@ function readSqlMigrationTags(migrationsFolder: string) {
     .map((file) => file.replace(/\.sql$/, ""));
 }
 
+/**
+ * A naive `.split(";")` breaks `DO $$ ... END $$;` blocks that contain their own semicolons
+ * (e.g. `CREATE TYPE ... ENUM(...);` inside the block) — it slices mid-block and hands Postgres
+ * an unterminated dollar-quoted string. Track whether we're inside a `$$` region and only treat
+ * `;` as a statement boundary outside of one.
+ */
 function splitSqlStatements(sqlText: string) {
-  return sqlText
-    .replace(/^\s*--.*$/gm, "")
-    .split(";")
-    .map((stmt) => stmt.trim())
-    .filter(Boolean);
+  const withoutComments = sqlText.replace(/^\s*--.*$/gm, "");
+  const statements: string[] = [];
+  let current = "";
+  let inDollarQuote = false;
+
+  for (let i = 0; i < withoutComments.length; i++) {
+    if (withoutComments.startsWith("$$", i)) {
+      inDollarQuote = !inDollarQuote;
+      current += "$$";
+      i++;
+      continue;
+    }
+    const char = withoutComments[i];
+    if (char === ";" && !inDollarQuote) {
+      statements.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) statements.push(current.trim());
+
+  return statements.filter(Boolean);
 }
 
 /**

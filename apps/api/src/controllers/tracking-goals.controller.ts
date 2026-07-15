@@ -2,10 +2,12 @@ import { type Request, type Response } from "express";
 import { z } from "zod";
 import * as GoalService from "../services/tracking-goals.service";
 import { getAthleteForUser } from "../services/user.service";
+import { createPushIntent } from "../services/outbox.service";
 import { db } from "../db";
 import { athleteTable, userTable } from "../db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { getSocketServer } from "../socket-hub";
+import { logger } from "../lib/logger";
 
 const createSchema = z.object({
   title: z.string().min(1).max(255),
@@ -31,20 +33,13 @@ export async function createGoal(req: Request, res: Response) {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
   }
-  try {
-    const goal = await GoalService.createGoal({
-      ...parsed.data,
-      coachId: req.user!.id,
-    });
-    const io = getSocketServer();
-    if (io) io.emit("tracking:goals:changed", { action: "created" });
-    return res.status(201).json({ goal });
-  } catch (err) {
-    if (err instanceof GoalService.GoalLimitError) {
-      return res.status(409).json({ error: err.message });
-    }
-    throw err;
-  }
+  const goal = await GoalService.createGoal({
+    ...parsed.data,
+    coachId: req.user!.id,
+  });
+  const io = getSocketServer();
+  if (io) io.emit("tracking:goals:changed", { action: "created" });
+  return res.status(201).json({ goal });
 }
 
 export async function updateGoal(req: Request, res: Response) {
@@ -122,4 +117,66 @@ export async function listGoalsForAthlete(req: Request, res: Response) {
     teamId: athlete.teamId ?? null,
   });
   return res.status(200).json({ goals });
+}
+
+const logProgressSchema = z.object({
+  value: z.coerce.number().positive(),
+  note: z.string().max(255).optional(),
+});
+
+export async function logGoalProgress(req: Request, res: Response) {
+  const goalId = z.coerce.number().int().min(1).parse(req.params.goalId);
+  const parsed = logProgressSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
+  }
+
+  const athlete = await getAthleteForUser(req.user!.id);
+  if (!athlete) return res.status(404).json({ error: "Athlete not found" });
+
+  const result = await GoalService.logManualProgress({
+    goalId,
+    athleteId: athlete.id,
+    athleteType: athlete.athleteType as "youth" | "adult",
+    teamId: athlete.teamId ?? null,
+    value: parsed.data.value,
+    note: parsed.data.note,
+  });
+  if (!result) return res.status(404).json({ error: "Goal not found" });
+
+  if (result.justCompleted) {
+    const userId = req.user!.id;
+    const io = getSocketServer();
+    io?.to(`user:${userId}`).emit("tracking:goal:completed", {
+      goalId,
+      title: result.goal.title,
+      completedAt: result.completedAt,
+    });
+    void createPushIntent({
+      userId,
+      title: "Goal complete! 🎉",
+      body: `You hit your target for "${result.goal.title}".`,
+      data: { type: "goal_completed", goalId: String(goalId) },
+    }).catch((err) => logger.error({ err }, "[TrackingGoals] Failed to create push intent"));
+  }
+
+  return res.status(200).json(result);
+}
+
+const overrideCompletionSchema = z.object({
+  completed: z.boolean(),
+  completionValue: z.coerce.number().optional(),
+});
+
+export async function overrideGoalCompletion(req: Request, res: Response) {
+  const goalId = z.coerce.number().int().min(1).parse(req.params.goalId);
+  const athleteId = z.coerce.number().int().min(1).parse(req.params.athleteId);
+  const { completed, completionValue } = overrideCompletionSchema.parse(req.body);
+
+  await GoalService.setGoalCompletionManually(goalId, athleteId, completed, completionValue);
+
+  const io = getSocketServer();
+  if (io) io.emit("tracking:goals:changed", { action: "completion-overridden" });
+
+  return res.status(200).json({ ok: true });
 }

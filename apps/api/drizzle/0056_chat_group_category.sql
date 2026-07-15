@@ -9,10 +9,10 @@ BEGIN
     CREATE TYPE chat_group_category AS ENUM ('announcement', 'coach_group', 'team');
   END IF;
 END
-$$;
+$$;--> statement-breakpoint
 
 ALTER TABLE chat_groups
-  ADD COLUMN IF NOT EXISTS "category" chat_group_category NOT NULL DEFAULT 'coach_group';
+  ADD COLUMN IF NOT EXISTS "category" chat_group_category NOT NULL DEFAULT 'coach_group';--> statement-breakpoint
 
 -- Backfill best-effort classification for existing groups.
 UPDATE chat_groups
@@ -21,7 +21,7 @@ SET "category" = CASE
   WHEN lower(name) ~ '(team|squad|club)' THEN 'team'::chat_group_category
   ELSE 'coach_group'::chat_group_category
 END
-WHERE "category" = 'coach_group'::chat_group_category;
+WHERE "category" = 'coach_group'::chat_group_category;--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS chat_groups_category_created_at_idx
-  ON chat_groups ("category", "createdAt" DESC);
+  ON chat_groups ("category", "createdAt" DESC);--> statement-breakpoint

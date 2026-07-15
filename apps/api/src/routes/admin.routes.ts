@@ -194,6 +194,10 @@ router.get("/admin/tracking-goals/:goalId/progress", TrackingGoalsController.get
 router.post("/admin/tracking-goals", TrackingGoalsController.createGoal);
 router.patch("/admin/tracking-goals/:id", TrackingGoalsController.updateGoal);
 router.delete("/admin/tracking-goals/:id", TrackingGoalsController.deleteGoal);
+router.patch(
+  "/admin/tracking-goals/:goalId/athletes/:athleteId/completion",
+  TrackingGoalsController.overrideGoalCompletion,
+);
 
 // Youth tracking assignment
 router.get("/admin/youth-athletes/tracking", TrackingGoalsController.listYouthTrackingAthletes);

@@ -8,5 +8,5 @@ BEGIN
   ) THEN
     ALTER TYPE "session_type" ADD VALUE 'screening';
   END IF;
-END $$;
+END $$;--> statement-breakpoint
 

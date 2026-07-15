@@ -12,7 +12,7 @@ DO $$ BEGIN
   );
 EXCEPTION
   WHEN duplicate_object THEN NULL;
-END $$;
+END $$;--> statement-breakpoint
 
 DO $$ BEGIN
   CREATE TYPE "public"."team_player_invite_status" AS ENUM(
@@ -23,7 +23,7 @@ DO $$ BEGIN
   );
 EXCEPTION
   WHEN duplicate_object THEN NULL;
-END $$;
+END $$;--> statement-breakpoint
 
 -- 2. New columns on team_subscription_requests
 ALTER TABLE "team_subscription_requests"
@@ -31,7 +31,7 @@ ALTER TABLE "team_subscription_requests"
   ADD COLUMN IF NOT EXISTS "coachPaysSeats" integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS "termsAcceptedAt" timestamp,
   ADD COLUMN IF NOT EXISTS "termsVersion" varchar(50),
-  ADD COLUMN IF NOT EXISTS "allPaymentsComplete" boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS "allPaymentsComplete" boolean NOT NULL DEFAULT false;--> statement-breakpoint
 
 -- 3. New table: team_player_payment_invites
 CREATE TABLE IF NOT EXISTS "team_player_payment_invites" (
@@ -49,15 +49,15 @@ CREATE TABLE IF NOT EXISTS "team_player_payment_invites" (
   "paidAt" timestamp,
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 -- 4. Indexes
 CREATE INDEX IF NOT EXISTS "team_player_payment_invites_request_idx"
-  ON "team_player_payment_invites" ("requestId");
+  ON "team_player_payment_invites" ("requestId");--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS "team_player_payment_invites_team_idx"
-  ON "team_player_payment_invites" ("teamId");
+  ON "team_player_payment_invites" ("teamId");--> statement-breakpoint
 
 CREATE UNIQUE INDEX IF NOT EXISTS "team_player_payment_invites_stripe_session_unique"
   ON "team_player_payment_invites" ("stripeSessionId")
-  WHERE "stripeSessionId" IS NOT NULL;
+  WHERE "stripeSessionId" IS NOT NULL;--> statement-breakpoint

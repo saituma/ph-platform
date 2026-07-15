@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppState, Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
 import { Image } from "expo-image";
@@ -58,12 +58,12 @@ import {
 import { fetchTeamLocations, type UserLocation } from "@/services/tracking/locationService";
 import { relativeTime } from "@/lib/tracking/relativeTime";
 import { apiRequest } from "@/lib/api";
-import { useSocket } from "@/context/SocketContext";
+import { useMyGoals } from "@/hooks/goals/useMyGoals";
+import { GoalCard } from "@/components/tracking/GoalCard";
 import {
   Play,
   TrendingUp,
   ChevronRight,
-  CheckCircle,
   ShieldCheck,
   CloudOff,
   Zap,
@@ -229,44 +229,9 @@ export default function TrackingHomeScreen() {
   });
   const [selectedRun, setSelectedRun] = useState<RunRecord | null>(null);
 
-  type TrackingGoal = {
-    id: number;
-    title: string;
-    description: string | null;
-    unit: "km" | "sec" | "min" | "reps" | "custom";
-    customUnit: string | null;
-    targetValue: number;
-    dueDate: string | null;
-    createdAt: string | null;
-    coachName: string | null;
-  };
-  const [goals, setGoals] = useState<TrackingGoal[]>([]);
-  const lastGoalsFetchRef = useRef<number>(0);
   const [innerTab, setInnerTab] = useState<"running" | "team">("running");
 
-  const { socket } = useSocket();
-
-  const refreshGoals = useCallback(() => {
-    apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
-      .then((r) => {
-        setGoals(r.goals);
-        lastGoalsFetchRef.current = Date.now();
-      })
-      .catch(() => {});
-  }, []);
-
-  useFocusEffect(() => {
-    const now = Date.now();
-    if (now - lastGoalsFetchRef.current > 30 * 1000) {
-      void refreshGoals();
-    }
-  });
-
-  useEffect(() => {
-    if (!socket) return;
-    socket.on("tracking:goals:changed", refreshGoals);
-    return () => { socket.off("tracking:goals:changed", refreshGoals); };
-  }, [socket, refreshGoals]);
+  const { goals, refreshGoals } = useMyGoals(token);
 
   const fabScale = useSharedValue(1);
   const fabAnimatedStyle = useAnimatedStyle(() => ({
@@ -453,11 +418,8 @@ export default function TrackingHomeScreen() {
     reload();
     queueRunPushToCloud();
     syncRunsFromServer();
-    apiRequest<{ goals: TrackingGoal[] }>("/tracking/goals")
-      .then((r) => setGoals(r.goals))
-      .catch(() => {})
-      .finally(() => setRefreshing(false));
-  }, [reload, syncRunsFromServer]);
+    refreshGoals().finally(() => setRefreshing(false));
+  }, [reload, syncRunsFromServer, refreshGoals]);
 
   const fabTap = Gesture.Tap()
     .onBegin(() => {
@@ -636,139 +598,19 @@ export default function TrackingHomeScreen() {
           {/* ── Training Goals ── */}
           {goals.length > 0 && (
             <View style={{ gap: 8 }}>
-              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase", paddingHorizontal: 4 }}>
-                Goals
-              </Text>
-              {goals.map((goal, gi) => {
-                const unitLabel = goal.unit === "custom" ? (goal.customUnit ?? "") : goal.unit;
-                const dueLabel = goal.dueDate
-                  ? `Due ${new Date(goal.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                  : null;
-
-                const goalStart = goal.createdAt ? new Date(goal.createdAt).getTime() : 0;
-                let progress = 0;
-                if (goal.unit === "km") {
-                  const totalMeters = runs
-                    .filter((r) => new Date(r.date).getTime() >= goalStart)
-                    .reduce((sum, r) => sum + r.distance_meters, 0);
-                  progress = totalMeters / 1000;
-                } else if (goal.unit === "min") {
-                  const totalSec = runs
-                    .filter((r) => new Date(r.date).getTime() >= goalStart)
-                    .reduce((sum, r) => sum + r.duration_seconds, 0);
-                  progress = totalSec / 60;
-                } else if (goal.unit === "sec") {
-                  progress = runs
-                    .filter((r) => new Date(r.date).getTime() >= goalStart)
-                    .reduce((sum, r) => sum + r.duration_seconds, 0);
-                }
-                const hasMeasurableProgress = goal.unit === "km" || goal.unit === "min" || goal.unit === "sec";
-                const pct = hasMeasurableProgress ? Math.min(1, progress / goal.targetValue) : null;
-                const done = pct != null && pct >= 1;
-                const barColor = done ? p.accent : p.accent;
-                const cardBg = done ? "transparent" : p.cardWhite;
-
-                const progressLabel = hasMeasurableProgress
-                  ? goal.unit === "km"
-                    ? `${progress.toFixed(1)} / ${goal.targetValue} km`
-                    : goal.unit === "min"
-                    ? `${Math.round(progress)} / ${goal.targetValue} min`
-                    : `${Math.round(progress)} / ${goal.targetValue} sec`
-                  : null;
-
-                const RING_SIZE = 56;
-                const RING_STROKE = 5;
-                const ringRadius = (RING_SIZE - RING_STROKE) / 2;
-                const ringCircumference = 2 * Math.PI * ringRadius;
-                const ringOffset = pct != null ? ringCircumference * (1 - pct) : ringCircumference;
-                const ringTrackColor = done ? "rgba(46,125,50,0.15)" : p.accentSoft;
-
-                return (
-                  <Animated.View
-                    key={goal.id}
-                    entering={FadeInDown.delay(gi * 60).duration(280)}
-                    style={{
-                      backgroundColor: done ? p.cardMint : p.cardWhite,
-                      borderRadius: 22,
-                      padding: 16,
-                      gap: 12,
-                      ...BENTO_BORDER,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                      <View style={{ width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Svg width={RING_SIZE} height={RING_SIZE}>
-                          <Circle
-                            cx={RING_SIZE / 2}
-                            cy={RING_SIZE / 2}
-                            r={ringRadius}
-                            stroke={ringTrackColor}
-                            strokeWidth={RING_STROKE}
-                            fill="none"
-                          />
-                          {pct != null && (
-                            <Circle
-                              cx={RING_SIZE / 2}
-                              cy={RING_SIZE / 2}
-                              r={ringRadius}
-                              stroke={barColor}
-                              strokeWidth={RING_STROKE}
-                              fill="none"
-                              strokeDasharray={ringCircumference}
-                              strokeDashoffset={ringOffset}
-                              strokeLinecap="round"
-                              rotation={-90}
-                              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-                            />
-                          )}
-                        </Svg>
-                        <View style={{ position: "absolute", alignItems: "center", justifyContent: "center" }}>
-                          {done ? (
-                            <CheckCircle size={20} color={p.accent} />
-                          ) : pct != null ? (
-                            <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: barColor, letterSpacing: -0.3 }}>
-                              {Math.round(pct * 100)}%
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-
-                      <View style={{ flex: 1, gap: 2 }}>
-                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 15, color: p.textPrimary, letterSpacing: -0.3, flex: 1 }} numberOfLines={1}>
-                            {goal.title}
-                          </Text>
-                          {done && (
-                            <View style={{ backgroundColor: "rgba(46,125,50,0.12)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 100, marginLeft: 8 }}>
-                              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.accent }}>Done</Text>
-                            </View>
-                          )}
-                        </View>
-                        {!done && (
-                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: barColor }}>
-                            {goal.targetValue} {unitLabel}
-                          </Text>
-                        )}
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                          {dueLabel && <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>{dueLabel}</Text>}
-                          {goal.coachName && <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>· {goal.coachName}</Text>}
-                        </View>
-                      </View>
-                    </View>
-
-                    {hasMeasurableProgress && pct != null && (
-                      <View style={{ gap: 5 }}>
-                        <View style={{ height: 5, borderRadius: 3, backgroundColor: p.accentSoft, overflow: "hidden" }}>
-                          <View style={{ height: 5, borderRadius: 3, backgroundColor: barColor, width: `${Math.min(100, pct * 100)}%` }} />
-                        </View>
-                        {progressLabel && (
-                          <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted }}>{progressLabel}</Text>
-                        )}
-                      </View>
-                    )}
-                  </Animated.View>
-                );
-              })}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 }}>
+                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, letterSpacing: 0.8, color: p.textMuted, textTransform: "uppercase" }}>
+                  Goals
+                </Text>
+                {goals.length > 3 && (
+                  <Pressable onPress={() => router.push("/goals" as any)}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.accent }}>See all</Text>
+                  </Pressable>
+                )}
+              </View>
+              {goals.slice(0, 3).map((goal, gi) => (
+                <GoalCard key={goal.id} goal={goal} index={gi} />
+              ))}
             </View>
           )}
 

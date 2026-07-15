@@ -2,6 +2,37 @@ import type { Request, Response } from "express";
 import { z } from "zod";
 
 import * as runsService from "../services/runs.service";
+import * as GoalService from "../services/tracking-goals.service";
+import { getAthleteForUser } from "../services/user.service";
+import { createPushIntent } from "../services/outbox.service";
+import { getSocketServer } from "../socket-hub";
+import { logger } from "../lib/logger";
+
+function checkRunGoalCompletions(userId: number) {
+  void getAthleteForUser(userId)
+    .then((athlete) => {
+      if (!athlete) return [];
+      return GoalService.checkRunGoalCompletionsForAthlete({
+        userId,
+        athleteId: athlete.id,
+        athleteType: athlete.athleteType as "youth" | "adult",
+        teamId: athlete.teamId ?? null,
+      });
+    })
+    .then((justCompleted) => {
+      for (const g of justCompleted ?? []) {
+        const io = getSocketServer();
+        io?.to(`user:${userId}`).emit("tracking:goal:completed", { goalId: g.goalId, title: g.title });
+        void createPushIntent({
+          userId,
+          title: "Goal complete! 🎉",
+          body: `You hit your target for "${g.title}".`,
+          data: { type: "goal_completed", goalId: String(g.goalId) },
+        }).catch((err) => logger.error({ err }, "[TrackingGoals] Failed to create push intent"));
+      }
+    })
+    .catch((err) => logger.error({ err }, "[TrackingGoals] Run-sync completion check failed"));
+}
 
 const coordinateSchema = z.object({
   latitude: z.number().finite().min(-90).max(90),
@@ -42,6 +73,7 @@ export async function syncRuns(req: Request, res: Response) {
   }
 
   const syncedIds = await runsService.upsertRuns(req.user.id, parsed.data.runs);
+  checkRunGoalCompletions(req.user.id);
   return res.status(200).json({ synced: syncedIds });
 }
 

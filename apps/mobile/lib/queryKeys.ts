@@ -85,6 +85,12 @@ export const queryKeys = {
     videoHistory: () => ["programs", "videoHistory"] as const,
   },
 
+  goals: {
+    all: () => ["goals"] as const,
+    myGoals: () => ["goals", "myGoals"] as const,
+    detail: (id: number) => ["goals", "detail", id] as const,
+  },
+
   announcements: {
     all: () => ["announcements"] as const,
     list: (userId?: number | null) =>

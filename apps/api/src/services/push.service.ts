@@ -37,7 +37,7 @@ function getChannelId(type?: string) {
   // the account channel, which the app creates on Android.
   if (/(payment|billing|plan)/.test(value)) return "account";
   if (/(account|security|profile)/.test(value)) return "account";
-  if (/(progress|video|birthday|program)/.test(value)) return "progress";
+  if (/(progress|video|birthday|program|goal)/.test(value)) return "progress";
   if (/(system|alert|warning|announcement)/.test(value)) return "system";
   return "default";
 }

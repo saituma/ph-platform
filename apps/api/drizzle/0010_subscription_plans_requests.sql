@@ -2,7 +2,7 @@ DO $$ BEGIN
   CREATE TYPE "subscription_status" AS ENUM ('pending_payment', 'pending_approval', 'approved', 'rejected');
 EXCEPTION
   WHEN duplicate_object THEN null;
-END $$;
+END $$;--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "subscription_plans" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "subscription_plans" (
   "isActive" boolean NOT NULL DEFAULT true,
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "subscription_requests" (
   "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -26,4 +26,4 @@ CREATE TABLE IF NOT EXISTS "subscription_requests" (
   "status" subscription_status NOT NULL DEFAULT 'pending_payment',
   "createdAt" timestamp NOT NULL DEFAULT now(),
   "updatedAt" timestamp NOT NULL DEFAULT now()
-);
+);--> statement-breakpoint

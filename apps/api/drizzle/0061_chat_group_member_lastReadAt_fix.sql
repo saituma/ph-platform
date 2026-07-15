@@ -1,5 +1,5 @@
 ALTER TABLE "chat_group_members"
-ADD COLUMN IF NOT EXISTS "lastReadAt" timestamp;
+ADD COLUMN IF NOT EXISTS "lastReadAt" timestamp;--> statement-breakpoint
 
 DO $$
 BEGIN
@@ -12,5 +12,5 @@ BEGIN
   ) THEN
     EXECUTE 'UPDATE "chat_group_members" SET "lastReadAt" = COALESCE("lastReadAt", "last_read_at") WHERE "lastReadAt" IS NULL';
   END IF;
-END $$;
+END $$;--> statement-breakpoint
 
