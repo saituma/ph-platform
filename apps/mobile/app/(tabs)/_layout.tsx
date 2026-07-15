@@ -5,6 +5,7 @@ import { useAppSelector } from "@/store/hooks";
 import { isAdminRole } from "@/lib/isAdminRole";
 import { canUseCoachMessaging } from "@/lib/messagingAccess";
 import { PlanExpiredBanner } from "@/components/PlanExpiredBanner";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 import { AdminLayout } from "@/roles/admin/AdminLayout";
 import { AdultLayout } from "@/roles/adult/AdultLayout";
@@ -92,6 +93,7 @@ function TabLayout() {
 
   return (
     <View style={containerStyle}>
+      <OfflineBanner />
       <PlanExpiredBanner />
       {renderRoleLayout()}
     </View>
