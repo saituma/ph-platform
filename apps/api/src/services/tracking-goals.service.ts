@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, or, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lte, or, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   athleteTable,
@@ -252,7 +252,13 @@ export function buildAthleteGoalMatchConditions(input: {
   }
   const scopeMatch = or(...scopeConditions);
 
-  return and(audienceMatch, scopeMatch);
+  const today = new Date().toISOString().slice(0, 10);
+  const dateWindowMatch = and(
+    or(isNull(trackingGoalTable.startDate), lte(trackingGoalTable.startDate, today)),
+    or(isNull(trackingGoalTable.endDate), gte(trackingGoalTable.endDate, today)),
+  );
+
+  return and(audienceMatch, scopeMatch, dateWindowMatch);
 }
 
 export async function getGoalProgress(goalId: number) {
