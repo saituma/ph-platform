@@ -3,6 +3,7 @@
 import { ExternalLink } from "lucide-react";
 
 import { useGetOpenGraphQuery } from "../../../lib/apiSlice";
+import { Skeleton } from "../../ui/skeleton";
 
 function extractHost(value: string): string {
   try {
@@ -13,7 +14,7 @@ function extractHost(value: string): string {
 }
 
 export function OpenGraphPreview({ url }: { url: string }) {
-  const { data } = useGetOpenGraphQuery({ url }, { skip: !url });
+  const { data, isLoading } = useGetOpenGraphQuery({ url }, { skip: !url });
   const og = data?.data as
     | {
         url?: string | null;
@@ -29,6 +30,15 @@ export function OpenGraphPreview({ url }: { url: string }) {
   const image = og?.image ? String(og.image) : "";
   const siteName = String(og?.siteName ?? "").trim() || extractHost(url);
   const href = String(og?.url ?? url).trim() || url;
+
+  if (isLoading) {
+    return (
+      <div className="mt-2 space-y-2 overflow-hidden rounded-xl border border-border bg-secondary/20 px-4 py-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-4 w-3/4" />
+      </div>
+    );
+  }
 
   if (!title && !description && !image) return null;
 

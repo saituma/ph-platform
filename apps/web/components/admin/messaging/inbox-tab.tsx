@@ -17,9 +17,12 @@ import { ChatComposer } from "./chat-composer";
 import { TenorPickerDialog } from "./tenor-picker-dialog";
 import { ThreadMessageList } from "./thread-message-list";
 import { GroupThreadPane } from "./group-thread-pane";
+import { SplitPaneShell } from "./split-pane-shell";
+import { useDebouncedValue } from "./use-debounced-value";
 import type { ChatGroupItem, ChatMessage, ChatReaction, MessagingUser } from "./types";
 import type { DirectLiveHandlers, GroupLiveHandlers, GifResult, ThreadListItem } from "./messaging-utils";
 import {
+  EMPTY_TYPING_SET,
   getGroupActivityTimestamp,
   formatGroupLastMessagePreview,
   resolveGroupCategory,
@@ -35,6 +38,7 @@ import {
 } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
+import { Skeleton } from "../../ui/skeleton";
 import {
   Select,
   SelectTrigger,
@@ -42,7 +46,7 @@ import {
   SelectPopup,
   SelectItem,
 } from "../../ui/select";
-import { cleanPreview, initials } from "./inbox-thread-panel";
+import { cleanPreview, initials } from "./messaging-utils";
 import { formatPresence } from "@/lib/last-seen";
 
 type GifApiResponse = {
@@ -59,11 +63,15 @@ type InboxTabProps = {
   users: MessagingUser[];
   typingUserIds: ReadonlySet<number>;
   onTypingChange: (toUserId: number, isTyping: boolean) => void;
+  groupTypingUserIds: ReadonlyMap<number, ReadonlySet<number>>;
+  onGroupTypingChange: (groupId: number, isTyping: boolean) => void;
   currentUserId: number | null;
   resolveUserName: (userId: number) => string;
   formatTime: (value?: string | null) => string;
   scheduleInboxRefetch: (delayMs?: number) => void;
   refetchInbox: () => void;
+  isInboxLoading: boolean;
+  isInboxError: boolean;
   highlightedInboxThreadUserId: number | null;
   highlightedInboxGroupId: number | null;
   setHighlightedInboxGroupId: (id: number | null) => void;
@@ -79,11 +87,15 @@ export function InboxTab({
   users,
   typingUserIds,
   onTypingChange,
+  groupTypingUserIds,
+  onGroupTypingChange,
   currentUserId,
   resolveUserName,
   formatTime,
   scheduleInboxRefetch,
   refetchInbox,
+  isInboxLoading,
+  isInboxError,
   highlightedInboxThreadUserId,
   highlightedInboxGroupId,
   setHighlightedInboxGroupId,
@@ -101,6 +113,7 @@ export function InboxTab({
   } | null>(null);
   const [activeUploadTarget, setActiveUploadTarget] = useState<"direct" | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [mediaUploadProgress, setMediaUploadProgress] = useState<number | null>(null);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
@@ -135,8 +148,12 @@ export function InboxTab({
   const [editMessage] = useEditMessageMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
 
-  const { data: directMessagesData, refetch: refetchDirectMessages } =
-    useGetMessagesQuery(threadUserId ?? skipToken);
+  const {
+    data: directMessagesData,
+    isLoading: isDirectMessagesLoading,
+    isError: isDirectMessagesError,
+    refetch: refetchDirectMessages,
+  } = useGetMessagesQuery(threadUserId ?? skipToken);
 
   const chatEligibleUsers = useMemo(
     () =>
@@ -269,8 +286,12 @@ export function InboxTab({
     [groupedInboxSections],
   );
 
+  const debouncedListQuery = useDebouncedValue(listQuery);
+  const debouncedGroupMemberQuery = useDebouncedValue(groupMemberQuery);
+  const debouncedNewMsgQuery = useDebouncedValue(newMsgQuery);
+
   const filteredThreads = useMemo(() => {
-    const q = listQuery.trim().toLowerCase();
+    const q = debouncedListQuery.trim().toLowerCase();
     if (!q) return threads;
     return threads.filter((t) => {
       return (
@@ -278,26 +299,26 @@ export function InboxTab({
         cleanPreview(t.preview).toLowerCase().includes(q)
       );
     });
-  }, [threads, listQuery]);
+  }, [threads, debouncedListQuery]);
 
   const filteredGroupList = useMemo(() => {
-    const q = listQuery.trim().toLowerCase();
+    const q = debouncedListQuery.trim().toLowerCase();
     if (!q) return allGroups;
     return allGroups.filter((g) => String(g.name ?? "").toLowerCase().includes(q));
-  }, [allGroups, listQuery]);
+  }, [allGroups, debouncedListQuery]);
 
   const filteredGroupMembers = useMemo(() => {
-    const query = groupMemberQuery.trim().toLowerCase();
+    const query = debouncedGroupMemberQuery.trim().toLowerCase();
     if (!query) return chatEligibleUsers;
     return chatEligibleUsers.filter((user) => {
       const name = String(user.name ?? "").toLowerCase();
       const email = String(user.email ?? "").toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [chatEligibleUsers, groupMemberQuery]);
+  }, [chatEligibleUsers, debouncedGroupMemberQuery]);
 
   const newMessageRecipients = useMemo(() => {
-    const query = newMsgQuery.trim().toLowerCase();
+    const query = debouncedNewMsgQuery.trim().toLowerCase();
     const base = [...chatEligibleUsers].sort((a, b) =>
       String(a.name ?? a.email ?? "").localeCompare(String(b.name ?? b.email ?? "")),
     );
@@ -307,7 +328,7 @@ export function InboxTab({
       const email = String(user.email ?? "").toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [chatEligibleUsers, newMsgQuery]);
+  }, [chatEligibleUsers, debouncedNewMsgQuery]);
 
   // Sync refs
   useEffect(() => {
@@ -381,27 +402,17 @@ export function InboxTab({
     }
   };
 
-  const handleSendDirect = async () => {
-    if (!threadUserId || !directMessage.trim()) return;
-    stopTyping();
-    const pendingId = -Date.now();
-    const pendingMsg: ChatMessage = {
-      id: pendingId,
-      senderId: currentUserId ?? 0,
-      receiverId: threadUserId,
-      content: directMessage.trim(),
-      contentType: "text",
-      createdAt: new Date().toISOString(),
-      reactions: [],
-      localStatus: "sending",
-    };
-    setPendingDirectMessages((current) => [...current, pendingMsg]);
-    const draft = directMessage.trim();
-    setDirectMessage("");
+  const sendPendingDirectMessage = async (pendingId: number, content: string) => {
+    if (!threadUserId) return;
+    setPendingDirectMessages((current) =>
+      current.map((message) =>
+        Number(message.id) === pendingId ? { ...message, localStatus: "sending" } : message,
+      ),
+    );
     try {
       const result = (await sendDirect({
         userId: threadUserId,
-        content: draft,
+        content,
         contentType: "text",
         replyToMessageId: directReplyTo?.messageId,
         replyPreview: directReplyTo?.preview,
@@ -421,11 +432,38 @@ export function InboxTab({
       scheduleInboxRefetch(60);
     } catch {
       setPendingDirectMessages((current) =>
-        current.filter((message) => Number(message.id) !== pendingId),
+        current.map((message) =>
+          Number(message.id) === pendingId ? { ...message, localStatus: "failed" } : message,
+        ),
       );
-      setDirectMessage(draft);
       toast.error("Failed", "Could not send message.");
     }
+  };
+
+  const handleSendDirect = async () => {
+    if (!threadUserId || !directMessage.trim()) return;
+    stopTyping();
+    const pendingId = -Date.now();
+    const content = directMessage.trim();
+    const pendingMsg: ChatMessage = {
+      id: pendingId,
+      senderId: currentUserId ?? 0,
+      receiverId: threadUserId,
+      content,
+      contentType: "text",
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      localStatus: "sending",
+    };
+    setPendingDirectMessages((current) => [...current, pendingMsg]);
+    setDirectMessage("");
+    await sendPendingDirectMessage(pendingId, content);
+  };
+
+  const handleRetryDirect = (message: ChatMessage) => {
+    const pendingId = Number(message.id);
+    if (!Number.isFinite(pendingId)) return;
+    void sendPendingDirectMessage(pendingId, String(message.content ?? ""));
   };
 
   const uploadAndSendMedia = async (file: File) => {
@@ -445,6 +483,10 @@ export function InboxTab({
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          setMediaUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve();
           else reject(new Error("Upload failed."));
@@ -471,6 +513,7 @@ export function InboxTab({
       toast.error("Failed", "Could not upload media.");
     } finally {
       setIsUploadingMedia(false);
+      setMediaUploadProgress(null);
       setActiveUploadTarget(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -628,14 +671,10 @@ export function InboxTab({
   return (
     <>
       {/* Split-pane messaging layout */}
-      <div className="flex h-[calc(100svh-10rem)] overflow-hidden rounded-xl border border-border bg-background">
-
-        {/* LEFT: Conversation list */}
-        <div className={`flex flex-col border-r border-border bg-background ${
-          threadUserId != null || groupId != null
-            ? "hidden lg:flex lg:w-[340px] xl:w-[380px]"
-            : "flex w-full lg:w-[340px] xl:w-[380px]"
-        }`}>
+      <SplitPaneShell
+        isDetailOpen={threadUserId != null || groupId != null}
+        list={
+          <>
           {/* List header */}
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h2 className="text-sm font-semibold tracking-tight">Messages</h2>
@@ -669,6 +708,7 @@ export function InboxTab({
                 value={listQuery}
                 onChange={(e) => setListQuery(e.target.value)}
                 placeholder="Search conversations..."
+                aria-label="Search conversations"
                 className="h-8 bg-muted/50 pl-8 text-sm border-transparent focus-visible:border-border focus-visible:bg-background focus-visible:ring-0"
               />
             </div>
@@ -677,6 +717,21 @@ export function InboxTab({
           {/* Unified conversation list */}
           <ScrollArea className="flex-1">
             <div className="py-1">
+              {isInboxLoading ? (
+                <div className="space-y-2 px-3 py-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={`thread-skel-${i}`} className="h-14 rounded-xl" />
+                  ))}
+                </div>
+              ) : isInboxError ? (
+                <div className="mx-3 my-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+                  <p className="text-sm font-medium text-destructive">Could not load conversations.</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => refetchInbox()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <>
               {filteredThreads.map((thread) => (
                 <button
                   key={`dm-${thread.userId}`}
@@ -788,14 +843,14 @@ export function InboxTab({
                   </p>
                 </div>
               ) : null}
+                </>
+              )}
             </div>
           </ScrollArea>
-        </div>
-
-        {/* RIGHT: Thread view or empty state */}
-        <div className={`flex flex-1 flex-col overflow-hidden ${
-          threadUserId == null && groupId == null ? "hidden lg:flex" : "flex"
-        }`}>
+          </>
+        }
+        detail={
+          <>
           {threadUserId != null ? (
             <>
               {/* Direct thread header */}
@@ -830,26 +885,45 @@ export function InboxTab({
               </div>
               {/* Messages */}
               <div className="min-h-0 flex-1">
-                <ThreadMessageList
-                  key={`direct-thread-${threadUserId}`}
-                  openScrollKey={`direct-open-${threadUserId}`}
-                  messages={directMessages}
-                  onReact={handleDirectReaction}
-                  onReply={(payload) => setDirectReplyTo(payload)}
-                  onDelete={(messageId) =>
-                    void deleteMessage({ messageId, userId: threadUserId }).catch(() => {})
-                  }
-                  onEdit={(messageId, content) =>
-                    void editMessage({ messageId, content, userId: threadUserId }).catch(() => {})
-                  }
-                  formatTime={formatTime}
-                  currentUserId={currentUserId}
-                  resolveUserName={resolveUserName}
-                  mode="direct"
-                  directPeerUserId={threadUserId}
-                  directPeerName={directThreadName}
-                  emptyLabel="No messages yet."
-                />
+                {isDirectMessagesLoading && !directMessages.length ? (
+                  <div className="space-y-3 p-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton
+                        key={`direct-msg-skel-${i}`}
+                        className={`h-10 rounded-2xl ${i % 2 ? "ml-auto w-2/5" : "w-1/2"}`}
+                      />
+                    ))}
+                  </div>
+                ) : isDirectMessagesError && !directMessages.length ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                    <p className="text-sm font-medium text-destructive">Could not load this conversation.</p>
+                    <Button size="sm" variant="outline" onClick={() => refetchDirectMessages()}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <ThreadMessageList
+                    key={`direct-thread-${threadUserId}`}
+                    openScrollKey={`direct-open-${threadUserId}`}
+                    messages={directMessages}
+                    onReact={handleDirectReaction}
+                    onReply={(payload) => setDirectReplyTo(payload)}
+                    onDelete={(messageId) =>
+                      void deleteMessage({ messageId, userId: threadUserId }).catch(() => {})
+                    }
+                    onEdit={(messageId, content) =>
+                      void editMessage({ messageId, content, userId: threadUserId }).catch(() => {})
+                    }
+                    onRetrySend={handleRetryDirect}
+                    formatTime={formatTime}
+                    currentUserId={currentUserId}
+                    resolveUserName={resolveUserName}
+                    mode="direct"
+                    directPeerUserId={threadUserId}
+                    directPeerName={directThreadName}
+                    emptyLabel="No messages yet."
+                  />
+                )}
               </div>
               {/* Composer */}
               <ChatComposer
@@ -860,6 +934,7 @@ export function InboxTab({
                 canSend={Boolean(threadUserId && directMessage.trim())}
                 isSending={isSendingDirect}
                 isUploading={isUploadingMedia}
+                uploadProgress={mediaUploadProgress}
                 replyingTo={directReplyTo ? { preview: directReplyTo.preview } : null}
                 onCancelReply={() => setDirectReplyTo(null)}
                 onPickPhoto={() => openFilePicker("image/*")}
@@ -877,6 +952,8 @@ export function InboxTab({
               formatTime={formatTime}
               scheduleInboxRefetch={scheduleInboxRefetch}
               refetchInbox={refetchInbox}
+              typingUserIds={groupTypingUserIds.get(groupId) ?? EMPTY_TYPING_SET}
+              onTypingChange={(isTyping: boolean) => onGroupTypingChange(groupId, isTyping)}
               registerGroupLiveHandlers={registerGroupLiveHandlers}
               onBack={() => setGroupId(null)}
             />
@@ -894,8 +971,9 @@ export function InboxTab({
               </div>
             </div>
           )}
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* New message dialog */}
       <Dialog open={newMsgOpen} onOpenChange={setNewMsgOpen}>
@@ -909,6 +987,7 @@ export function InboxTab({
           <div className="space-y-3">
             <Input
               placeholder="Search by name or email..."
+              aria-label="Search people by name or email"
               value={newMsgQuery}
               onChange={(event) => setNewMsgQuery(event.target.value)}
               autoFocus
@@ -957,6 +1036,7 @@ export function InboxTab({
           <div className="space-y-3">
             <Input
               placeholder="Group name"
+              aria-label="Group name"
               value={newGroupName}
               onChange={(event) => setNewGroupName(event.target.value)}
             />
@@ -991,6 +1071,7 @@ export function InboxTab({
             </div>
             <Input
               placeholder="Search members..."
+              aria-label="Search group members"
               value={groupMemberQuery}
               onChange={(event) => setGroupMemberQuery(event.target.value)}
             />

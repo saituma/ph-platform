@@ -1,6 +1,9 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Skeleton } from "../../ui/skeleton";
+
+type MessagingTab = "inbox" | "announcement" | "teams" | "stats" | "stories";
 
 type StatsTabProps = {
   stats: {
@@ -10,71 +13,47 @@ type StatsTabProps = {
     totalTeams: number;
     totalGroups: number;
   };
+  isLoading: boolean;
+  onNavigateToTab: (tab: MessagingTab) => void;
 };
 
-export function StatsTab({ stats }: StatsTabProps) {
+const STAT_TILES: Array<{ label: string; key: keyof StatsTabProps["stats"]; tab: MessagingTab }> = [
+  { label: "Announcements", key: "totalAnnouncements", tab: "announcement" },
+  { label: "Inbox threads", key: "totalThreads", tab: "inbox" },
+  { label: "Unread messages", key: "unreadThreads", tab: "inbox" },
+  { label: "Teams", key: "totalTeams", tab: "teams" },
+  { label: "Inbox groups", key: "totalGroups", tab: "inbox" },
+];
+
+export function StatsTab({ stats, isLoading, onNavigateToTab }: StatsTabProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Announcements
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold text-foreground">
-            {stats.totalAnnouncements}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Inbox threads
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold text-foreground">
-            {stats.totalThreads}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Unread messages
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold text-foreground">
-            {stats.unreadThreads}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Teams
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold text-foreground">
-            {stats.totalTeams}
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Inbox groups
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold text-foreground">
-            {stats.totalGroups}
-          </p>
-        </CardContent>
-      </Card>
+      {STAT_TILES.map((tile) => (
+        <button
+          key={tile.key}
+          type="button"
+          onClick={() => onNavigateToTab(tile.tab)}
+          className="text-left transition hover:opacity-80"
+          aria-label={`Go to ${tile.label}`}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {tile.label}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-9 w-14" />
+              ) : (
+                <p className="text-3xl font-semibold text-foreground">
+                  {stats[tile.key]}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </button>
+      ))}
     </div>
   );
 }

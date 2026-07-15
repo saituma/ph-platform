@@ -73,6 +73,7 @@ type ThreadMessageListProps = {
   onReply?: (payload: { messageId: number; preview: string }) => void;
   onDelete?: (messageId: number) => void;
   onEdit?: (messageId: number, content: string) => void;
+  onRetrySend?: (message: ChatMessage) => void;
   formatTime: (value?: string | null) => string;
   currentUserId?: number | null;
   resolveUserName?: (userId: number) => string;
@@ -125,6 +126,7 @@ function ThreadMessageListInner({
   onReply,
   onDelete,
   onEdit,
+  onRetrySend,
   formatTime,
   currentUserId,
   resolveUserName,
@@ -171,6 +173,17 @@ function ThreadMessageListInner({
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  // Dismiss emoji picker + who-reacted on Escape, matching the inline edit-textarea.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setPickerAnchor(null);
+      setWhoReactedKey(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // Close picker on scroll (so it doesn't float detached)
@@ -293,6 +306,11 @@ function ThreadMessageListInner({
               const message = item.message;
               const senderId = Number(message?.senderId ?? NaN);
               const mine = isMessageFromCurrentUser({ message, currentUserId, mode, directPeerUserId });
+              const nextItem = messagesWithSeparators[idx + 1];
+              const isLastOfConsecutiveRun =
+                !nextItem ||
+                nextItem.type === "separator" ||
+                Number(nextItem.message?.senderId ?? NaN) !== senderId;
               const reactions: ChatReaction[] = Array.isArray(message?.reactions)
                 ? message.reactions
                 : [];
@@ -352,18 +370,22 @@ function ThreadMessageListInner({
                   >
                     <Message align={mine ? "end" : "start"} className="max-w-[88%] min-w-0">
                       <MessageAvatar>
-                        <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
-                          {avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={avatarUrl}
-                              alt={senderLabel}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span className="select-none">{avatarFallback}</span>
-                          )}
-                        </div>
+                        {isLastOfConsecutiveRun ? (
+                          <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/15 text-[10px] font-semibold text-primary">
+                            {avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={avatarUrl}
+                                alt={senderLabel}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="select-none">{avatarFallback}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="h-8 w-8" aria-hidden="true" />
+                        )}
                       </MessageAvatar>
 
                       <MessageContent>
@@ -436,6 +458,7 @@ function ThreadMessageListInner({
                             <InputGroup className="mt-1">
                               <InputGroupTextarea
                                 rows={2}
+                                aria-label="Edit message"
                                 value={editDraft}
                                 onChange={(e) => setEditDraft(e.target.value)}
                                 onKeyDown={(e) => {
@@ -491,6 +514,19 @@ function ThreadMessageListInner({
                           <span>{formatTime(message.createdAt)}</span>
                           {message.localStatus === "sending" ? (
                             <span className="animate-pulse">Sending...</span>
+                          ) : message.localStatus === "failed" ? (
+                            <span className="flex items-center gap-1 text-destructive">
+                              Failed to send
+                              {onRetrySend ? (
+                                <button
+                                  type="button"
+                                  className="font-medium underline underline-offset-2 hover:no-underline"
+                                  onClick={() => onRetrySend(message)}
+                                >
+                                  Retry
+                                </button>
+                              ) : null}
+                            </span>
                           ) : null}
                         </MessageFooter>
 

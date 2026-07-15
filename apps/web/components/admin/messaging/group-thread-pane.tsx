@@ -1,7 +1,7 @@
 "use client";
 
 import { skipToken } from "@reduxjs/toolkit/query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useAddChatGroupMembersMutation,
   useCreateMediaUploadUrlMutation,
@@ -31,11 +31,16 @@ import {
 } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
+import { Skeleton } from "../../ui/skeleton";
+import { useDebouncedValue } from "./use-debounced-value";
 
 type GifApiResponse = {
   error?: string;
   results?: GifResult[];
 };
+
+/** Idle gap after the last keystroke before the group's "Typing…" is retracted. */
+const TYPING_IDLE_MS = 2_500;
 
 type GroupThreadPaneProps = {
   groupId: number;
@@ -46,6 +51,8 @@ type GroupThreadPaneProps = {
   formatTime: (value?: string | null) => string;
   scheduleInboxRefetch: (delayMs?: number) => void;
   refetchInbox: () => void;
+  typingUserIds: ReadonlySet<number>;
+  onTypingChange: (isTyping: boolean) => void;
   registerGroupLiveHandlers: (handlers: GroupLiveHandlers | null) => void;
   onBack?: () => void;
 };
@@ -59,6 +66,8 @@ export function GroupThreadPane({
   formatTime,
   scheduleInboxRefetch,
   refetchInbox,
+  typingUserIds,
+  onTypingChange,
   registerGroupLiveHandlers,
   onBack,
 }: GroupThreadPaneProps) {
@@ -68,6 +77,7 @@ export function GroupThreadPane({
   const [pendingGroupMessages, setPendingGroupMessages] = useState<ChatMessage[]>([]);
   const [liveGroupMessages, setLiveGroupMessages] = useState<ChatMessage[]>([]);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [mediaUploadProgress, setMediaUploadProgress] = useState<number | null>(null);
   const [gifDialogOpen, setGifDialogOpen] = useState(false);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
@@ -88,7 +98,12 @@ export function GroupThreadPane({
   const [addChatGroupMembers, { isLoading: isAddingGroupMembers }] = useAddChatGroupMembersMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
 
-  const { data: groupMessagesData, refetch: refetchGroupMessages } = useGetChatGroupMessagesQuery(groupId);
+  const {
+    data: groupMessagesData,
+    isLoading: isGroupMessagesLoading,
+    isError: isGroupMessagesError,
+    refetch: refetchGroupMessages,
+  } = useGetChatGroupMessagesQuery(groupId);
   const { data: groupMembersData } = useGetChatGroupMembersQuery(manageOpen ? groupId : skipToken);
 
   const chatEligibleUsers = useMemo(
@@ -107,8 +122,10 @@ export function GroupThreadPane({
     [groupMembersData],
   );
 
+  const debouncedManageMemberQuery = useDebouncedValue(manageMemberQuery);
+
   const filteredManageMembers = useMemo(() => {
-    const q = manageMemberQuery.trim().toLowerCase();
+    const q = debouncedManageMemberQuery.trim().toLowerCase();
     return chatEligibleUsers.filter((user) => {
       if (existingManageMemberIds.includes(user.id)) return false;
       if (!q) return true;
@@ -117,7 +134,7 @@ export function GroupThreadPane({
         String(user.email ?? "").toLowerCase().includes(q)
       );
     });
-  }, [chatEligibleUsers, existingManageMemberIds, manageMemberQuery]);
+  }, [chatEligibleUsers, existingManageMemberIds, debouncedManageMemberQuery]);
 
   const groupMessages = useMemo<ChatMessage[]>(() => {
     const base = (groupMessagesData?.messages as ChatMessage[] | undefined) ?? [];
@@ -152,6 +169,39 @@ export function GroupThreadPane({
     },
     [refetchGroupMessages],
   );
+
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
+
+  const stopTyping = useCallback(() => {
+    if (typingStopTimerRef.current) {
+      clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = null;
+    }
+    if (!isTypingRef.current) return;
+    isTypingRef.current = false;
+    onTypingChange(false);
+  }, [onTypingChange]);
+
+  const handleGroupDraftChange = useCallback(
+    (value: string) => {
+      setGroupMessage(value);
+      if (!value.trim()) {
+        stopTyping();
+        return;
+      }
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        onTypingChange(true);
+      }
+      if (typingStopTimerRef.current) clearTimeout(typingStopTimerRef.current);
+      typingStopTimerRef.current = setTimeout(stopTyping, TYPING_IDLE_MS);
+    },
+    [onTypingChange, stopTyping],
+  );
+
+  // Leaving the group — or the page — must retract a typing indicator members are still seeing.
+  useEffect(() => stopTyping, [groupId, stopTyping]);
 
   useEffect(() => { activeGroupIdRef.current = groupId; }, [groupId]);
   useEffect(() => { setLiveGroupMessages([]); setPendingGroupMessages([]); }, [groupId]);
@@ -210,26 +260,14 @@ export function GroupThreadPane({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSendGroup = async () => {
-    if (!groupMessage.trim()) return;
-    const pendingId = -Date.now();
-    const pendingMsg: ChatMessage = {
-      id: pendingId,
-      senderId: currentUserId ?? 0,
-      receiverId: null,
-      content: groupMessage.trim(),
-      contentType: "text",
-      createdAt: new Date().toISOString(),
-      reactions: [],
-      localStatus: "sending",
-    };
-    setPendingGroupMessages((current) => [...current, pendingMsg]);
-    const draft = groupMessage.trim();
-    setGroupMessage("");
+  const sendPendingGroupMessage = async (pendingId: number, content: string) => {
+    setPendingGroupMessages((current) =>
+      current.map((m) => (Number(m.id) === pendingId ? { ...m, localStatus: "sending" } : m)),
+    );
     try {
       const result = (await sendGroup({
         groupId,
-        content: draft,
+        content,
         contentType: "text",
         replyToMessageId: groupReplyTo?.messageId,
         replyPreview: groupReplyTo?.preview,
@@ -246,10 +284,36 @@ export function GroupThreadPane({
       scheduleGroupRefetch(60);
       scheduleInboxRefetch(60);
     } catch {
-      setPendingGroupMessages((current) => current.filter((m) => Number(m.id) !== pendingId));
-      setGroupMessage(draft);
+      setPendingGroupMessages((current) =>
+        current.map((m) => (Number(m.id) === pendingId ? { ...m, localStatus: "failed" } : m)),
+      );
       toast.error("Failed", "Could not send group message.");
     }
+  };
+
+  const handleSendGroup = async () => {
+    if (!groupMessage.trim()) return;
+    const pendingId = -Date.now();
+    const content = groupMessage.trim();
+    const pendingMsg: ChatMessage = {
+      id: pendingId,
+      senderId: currentUserId ?? 0,
+      receiverId: null,
+      content,
+      contentType: "text",
+      createdAt: new Date().toISOString(),
+      reactions: [],
+      localStatus: "sending",
+    };
+    setPendingGroupMessages((current) => [...current, pendingMsg]);
+    setGroupMessage("");
+    await sendPendingGroupMessage(pendingId, content);
+  };
+
+  const handleRetryGroup = (message: ChatMessage) => {
+    const pendingId = Number(message.id);
+    if (!Number.isFinite(pendingId)) return;
+    void sendPendingGroupMessage(pendingId, String(message.content ?? ""));
   };
 
   const uploadAndSendMedia = async (file: File) => {
@@ -266,6 +330,10 @@ export function GroupThreadPane({
       }).unwrap();
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          setMediaUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
         xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error("Upload failed.")));
         xhr.onerror = () => reject(new Error("Upload failed."));
         xhr.open("PUT", presign.uploadUrl);
@@ -288,6 +356,7 @@ export function GroupThreadPane({
       toast.error("Failed", "Could not upload media.");
     } finally {
       setIsUploadingMedia(false);
+      setMediaUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -422,7 +491,13 @@ export function GroupThreadPane({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{groupName}</p>
-          <p className="text-xs text-muted-foreground">Group thread</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {typingUserIds.size === 0
+              ? "Group thread"
+              : typingUserIds.size === 1
+                ? `${resolveUserName([...typingUserIds][0])} is typing…`
+                : "Several people are typing…"}
+          </p>
         </div>
         <Button
           size="sm"
@@ -436,32 +511,52 @@ export function GroupThreadPane({
 
       {/* Messages */}
       <div className="min-h-0 flex-1">
-        <ThreadMessageList
-          key={`group-thread-${groupId}`}
-          openScrollKey={`group-open-${groupId}`}
-          messages={groupMessages}
-          onReact={handleGroupReaction}
-          onReply={(payload) => setGroupReplyTo(payload)}
-          onDelete={(messageId) => void deleteGroupMessage({ groupId, messageId }).catch(() => {})}
-          onEdit={(messageId, content) => void editGroupMessage({ groupId, messageId, content }).catch(() => {})}
-          formatTime={formatTime}
-          currentUserId={currentUserId}
-          resolveUserName={resolveUserName}
-          mode="group"
-          showSenderName
-          emptyLabel="No group messages yet."
-        />
+        {isGroupMessagesLoading && !groupMessages.length ? (
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton
+                key={`group-msg-skel-${i}`}
+                className={`h-10 rounded-2xl ${i % 2 ? "ml-auto w-2/5" : "w-1/2"}`}
+              />
+            ))}
+          </div>
+        ) : isGroupMessagesError && !groupMessages.length ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <p className="text-sm font-medium text-destructive">Could not load this group.</p>
+            <Button size="sm" variant="outline" onClick={() => refetchGroupMessages()}>
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <ThreadMessageList
+            key={`group-thread-${groupId}`}
+            openScrollKey={`group-open-${groupId}`}
+            messages={groupMessages}
+            onReact={handleGroupReaction}
+            onReply={(payload) => setGroupReplyTo(payload)}
+            onDelete={(messageId) => void deleteGroupMessage({ groupId, messageId }).catch(() => {})}
+            onEdit={(messageId, content) => void editGroupMessage({ groupId, messageId, content }).catch(() => {})}
+            onRetrySend={handleRetryGroup}
+            formatTime={formatTime}
+            currentUserId={currentUserId}
+            resolveUserName={resolveUserName}
+            mode="group"
+            showSenderName
+            emptyLabel="No group messages yet."
+          />
+        )}
       </div>
 
       {/* Composer */}
       <ChatComposer
         value={groupMessage}
-        onChange={setGroupMessage}
+        onChange={handleGroupDraftChange}
         placeholder="Message"
         onSend={() => void handleSendGroup()}
         canSend={Boolean(groupMessage.trim())}
         isSending={isSendingGroup}
         isUploading={isUploadingMedia}
+        uploadProgress={mediaUploadProgress}
         replyingTo={groupReplyTo ? { preview: groupReplyTo.preview } : null}
         onCancelReply={() => setGroupReplyTo(null)}
         onPickPhoto={() => {
@@ -487,6 +582,7 @@ export function GroupThreadPane({
           <div className="space-y-3">
             <Input
               placeholder="Search members..."
+              aria-label="Search members to add"
               value={manageMemberQuery}
               onChange={(e) => setManageMemberQuery(e.target.value)}
             />

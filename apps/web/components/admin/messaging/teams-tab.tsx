@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { MessageCircle } from "lucide-react";
+import { Loader2, MessageCircle } from "lucide-react";
 import { useCreateChatGroupMutation } from "@/lib/apiSlice";
 import { GroupThreadPane } from "./group-thread-pane";
+import { SplitPaneShell } from "./split-pane-shell";
 import type { ChatGroupItem, MessagingUser } from "./types";
 import type { AdminTeamItem, GroupLiveHandlers } from "./messaging-utils";
 import {
+  EMPTY_TYPING_SET,
   canonicalTeamMatchKey,
   formatGroupLastMessagePreview,
   formatUnreadCount,
@@ -15,7 +17,9 @@ import {
 } from "./messaging-utils";
 import { toast } from "../../../lib/toast";
 import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
 import { ScrollArea } from "../../ui/scroll-area";
+import { Skeleton } from "../../ui/skeleton";
 
 type TeamsTabProps = {
   teams: AdminTeamItem[];
@@ -26,6 +30,11 @@ type TeamsTabProps = {
   formatTime: (value?: string | null) => string;
   scheduleInboxRefetch: (delayMs?: number) => void;
   refetchInbox: () => void;
+  groupTypingUserIds: ReadonlyMap<number, ReadonlySet<number>>;
+  onGroupTypingChange: (groupId: number, isTyping: boolean) => void;
+  isTeamsLoading: boolean;
+  isTeamsError: boolean;
+  onRetryTeams: () => void;
   highlightedTeamName: string | null;
   registerGroupLiveHandlers: (handlers: GroupLiveHandlers | null) => void;
 };
@@ -39,10 +48,16 @@ export function TeamsTab({
   formatTime,
   scheduleInboxRefetch,
   refetchInbox,
+  groupTypingUserIds,
+  onGroupTypingChange,
+  isTeamsLoading,
+  isTeamsError,
+  onRetryTeams,
   highlightedTeamName,
   registerGroupLiveHandlers,
 }: TeamsTabProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [creatingTeamKey, setCreatingTeamKey] = useState<string | null>(null);
   const [createGroup] = useCreateChatGroupMutation();
 
   const chatEligibleUsers = useMemo(
@@ -88,10 +103,21 @@ export function TeamsTab({
     return map;
   }, [teamInboxGroups]);
 
-  const resolveTeamInboxGroup = (teamName: string) => {
-    const teamKey = normalizeTeamKey(teamName);
-    const teamCanonicalKey = canonicalTeamMatchKey(teamName);
+  const teamInboxByTeamId = useMemo(() => {
+    const map = new Map<number, ChatGroupItem>();
+    teamInboxGroups.forEach((group) => {
+      if (typeof group.teamId === "number" && group.teamId > 0 && !map.has(group.teamId)) {
+        map.set(group.teamId, group);
+      }
+    });
+    return map;
+  }, [teamInboxGroups]);
+
+  const resolveTeamInboxGroup = (team: AdminTeamItem) => {
+    const teamKey = normalizeTeamKey(team.team);
+    const teamCanonicalKey = canonicalTeamMatchKey(team.team);
     return (
+      teamInboxByTeamId.get(team.id) ??
       teamInboxByKey.get(teamKey) ??
       teamInboxByKey.get(teamCanonicalKey) ??
       teamInboxGroups.find((candidate) => {
@@ -106,12 +132,13 @@ export function TeamsTab({
   };
 
   const handleSelectTeam = async (team: AdminTeamItem) => {
-    const existingGroup = resolveTeamInboxGroup(team.team);
+    const existingGroup = resolveTeamInboxGroup(team);
     if (existingGroup?.id) {
       setSelectedGroupId(existingGroup.id);
       return;
     }
     const teamKey = normalizeTeamKey(team.team);
+    if (creatingTeamKey === teamKey) return;
     const memberIds = teamMemberIdsByKey.get(teamKey) ?? [];
     if (!memberIds.length) {
       toast.error(
@@ -120,11 +147,13 @@ export function TeamsTab({
       );
       return;
     }
+    setCreatingTeamKey(teamKey);
     try {
       const response = await createGroup({
         name: team.team.trim(),
         category: "team",
         memberIds,
+        teamId: team.id,
       }).unwrap();
       refetchInbox();
       const newGroupId = Number(response?.group?.id ?? NaN);
@@ -134,41 +163,55 @@ export function TeamsTab({
       toast.success("Team inbox ready", `Opened ${team.team} inbox.`);
     } catch {
       toast.error("Failed", "Could not create team inbox.");
+    } finally {
+      setCreatingTeamKey(null);
     }
   };
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
 
   return (
-    <div className="flex h-[calc(100svh-10rem)] overflow-hidden rounded-xl border border-border bg-background">
-      {/* LEFT: Team list */}
-      <div
-        className={`flex flex-col border-r border-border bg-background ${
-          selectedGroupId != null
-            ? "hidden lg:flex lg:w-[340px] xl:w-[380px]"
-            : "flex w-full lg:w-[340px] xl:w-[380px]"
-        }`}
-      >
+    <SplitPaneShell
+      isDetailOpen={selectedGroupId != null}
+      list={
+        <>
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold tracking-tight">Teams</h2>
         </div>
 
         <ScrollArea className="flex-1">
           <div className="py-1">
+            {isTeamsLoading ? (
+              <div className="space-y-2 px-3 py-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={`team-skel-${i}`} className="h-14 rounded-xl" />
+                ))}
+              </div>
+            ) : isTeamsError ? (
+              <div className="mx-3 my-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+                <p className="text-sm font-medium text-destructive">Could not load teams.</p>
+                <Button size="sm" variant="outline" className="mt-3" onClick={onRetryTeams}>
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <>
             {teams.map((team) => {
-              const resolvedGroup = resolveTeamInboxGroup(team.team);
+              const resolvedGroup = resolveTeamInboxGroup(team);
               const unread = Number(resolvedGroup?.unreadCount ?? 0);
               const isActive = selectedGroupId === resolvedGroup?.id && resolvedGroup?.id != null;
               const isHighlighted =
                 highlightedTeamName != null &&
                 team.team.toLowerCase() === highlightedTeamName;
+              const isCreatingInbox = creatingTeamKey === normalizeTeamKey(team.team);
 
               return (
                 <button
                   key={team.team}
                   type="button"
+                  disabled={isCreatingInbox}
                   onClick={() => void handleSelectTeam(team)}
-                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 ${
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 disabled:cursor-wait disabled:opacity-60 ${
                     isActive || isHighlighted
                       ? "bg-primary/10 hover:bg-primary/10"
                       : ""
@@ -209,7 +252,9 @@ export function TeamsTab({
                       {teamMemberIdsByKey.get(normalizeTeamKey(team.team))?.length ?? 0} chat members
                     </p>
                   </div>
-                  {resolvedGroup ? (
+                  {isCreatingInbox ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                  ) : resolvedGroup ? (
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       inbox
                     </Badge>
@@ -223,22 +268,22 @@ export function TeamsTab({
                 <p className="text-sm text-muted-foreground">No teams found.</p>
               </div>
             ) : null}
+              </>
+            )}
           </div>
         </ScrollArea>
-      </div>
-
-      {/* RIGHT: GroupThreadPane or empty state */}
-      <div
-        className={`flex flex-1 flex-col overflow-hidden ${
-          selectedGroupId == null ? "hidden lg:flex" : "flex"
-        }`}
-      >
+        </>
+      }
+      detail={
+        <>
         {selectedGroupId != null ? (
           <GroupThreadPane
             groupId={selectedGroupId}
             groupName={selectedGroup?.name ?? "Team inbox"}
             currentUserId={currentUserId}
             users={users}
+            typingUserIds={groupTypingUserIds.get(selectedGroupId) ?? EMPTY_TYPING_SET}
+            onTypingChange={(isTyping) => onGroupTypingChange(selectedGroupId, isTyping)}
             resolveUserName={resolveUserName}
             formatTime={formatTime}
             scheduleInboxRefetch={scheduleInboxRefetch}
@@ -259,7 +304,8 @@ export function TeamsTab({
             </div>
           </div>
         )}
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }

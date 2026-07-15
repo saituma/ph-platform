@@ -8,6 +8,7 @@ import {
   useUpdateContentMutation,
 } from "@/lib/apiSlice";
 import { toast } from "../../../lib/toast";
+import { PROGRAM_TIER_ITEMS } from "../billing/billing-admin-utils";
 import type { AnnouncementItem, ChatGroupItem } from "./types";
 import type { AdminTeamItem } from "./messaging-utils";
 import { formatSchedule, isValidDateTimeValue, toLocalInputValue } from "./messaging-utils";
@@ -22,6 +23,7 @@ import {
 } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
+import { Skeleton } from "../../ui/skeleton";
 import {
   Select,
   SelectTrigger,
@@ -45,8 +47,12 @@ export function AnnouncementTab({
   resolveUserName,
   formatTime,
 }: AnnouncementTabProps) {
-  const { data: announcementsData, refetch: refetchAnnouncements } =
-    useGetAnnouncementsQuery();
+  const {
+    data: announcementsData,
+    isLoading: isAnnouncementsLoading,
+    isError: isAnnouncementsError,
+    refetch: refetchAnnouncements,
+  } = useGetAnnouncementsQuery();
 
   const [createAnnouncement, { isLoading: isCreatingAnnouncement }] =
     useCreateContentMutation();
@@ -306,6 +312,7 @@ export function AnnouncementTab({
           <CardContent className="space-y-3">
             <Input
               placeholder="Announcement title"
+              aria-label="Announcement title"
               value={announcementTitle}
               onChange={(event) => setAnnouncementTitle(event.target.value)}
             />
@@ -417,10 +424,7 @@ export function AnnouncementTab({
                   {(() => {
                     const tierItems = [
                       { label: "Choose a tier", value: "" },
-                      { label: "PHP", value: "PHP" },
-                      { label: "PHP Premium", value: "PHP_Premium" },
-                      { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
-                      { label: "PHP Pro", value: "PHP_Pro" },
+                      ...PROGRAM_TIER_ITEMS,
                     ];
                     return (
                       <Select
@@ -501,6 +505,7 @@ export function AnnouncementTab({
             ) : null}
             <Textarea
               placeholder="Write announcement message"
+              aria-label="Announcement message"
               value={announcementBody}
               onChange={(event) => setAnnouncementBody(event.target.value)}
               className="min-h-40"
@@ -533,6 +538,26 @@ export function AnnouncementTab({
           <CardContent>
             <ScrollArea className="h-[430px] pr-3">
               <div className="space-y-3">
+                {isAnnouncementsLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={`announcement-skel-${i}`} className="h-24 rounded-xl" />
+                    ))}
+                  </div>
+                ) : isAnnouncementsError ? (
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+                    <p className="text-sm font-medium text-destructive">Could not load announcements.</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-3"
+                      onClick={() => refetchAnnouncements()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <>
                 {announcements.map((item) => (
                   <div
                     key={item.id}
@@ -546,7 +571,7 @@ export function AnnouncementTab({
                         <p className="mt-1 text-xs text-muted-foreground">
                           {item.createdBy
                             ? `By ${resolveUserName(Number(item.createdBy))}`
-                            : "By Coach"}
+                            : "By Staff"}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
                           Status: {item.isActive === false ? "Off" : "On"}
@@ -702,6 +727,8 @@ export function AnnouncementTab({
                     No announcements yet.
                   </p>
                 ) : null}
+                  </>
+                )}
               </div>
             </ScrollArea>
           </CardContent>

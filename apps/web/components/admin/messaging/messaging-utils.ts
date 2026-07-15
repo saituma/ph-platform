@@ -15,6 +15,7 @@ export type ThreadListItem = {
 };
 
 export type AdminTeamItem = {
+  id: number;
   team: string;
   memberCount: number;
   youthCount: number;
@@ -137,6 +138,8 @@ export function normalizeTeamKey(value?: string | null): string {
   return String(value ?? "").trim().toLowerCase();
 }
 
+export const EMPTY_TYPING_SET: ReadonlySet<number> = new Set();
+
 export function canonicalTeamMatchKey(value?: string | null): string {
   const normalized = normalizeTeamKey(value);
   const stripped = normalized
@@ -145,4 +148,26 @@ export function canonicalTeamMatchKey(value?: string | null): string {
     .replace(/\s+/g, " ")
     .trim();
   return stripped || normalized;
+}
+
+export function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+export function cleanPreview(raw: string): string {
+  const input = String(raw ?? "");
+  const replyMatch = input.match(/^\[reply:(\d+):([^\]]*)\]\s*/i);
+  const stripped = replyMatch ? input.slice(replyMatch[0].length) : input.replace(/^\[reply:\d+:[^\]]*\]\s*/i, "");
+  const clean = stripped.trim();
+
+  const fromAttachedLabel = clean.match(/^file attached:\s*(.+)$/i);
+  const attachmentName = fromAttachedLabel?.[1]?.trim() ?? "";
+
+  const resolvedBody = attachmentName || (/^attachment$/i.test(clean) ? "File" : clean) || "File";
+
+  // Inbox list should show only the latest message body (not the reply prefix context).
+  return resolvedBody;
 }

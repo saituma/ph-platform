@@ -71,12 +71,18 @@ export type PlanFormState = {
   durationDaysPrice: number | null;
 };
 
-export const TIER_ITEMS: { label: string; value: string }[] = [
-  { label: "No tier (custom plan)", value: "" },
-  { label: "PHP Program", value: "PHP" },
+/** The four program tiers, independent of any particular picker's placeholder option. */
+export const PROGRAM_TIER_ITEMS: { label: string; value: PlanTier }[] = [
+  { label: "PHP", value: "PHP" },
   { label: "PHP Premium", value: "PHP_Premium" },
   { label: "PHP Premium Plus", value: "PHP_Premium_Plus" },
   { label: "PHP Pro", value: "PHP_Pro" },
+];
+
+export const TIER_ITEMS: { label: string; value: string }[] = [
+  { label: "No tier (custom plan)", value: "" },
+  { label: "PHP Program", value: "PHP" },
+  ...PROGRAM_TIER_ITEMS.slice(1),
 ];
 
 /**

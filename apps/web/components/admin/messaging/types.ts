@@ -32,6 +32,7 @@ export type ChatGroupItem = {
   id: number;
   name?: string | null;
   category?: "announcement" | "coach_group" | "team" | null;
+  teamId?: number | null;
   createdAt?: string | null;
   unreadCount?: number | null;
   lastMessage?: {

@@ -21,10 +21,12 @@ type ChatComposerProps = {
   value: string;
   onChange: (next: string) => void;
   placeholder: string;
+  "aria-label"?: string;
   onSend: () => void;
   canSend: boolean;
   isSending?: boolean;
   isUploading?: boolean;
+  uploadProgress?: number | null;
   replyingTo?: { preview: string } | null;
   onCancelReply?: () => void;
   onPickPhoto: () => void;
@@ -36,10 +38,12 @@ export function ChatComposer({
   value,
   onChange,
   placeholder,
+  "aria-label": ariaLabel,
   onSend,
   canSend,
   isSending = false,
   isUploading = false,
+  uploadProgress = null,
   replyingTo = null,
   onCancelReply,
   onPickPhoto,
@@ -70,6 +74,14 @@ export function ChatComposer({
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
     };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowEmojiPicker(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const handleEmojiSelect = useCallback(
@@ -130,6 +142,7 @@ export function ChatComposer({
               onSend();
             }}
             placeholder={placeholder}
+            aria-label={ariaLabel ?? placeholder}
             className="min-h-[2.5rem]"
           />
           <InputGroupAddon align="block-end" className="gap-1">
@@ -199,9 +212,18 @@ export function ChatComposer({
 
       {isUploading ? (
         <div className="mt-2 space-y-1 px-1">
-          <p className="text-xs text-muted-foreground">Uploading attachment…</p>
+          <p className="text-xs text-muted-foreground">
+            {uploadProgress != null ? `Uploading attachment… ${uploadProgress}%` : "Uploading attachment…"}
+          </p>
           <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+            {uploadProgress != null ? (
+              <div
+                className="h-full rounded-full bg-primary transition-[width]"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            ) : (
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+            )}
           </div>
         </div>
       ) : null}

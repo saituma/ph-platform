@@ -21,10 +21,6 @@ jest.mock("../components/admin/shell", () => ({
   ),
 }));
 
-jest.mock("../components/admin/messaging/inbox-thread-panel", () => ({
-  InboxThreadPanel: () => <div data-testid="inbox-thread-panel" />,
-}));
-
 jest.mock("../components/admin/messaging/tenor-picker-dialog", () => ({
   TenorPickerDialog: () => null,
 }));
@@ -156,7 +152,7 @@ describe("messaging page", () => {
     expect(
       await screen.findByRole("heading", { name: /messaging/i }),
     ).toBeInTheDocument();
-    expect(await screen.findByTestId("inbox-thread-panel")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /messages/i })).toBeInTheDocument();
   });
 
   it("switches to teams tab", async () => {

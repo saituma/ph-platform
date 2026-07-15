@@ -214,6 +214,7 @@ const messagingApi = apiSlice.injectEndpoints({
         name: string;
         category?: "announcement" | "coach_group" | "team";
         memberIds: number[];
+        teamId?: number;
       }
     >({
       query: (body) => ({

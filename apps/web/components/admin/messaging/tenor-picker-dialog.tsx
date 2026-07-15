@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
+import { useDebouncedValue } from "./use-debounced-value";
 
 type TenorGif = {
   id: string;
@@ -31,6 +33,14 @@ export function TenorPickerDialog({
   loading,
   onSelectGif,
 }: TenorPickerDialogProps) {
+  const debouncedQuery = useDebouncedValue(query, 350);
+
+  useEffect(() => {
+    if (!open) return;
+    void onSearch(debouncedQuery);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] sm:max-w-3xl">
@@ -41,12 +51,9 @@ export function TenorPickerDialog({
         <div className="space-y-3">
           <Input
             placeholder="Search GIFs (e.g. celebration)"
+            aria-label="Search GIFs"
             value={query}
-            onChange={(event) => {
-              const next = event.target.value;
-              onQueryChange(next);
-              void onSearch(next);
-            }}
+            onChange={(event) => onQueryChange(event.target.value)}
           />
           <ScrollArea className="h-[460px] rounded-xl border border-border p-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

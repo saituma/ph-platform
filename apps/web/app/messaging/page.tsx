@@ -69,9 +69,15 @@ function MessagingPageInner() {
   const [typingUserIds, setTypingUserIds] = useState<ReadonlySet<number>>(
     () => new Set<number>(),
   );
+  const [groupTypingUserIds, setGroupTypingUserIds] = useState<
+    ReadonlyMap<number, ReadonlySet<number>>
+  >(() => new Map());
 
   const socketRef = useRef<Socket | null>(null);
   const typingExpiryRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  const groupTypingExpiryRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
   const inboxRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,13 +91,24 @@ function MessagingPageInner() {
   const groupHandlersRef = useRef<GroupLiveHandlers | null>(null);
 
   const { data: adminProfileData } = useGetAdminProfileQuery();
-  const { data: inboxData, refetch: refetchInbox } = useGetMessagingInboxQuery({
+  const {
+    data: inboxData,
+    isLoading: isInboxLoading,
+    isError: isInboxError,
+    refetch: refetchInbox,
+  } = useGetMessagingInboxQuery({
     limit: 300,
     includeAdminThreads: true,
   });
   const { data: usersData } = useGetUsersQuery();
-  const { data: adminTeamsData } = useGetAdminTeamsQuery();
-  const { data: announcementsData } = useGetAnnouncementsQuery();
+  const {
+    data: adminTeamsData,
+    isLoading: isTeamsLoading,
+    isError: isTeamsError,
+    refetch: refetchTeams,
+  } = useGetAdminTeamsQuery();
+  const { data: announcementsData, isLoading: isAnnouncementsLoadingForStats } =
+    useGetAnnouncementsQuery();
 
   const currentUserId = useMemo<number | null>(() => {
     const profilePayload = adminProfileData as
@@ -197,6 +214,9 @@ function MessagingPageInner() {
             | "coach_group"
             | "team"
             | null) ?? "coach_group",
+          teamId: Number.isFinite(Number(thread.teamId)) && Number(thread.teamId) > 0
+            ? Number(thread.teamId)
+            : null,
           createdAt: String(
             thread.lastMessageCreatedAt ??
               thread.updatedAt ??
@@ -264,6 +284,15 @@ function MessagingPageInner() {
     () => (toUserId: number, isTyping: boolean) => {
       socketRef.current?.emit(isTyping ? "typing:start" : "typing:stop", {
         toUserId,
+      });
+    },
+    [],
+  );
+
+  const emitGroupTyping = useMemo(
+    () => (groupId: number, isTyping: boolean) => {
+      socketRef.current?.emit(isTyping ? "typing:start" : "typing:stop", {
+        groupId,
       });
     },
     [],
@@ -603,9 +632,44 @@ function MessagingPageInner() {
     });
 
     on("typing:update", (payload: any) => {
-      if (payload?.scope !== "direct") return;
       const fromUserId = Number(payload?.fromUserId ?? NaN);
       if (!Number.isFinite(fromUserId)) return;
+
+      if (payload?.scope === "group") {
+        const groupId = Number(payload?.groupId ?? NaN);
+        if (!Number.isFinite(groupId)) return;
+        const key = `${groupId}:${fromUserId}`;
+        const timers = groupTypingExpiryRef.current;
+        const pending = timers.get(key);
+        if (pending) clearTimeout(pending);
+        timers.delete(key);
+
+        const setGroupTyping = (isTyping: boolean) =>
+          setGroupTypingUserIds((current) => {
+            const next = new Map(current);
+            const existing = new Set(next.get(groupId) ?? []);
+            if (isTyping) existing.add(fromUserId);
+            else existing.delete(fromUserId);
+            next.set(groupId, existing);
+            return next;
+          });
+
+        if (!payload?.isTyping) {
+          setGroupTyping(false);
+          return;
+        }
+        setGroupTyping(true);
+        timers.set(
+          key,
+          setTimeout(() => {
+            timers.delete(key);
+            setGroupTyping(false);
+          }, TYPING_TIMEOUT_MS),
+        );
+        return;
+      }
+
+      if (payload?.scope !== "direct") return;
 
       const timers = typingExpiryRef.current;
       const pending = timers.get(fromUserId);
@@ -642,6 +706,8 @@ function MessagingPageInner() {
       }
       for (const timer of typingExpiryRef.current.values()) clearTimeout(timer);
       typingExpiryRef.current.clear();
+      for (const timer of groupTypingExpiryRef.current.values()) clearTimeout(timer);
+      groupTypingExpiryRef.current.clear();
       socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -730,11 +796,15 @@ function MessagingPageInner() {
             users={users}
             typingUserIds={typingUserIds}
             onTypingChange={emitTyping}
+            groupTypingUserIds={groupTypingUserIds}
+            onGroupTypingChange={emitGroupTyping}
             currentUserId={currentUserId}
             resolveUserName={resolveUserName}
             formatTime={formatTime}
             scheduleInboxRefetch={scheduleInboxRefetch}
             refetchInbox={refetchInbox}
+            isInboxLoading={isInboxLoading}
+            isInboxError={isInboxError}
             highlightedInboxThreadUserId={highlightedInboxThreadUserId}
             highlightedInboxGroupId={highlightedInboxGroupId}
             setHighlightedInboxGroupId={setHighlightedInboxGroupId}
@@ -772,6 +842,11 @@ function MessagingPageInner() {
             formatTime={formatTime}
             scheduleInboxRefetch={scheduleInboxRefetch}
             refetchInbox={refetchInbox}
+            groupTypingUserIds={groupTypingUserIds}
+            onGroupTypingChange={emitGroupTyping}
+            isTeamsLoading={isTeamsLoading}
+            isTeamsError={isTeamsError}
+            onRetryTeams={refetchTeams}
             highlightedTeamName={highlightedTeamName}
             registerGroupLiveHandlers={(handlers) => {
               groupHandlersRef.current = handlers;
@@ -780,7 +855,11 @@ function MessagingPageInner() {
         </TabsContent>
 
         <TabsContent value="stats">
-          <StatsTab stats={stats} />
+          <StatsTab
+            stats={stats}
+            isLoading={isInboxLoading || isTeamsLoading || isAnnouncementsLoadingForStats}
+            onNavigateToTab={setTab}
+          />
         </TabsContent>
       </Tabs>
     </AdminShell>

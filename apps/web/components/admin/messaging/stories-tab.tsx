@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Camera, Film, Loader2, Trash2, Upload } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Camera, Film, ImageOff, Loader2, Trash2, Upload } from "lucide-react";
 import {
   useCreateMediaUploadUrlMutation,
   useCreateStoryMutation,
@@ -21,6 +21,7 @@ import {
 } from "../../ui/dialog";
 import { Input } from "../../ui/input";
 import { ScrollArea } from "../../ui/scroll-area";
+import { Skeleton } from "../../ui/skeleton";
 import { SectionHeader } from "../section-header";
 
 type StoriesTabProps = {
@@ -28,7 +29,12 @@ type StoriesTabProps = {
 };
 
 export function StoriesTab(_props: StoriesTabProps) {
-  const { data: storiesData } = useGetStoriesQuery();
+  const {
+    data: storiesData,
+    isLoading: isStoriesLoading,
+    isError: isStoriesError,
+    refetch: refetchStories,
+  } = useGetStoriesQuery();
   const [createStory, { isLoading: isCreatingStory }] = useCreateStoryMutation();
   const [deleteStory] = useDeleteStoryMutation();
   const [createMediaUploadUrl] = useCreateMediaUploadUrlMutation();
@@ -38,14 +44,31 @@ export function StoriesTab(_props: StoriesTabProps) {
   const [storyMediaType, setStoryMediaType] = useState<"image" | "video">("image");
   const [storyBadge, setStoryBadge] = useState("");
   const [isUploadingStoryMedia, setIsUploadingStoryMedia] = useState(false);
+  const [storyUploadProgress, setStoryUploadProgress] = useState<number | null>(null);
   const [deleteStoryTarget, setDeleteStoryTarget] = useState<{
     id: number;
     title: string;
   } | null>(null);
 
+  const [previewBroken, setPreviewBroken] = useState(false);
+  const [brokenThumbnailIds, setBrokenThumbnailIds] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+
   const storyFileRef = useRef<HTMLInputElement | null>(null);
 
   const storyItems = storiesData?.items ?? [];
+
+  const isMediaUrlValid = useMemo(() => {
+    const trimmed = storyMediaUrl.trim();
+    if (!trimmed) return true;
+    try {
+      new URL(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [storyMediaUrl]);
 
   const handleStoryFileUpload = async (file: File) => {
     const isVideo = file.type.startsWith("video/");
@@ -62,6 +85,10 @@ export function StoriesTab(_props: StoriesTabProps) {
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          setStoryUploadProgress(Math.round((event.loaded / event.total) * 100));
+        };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) resolve();
           else reject(new Error("Upload failed."));
@@ -77,10 +104,12 @@ export function StoriesTab(_props: StoriesTabProps) {
 
       setStoryMediaUrl(presign.publicUrl);
       setStoryMediaType(isVideo ? "video" : "image");
+      setPreviewBroken(false);
     } catch {
       toast.error("Failed to upload file");
     } finally {
       setIsUploadingStoryMedia(false);
+      setStoryUploadProgress(null);
       if (storyFileRef.current) storyFileRef.current.value = "";
     }
   };
@@ -131,12 +160,16 @@ export function StoriesTab(_props: StoriesTabProps) {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
-              <Input
-                placeholder="Story title"
-                value={storyTitle}
-                onChange={(e) => setStoryTitle(e.target.value.slice(0, 80))}
-                maxLength={80}
-              />
+              <div className="space-y-1">
+                <Input
+                  placeholder="Story title"
+                  aria-label="Story title"
+                  value={storyTitle}
+                  onChange={(e) => setStoryTitle(e.target.value.slice(0, 80))}
+                  maxLength={80}
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{storyTitle.length}/80</p>
+              </div>
               <input
                 ref={storyFileRef}
                 type="file"
@@ -159,7 +192,7 @@ export function StoriesTab(_props: StoriesTabProps) {
                   {isUploadingStoryMedia ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />{" "}
-                      Uploading...
+                      {storyUploadProgress != null ? `Uploading... ${storyUploadProgress}%` : "Uploading..."}
                     </>
                   ) : (
                     <>
@@ -169,11 +202,18 @@ export function StoriesTab(_props: StoriesTabProps) {
                 </Button>
                 <Input
                   placeholder="or paste media URL"
+                  aria-label="Story media URL"
                   value={storyMediaUrl}
-                  onChange={(e) => setStoryMediaUrl(e.target.value)}
+                  onChange={(e) => {
+                    setStoryMediaUrl(e.target.value);
+                    setPreviewBroken(false);
+                  }}
                   className="flex-1"
                 />
               </div>
+              {!isMediaUrlValid ? (
+                <p className="text-xs text-destructive">That does not look like a valid URL.</p>
+              ) : null}
               <div className="flex items-center gap-2">
                 <p className="text-xs text-muted-foreground">Type:</p>
                 <div className="flex gap-1">
@@ -193,27 +233,38 @@ export function StoriesTab(_props: StoriesTabProps) {
                   </Button>
                 </div>
               </div>
-              <Input
-                placeholder='Badge (optional, e.g. "NEW")'
-                value={storyBadge}
-                onChange={(e) => setStoryBadge(e.target.value.slice(0, 20))}
-                maxLength={20}
-              />
-              {storyMediaUrl.trim() && (
+              <div className="space-y-1">
+                <Input
+                  placeholder='Badge (optional, e.g. "NEW")'
+                  aria-label="Story badge"
+                  value={storyBadge}
+                  onChange={(e) => setStoryBadge(e.target.value.slice(0, 20))}
+                  maxLength={20}
+                />
+                <p className="text-right text-[10px] text-muted-foreground">{storyBadge.length}/20</p>
+              </div>
+              {storyMediaUrl.trim() && isMediaUrlValid && (
                 <div className="rounded-lg overflow-hidden border">
-                  {storyMediaType === "video" ? (
+                  {previewBroken ? (
+                    <div className="flex h-40 flex-col items-center justify-center gap-2 bg-black/5 text-muted-foreground">
+                      <ImageOff className="h-6 w-6" />
+                      <p className="text-xs">Could not load this media.</p>
+                    </div>
+                  ) : storyMediaType === "video" ? (
                     <video
                       src={storyMediaUrl.trim()}
                       className="w-full max-h-[400px] object-contain bg-black/5"
                       muted
                       playsInline
                       controls
+                      onError={() => setPreviewBroken(true)}
                     />
                   ) : (
                     <img
                       src={storyMediaUrl.trim()}
                       alt="Preview"
                       className="w-full max-h-[400px] object-contain bg-black/5"
+                      onError={() => setPreviewBroken(true)}
                     />
                   )}
                 </div>
@@ -224,7 +275,8 @@ export function StoriesTab(_props: StoriesTabProps) {
                   isCreatingStory ||
                   isUploadingStoryMedia ||
                   !storyTitle.trim() ||
-                  !storyMediaUrl.trim()
+                  !storyMediaUrl.trim() ||
+                  !isMediaUrlValid
                 }
               >
                 {isCreatingStory ? "Publishing..." : "Publish Story"}
@@ -232,7 +284,25 @@ export function StoriesTab(_props: StoriesTabProps) {
             </div>
             <div>
               <p className="text-sm font-medium mb-2">Active Stories</p>
-              {storyItems.length === 0 ? (
+              {isStoriesLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={`story-skel-${i}`} className="h-16 rounded-lg" />
+                  ))}
+                </div>
+              ) : isStoriesError ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-6 text-center">
+                  <p className="text-sm font-medium text-destructive">Could not load stories.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => refetchStories()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : storyItems.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No stories yet.</p>
               ) : (
                 <ScrollArea className="h-[260px] pr-2">
@@ -242,11 +312,20 @@ export function StoriesTab(_props: StoriesTabProps) {
                         key={story.id}
                         className="flex items-center gap-3 rounded-lg border p-2"
                       >
-                        <img
-                          src={story.mediaUrl}
-                          alt={story.title}
-                          className="w-12 h-12 rounded-md object-cover shrink-0"
-                        />
+                        {brokenThumbnailIds.has(story.id) ? (
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                            <ImageOff className="h-4 w-4" />
+                          </div>
+                        ) : (
+                          <img
+                            src={story.mediaUrl}
+                            alt={story.title}
+                            className="w-12 h-12 rounded-md object-cover shrink-0"
+                            onError={() =>
+                              setBrokenThumbnailIds((current) => new Set(current).add(story.id))
+                            }
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
                             {story.title}
