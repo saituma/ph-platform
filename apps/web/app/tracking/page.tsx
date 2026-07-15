@@ -687,19 +687,20 @@ function AthleteCombobox({
 
   return (
     <Combobox<{ label: string; value: string }>
+      items={athletes}
       value={selected}
       onValueChange={(val) => onChange(val?.value ?? "")}
     >
       <ComboboxInput placeholder="Search athletes…" size="sm" />
       <ComboboxPopup>
         <ComboboxList>
-          {athletes.map((a) => (
-            <ComboboxItem key={a.value} value={a}>
-              {a.label}
+          {(item: { label: string; value: string }) => (
+            <ComboboxItem key={item.value} value={item}>
+              {item.label}
             </ComboboxItem>
-          ))}
-          <ComboboxEmpty>No athletes found</ComboboxEmpty>
+          )}
         </ComboboxList>
+        <ComboboxEmpty>No athletes found</ComboboxEmpty>
       </ComboboxPopup>
     </Combobox>
   );
