@@ -471,14 +471,9 @@ export async function sendMessage(input: {
         .limit(1);
       const isMessagingTruePlatformAdmin = receiverUser?.role === "admin" || receiverUser?.role === "superAdmin";
 
-      // A team athlete whose team currently has no manager assigned would otherwise have
-      // literally no one they're allowed to message — let them reach the platform admin instead.
-      const isOrphanedTeamAthleteFallback =
-        input.senderRole === "team_athlete" && myTeamManagers.length === 0 && isMessagingTruePlatformAdmin;
-
-      // Team athletes may only DM their own team's managers (primary or co-managers), or
-      // the platform admin when their team has no manager assigned at all.
-      if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager && !isOrphanedTeamAthleteFallback) {
+      // Team athletes may DM their own team's managers (primary or co-managers) and the
+      // platform admin directly — but not any other team's manager.
+      if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager && !isMessagingTruePlatformAdmin) {
         throw new Error("MESSAGING_DISABLED_FOR_TIER");
       }
 
@@ -490,7 +485,7 @@ export async function sendMessage(input: {
         throw new Error("MESSAGING_DISABLED_FOR_TIER");
       }
 
-      if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager && !isOrphanedTeamAthleteFallback) {
+      if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager && !isMessagingTruePlatformAdmin) {
         const { getAthleteForUser, getGuardianAndAthlete } = await import("./user.service");
         const { getMessagingAccessTiers } = await import("./messaging-policy.service");
         const athlete = await getAthleteForUser(input.senderId);
