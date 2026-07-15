@@ -21,6 +21,11 @@ export function calcPercentage(progressValue: number, targetValue: number): numb
   return Math.min(100, Math.max(0, Math.round((progressValue / targetValue) * 100)));
 }
 
+/** Progress window start: the goal's explicit startDate, falling back to createdAt for older goals set before startDate existed. */
+function resolveGoalStart(goal: { startDate: string | null; createdAt: Date }): Date {
+  return goal.startDate ? new Date(goal.startDate) : goal.createdAt;
+}
+
 export type CreateGoalInput = {
   coachId: number;
   title: string;
@@ -32,7 +37,8 @@ export type CreateGoalInput = {
   athleteId?: number;
   audience: "adult" | "premium_team" | "all" | "youth";
   teamId?: number;
-  dueDate?: string;
+  startDate?: string;
+  endDate?: string;
 };
 
 export async function listGoals(filters?: { status?: string; limit?: number }) {
@@ -51,7 +57,8 @@ export async function listGoals(filters?: { status?: string; limit?: number }) {
       targetValue: trackingGoalTable.targetValue,
       scope: trackingGoalTable.scope,
       audience: trackingGoalTable.audience,
-      dueDate: trackingGoalTable.dueDate,
+      startDate: trackingGoalTable.startDate,
+      endDate: trackingGoalTable.endDate,
       status: trackingGoalTable.status,
       createdAt: trackingGoalTable.createdAt,
       athleteId: trackingGoalTable.athleteId,
@@ -108,7 +115,8 @@ export async function createGoal(input: CreateGoalInput) {
       athleteId: input.scope === "individual" ? (input.athleteId ?? null) : null,
       audience: input.audience,
       teamId: input.scope === "team" ? (input.teamId ?? null) : null,
-      dueDate: input.dueDate ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
       status: "active",
     })
     .returning();
@@ -118,7 +126,9 @@ export async function createGoal(input: CreateGoalInput) {
 export async function updateGoal(
   id: number,
   data: Partial<
-    Pick<CreateGoalInput, "title" | "description" | "targetValue" | "dueDate"> & { status?: "active" | "archived" }
+    Pick<CreateGoalInput, "title" | "description" | "targetValue" | "startDate" | "endDate"> & {
+      status?: "active" | "archived";
+    }
   >,
 ) {
   const [goal] = await db
@@ -286,7 +296,7 @@ export async function getGoalProgress(goalId: number) {
 
   const userIds = athletes.map((a) => a.userId);
   const athleteIds = athletes.map((a) => a.id);
-  const since = goal.createdAt;
+  const since = resolveGoalStart(goal);
 
   const runMap = isRunUnit(goal.unit) ? await sumRunProgress(goal.unit, userIds, since) : null;
   const manualMap = !isRunUnit(goal.unit) ? await sumManualProgress(goal.id, athleteIds) : null;
@@ -341,7 +351,7 @@ export async function expireOverdueGoals() {
     .where(
       and(
         eq(trackingGoalTable.status, "active"),
-        sql`${trackingGoalTable.dueDate} IS NOT NULL AND ${trackingGoalTable.dueDate} < ${now}::date`,
+        sql`${trackingGoalTable.endDate} IS NOT NULL AND ${trackingGoalTable.endDate} < ${now}::date`,
       ),
     )
     .returning({ id: trackingGoalTable.id });
@@ -366,7 +376,8 @@ export async function listGoalsForAthlete(input: {
       targetValue: trackingGoalTable.targetValue,
       scope: trackingGoalTable.scope,
       audience: trackingGoalTable.audience,
-      dueDate: trackingGoalTable.dueDate,
+      startDate: trackingGoalTable.startDate,
+      endDate: trackingGoalTable.endDate,
       status: trackingGoalTable.status,
       createdAt: trackingGoalTable.createdAt,
       coachName: userTable.name,
@@ -398,7 +409,7 @@ export async function listGoalsForAthlete(input: {
   const progressByGoalId = new Map<number, number>();
   for (const g of goals) {
     if (isRunUnit(g.unit) && userId != null) {
-      const map = await sumRunProgress(g.unit, [userId], g.createdAt);
+      const map = await sumRunProgress(g.unit, [userId], resolveGoalStart(g));
       progressByGoalId.set(g.id, map.get(userId)?.progressValue ?? 0);
     } else if (!isRunUnit(g.unit)) {
       const map = await sumManualProgress(g.id, [athleteId]);
@@ -433,6 +444,7 @@ export async function checkRunGoalCompletionsForAthlete(input: {
       title: trackingGoalTable.title,
       unit: trackingGoalTable.unit,
       targetValue: trackingGoalTable.targetValue,
+      startDate: trackingGoalTable.startDate,
       createdAt: trackingGoalTable.createdAt,
     })
     .from(trackingGoalTable)
@@ -441,7 +453,7 @@ export async function checkRunGoalCompletionsForAthlete(input: {
   const justCompleted: Array<{ goalId: number; title: string }> = [];
   for (const g of goals) {
     if (!isRunUnit(g.unit)) continue;
-    const map = await sumRunProgress(g.unit, [input.userId], g.createdAt);
+    const map = await sumRunProgress(g.unit, [input.userId], resolveGoalStart(g));
     const progressValue = map.get(input.userId)?.progressValue ?? 0;
     const result = await recordCompletionIfCrossed({
       goalId: g.id,

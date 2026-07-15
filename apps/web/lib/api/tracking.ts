@@ -41,12 +41,13 @@ const trackingApi = apiSlice.injectEndpoints({
       athleteId?: number;
       audience: string;
       teamId?: number;
-      dueDate?: string;
+      startDate?: string;
+      endDate?: string;
     }>({
       query: (body) => ({ url: "/admin/tracking-goals", method: "POST", body }),
       invalidatesTags: ["TrackingGoals"],
     }),
-    updateTrackingGoal: builder.mutation<{ goal: any }, { id: number; data: { title?: string; description?: string; targetValue?: number; dueDate?: string; status?: string } }>({
+    updateTrackingGoal: builder.mutation<{ goal: any }, { id: number; data: { title?: string; description?: string; targetValue?: number; startDate?: string; endDate?: string; status?: string } }>({
       query: ({ id, data }) => ({ url: `/admin/tracking-goals/${id}`, method: "PATCH", body: data }),
       invalidatesTags: ["TrackingGoals"],
     }),

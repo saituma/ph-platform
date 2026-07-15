@@ -18,7 +18,8 @@ export type TrackingGoal = {
   targetValue: number;
   scope: "all" | "individual" | "team";
   audience: "adult" | "premium_team" | "all" | "youth";
-  dueDate: string | null;
+  startDate: string | null;
+  endDate: string | null;
   status: "active" | "archived";
   createdAt: string;
   coachName: string;

@@ -19,7 +19,8 @@ const createSchema = z.object({
   athleteId: z.coerce.number().int().min(1).optional(),
   audience: z.enum(["adult", "premium_team", "all", "youth"]),
   teamId: z.coerce.number().int().min(1).optional(),
-  dueDate: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
 });
 
 export async function listGoals(req: Request, res: Response) {
@@ -49,7 +50,8 @@ export async function updateGoal(req: Request, res: Response) {
       title: z.string().min(1).max(255).optional(),
       description: z.string().max(500).optional(),
       targetValue: z.coerce.number().positive().optional(),
-      dueDate: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
       status: z.enum(["active", "archived"]).optional(),
     })
     .parse(req.body);

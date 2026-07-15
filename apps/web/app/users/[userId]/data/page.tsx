@@ -1267,8 +1267,8 @@ function TrainingTab({ userId, from }: { userId: number; from: string }) {
                     <p className="text-sm font-bold mt-1 capitalize">{goal.scope}</p>
                   </div>
                   <div className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/5">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Due</p>
-                    <p className="text-sm font-bold mt-1">{goal.dueDate ? new Date(goal.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Ends</p>
+                    <p className="text-sm font-bold mt-1">{goal.endDate ? new Date(goal.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}</p>
                   </div>
                 </div>
               </div>

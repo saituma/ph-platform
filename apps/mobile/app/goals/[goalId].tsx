@@ -129,10 +129,17 @@ export default function GoalDetailScreen() {
               )}
 
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                {goal.dueDate && (
+                {goal.startDate && (
                   <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: p.inputBg }}>
                     <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textPrimary }}>
-                      Due {new Date(goal.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                      Starts {new Date(goal.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    </Text>
+                  </View>
+                )}
+                {goal.endDate && (
+                  <View style={{ borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: p.inputBg }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 11, color: p.textPrimary }}>
+                      Ends {new Date(goal.endDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </Text>
                   </View>
                 )}

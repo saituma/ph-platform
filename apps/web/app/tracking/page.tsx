@@ -109,7 +109,8 @@ const emptyForm = {
   athleteId: "",
   audience: "adult",
   teamId: "",
-  dueDate: "",
+  startDate: "",
+  endDate: "",
 };
 
 type TabKey = "tracking" | "goals" | "team-stats" | "assign-youth";
@@ -181,7 +182,8 @@ export default function TrackingPage() {
         athleteId: form.scope === "individual" && form.athleteId ? Number(form.athleteId) : undefined,
         audience: form.audience as any,
         teamId: form.scope === "team" && form.teamId ? Number(form.teamId) : undefined,
-        dueDate: form.dueDate || undefined,
+        startDate: form.startDate || undefined,
+        endDate: form.endDate || undefined,
       }).unwrap();
       setForm(emptyForm);
       setDialogOpen(false);
@@ -502,9 +504,15 @@ export default function TrackingPage() {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className="text-xs">Due date (optional)</Label>
-              <Input type="date" value={form.dueDate} onChange={(e) => field("dueDate", e.target.value)} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Start date (optional)</Label>
+                <Input type="date" value={form.startDate} onChange={(e) => field("startDate", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">End date (optional)</Label>
+                <Input type="date" value={form.endDate} onChange={(e) => field("endDate", e.target.value)} />
+              </div>
             </div>
 
             {createError && (
@@ -583,9 +591,15 @@ function GoalCard({
           <Badge variant={goal.scope === "all" ? "outline" : "secondary"} className="text-[10px]">
             {goal.scope === "individual" ? (goal.athleteName ?? "Individual") : goal.scope === "team" ? (goal.teamName ?? "Team") : "All members"}
           </Badge>
-          {goal.dueDate && (
+          {(goal.startDate || goal.endDate) && (
             <Badge variant="outline" className="text-[10px]">
-              Due {new Date(goal.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {goal.startDate
+                ? new Date(goal.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                : "Any time"}
+              {" – "}
+              {goal.endDate
+                ? new Date(goal.endDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                : "No end"}
             </Badge>
           )}
         </div>

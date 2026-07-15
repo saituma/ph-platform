@@ -19,8 +19,8 @@ export function GoalCard({ goal, index }: { goal: TrackingGoal; index: number })
   const BENTO_BORDER = { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.06)" } as const;
 
   const unitLabel = goal.unit === "custom" ? (goal.customUnit ?? "") : goal.unit;
-  const dueLabel = goal.dueDate
-    ? `Due ${new Date(goal.dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+  const dueLabel = goal.endDate
+    ? `Ends ${new Date(goal.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
     : null;
 
   const done = goal.completed;
