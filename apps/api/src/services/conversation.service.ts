@@ -435,31 +435,40 @@ export async function sendDirectMessage(input: {
     const myTeamManagers = await getTeamManagersForUser(input.senderId);
     const isMessagingMyTeamManager = myTeamManagers.some((m) => m.id === input.receiverId);
 
-    if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager) {
+    const [receiverUser] = await db
+      .select({ role: userTable.role })
+      .from(userTable)
+      .where(eq(userTable.id, input.receiverId))
+      .limit(1);
+    const isMessagingTruePlatformAdmin = receiverUser?.role === "admin" || receiverUser?.role === "superAdmin";
+
+    // Team athletes may DM their own team's managers and the platform admin directly —
+    // but not any other team's manager.
+    if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager && !isMessagingTruePlatformAdmin) {
       throw new Error("MESSAGING_DISABLED_FOR_TIER");
     }
 
-    if (input.senderRole === "adult_athlete" || input.senderRole === "youth_athlete") {
-      const [receiverUser] = await db
-        .select({ role: userTable.role })
-        .from(userTable)
-        .where(eq(userTable.id, input.receiverId))
-        .limit(1);
-      if (receiverUser?.role === "team_coach") {
-        throw new Error("MESSAGING_DISABLED_FOR_TIER");
-      }
-    }
+    const isIndividualAthlete = input.senderRole === "adult_athlete" || input.senderRole === "youth_athlete";
+    let hasActivePlan = false;
+    let tier: string | null = null;
 
-    if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager) {
+    if ((isIndividualAthlete || !input.bypassMessagingTierForCoach) && !isMessagingMyTeamManager && !isMessagingTruePlatformAdmin) {
       const { getAthleteForUser, getGuardianAndAthlete } = await import("./user.service");
-      const { getMessagingAccessTiers } = await import("./messaging-policy.service");
       const athlete = await getAthleteForUser(input.senderId);
-      const tier = athlete?.currentProgramTier ?? null;
-      let hasActivePlan = athlete?.currentPlanId != null;
+      tier = athlete?.currentProgramTier ?? null;
+      hasActivePlan = athlete?.currentPlanId != null;
       if (!hasActivePlan) {
         const { guardian } = await getGuardianAndAthlete(input.senderId);
         if (guardian?.currentPlanId != null) hasActivePlan = true;
       }
+    }
+
+    if (isIndividualAthlete && !isMessagingMyTeamManager && !hasActivePlan && receiverUser?.role === "team_coach") {
+      throw new Error("MESSAGING_DISABLED_FOR_TIER");
+    }
+
+    if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager && !isMessagingTruePlatformAdmin) {
+      const { getMessagingAccessTiers } = await import("./messaging-policy.service");
       const allowed = await getMessagingAccessTiers();
       if (!hasActivePlan && (!tier || !(allowed as readonly string[]).includes(tier))) {
         throw new Error("MESSAGING_DISABLED_FOR_TIER");
