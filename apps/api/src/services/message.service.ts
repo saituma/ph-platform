@@ -464,24 +464,33 @@ export async function sendMessage(input: {
       const myTeamManagers = await getTeamManagersForUser(input.senderId);
       const isMessagingMyTeamManager = myTeamManagers.some((m) => m.id === resolvedReceiverId);
 
-      // Team athletes may only DM their own team's managers (primary or co-managers).
-      if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager) {
+      const [receiverUser] = await db
+        .select({ role: userTable.role })
+        .from(userTable)
+        .where(eq(userTable.id, resolvedReceiverId))
+        .limit(1);
+      const isMessagingTruePlatformAdmin = receiverUser?.role === "admin" || receiverUser?.role === "superAdmin";
+
+      // A team athlete whose team currently has no manager assigned would otherwise have
+      // literally no one they're allowed to message — let them reach the platform admin instead.
+      const isOrphanedTeamAthleteFallback =
+        input.senderRole === "team_athlete" && myTeamManagers.length === 0 && isMessagingTruePlatformAdmin;
+
+      // Team athletes may only DM their own team's managers (primary or co-managers), or
+      // the platform admin when their team has no manager assigned at all.
+      if (input.senderRole === "team_athlete" && !isMessagingMyTeamManager && !isOrphanedTeamAthleteFallback) {
         throw new Error("MESSAGING_DISABLED_FOR_TIER");
       }
 
       // Individual athletes cannot message a team_coach (team manager) at all.
-      if (input.senderRole === "adult_athlete" || input.senderRole === "youth_athlete") {
-        const [receiverUser] = await db
-          .select({ role: userTable.role })
-          .from(userTable)
-          .where(eq(userTable.id, resolvedReceiverId))
-          .limit(1);
-        if (receiverUser?.role === "team_coach") {
-          throw new Error("MESSAGING_DISABLED_FOR_TIER");
-        }
+      if (
+        (input.senderRole === "adult_athlete" || input.senderRole === "youth_athlete") &&
+        receiverUser?.role === "team_coach"
+      ) {
+        throw new Error("MESSAGING_DISABLED_FOR_TIER");
       }
 
-      if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager) {
+      if (!input.bypassMessagingTierForCoach && !isMessagingMyTeamManager && !isOrphanedTeamAthleteFallback) {
         const { getAthleteForUser, getGuardianAndAthlete } = await import("./user.service");
         const { getMessagingAccessTiers } = await import("./messaging-policy.service");
         const athlete = await getAthleteForUser(input.senderId);
