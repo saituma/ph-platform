@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AppState, Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import { AppState, Linking, Platform, Pressable, RefreshControl, ScrollView, View, Dimensions, useWindowDimensions, type StyleProp, type TextStyle } from "react-native";
+import * as Location from "expo-location";
 import { Image } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { SkeletonTrackingSocialScreen } from "@/components/ui/legacy-skeleton";
@@ -32,6 +33,7 @@ import { TrackingHeaderTabs } from "@/components/tracking/TrackingHeaderTabs";
 import TrackingSocialScreen from "./social";
 import {
   getRecentRunsAsync,
+  getUnsyncedRuns,
   getWeeklySummaries,
   initSQLiteRuns,
   upsertServerRuns,
@@ -66,6 +68,7 @@ import {
   ChevronRight,
   ShieldCheck,
   CloudOff,
+  MapPinOff,
   Zap,
   Moon,
   Users,
@@ -590,7 +593,10 @@ export default function TrackingHomeScreen() {
         </View>
 
         {capabilities?.runTracking !== false && (
-          <BackgroundLocationInfoCard p={p} />
+          <>
+            <TrackingSyncStatusBanner p={p} userId={userId} />
+            <BackgroundLocationInfoCard p={p} />
+          </>
         )}
 
         <View style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: 14 }}>
@@ -1348,6 +1354,122 @@ function PersonalBestPill({
       <Text style={{ fontFamily: "Outfit-Regular", fontSize: 10, color: p.textMuted, letterSpacing: 0.4, textTransform: "uppercase" }}>
         {label}
       </Text>
+    </View>
+  );
+}
+
+// ── TrackingSyncStatusBanner — surfaces silent tracking failures ──────────────
+//
+// A denied location permission or a run stuck unsynced never throws anywhere the
+// athlete can see it — they just end up with a goal stuck at 0% and no idea why.
+// This checks both on every focus and offers a one-tap fix for each.
+
+function TrackingSyncStatusBanner({
+  p,
+  userId,
+}: {
+  p: ReturnType<typeof useAdminPastel>;
+  userId: string | null;
+}) {
+  const [permissionGranted, setPermissionGranted] = useState(true);
+  const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [checked, setChecked] = useState(false);
+
+  const refresh = useCallback(() => {
+    Location.getForegroundPermissionsAsync()
+      .then((r) => setPermissionGranted(r.status === "granted"))
+      .catch(() => {})
+      .finally(() => setChecked(true));
+    try {
+      setUnsyncedCount(getUnsyncedRuns(userId).length);
+    } catch {
+      setUnsyncedCount(0);
+    }
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
+
+  const handleEnableLocation = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const current = await Location.getForegroundPermissionsAsync();
+    if (current.canAskAgain) {
+      const result = await Location.requestForegroundPermissionsAsync();
+      setPermissionGranted(result.status === "granted");
+    } else {
+      Linking.openSettings();
+    }
+  }, []);
+
+  const handleRetrySync = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    queueRunPushToCloud();
+    setTimeout(refresh, 1500);
+  }, [refresh]);
+
+  if (!checked || (permissionGranted && unsyncedCount === 0)) return null;
+
+  return (
+    <View style={{ paddingHorizontal: spacing.xl, paddingTop: 12, gap: 8 }}>
+      {!permissionGranted && (
+        <Animated.View entering={FadeInDown.duration(280)}>
+          <Pressable
+            onPress={handleEnableLocation}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              borderRadius: 18,
+              padding: 14,
+              backgroundColor: "rgba(220,38,38,0.08)",
+              borderWidth: 1,
+              borderColor: "rgba(220,38,38,0.18)",
+            }}
+          >
+            <MapPinOff size={18} color="#dc2626" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#dc2626" }}>
+                Location access is off
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 1 }}>
+                Your runs won&apos;t be tracked toward your goals. Tap to enable.
+              </Text>
+            </View>
+            <ChevronRight size={16} color="#dc2626" />
+          </Pressable>
+        </Animated.View>
+      )}
+      {unsyncedCount > 0 && (
+        <Animated.View entering={FadeInDown.delay(60).duration(280)}>
+          <Pressable
+            onPress={handleRetrySync}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              borderRadius: 18,
+              padding: 14,
+              backgroundColor: "rgba(217,119,6,0.08)",
+              borderWidth: 1,
+              borderColor: "rgba(217,119,6,0.18)",
+            }}
+          >
+            <CloudOff size={18} color="#d97706" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: "#d97706" }}>
+                {unsyncedCount} run{unsyncedCount !== 1 ? "s" : ""} not synced
+              </Text>
+              <Text style={{ fontFamily: "Outfit-Regular", fontSize: 11, color: p.textMuted, marginTop: 1 }}>
+                Check your connection — tap to retry now.
+              </Text>
+            </View>
+            <ChevronRight size={16} color="#d97706" />
+          </Pressable>
+        </Animated.View>
+      )}
     </View>
   );
 }
