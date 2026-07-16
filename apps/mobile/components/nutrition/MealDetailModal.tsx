@@ -90,6 +90,7 @@ export function MealDetailModal({
   const [itemError, setItemError] = useState<string | null>(null);
   const mealPhotos = useMealPhotos();
   const resetPhotos = mealPhotos.reset;
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const resetDraft = useCallback(() => {
     setDraftName("");
@@ -270,46 +271,71 @@ export function MealDetailModal({
                       {mealPhotos.photos.length}/{MAX_MEAL_PHOTOS}
                     </Text>
                   </View>
+                  {mealPhotos.photos.length === 0 ? (
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted, lineHeight: 17 }}>
+                      Snap your plate so your coach can see exactly what you ate.
+                    </Text>
+                  ) : null}
                   {mealPhotos.photos.length > 0 ? (
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
                       {mealPhotos.photos.map((photo) => (
-                        <View key={photo.localId} style={{ width: 64, height: 64 }}>
-                          <Image
-                            source={{ uri: photo.uri }}
-                            style={{ width: 64, height: 64, borderRadius: 14, backgroundColor: p.inputBg }}
-                            contentFit="cover"
-                            transition={120}
-                          />
-                          {photo.status === "uploading" ? (
-                            <View
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                borderRadius: 14,
-                                backgroundColor: "rgba(0,0,0,0.35)",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <ActivityIndicator size="small" color="#fff" />
-                            </View>
-                          ) : null}
-                          {photo.status === "error" ? (
-                            <Pressable
-                              onPress={() => mealPhotos.retry(photo.localId)}
-                              accessibilityLabel="Retry photo upload"
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                borderRadius: 14,
-                                backgroundColor: "rgba(0,0,0,0.5)",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <RefreshCw size={18} color="#fff" />
-                            </Pressable>
-                          ) : null}
+                        <View key={photo.localId} style={{ width: 72, height: 72 }}>
+                          <Pressable
+                            onPress={
+                              photo.status === "done"
+                                ? () => setPreviewUri(photo.uri)
+                                : photo.status === "error"
+                                  ? () => mealPhotos.retry(photo.localId)
+                                  : undefined
+                            }
+                            accessibilityLabel={
+                              photo.status === "error" ? "Retry photo upload" : "View photo"
+                            }
+                            style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+                          >
+                            <Image
+                              source={{ uri: photo.uri }}
+                              style={{ width: 72, height: 72, borderRadius: 16, backgroundColor: p.inputBg }}
+                              contentFit="cover"
+                              transition={120}
+                            />
+                            {photo.status === "uploading" ? (
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  borderRadius: 16,
+                                  backgroundColor: "rgba(0,0,0,0.4)",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: 2,
+                                }}
+                              >
+                                <ActivityIndicator size="small" color="#fff" />
+                                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: "#fff" }}>
+                                  {Math.round(photo.progress * 100)}%
+                                </Text>
+                              </View>
+                            ) : null}
+                            {photo.status === "error" ? (
+                              <View
+                                style={{
+                                  position: "absolute",
+                                  inset: 0,
+                                  borderRadius: 16,
+                                  backgroundColor: "rgba(0,0,0,0.55)",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: 2,
+                                }}
+                              >
+                                <RefreshCw size={16} color="#fff" />
+                                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: "#fff" }}>
+                                  Retry
+                                </Text>
+                              </View>
+                            ) : null}
+                          </Pressable>
                           <Pressable
                             onPress={() => mealPhotos.remove(photo.localId)}
                             accessibilityLabel="Remove photo"
@@ -578,6 +604,44 @@ export function MealDetailModal({
             </Pressable>
           </View>
         </KeyboardAvoidingView>
+
+        {/* Full-screen photo preview */}
+        <Modal
+          visible={previewUri !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setPreviewUri(null)}
+        >
+          <Pressable
+            onPress={() => setPreviewUri(null)}
+            accessibilityLabel="Close photo preview"
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" }}
+          >
+            {previewUri ? (
+              <Image
+                source={{ uri: previewUri }}
+                style={{ width: "100%", height: "80%" }}
+                contentFit="contain"
+                transition={150}
+              />
+            ) : null}
+            <View
+              style={{
+                position: "absolute",
+                top: 56,
+                right: 20,
+                width: 40,
+                height: 40,
+                borderRadius: 100,
+                backgroundColor: "rgba(255,255,255,0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <X size={20} color="#fff" />
+            </View>
+          </Pressable>
+        </Modal>
       </View>
     </Modal>
   );

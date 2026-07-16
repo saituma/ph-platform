@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LayoutAnimation } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Crypto from "expo-crypto";
+import * as Haptics from "expo-haptics";
 import { useAppSelector } from "@/store/hooks";
 import { apiRequest } from "@/lib/api";
 import { requestMediaLibraryPermission, safeLaunchImagePicker } from "@/lib/media/safeLaunchImagePicker";
@@ -15,8 +16,19 @@ export type DraftMealPhoto = {
   /** Local (compressed) uri for instant thumbnail display. */
   uri: string;
   status: "uploading" | "done" | "error";
+  /** Upload progress 0..1 while status is "uploading". */
+  progress: number;
   publicUrl: string | null;
 };
+
+function animatePhotoList() {
+  LayoutAnimation.configureNext({
+    duration: 220,
+    create: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+    update: { type: LayoutAnimation.Types.easeInEaseOut },
+    delete: { type: LayoutAnimation.Types.easeInEaseOut, property: LayoutAnimation.Properties.opacity },
+  });
+}
 
 /**
  * Draft photo list for one meal being edited. Photos upload immediately on pick
@@ -42,23 +54,32 @@ export function useMealPhotos() {
         localId: `existing_${Crypto.randomUUID()}`,
         uri: url,
         status: "done" as const,
+        progress: 1,
         publicUrl: url,
       })),
     );
   }, []);
 
+  // Lazy import: expo-image-manipulator is a native module that older installed
+  // builds don't ship. If it's unavailable, upload the original photo instead of
+  // crashing the whole nutrition module graph (same pattern as lib/notifications).
   const compressPhoto = useCallback(async (asset: ImagePicker.ImagePickerAsset): Promise<string> => {
-    const context = ImageManipulator.manipulate(asset.uri);
-    if (asset.width && asset.width > MAX_PHOTO_WIDTH) {
-      context.resize({ width: MAX_PHOTO_WIDTH, height: null });
+    try {
+      const { ImageManipulator, SaveFormat } = await import("expo-image-manipulator");
+      const context = ImageManipulator.manipulate(asset.uri);
+      if (asset.width && asset.width > MAX_PHOTO_WIDTH) {
+        context.resize({ width: MAX_PHOTO_WIDTH, height: null });
+      }
+      const rendered = await context.renderAsync();
+      const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
+      return saved.uri;
+    } catch {
+      return asset.uri;
     }
-    const rendered = await context.renderAsync();
-    const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
-    return saved.uri;
   }, []);
 
   const uploadPhoto = useCallback(
-    async (uri: string): Promise<string> => {
+    async (uri: string, onProgress: (ratio: number) => void): Promise<string> => {
       if (!token) throw new Error("Authentication required");
       let sizeBytes = 0;
       try {
@@ -76,11 +97,23 @@ export function useMealPhotos() {
         body: { folder: "food-diary", fileName, contentType: "image/jpeg", sizeBytes: Math.trunc(sizeBytes) },
       });
 
-      const result = await FileSystem.uploadAsync(presign.uploadUrl, uri, {
-        httpMethod: "PUT",
-        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-        headers: { "Content-Type": "image/jpeg" },
-      });
+      const uploadTask = FileSystem.createUploadTask(
+        presign.uploadUrl,
+        uri,
+        {
+          httpMethod: "PUT",
+          uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+          headers: { "Content-Type": "image/jpeg" },
+        },
+        (event) => {
+          const expected = event.totalBytesExpectedToSend ?? 0;
+          if (expected > 0) {
+            onProgress(Math.max(0, Math.min(1, (event.totalBytesSent ?? 0) / expected)));
+          }
+        },
+      );
+      const result = await uploadTask.uploadAsync();
+      if (!result) throw new Error("Upload canceled.");
       if (result.status < 200 || result.status >= 300) {
         throw new Error(`Upload failed (${result.status}).`);
       }
@@ -92,23 +125,19 @@ export function useMealPhotos() {
   const startUpload = useCallback(
     (localId: string, uri: string) => {
       const generation = generationRef.current;
-      setPhotos((prev) =>
-        prev.map((photo) => (photo.localId === localId ? { ...photo, status: "uploading" as const } : photo)),
-      );
-      void uploadPhoto(uri)
+      const patch = (update: Partial<DraftMealPhoto>) => {
+        if (generationRef.current !== generation) return;
+        setPhotos((prev) => prev.map((photo) => (photo.localId === localId ? { ...photo, ...update } : photo)));
+      };
+      patch({ status: "uploading", progress: 0 });
+      void uploadPhoto(uri, (progress) => patch({ progress }))
         .then((publicUrl) => {
-          if (generationRef.current !== generation) return;
-          setPhotos((prev) =>
-            prev.map((photo) =>
-              photo.localId === localId ? { ...photo, status: "done" as const, publicUrl } : photo,
-            ),
-          );
+          patch({ status: "done", progress: 1, publicUrl });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
         })
         .catch(() => {
-          if (generationRef.current !== generation) return;
-          setPhotos((prev) =>
-            prev.map((photo) => (photo.localId === localId ? { ...photo, status: "error" as const } : photo)),
-          );
+          patch({ status: "error" });
+          void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
         });
     },
     [uploadPhoto],
@@ -116,18 +145,15 @@ export function useMealPhotos() {
 
   const addAsset = useCallback(
     async (asset: ImagePicker.ImagePickerAsset) => {
-      let uri = asset.uri;
-      try {
-        uri = await compressPhoto(asset);
-      } catch {
-        // Fall back to the original — a larger upload beats losing the photo.
-      }
+      const uri = await compressPhoto(asset);
       const localId = `photo_${Crypto.randomUUID()}`;
+      animatePhotoList();
       setPhotos((prev) =>
         prev.length >= MAX_MEAL_PHOTOS
           ? prev
-          : [...prev, { localId, uri, status: "uploading" as const, publicUrl: null }],
+          : [...prev, { localId, uri, status: "uploading" as const, progress: 0, publicUrl: null }],
       );
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       startUpload(localId, uri);
     },
     [compressPhoto, startUpload],
@@ -172,7 +198,9 @@ export function useMealPhotos() {
   );
 
   const remove = useCallback((localId: string) => {
+    animatePhotoList();
     setPhotos((prev) => prev.filter((photo) => photo.localId !== localId));
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }, []);
 
   const isUploading = photos.some((photo) => photo.status === "uploading");
