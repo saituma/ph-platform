@@ -50,6 +50,30 @@ function parseMealItems(raw: string | undefined | null): MealItem[] {
     }));
 }
 
+const SERVER_SLOT_TO_MOBILE: Record<string, MealSlotName> = {
+  breakfast: "breakfast",
+  lunch: "lunch",
+  dinner: "dinner",
+  snacks: "snack",
+  snacksMorning: "snack",
+  snacksAfternoon: "snack",
+  snacksEvening: "snack",
+};
+
+function collectSlotPhotos(logs: any[]): Record<MealSlotName, string[]> {
+  const photos: Record<MealSlotName, string[]> = { breakfast: [], lunch: [], dinner: [], snack: [] };
+  for (const log of logs) {
+    const rows = Array.isArray(log?.photos) ? log.photos : [];
+    for (const row of rows) {
+      const slot = SERVER_SLOT_TO_MOBILE[String(row?.mealSlot ?? "")];
+      if (slot && typeof row?.url === "string" && row.url) {
+        photos[slot].push(row.url);
+      }
+    }
+  }
+  return photos;
+}
+
 function sumMacros(items: MealItem[]) {
   return items.reduce(
     (acc, i) => ({
@@ -180,12 +204,14 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
           ? targets.calories
           : 2000;
 
+      const slotPhotos = collectSlotPhotos(dayLogs);
       const buildSlot = (slot: MealSlotName, label: string, rawField: string | null | undefined) => {
         const split = SLOT_SPLITS[slot];
         return {
           slot,
           label,
           items: parseMealItems(rawField),
+          photos: slotPhotos[slot],
           recommendedMin: Math.round(targetCalories * split.min),
           recommendedMax: Math.round(targetCalories * split.max),
         };
@@ -239,13 +265,14 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
   }, [token, athleteUserId, today]);
 
   const optimisticUpdateMeal = useCallback(
-    (slot: MealSlotName, items: MealItem[]) => {
+    (slot: MealSlotName, items: MealItem[], photos?: string[]) => {
       setData((prev) => {
         const targetCalories = prev?.targetCalories ?? 2000;
         const emptySlot = (s: MealSlotName, label: string): MealSlotData => ({
           slot: s,
           label,
           items: [],
+          photos: [],
           recommendedMin: Math.round(targetCalories * SLOT_SPLITS[s].min),
           recommendedMax: Math.round(targetCalories * SLOT_SPLITS[s].max),
         });
@@ -269,7 +296,11 @@ export function useNutritionDay(dateKey?: string, athleteUserIdOverride?: number
           },
           hasMacroTargets: false,
         };
-        const slotData: MealSlotData = { ...base.meals[slot], items };
+        const slotData: MealSlotData = {
+          ...base.meals[slot],
+          items,
+          photos: photos ?? base.meals[slot].photos,
+        };
         const meals = { ...base.meals, [slot]: slotData };
         const allItems = Object.values(meals).flatMap((m) => m.items);
         const eatenCalories = allItems.reduce((s, i) => s + i.calories, 0);

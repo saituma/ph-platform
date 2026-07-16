@@ -139,25 +139,23 @@ export function NutritionDashboard() {
   };
 
   const handleConfirmMeal = useCallback(
-    async (items: MealItem[]) => {
+    async (items: MealItem[], photoUrls: string[]) => {
       if (!token || !activeMeal || savingMeal) return;
       const mealLabel = activeSlotData?.label ?? "Meal";
       try {
         setSavingMeal(true);
         const serialized = serializeMealItems(items);
+        // Snack maps to the snacksMorning column server-side (same as the meal text).
+        const serverSlot = activeMeal === "snack" ? "snacksMorning" : activeMeal;
         const body: Record<string, any> = {
           athleteId: athleteUserId || undefined,
           dateKey: data?.dateKey ?? new Date().toISOString().slice(0, 10),
           mealType: "daily",
+          [serverSlot]: serialized,
+          photos: { [serverSlot]: photoUrls },
         };
 
-        if (activeMeal === "snack") {
-          body.snacksMorning = serialized;
-        } else {
-          body[activeMeal] = serialized;
-        }
-
-        optimisticUpdateMeal(activeMeal, items);
+        optimisticUpdateMeal(activeMeal, items, photoUrls);
 
         await apiRequest("/nutrition/logs", {
           method: "POST",
@@ -211,10 +209,10 @@ export function NutritionDashboard() {
   const dateLabel = data ? formatDate(data.dateKey) : "";
 
   const meals = data?.meals ?? {
-    breakfast: { slot: "breakfast" as const, label: "Breakfast", items: [], recommendedMin: 440, recommendedMax: 615 },
-    lunch: { slot: "lunch" as const, label: "Lunch", items: [], recommendedMin: 550, recommendedMax: 620 },
-    snack: { slot: "snack" as const, label: "Snack", items: [], recommendedMin: 200, recommendedMax: 360 },
-    dinner: { slot: "dinner" as const, label: "Dinner", items: [], recommendedMin: 550, recommendedMax: 700 },
+    breakfast: { slot: "breakfast" as const, label: "Breakfast", items: [], photos: [], recommendedMin: 440, recommendedMax: 615 },
+    lunch: { slot: "lunch" as const, label: "Lunch", items: [], photos: [], recommendedMin: 550, recommendedMax: 620 },
+    snack: { slot: "snack" as const, label: "Snack", items: [], photos: [], recommendedMin: 200, recommendedMax: 360 },
+    dinner: { slot: "dinner" as const, label: "Dinner", items: [], photos: [], recommendedMin: 550, recommendedMax: 700 },
   };
 
   const visibleCoach = showAllCoach ? coachHistory : coachHistory.slice(0, 3);

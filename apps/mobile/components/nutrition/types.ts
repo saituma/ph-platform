@@ -16,6 +16,8 @@ export type MealSlotData = {
   slot: MealSlotName;
   label: string;
   items: MealItem[];
+  /** Public CDN URLs of food photos attached to this meal. */
+  photos: string[];
   recommendedMin: number;
   recommendedMax: number;
 };

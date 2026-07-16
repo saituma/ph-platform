@@ -7,8 +7,9 @@ import { queryKeys } from "@/lib/queryKeys";
 import { useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import React, { useMemo } from "react";
-import { ScrollView, TouchableOpacity, View } from "react-native";
+import React, { useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { SkeletonNutritionLogScreen } from "@/components/ui/legacy-skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -60,17 +61,29 @@ function mealTotalCals(meal: ParsedMeal): number {
   return meal.items.reduce((sum, i) => sum + (i.calories ?? 0), 0);
 }
 
+function photosForSlots(log: any, slots: string[]): string[] {
+  const rows = Array.isArray(log?.photos) ? log.photos : [];
+  return rows
+    .filter((row: any) => slots.includes(String(row?.mealSlot ?? "")) && typeof row?.url === "string" && row.url)
+    .map((row: any) => row.url as string);
+}
+
 function MealSection({
   label,
   meal,
   p,
+  photos = [],
+  onPhotoPress,
 }: {
   label: string;
   meal: ParsedMeal;
   p: ReturnType<typeof useNutritionTheme>;
+  photos?: string[];
+  onPhotoPress?: (url: string) => void;
 }) {
-  if (!meal.logged) return null;
+  if (!meal.logged && photos.length === 0) return null;
   const total = mealTotalCals(meal);
+  const items = meal.logged ? meal.items : [];
 
   return (
     <View
@@ -90,7 +103,7 @@ function MealSection({
           justifyContent: "space-between",
           paddingHorizontal: 14,
           paddingVertical: 12,
-          borderBottomWidth: meal.items.length > 0 ? 1 : 0,
+          borderBottomWidth: items.length > 0 || photos.length > 0 ? 1 : 0,
           borderBottomColor: p.divider,
         }}
       >
@@ -124,7 +137,7 @@ function MealSection({
       </View>
 
       {/* Legacy text log */}
-      {meal.legacyText ? (
+      {meal.logged && meal.legacyText ? (
         <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
           <Text style={{ fontFamily: "Outfit-Regular", fontSize: 13, color: p.textSecondary, lineHeight: 20 }}>
             {meal.legacyText}
@@ -132,8 +145,24 @@ function MealSection({
         </View>
       ) : null}
 
+      {/* Food photos */}
+      {photos.length > 0 ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 14, paddingVertical: 10 }}>
+          {photos.map((url) => (
+            <Pressable key={url} onPress={onPhotoPress ? () => onPhotoPress(url) : undefined} accessibilityLabel="View meal photo">
+              <Image
+                source={{ uri: url }}
+                style={{ width: 72, height: 72, borderRadius: 12, backgroundColor: p.divider }}
+                contentFit="cover"
+                transition={150}
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       {/* Food items */}
-      {meal.items.map((item, idx) => {
+      {items.map((item, idx) => {
         const hasWeight = item.weightGrams && item.weightGrams > 0;
         const hasMacros =
           (item.protein ?? 0) > 0 || (item.carbs ?? 0) > 0 || (item.fat ?? 0) > 0;
@@ -298,6 +327,23 @@ export default function NutritionLogDetailScreen() {
         : !loading && logResult === null
           ? "Log not found."
           : null;
+
+  const [photoViewerUrl, setPhotoViewerUrl] = useState<string | null>(null);
+
+  const slotPhotos = useMemo(
+    () => ({
+      breakfast: photosForSlots(log, ["breakfast"]),
+      lunch: photosForSlots(log, ["lunch"]),
+      dinner: photosForSlots(log, ["dinner"]),
+      snacksMorning: photosForSlots(log, ["snacksMorning"]),
+      snacksAfternoon: photosForSlots(log, ["snacksAfternoon"]),
+      snacksEvening: photosForSlots(log, ["snacksEvening"]),
+      snacks: photosForSlots(log, ["snacks"]),
+    }),
+    [log],
+  );
+  const hasModernSnackPhotos =
+    slotPhotos.snacksMorning.length > 0 || slotPhotos.snacksAfternoon.length > 0 || slotPhotos.snacksEvening.length > 0;
 
   const coachText =
     typeof log?.coachFeedback === "string" ? log.coachFeedback.trim() : "";
@@ -468,17 +514,17 @@ export default function NutritionLogDetailScreen() {
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.textMuted, textTransform: "uppercase", letterSpacing: 1, paddingLeft: 4 }}>
                 Meals
               </Text>
-              <MealSection label="Breakfast" meal={meals.breakfast} p={p} />
-              <MealSection label="Lunch" meal={meals.lunch} p={p} />
-              <MealSection label="Dinner" meal={meals.dinner} p={p} />
-              {meals.anyModernSnack ? (
+              <MealSection label="Breakfast" meal={meals.breakfast} p={p} photos={slotPhotos.breakfast} onPhotoPress={setPhotoViewerUrl} />
+              <MealSection label="Lunch" meal={meals.lunch} p={p} photos={slotPhotos.lunch} onPhotoPress={setPhotoViewerUrl} />
+              <MealSection label="Dinner" meal={meals.dinner} p={p} photos={slotPhotos.dinner} onPhotoPress={setPhotoViewerUrl} />
+              {meals.anyModernSnack || hasModernSnackPhotos ? (
                 <>
-                  <MealSection label="Morning Snack" meal={meals.snacksMorning} p={p} />
-                  <MealSection label="Afternoon Snack" meal={meals.snacksAfternoon} p={p} />
-                  <MealSection label="Evening Snack" meal={meals.snacksEvening} p={p} />
+                  <MealSection label="Morning Snack" meal={meals.snacksMorning} p={p} photos={slotPhotos.snacksMorning} onPhotoPress={setPhotoViewerUrl} />
+                  <MealSection label="Afternoon Snack" meal={meals.snacksAfternoon} p={p} photos={slotPhotos.snacksAfternoon} onPhotoPress={setPhotoViewerUrl} />
+                  <MealSection label="Evening Snack" meal={meals.snacksEvening} p={p} photos={slotPhotos.snacksEvening} onPhotoPress={setPhotoViewerUrl} />
                 </>
               ) : meals.legacySnack ? (
-                <MealSection label="Snack" meal={meals.legacySnack} p={p} />
+                <MealSection label="Snack" meal={meals.legacySnack} p={p} photos={slotPhotos.snacks} onPhotoPress={setPhotoViewerUrl} />
               ) : null}
               {!meals.breakfast.logged &&
                 !meals.lunch.logged &&
@@ -578,6 +624,44 @@ export default function NutritionLogDetailScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      {/* Full-screen photo viewer */}
+      <Modal
+        visible={photoViewerUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPhotoViewerUrl(null)}
+      >
+        <Pressable
+          onPress={() => setPhotoViewerUrl(null)}
+          accessibilityLabel="Close photo"
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center" }}
+        >
+          {photoViewerUrl ? (
+            <Image
+              source={{ uri: photoViewerUrl }}
+              style={{ width: "100%", height: "80%" }}
+              contentFit="contain"
+              transition={150}
+            />
+          ) : null}
+          <View
+            style={{
+              position: "absolute",
+              top: 56,
+              right: 20,
+              width: 40,
+              height: 40,
+              borderRadius: 100,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={20} color="#fff" />
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

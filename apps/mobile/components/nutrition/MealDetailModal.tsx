@@ -8,18 +8,20 @@ import {
   View,
 } from "react-native";
 import { KeyboardAvoidingView } from "@/components/native/KeyboardAvoidingView";
-import { ArrowLeft, Plus, Trash2, ChevronsRight } from "lucide-react-native";
+import { ArrowLeft, Plus, Trash2, ChevronsRight, Camera, Images, RefreshCw, X } from "lucide-react-native";
+import { Image } from "expo-image";
 import { Text, TextInput } from "@/components/ScaledText";
 import { useNutritionTheme } from "@/components/nutrition/theme";
 import { MealFoodRow } from "./MealFoodRow";
 import { MacroBreakdownTable } from "./MacroBreakdownTable";
+import { useMealPhotos, MAX_MEAL_PHOTOS } from "./useMealPhotos";
 import type { MealItem, MealSlotData } from "./types";
 
 type MealDetailModalProps = {
   visible: boolean;
   slot: MealSlotData | null;
   onClose: () => void;
-  onConfirm: (items: MealItem[]) => void | Promise<void>;
+  onConfirm: (items: MealItem[], photoUrls: string[]) => void | Promise<void>;
   saving?: boolean;
 };
 
@@ -86,6 +88,8 @@ export function MealDetailModal({
   const [draftFat, setDraftFat] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [itemError, setItemError] = useState<string | null>(null);
+  const mealPhotos = useMealPhotos();
+  const resetPhotos = mealPhotos.reset;
 
   const resetDraft = useCallback(() => {
     setDraftName("");
@@ -103,8 +107,9 @@ export function MealDetailModal({
       setShowAddForm(slot.items.length === 0);
       setDraftUnit("g");
       resetDraft();
+      resetPhotos(slot.photos ?? []);
     }
-  }, [visible, slot, resetDraft]);
+  }, [visible, slot, resetDraft, resetPhotos]);
 
   const draftItem = useCallback(() => {
     const item = buildDraftMealItem({
@@ -138,7 +143,7 @@ export function MealDetailModal({
   }, [draftItem, draftName, resetDraft]);
 
   const saveMeal = useCallback(() => {
-    if (saving) return;
+    if (saving || mealPhotos.isUploading) return;
 
     const pendingDraft = draftItem();
     if (draftName.trim() && !pendingDraft) return;
@@ -151,8 +156,8 @@ export function MealDetailModal({
     }
 
     setItemError(null);
-    void onConfirm(nextItems);
-  }, [draftItem, draftName, items, onConfirm, saving]);
+    void onConfirm(nextItems, mealPhotos.uploadedUrls);
+  }, [draftItem, draftName, items, onConfirm, saving, mealPhotos.isUploading, mealPhotos.uploadedUrls]);
 
   const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -255,6 +260,115 @@ export function MealDetailModal({
             }
             ListFooterComponent={
               <View style={{ marginTop: 16, gap: 12 }}>
+                {/* Food photos */}
+                <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 16, gap: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: p.textPrimary }}>
+                      Photos
+                    </Text>
+                    <Text style={{ fontFamily: "Outfit-Regular", fontSize: 12, color: p.textMuted }}>
+                      {mealPhotos.photos.length}/{MAX_MEAL_PHOTOS}
+                    </Text>
+                  </View>
+                  {mealPhotos.photos.length > 0 ? (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                      {mealPhotos.photos.map((photo) => (
+                        <View key={photo.localId} style={{ width: 64, height: 64 }}>
+                          <Image
+                            source={{ uri: photo.uri }}
+                            style={{ width: 64, height: 64, borderRadius: 14, backgroundColor: p.inputBg }}
+                            contentFit="cover"
+                            transition={120}
+                          />
+                          {photo.status === "uploading" ? (
+                            <View
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                borderRadius: 14,
+                                backgroundColor: "rgba(0,0,0,0.35)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <ActivityIndicator size="small" color="#fff" />
+                            </View>
+                          ) : null}
+                          {photo.status === "error" ? (
+                            <Pressable
+                              onPress={() => mealPhotos.retry(photo.localId)}
+                              accessibilityLabel="Retry photo upload"
+                              style={{
+                                position: "absolute",
+                                inset: 0,
+                                borderRadius: 14,
+                                backgroundColor: "rgba(0,0,0,0.5)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <RefreshCw size={18} color="#fff" />
+                            </Pressable>
+                          ) : null}
+                          <Pressable
+                            onPress={() => mealPhotos.remove(photo.localId)}
+                            accessibilityLabel="Remove photo"
+                            hitSlop={8}
+                            style={{
+                              position: "absolute",
+                              top: -6,
+                              right: -6,
+                              width: 22,
+                              height: 22,
+                              borderRadius: 100,
+                              backgroundColor: p.textPrimary,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <X size={12} color={p.cardWhite} />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  {mealPhotos.hasFailed ? (
+                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 12, color: p.danger }}>
+                      A photo failed to upload. Tap it to retry or remove it.
+                    </Text>
+                  ) : null}
+                  {mealPhotos.photos.length < MAX_MEAL_PHOTOS ? (
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      {[
+                        { label: "Camera", Icon: Camera, onPress: mealPhotos.addFromCamera },
+                        { label: "Library", Icon: Images, onPress: mealPhotos.addFromLibrary },
+                      ].map(({ label, Icon, onPress }) => (
+                        <Pressable
+                          key={label}
+                          onPress={() => void onPress()}
+                          disabled={saving}
+                          style={({ pressed }) => ({
+                            flex: 1,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            height: 44,
+                            borderRadius: 100,
+                            backgroundColor: p.accentSoft,
+                            opacity: pressed ? 0.8 : 1,
+                          })}
+                        >
+                          <Icon size={16} color={p.accent} strokeWidth={2.5} />
+                          <Text style={{ fontFamily: "Outfit-Bold", fontSize: 13, color: p.accent }}>
+                            {label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+
                 {/* Add item button or form */}
                 {showAddForm ? (
                   <View style={{ borderRadius: 22, backgroundColor: p.cardWhite, padding: 16, gap: 12 }}>
@@ -440,7 +554,7 @@ export function MealDetailModal({
           <View style={{ paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 36 : 24, paddingTop: 12 }}>
             <Pressable
               onPress={saveMeal}
-              disabled={saving}
+              disabled={saving || mealPhotos.isUploading}
               style={({ pressed }) => ({
                 height: 56,
                 borderRadius: 100,
@@ -449,14 +563,14 @@ export function MealDetailModal({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                opacity: saving ? 0.72 : pressed ? 0.85 : 1,
+                opacity: saving || mealPhotos.isUploading ? 0.72 : pressed ? 0.85 : 1,
                 transform: [{ scale: pressed ? 0.98 : 1 }],
               })}
             >
               <Text style={{ fontFamily: "Outfit-Bold", fontSize: 16, color: p.buttonPrimaryText }}>
-                {saving ? "Saving meal" : "Save meal"}
+                {saving ? "Saving meal" : mealPhotos.isUploading ? "Uploading photos" : "Save meal"}
               </Text>
-              {saving ? (
+              {saving || mealPhotos.isUploading ? (
                 <ActivityIndicator size="small" color={p.buttonPrimaryText} />
               ) : (
                 <ChevronsRight size={20} color={p.buttonPrimaryText} />
