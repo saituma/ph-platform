@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Loader2, MessageSquareText, Video } from "lucide-react";
 
 import { AdminShell } from "../../../../components/admin/shell";
+import { MealPhotoStrip, type NutritionLogPhoto } from "../../../../components/admin/meal-photo-strip";
 import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
 import { Input } from "../../../../components/ui/input";
@@ -31,6 +32,7 @@ type NutritionLog = {
   foodDiary?: string | null;
   coachFeedback?: string | null;
   coachFeedbackMediaUrl?: string | null;
+  photos?: NutritionLogPhoto[];
 };
 
 function parseSlot(value: unknown) {
@@ -189,6 +191,8 @@ function NutritionLogDetailPageInner() {
                   No details logged.
                 </div>
               )}
+
+              <MealPhotoStrip photos={log.photos} />
             </CardContent>
           </Card>
 

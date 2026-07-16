@@ -6,6 +6,7 @@ import { Filter, Loader2, MessageSquareText } from "lucide-react";
 
 import { toast } from "../../lib/toast";
 import { AdminShell } from "../../components/admin/shell";
+import { MealPhotoStrip, type NutritionLogPhoto } from "../../components/admin/meal-photo-strip";
 import { SectionHeader } from "../../components/admin/section-header";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader } from "../../components/ui/card";
@@ -57,6 +58,7 @@ type NutritionLog = {
   foodDiary?: string | null;
   coachFeedback?: string | null;
   coachFeedbackMediaUrl?: string | null;
+  photos?: NutritionLogPhoto[];
 };
 
 function toDateKey(d: Date) {
@@ -581,6 +583,8 @@ function NutritionDetails({
                           </p>
                         )}
                       </div>
+
+                      <MealPhotoStrip photos={log.photos} />
 
                       <div className="rounded-2xl border border-input bg-secondary/10 p-4 space-y-2">
                         <div className="flex items-center justify-between gap-3">
