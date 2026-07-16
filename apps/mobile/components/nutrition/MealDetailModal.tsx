@@ -102,8 +102,14 @@ export function MealDetailModal({
     setItemError(null);
   }, []);
 
+  // Initialize the draft ONLY on the closed->open transition. The picker backgrounds
+  // the app, and returning triggers a day refetch that replaces `slot`'s identity —
+  // re-initializing on that would wipe in-progress photos and typed food items.
+  const wasVisibleRef = React.useRef(false);
   React.useEffect(() => {
-    if (visible && slot) {
+    const justOpened = visible && !wasVisibleRef.current;
+    wasVisibleRef.current = visible;
+    if (justOpened && slot) {
       setItems(slot.items.length ? [...slot.items] : []);
       setShowAddForm(slot.items.length === 0);
       setDraftUnit("g");
