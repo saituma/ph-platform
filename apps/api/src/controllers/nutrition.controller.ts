@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, desc, gte, lte, or, ne, isNotNull } from "drizzle-orm";
+import { and, eq, desc, asc, gte, lte, or, ne, isNotNull, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -8,10 +8,13 @@ import {
   guardianTable,
   nutritionTargetsTable,
   nutritionLogsTable,
+  nutritionLogPhotosTable,
   nutritionOnboardingProfileTable,
   userTable,
   notificationTable,
 } from "../db/schema";
+import { env } from "../config/env";
+import { deleteObject } from "../services/s3.service";
 import { createPushIntent } from "../services/outbox.service";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 import { canManageAthleteUser } from "../services/team-membership";
@@ -50,9 +53,54 @@ const logSchema = z.object({
   energy: z.number().int().min(1).max(5).optional().nullable(),
   pain: z.number().int().min(1).max(5).optional().nullable(),
   foodDiary: z.string().optional().nullable(),
+  // Per-slot photo replacement: a slot key present here sets that slot's photos to
+  // exactly this list (empty array clears it); absent slots keep their photos.
+  photos: z
+    .record(
+      z.enum(["breakfast", "lunch", "dinner", "snacks", "snacksMorning", "snacksAfternoon", "snacksEvening"]),
+      z.array(z.string().url().max(2048)).max(5),
+    )
+    .optional(),
 });
 
 type NutritionLogInput = z.infer<typeof logSchema>;
+
+/** Only URLs on our media CDN under food-diary/ may be attached — never arbitrary hosts. */
+function isValidMealPhotoUrl(url: string): boolean {
+  const base = String(env.mediaPublicBaseUrl ?? "").trim();
+  if (!base) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.host === new URL(base).host && parsed.pathname.startsWith("/food-diary/");
+  } catch {
+    return false;
+  }
+}
+
+function mediaKeyFromPublicUrl(url: string): string {
+  return decodeURIComponent(new URL(url).pathname.replace(/^\//, ""));
+}
+
+async function attachPhotosToLogs<T extends { id: number }>(logs: T[]) {
+  if (logs.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(nutritionLogPhotosTable)
+    .where(
+      inArray(
+        nutritionLogPhotosTable.logId,
+        logs.map((log) => log.id),
+      ),
+    )
+    .orderBy(asc(nutritionLogPhotosTable.id));
+  const byLog = new Map<number, typeof rows>();
+  for (const row of rows) {
+    const list = byLog.get(row.logId) ?? [];
+    list.push(row);
+    byLog.set(row.logId, list);
+  }
+  return logs.map((log) => ({ ...log, photos: byLog.get(log.id) ?? [] }));
+}
 type NutritionLogRow = typeof nutritionLogsTable.$inferSelect;
 
 const MEAL_AND_DIARY_TEXT_KEYS = [
@@ -415,7 +463,7 @@ export async function listLogs(req: Request, res: Response) {
       .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.id))
       .limit(limit);
 
-    return res.status(200).json({ logs });
+    return res.status(200).json({ logs: await attachPhotosToLogs(logs) });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to fetch nutrition logs";
     console.error("[nutrition] listLogs error:", error);
@@ -450,7 +498,11 @@ export async function upsertLog(req: Request, res: Response) {
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid input", details: parsed.error.flatten().fieldErrors });
     }
-    const input = parsed.data;
+    const { photos, ...input } = parsed.data;
+
+    if (photos && Object.values(photos).some((urls) => (urls ?? []).some((url) => !isValidMealPhotoUrl(url)))) {
+      return res.status(400).json({ error: "Photo URLs must point to uploaded food-diary media" });
+    }
 
     const canWrite = await canWriteNutritionForUser({
       actorUserId: req.user.id,
@@ -468,7 +520,7 @@ export async function upsertLog(req: Request, res: Response) {
       .where(eq(athleteTable.userId, targetUserId))
       .limit(1);
 
-    const result = await db.transaction(async (tx) => {
+    const { log: result, removedPhotoUrls } = await db.transaction(async (tx) => {
       const [existingLog] = await tx
         .select()
         .from(nutritionLogsTable)
@@ -481,47 +533,73 @@ export async function upsertLog(req: Request, res: Response) {
         )
         .limit(1);
 
+      let log: NutritionLogRow | undefined;
       if (existingLog) {
         const [updated] = await tx
           .update(nutritionLogsTable)
           .set(buildNutritionUpdatePayload(existingLog, input))
           .where(eq(nutritionLogsTable.id, existingLog.id))
           .returning();
-        return updated;
+        log = updated;
+      } else {
+        const [inserted] = await tx
+          .insert(nutritionLogsTable)
+          .values({
+            userId: targetUserId,
+            athleteType: targetAthlete?.athleteType ?? "youth",
+            ...input,
+            mealType: input.mealType,
+            loggedAt: input.loggedAt ?? new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [nutritionLogsTable.userId, nutritionLogsTable.dateKey, nutritionLogsTable.mealType],
+            set: {
+              breakfast: input.breakfast ?? undefined,
+              lunch: input.lunch ?? undefined,
+              dinner: input.dinner ?? undefined,
+              snacks: input.snacks ?? undefined,
+              snacksMorning: input.snacksMorning ?? undefined,
+              snacksAfternoon: input.snacksAfternoon ?? undefined,
+              snacksEvening: input.snacksEvening ?? undefined,
+              foodDiary: input.foodDiary ?? undefined,
+              waterIntake: input.waterIntake ?? undefined,
+              steps: input.steps ?? undefined,
+              sleepHours: input.sleepHours ?? undefined,
+              mood: input.mood ?? undefined,
+              energy: input.energy ?? undefined,
+              pain: input.pain ?? undefined,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
+        log = inserted;
       }
 
-      const [inserted] = await tx
-        .insert(nutritionLogsTable)
-        .values({
-          userId: targetUserId,
-          athleteType: targetAthlete?.athleteType ?? "youth",
-          ...input,
-          mealType: input.mealType,
-          loggedAt: input.loggedAt ?? new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [nutritionLogsTable.userId, nutritionLogsTable.dateKey, nutritionLogsTable.mealType],
-          set: {
-            breakfast: input.breakfast ?? undefined,
-            lunch: input.lunch ?? undefined,
-            dinner: input.dinner ?? undefined,
-            snacks: input.snacks ?? undefined,
-            snacksMorning: input.snacksMorning ?? undefined,
-            snacksAfternoon: input.snacksAfternoon ?? undefined,
-            snacksEvening: input.snacksEvening ?? undefined,
-            foodDiary: input.foodDiary ?? undefined,
-            waterIntake: input.waterIntake ?? undefined,
-            steps: input.steps ?? undefined,
-            sleepHours: input.sleepHours ?? undefined,
-            mood: input.mood ?? undefined,
-            energy: input.energy ?? undefined,
-            pain: input.pain ?? undefined,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
-      return inserted;
+      // A slot key present in `photos` replaces that slot's set; absent slots are untouched
+      // (same merge contract as the meal text fields above).
+      let removed: string[] = [];
+      const photoSlots = photos ? (Object.keys(photos) as (keyof typeof photos)[]) : [];
+      if (photos && photoSlots.length > 0 && log) {
+        const logId = log.id;
+        const deleted = await tx
+          .delete(nutritionLogPhotosTable)
+          .where(and(eq(nutritionLogPhotosTable.logId, logId), inArray(nutritionLogPhotosTable.mealSlot, photoSlots)))
+          .returning({ url: nutritionLogPhotosTable.url });
+        const inserts = photoSlots.flatMap((slot) => (photos[slot] ?? []).map((url) => ({ logId, mealSlot: slot, url })));
+        if (inserts.length > 0) {
+          await tx.insert(nutritionLogPhotosTable).values(inserts);
+        }
+        const kept = new Set(inserts.map((row) => row.url));
+        removed = deleted.map((row) => row.url).filter((url) => !kept.has(url));
+      }
+
+      return { log, removedPhotoUrls: removed };
     });
+
+    // Best-effort R2 cleanup of replaced photos — never fail the save over storage.
+    if (removedPhotoUrls.length > 0) {
+      void Promise.allSettled(removedPhotoUrls.map((url) => deleteObject({ key: mediaKeyFromPublicUrl(url) })));
+    }
 
     // Realtime update for athlete + staff viewers (portal nutrition + team athlete detail).
     const io = getSocketServer();
@@ -537,7 +615,7 @@ export async function upsertLog(req: Request, res: Response) {
       io.to("admin:all").emit("nutrition:log:updated", payload);
     }
 
-    return res.status(200).json({ log: result });
+    return res.status(200).json({ log: result ? (await attachPhotosToLogs([result]))[0] : result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to save nutrition log";
     console.error("[nutrition] upsertLog error:", error);

@@ -2008,6 +2008,22 @@ export const nutritionLogsTable = pgTable(
   }),
 );
 
+export const nutritionLogPhotosTable = pgTable(
+  "nutrition_log_photos",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    logId: integer()
+      .notNull()
+      .references(() => nutritionLogsTable.id, { onDelete: "cascade" }),
+    mealSlot: varchar({ length: 30 }).notNull(), // 'breakfast' | 'lunch' | 'dinner' | 'snacks*'
+    url: text().notNull(),
+    createdAt: timestamp().notNull().defaultNow(),
+  },
+  (table) => ({
+    logIdx: index("nutrition_log_photos_log_idx").on(table.logId),
+  }),
+);
+
 export const sleepLogsTable = pgTable(
   "sleep_logs",
   {
