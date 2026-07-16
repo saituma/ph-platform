@@ -1,5 +1,6 @@
 import { and, count, desc, eq, gte, ilike, lte, or, sql } from "drizzle-orm";
 
+import { attachPhotosToLogs } from "../nutrition-photos.service";
 import { db } from "../../db";
 import {
   athleteAchievementUnlockTable,
@@ -282,7 +283,7 @@ async function pageBySection(input: PageInput) {
       .orderBy(desc(nutritionLogsTable.dateKey), desc(nutritionLogsTable.id))
       .limit(limit)
       .offset(offset);
-    return pageResult(items, limit, offset, Number(value));
+    return pageResult(await attachPhotosToLogs(items), limit, offset, Number(value));
   }
 
   if (input.section === "foodDiary") {

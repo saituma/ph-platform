@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { and, eq, desc, asc, gte, lte, or, ne, isNotNull, inArray } from "drizzle-orm";
+import { and, eq, desc, gte, lte, or, ne, isNotNull, inArray } from "drizzle-orm";
 
 import { db } from "../db";
 import {
@@ -15,6 +15,7 @@ import {
 } from "../db/schema";
 import { env } from "../config/env";
 import { deleteObject } from "../services/s3.service";
+import { attachPhotosToLogs } from "../services/nutrition-photos.service";
 import { createPushIntent } from "../services/outbox.service";
 import { isAthleteUserRole, isTrainingStaff } from "../lib/user-roles";
 import { canManageAthleteUser } from "../services/team-membership";
@@ -79,27 +80,6 @@ function isValidMealPhotoUrl(url: string): boolean {
 
 function mediaKeyFromPublicUrl(url: string): string {
   return decodeURIComponent(new URL(url).pathname.replace(/^\//, ""));
-}
-
-async function attachPhotosToLogs<T extends { id: number }>(logs: T[]) {
-  if (logs.length === 0) return [];
-  const rows = await db
-    .select()
-    .from(nutritionLogPhotosTable)
-    .where(
-      inArray(
-        nutritionLogPhotosTable.logId,
-        logs.map((log) => log.id),
-      ),
-    )
-    .orderBy(asc(nutritionLogPhotosTable.id));
-  const byLog = new Map<number, typeof rows>();
-  for (const row of rows) {
-    const list = byLog.get(row.logId) ?? [];
-    list.push(row);
-    byLog.set(row.logId, list);
-  }
-  return logs.map((log) => ({ ...log, photos: byLog.get(log.id) ?? [] }));
 }
 type NutritionLogRow = typeof nutritionLogsTable.$inferSelect;
 

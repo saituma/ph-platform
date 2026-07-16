@@ -33,6 +33,7 @@ import {
 
 import { AdminShell } from "../../../components/admin/shell";
 import { EmptyState } from "../../../components/admin/empty-state";
+import { MealPhotoStrip, type NutritionLogPhoto } from "../../../components/admin/meal-photo-strip";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
@@ -281,7 +282,10 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
         .filter((e): e is { key: string; foods: FoodItem[] } => e.foods !== null)
     : [];
 
-  const SKIP_KEYS = new Set(["id", "athleteId", "userId", "coordinates", ...mealEntries.map((e) => e.key)]);
+  const mealPhotos: NutritionLogPhoto[] =
+    section === "nutrition" && Array.isArray(item.photos) ? (item.photos as NutritionLogPhoto[]) : [];
+
+  const SKIP_KEYS = new Set(["id", "athleteId", "userId", "coordinates", "photos", ...mealEntries.map((e) => e.key)]);
 
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -321,6 +325,11 @@ function RecordCard({ item, section }: { item: ClientDataRecord; section: Client
               </div>
             );
           })}
+        </div>
+      )}
+      {mealPhotos.length > 0 && (
+        <div className="mt-4">
+          <MealPhotoStrip photos={mealPhotos} />
         </div>
       )}
       <div className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
