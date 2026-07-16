@@ -13,9 +13,9 @@ const MAX_PHOTO_WIDTH = 1600;
 
 export type DraftMealPhoto = {
   localId: string;
-  /** Local (compressed) uri for instant thumbnail display. */
+  /** Local uri for instant thumbnail display (original at first, compressed once ready). */
   uri: string;
-  status: "uploading" | "done" | "error";
+  status: "processing" | "uploading" | "done" | "error";
   /** Upload progress 0..1 while status is "uploading". */
   progress: number;
   publicUrl: string | null;
@@ -130,7 +130,14 @@ export function useMealPhotos() {
         setPhotos((prev) => prev.map((photo) => (photo.localId === localId ? { ...photo, ...update } : photo)));
       };
       patch({ status: "uploading", progress: 0 });
-      void uploadPhoto(uri, (progress) => patch({ progress }))
+      // Only re-render on whole-percent changes, not on every byte-count event.
+      let lastPercent = -1;
+      void uploadPhoto(uri, (progress) => {
+        const percent = Math.round(progress * 100);
+        if (percent === lastPercent) return;
+        lastPercent = percent;
+        patch({ progress });
+      })
         .then((publicUrl) => {
           patch({ status: "done", progress: 1, publicUrl });
           void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
@@ -143,24 +150,36 @@ export function useMealPhotos() {
     [uploadPhoto],
   );
 
+  // The tile shows the ORIGINAL photo the instant it's picked ("Preparing…"),
+  // then compression swaps the uri and the upload reports live percent. Never
+  // leave the user staring at a screen that hasn't reacted to their pick.
   const addAsset = useCallback(
     async (asset: ImagePicker.ImagePickerAsset) => {
-      const uri = await compressPhoto(asset);
+      const generation = generationRef.current;
       const localId = `photo_${Crypto.randomUUID()}`;
       animatePhotoList();
-      setPhotos((prev) =>
-        prev.length >= MAX_MEAL_PHOTOS
-          ? prev
-          : [...prev, { localId, uri, status: "uploading" as const, progress: 0, publicUrl: null }],
-      );
+      let added = false;
+      setPhotos((prev) => {
+        if (prev.length >= MAX_MEAL_PHOTOS) return prev;
+        added = true;
+        return [...prev, { localId, uri: asset.uri, status: "processing" as const, progress: 0, publicUrl: null }];
+      });
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+
+      const uri = await compressPhoto(asset);
+      if (!added || generationRef.current !== generation) return;
+      setPhotos((prev) => prev.map((photo) => (photo.localId === localId ? { ...photo, uri } : photo)));
       startUpload(localId, uri);
     },
     [compressPhoto, startUpload],
   );
 
+  // Native pickers must never be launched twice concurrently (Android crashes).
+  const pickingRef = useRef(false);
+
   const addFromLibrary = useCallback(async () => {
-    if (!token || photos.length >= MAX_MEAL_PHOTOS) return;
+    if (!token || photos.length >= MAX_MEAL_PHOTOS || pickingRef.current) return;
+    pickingRef.current = true;
     try {
       if (!(await requestMediaLibraryPermission())) return;
       const result = await safeLaunchImagePicker(() =>
@@ -170,11 +189,14 @@ export function useMealPhotos() {
       await addAsset(result.assets[0]);
     } catch (error) {
       console.warn("Failed to pick meal photo", error);
+    } finally {
+      pickingRef.current = false;
     }
   }, [addAsset, photos.length, token]);
 
   const addFromCamera = useCallback(async () => {
-    if (!token || photos.length >= MAX_MEAL_PHOTOS) return;
+    if (!token || photos.length >= MAX_MEAL_PHOTOS || pickingRef.current) return;
+    pickingRef.current = true;
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) return;
@@ -185,6 +207,8 @@ export function useMealPhotos() {
       await addAsset(result.assets[0]);
     } catch (error) {
       console.warn("Failed to take meal photo", error);
+    } finally {
+      pickingRef.current = false;
     }
   }, [addAsset, photos.length, token]);
 
@@ -203,7 +227,7 @@ export function useMealPhotos() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }, []);
 
-  const isUploading = photos.some((photo) => photo.status === "uploading");
+  const isUploading = photos.some((photo) => photo.status === "processing" || photo.status === "uploading");
   const hasFailed = photos.some((photo) => photo.status === "error");
   const uploadedUrls = photos.filter((photo) => photo.publicUrl).map((photo) => photo.publicUrl as string);
 

@@ -299,7 +299,7 @@ export function MealDetailModal({
                               contentFit="cover"
                               transition={120}
                             />
-                            {photo.status === "uploading" ? (
+                            {photo.status === "processing" || photo.status === "uploading" ? (
                               <View
                                 style={{
                                   position: "absolute",
@@ -309,12 +309,39 @@ export function MealDetailModal({
                                   alignItems: "center",
                                   justifyContent: "center",
                                   gap: 2,
+                                  overflow: "hidden",
                                 }}
                               >
-                                <ActivityIndicator size="small" color="#fff" />
-                                <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: "#fff" }}>
-                                  {Math.round(photo.progress * 100)}%
-                                </Text>
+                                {photo.status === "processing" ? (
+                                  <>
+                                    <ActivityIndicator size="small" color="#fff" />
+                                    <Text style={{ fontFamily: "Outfit-Bold", fontSize: 10, color: "#fff" }}>
+                                      Preparing
+                                    </Text>
+                                  </>
+                                ) : (
+                                  <Text style={{ fontFamily: "Outfit-Bold", fontSize: 14, color: "#fff" }}>
+                                    {Math.round(photo.progress * 100)}%
+                                  </Text>
+                                )}
+                                <View
+                                  style={{
+                                    position: "absolute",
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: 4,
+                                    backgroundColor: "rgba(255,255,255,0.25)",
+                                  }}
+                                >
+                                  <View
+                                    style={{
+                                      height: 4,
+                                      width: `${photo.status === "uploading" ? Math.round(photo.progress * 100) : 0}%`,
+                                      backgroundColor: "#fff",
+                                    }}
+                                  />
+                                </View>
                               </View>
                             ) : null}
                             {photo.status === "error" ? (
