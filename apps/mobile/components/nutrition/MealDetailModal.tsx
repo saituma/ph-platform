@@ -155,10 +155,11 @@ export function MealDetailModal({
     const pendingDraft = draftItem();
     if (draftName.trim() && !pendingDraft) return;
 
+    // A meal counts as logged with food items, photos, or both.
     const nextItems = pendingDraft ? [...items, pendingDraft] : items;
-    if (nextItems.length === 0) {
+    if (nextItems.length === 0 && mealPhotos.uploadedUrls.length === 0) {
       setShowAddForm(true);
-      setItemError("Add at least one food item before saving.");
+      setItemError("Add a food item or a photo before saving.");
       return;
     }
 

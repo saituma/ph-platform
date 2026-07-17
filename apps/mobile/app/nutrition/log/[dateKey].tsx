@@ -344,6 +344,7 @@ export default function NutritionLogDetailScreen() {
   );
   const hasModernSnackPhotos =
     slotPhotos.snacksMorning.length > 0 || slotPhotos.snacksAfternoon.length > 0 || slotPhotos.snacksEvening.length > 0;
+  const hasAnyMealPhotos = Object.values(slotPhotos).some((urls) => urls.length > 0);
 
   const coachText =
     typeof log?.coachFeedback === "string" ? log.coachFeedback.trim() : "";
@@ -529,7 +530,8 @@ export default function NutritionLogDetailScreen() {
               {!meals.breakfast.logged &&
                 !meals.lunch.logged &&
                 !meals.dinner.logged &&
-                !meals.snacksMorning.logged && (
+                !meals.snacksMorning.logged &&
+                !hasAnyMealPhotos && (
                   <View style={{ borderRadius: 18, backgroundColor: p.inputBg, padding: 16 }}>
                     <Text style={{ fontFamily: "Outfit-Regular", fontSize: 14, color: p.textSecondary, textAlign: "center" }}>
                       No meals logged for this day.

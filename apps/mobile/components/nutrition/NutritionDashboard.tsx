@@ -165,7 +165,12 @@ export function NutritionDashboard() {
 
         setActiveMeal(null);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        toast.success(`${mealLabel} saved`, `${items.length} item${items.length === 1 ? "" : "s"} logged.`);
+        toast.success(
+          `${mealLabel} saved`,
+          items.length > 0
+            ? `${items.length} item${items.length === 1 ? "" : "s"} logged.`
+            : `${photoUrls.length} photo${photoUrls.length === 1 ? "" : "s"} logged.`,
+        );
         // Surface the day in "Recent logs" — summary list, not the day view, so no race.
         void refetchRecentLogs();
 
