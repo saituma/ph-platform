@@ -95,6 +95,7 @@ function AddUserPageInner() {
   const [lastProvisionSummary, setLastProvisionSummary] = useState<{
     accountType: "youth" | "adult";
     email: string;
+    athleteLoginEmail?: string | null;
     emailSent: boolean;
     promoCode?: { code: string; discountPercent: number } | null;
   } | null>(null);
@@ -265,6 +266,7 @@ function AddUserPageInner() {
       setLastProvisionSummary({
         accountType: formType,
         email: email.trim(),
+        athleteLoginEmail: (result as { athleteLoginEmail?: string | null }).athleteLoginEmail ?? null,
         emailSent: result.emailSent,
         promoCode: result.promoCode,
       });
@@ -311,6 +313,26 @@ function AddUserPageInner() {
                 <p>
                   <span className="font-medium">Welcome email sent:</span> {lastProvisionSummary.emailSent ? "Yes" : "No"}
                 </p>
+                {lastProvisionSummary.athleteLoginEmail ? (
+                  <div className="mt-1 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                        Athlete login email (password: same as guardian&apos;s)
+                      </p>
+                      <p className="font-mono text-sm font-bold text-emerald-800 dark:text-emerald-200">
+                        {lastProvisionSummary.athleteLoginEmail}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-1 hover:bg-emerald-500/20"
+                      onClick={() => void navigator.clipboard.writeText(lastProvisionSummary.athleteLoginEmail ?? "")}
+                      title="Copy athlete login email"
+                    >
+                      <Copy className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />
+                    </button>
+                  </div>
+                ) : null}
                 {lastProvisionSummary.promoCode ? (
                   <div className="mt-1 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
                     <div className="flex-1">

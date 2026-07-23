@@ -593,7 +593,9 @@ export async function getOnboardingByUser(userId: number) {
 
 export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$inferSelect) {
   const existing = await db.select().from(userTable).where(eq(userTable.id, athlete.userId)).limit(1);
-  if (existing[0] && isAthleteUserRole(existing[0].role)) return athlete;
+  if (existing[0] && isAthleteUserRole(existing[0].role)) {
+    return { ...athlete, loginEmail: existing[0].email };
+  }
 
   const slug = athlete.name
     .toLowerCase()
@@ -618,6 +620,10 @@ export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$infe
             }),
             emailVerified: true,
             profilePicture: athlete.profilePicture ?? null,
+            // Child logs in with its own email but the guardian's password. Copying the
+            // hash/salt (same scrypt scheme) keeps them in step without storing plaintext.
+            passwordHash: existing[0]?.passwordHash ?? null,
+            passwordSalt: existing[0]?.passwordSalt ?? null,
           })
           .returning()
       )[0];
@@ -627,7 +633,7 @@ export async function ensureAthleteUserRecord(athlete: typeof athleteTable.$infe
     .set({ userId: athleteUser.id, updatedAt: new Date() })
     .where(eq(athleteTable.id, athlete.id));
 
-  return { ...athlete, userId: athleteUser.id };
+  return { ...athlete, userId: athleteUser.id, loginEmail: athleteUser.email };
 }
 
 export async function submitOnboarding(input: {
@@ -834,7 +840,12 @@ export async function submitOnboarding(input: {
       }
     }
 
-    return { athleteId, athleteUserId: updatedAthlete.userId, status: responseStatus };
+    return {
+      athleteId,
+      athleteUserId: updatedAthlete.userId,
+      athleteLoginEmail: updatedAthlete.loginEmail,
+      status: responseStatus,
+    };
   });
 }
 

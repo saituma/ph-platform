@@ -780,6 +780,8 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
         to: email,
         guardianName: input.guardianDisplayName.trim(),
         temporaryPassword: tempPassword,
+        childLoginEmail: onboardingResult.athleteLoginEmail ?? undefined,
+        childName: input.athleteName.trim(),
         promoCode: promoCode ?? undefined,
       });
     } catch (mailErr) {
@@ -791,6 +793,7 @@ export async function createGuardianWithOnboardingAdmin(input: CreateGuardianWit
       userId: userId!,
       athleteId: onboardingResult.athleteId,
       athleteUserId: onboardingResult.athleteUserId,
+      athleteLoginEmail: onboardingResult.athleteLoginEmail,
       status: onboardingResult.status,
       emailSent,
       promoCode,

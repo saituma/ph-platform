@@ -55,6 +55,7 @@ const usersApi = apiSlice.injectEndpoints({
         userId: number;
         athleteId: number;
         athleteUserId: number;
+        athleteLoginEmail?: string | null;
         status: string;
         emailSent: boolean;
         promoCode?: { code: string; discountPercent: number } | null;

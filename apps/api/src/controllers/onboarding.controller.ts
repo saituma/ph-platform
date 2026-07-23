@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { db } from "../db";
-import { athleteTable, guardianTable, legalAcceptanceTable } from "../db/schema";
+import { athleteTable, guardianTable, legalAcceptanceTable, userTable } from "../db/schema";
 
 import {
   getOnboardingByUser,
@@ -23,6 +23,7 @@ import {
 } from "../services/onboarding.service";
 import { AthleteType, ProgramType } from "../db/schema";
 import { calculateAge, clampYouthAge, parseISODate } from "../lib/age";
+import { sendChildCredentialsEmail } from "../lib/mailer";
 
 const preferredTrainingDaysSchema = z
   .array(z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]))
@@ -158,6 +159,22 @@ export async function submitOnboarding(req: Request, res: Response) {
     createNew: input.createNew,
     athleteId: input.athleteId ?? null,
   });
+
+  // Managed child (its login user differs from the guardian's): email the guardian the
+  // child's login. The child signs in with its own email + the guardian's own password.
+  const isManagedChild = result.athleteUserId != null && result.athleteUserId !== req.user!.id;
+  if (isManagedChild && result.athleteLoginEmail) {
+    try {
+      await sendChildCredentialsEmail({
+        to: input.parentEmail,
+        guardianName: req.user!.name ?? "there",
+        childName: input.athleteName,
+        childEmail: result.athleteLoginEmail,
+      });
+    } catch (err) {
+      logger.error({ err }, "[Onboarding] Failed to send child credentials email");
+    }
+  }
 
   return res.status(200).json(result);
 }
@@ -508,6 +525,30 @@ export async function submitAgreements(req: Request, res: Response) {
       consentIp: ip,
       appVersion: parsed.data.appVersion,
     });
+
+    // First-time acceptance = youth onboarding just finished. Email the guardian the child's
+    // login (its own @athlete.local email + the guardian's password). Once only — guarded by
+    // the "no prior legal acceptance" branch so re-submits don't re-send.
+    if (req.user!.role === "guardian") {
+      try {
+        const [child] = await db
+          .select({ name: athleteTable.name, email: userTable.email })
+          .from(athleteTable)
+          .innerJoin(userTable, eq(userTable.id, athleteTable.userId))
+          .where(eq(athleteTable.id, athleteId))
+          .limit(1);
+        if (child?.email?.endsWith("@athlete.local")) {
+          await sendChildCredentialsEmail({
+            to: req.user!.email,
+            guardianName: req.user!.name ?? "there",
+            childName: child.name,
+            childEmail: child.email,
+          });
+        }
+      } catch (err) {
+        logger.error({ err }, "[Onboarding] Failed to send child credentials email on agreements");
+      }
+    }
   }
 
   return res.status(200).json({ ok: true });

@@ -208,6 +208,13 @@ function OnboardingStep4() {
 											icon={User}
 										/>
 										<SummaryItem label="Athlete Name" value={athlete.name} icon={User} />
+											{athlete.email?.endsWith("@athlete.local") ? (
+												<SummaryItem
+													label="Athlete App Login (password: same as yours)"
+													value={athlete.email}
+													icon={EnvelopeSimple}
+												/>
+											) : null}
 									</>
 								) : (
 									<SummaryItem label="Full Name" value={athlete.name} icon={User} />

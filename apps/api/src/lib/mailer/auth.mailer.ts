@@ -23,10 +23,19 @@ ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">This cod
 export function renderAdminWelcomeCredentialsEmail(input: {
   guardianName: string;
   temporaryPassword: string;
+  childLoginEmail?: string;
+  childName?: string;
   promoCode?: { code: string; discountPercent: number };
 }): { subject: string; html: string } {
   const subject = "Your PH Performance account is ready";
   const name = escapeHtml(input.guardianName);
+
+  const childSection = input.childLoginEmail
+    ? `${textP(
+        `${input.childName ? `<strong style="color:${E.accent};">${escapeHtml(input.childName)}</strong> has` : "Your athlete has"} their own login. Sign in on the app with the email below and the same password as this account.`,
+      )}
+${codeCard("Athlete login email", input.childLoginEmail)}`
+    : "";
 
   const promoSection = input.promoCode
     ? `
@@ -39,6 +48,7 @@ ${textP(`<span style="color:${E.muted};font-size:14px;">Apply at checkout when y
 ${textP(`Hi ${name},`)}
 ${textP("Your coach has created your PH Performance account. Sign in on the mobile app with the email address this message was sent to and the temporary password below. You will be asked to choose a new password when you first sign in.")}
 ${codeCard("Temporary password", input.temporaryPassword, { mono: true })}
+${childSection}
 ${promoSection}
 ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For your security, do not share this email. If you did not expect this message, contact PH Performance support.</span>`, "0")}`;
 
@@ -56,6 +66,8 @@ export async function sendAdminWelcomeCredentialsEmail(input: {
   to: string;
   guardianName: string;
   temporaryPassword: string;
+  childLoginEmail?: string;
+  childName?: string;
   promoCode?: { code: string; discountPercent: number };
 }) {
   const { subject, html } = renderAdminWelcomeCredentialsEmail(input);
@@ -129,18 +141,24 @@ export function renderChildCredentialsEmail(input: {
   guardianName: string;
   childName: string;
   childEmail: string;
-  tempPassword: string;
+  tempPassword?: string;
 }): { subject: string; html: string } {
   const subject = `${input.childName}'s PH Performance login is ready`;
   const guardian = escapeHtml(input.guardianName);
   const child = escapeHtml(input.childName);
 
+  const passwordSection = input.tempPassword
+    ? `${codeCard("Temporary password", input.tempPassword, { mono: true })}
+${textP("We recommend changing the password after the first sign-in.")}`
+    : textP(
+        `The password for this login is <strong style="color:${E.text};">the same as your own account password</strong>. Sign in with the email above and the password you already use.`,
+      );
+
   const bodyHtml = `
 ${textP(`Hi ${guardian},`)}
 ${textP(`<strong style="color:${E.accent};">${child}</strong> has been registered as an athlete on PH Performance. Use the credentials below to sign in on the mobile app.`)}
 ${codeCard("Login email", input.childEmail)}
-${codeCard("Temporary password", input.tempPassword, { mono: true })}
-${textP("We recommend changing the password after the first sign-in.")}
+${passwordSection}
 ${primaryButton("https://phperformance.uk/download", "Download the app")}
 ${textP(`<span style="color:${E.muted};font-size:14px;line-height:1.6;">For security, do not share this email. If you did not request this, contact PH Performance support.</span>`, "0")}`;
 
@@ -159,7 +177,7 @@ export async function sendChildCredentialsEmail(input: {
   guardianName: string;
   childName: string;
   childEmail: string;
-  tempPassword: string;
+  tempPassword?: string;
 }) {
   const { subject, html } = renderChildCredentialsEmail(input);
   await createEmailIntent({ to: input.to, subject, html });

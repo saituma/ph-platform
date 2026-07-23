@@ -73,6 +73,28 @@ const MOBILE_REDIRECT_URI = "phperformance://auth/registered";
 
 function OnboardingSuccess() {
 	const [receipt, setReceipt] = useState<CheckoutReceiptPayload | null>(null);
+	const [childLogin, setChildLogin] = useState<{ email: string; name: string } | null>(null);
+
+	// Youth athletes get their own login (a generated @athlete.local address) sharing the
+	// guardian's password. Surface it here so the guardian can sign the child in on the app.
+	useEffect(() => {
+		if (typeof window === "undefined") return;
+		let cancelled = false;
+		void fetch(`${config.api.baseUrl}/api/onboarding`, {
+			credentials: "include",
+			headers: { ...getAuthHeaders() },
+		})
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data: { athlete?: { email?: string | null; name?: string | null } } | null) => {
+				const athlete = data?.athlete;
+				if (cancelled || !athlete?.email?.endsWith("@athlete.local")) return;
+				setChildLogin({ email: athlete.email, name: athlete.name ?? "Your athlete" });
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// When this page is reached after opening from the mobile app via openAuthSessionAsync,
 	// redirect to the mobile deep-link after a short delay so the success UI is visible.
@@ -173,6 +195,34 @@ function OnboardingSuccess() {
 						</p>
 					</div>
 				</div>
+
+				{childLogin ? (
+					<Card className="border border-foreground/[0.06] p-5 sm:p-8 text-left space-y-4">
+						<p className="font-mono text-[10px] uppercase tracking-wider text-foreground/40">
+							PH Performance · athlete login
+						</p>
+						<h2 className="text-lg font-medium tracking-tight">
+							{childLogin.name}&apos;s app login
+						</h2>
+						<p className="text-sm text-muted-foreground leading-relaxed">
+							Sign {childLogin.name} in on the PH Performance app with the email below. The password is
+							<strong className="text-foreground"> the same as the one you just set for your own account</strong>.
+						</p>
+						<div className="flex items-center gap-3 border border-foreground/[0.06] bg-foreground/[0.03] px-3 py-2">
+							<span className="flex-1 font-mono text-sm break-all">{childLogin.email}</span>
+							<button
+								type="button"
+								className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+								onClick={() => void navigator.clipboard.writeText(childLogin.email)}
+							>
+								Copy
+							</button>
+						</div>
+						<p className="text-xs text-muted-foreground">
+							We&apos;ve also emailed these details to you for safekeeping.
+						</p>
+					</Card>
+				) : null}
 
 				{receipt ? (
 					<Card className="border border-foreground/[0.06] p-5 sm:p-8 text-left space-y-4">
